@@ -17,6 +17,7 @@ type Booking = {
   member_name?: string;
   member_email?: string;
   created_at?: string;
+  attended?: boolean;
 };
 
 const STATUS_META: Record<string, { label: string; bg: string; fg: string }> = {
@@ -173,6 +174,19 @@ export default function AdminBookings() {
                       </Pressable>
                     </View>
                   )}
+                  {b.status !== "cancelled" && (
+                    <Pressable
+                      testID={`adminbk-attend-${b.booking_id}`}
+                      style={[styles.attendBar, b.attended && styles.attendBarOn]}
+                      disabled={busy}
+                      onPress={() => act(b.booking_id, () => api.adminSetAttendance(b.booking_id, !b.attended), b.attended ? "Marked as not attended." : "Marked as attended ✓")}
+                    >
+                      <Ionicons name={b.attended ? "checkmark-circle" : "person-add-outline"} size={16} color={b.attended ? "#fff" : colors.onSurface} />
+                      <Text style={[styles.attendText, b.attended && { color: "#fff" }]}>
+                        {b.attended ? "Attended ✓  (tap to undo)" : "Mark as attended"}
+                      </Text>
+                    </Pressable>
+                  )}
                 </View>
               );
             })
@@ -253,6 +267,9 @@ const styles = StyleSheet.create({
   actGhostText: { color: colors.brand, fontWeight: "800", fontSize: 13 },
   actDanger: {},
   actDangerText: { color: colors.error, fontWeight: "800", fontSize: 13 },
+  attendBar: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 11, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surface },
+  attendBarOn: { backgroundColor: "#16A34A" },
+  attendText: { color: colors.onSurface, fontWeight: "800", fontSize: 13 },
   empty: { alignItems: "center", padding: 50, gap: spacing.md },
   emptyText: { color: colors.onSurfaceSecondary },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", padding: spacing.xl },

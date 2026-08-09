@@ -67,6 +67,7 @@ export const api = {
     req("/api/bookings", { method: "POST", body: JSON.stringify({ class_id }) }),
   myBookings: () => req("/api/bookings"),
   cancelBooking: (id: string) => req(`/api/bookings/${id}/cancel`, { method: "POST" }),
+  checkinBooking: (id: string) => req(`/api/bookings/${id}/checkin`, { method: "POST" }),
   rescheduleBooking: (id: string, requested_time: string, note?: string) =>
     req(`/api/bookings/${id}/reschedule`, { method: "POST", body: JSON.stringify({ requested_time, note }) }),
 
@@ -130,6 +131,8 @@ export const api = {
   adminCancelBooking: (id: string) => req(`/api/admin/bookings/${id}/cancel`, { method: "POST" }),
   adminRescheduleBooking: (id: string, new_time: string, note?: string) =>
     req(`/api/admin/bookings/${id}/reschedule`, { method: "POST", body: JSON.stringify({ new_time, note }) }),
+  adminSetAttendance: (id: string, attended: boolean) =>
+    req(`/api/admin/bookings/${id}/attendance`, { method: "POST", body: JSON.stringify({ attended }) }),
 };
 
 export const BACKEND_URL = API_URL;

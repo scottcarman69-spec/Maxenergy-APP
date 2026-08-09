@@ -8,7 +8,7 @@ import { api } from "@/src/api";
 import { colors, spacing, radius, type, font } from "@/src/theme";
 
 type Notif = { notification_id: string; title: string; body: string; read: boolean; created_at: string; type: string };
-type Booking = { booking_id: string; class_name: string; status: string; amount: number; by_appointment?: boolean; requested_time?: string; scheduled_time?: string };
+type Booking = { booking_id: string; class_name: string; status: string; amount: number; by_appointment?: boolean; requested_time?: string; scheduled_time?: string; attended?: boolean };
 
 const STATUS_META: Record<string, { label: string; bg: string; fg: string }> = {
   paid: { label: "PAID", bg: colors.brand, fg: colors.onBrand },
@@ -51,6 +51,18 @@ export default function Profile() {
       await load();
     } catch (e: any) {
       setBanner(e?.message || "Could not cancel booking.");
+    }
+    setActioning(null);
+  };
+
+  const doCheckin = async (b: Booking) => {
+    setActioning(b.booking_id);
+    try {
+      await api.checkinBooking(b.booking_id);
+      setBanner("✅ You're checked in. Have a great session!");
+      await load();
+    } catch (e: any) {
+      setBanner(e?.message || "Could not check in.");
     }
     setActioning(null);
   };
@@ -229,6 +241,30 @@ export default function Profile() {
                       </Pressable>
                     </View>
                   )}
+                  {(b.status === "paid" || b.status === "confirmed") && (
+                    b.attended ? (
+                      <View style={styles.checkedInBar}>
+                        <Ionicons name="checkmark-circle" size={16} color="#fff" />
+                        <Text style={styles.checkedInText}>Checked in — see you on the mats!</Text>
+                      </View>
+                    ) : (
+                      <Pressable
+                        testID={`booking-checkin-${b.booking_id}`}
+                        style={styles.checkinBar}
+                        onPress={() => doCheckin(b)}
+                        disabled={actioning === b.booking_id}
+                      >
+                        {actioning === b.booking_id ? (
+                          <ActivityIndicator size="small" color={colors.onBrand} />
+                        ) : (
+                          <>
+                            <Ionicons name="log-in-outline" size={16} color={colors.onBrand} />
+                            <Text style={styles.checkinText}>Check in to this class</Text>
+                          </>
+                        )}
+                      </Pressable>
+                    )
+                  )}
                 </View>
               );
             })
@@ -342,6 +378,10 @@ const styles = StyleSheet.create({
   bookingRow: { flexDirection: "row", alignItems: "center", backgroundColor: colors.surfaceSecondary, padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, gap: spacing.md },
   bookingCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, overflow: "hidden" },
   bookingActions: { flexDirection: "row", borderTopWidth: 1, borderTopColor: colors.border },
+  checkinBar: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.brand },
+  checkinText: { color: colors.onBrand, fontWeight: "900", fontSize: 13, letterSpacing: 0.3 },
+  checkedInBar: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: "#16A34A" },
+  checkedInText: { color: "#fff", fontWeight: "800", fontSize: 13 },
   actionBtnGhost: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 12, borderRightWidth: 1, borderRightColor: colors.border },
   actionGhostText: { color: colors.brand, fontWeight: "800", fontSize: 13 },
   actionBtnDanger: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 12 },

@@ -375,6 +375,10 @@ class AdminRescheduleReq(BaseModel):
     note: Optional[str] = None
 
 
+class AttendanceReq(BaseModel):
+    attended: bool = True
+
+
 class AnnouncementUpdate(BaseModel):
     title: str
     body: str
@@ -766,6 +770,29 @@ async def booking_reschedule(booking_id: str, body: RescheduleReq, u: dict = Dep
             (f"Note: {body.note}" if body.note else ""),
             "Open Admin → Bookings to confirm the new time.",
         ],
+    )
+    b = await db.bookings.find_one({"booking_id": booking_id}, {"_id": 0})
+    return {"booking": b}
+
+
+@api.post("/bookings/{booking_id}/checkin")
+async def booking_checkin(booking_id: str, u: dict = Depends(require_user)):
+    b = await db.bookings.find_one({"booking_id": booking_id, "user_id": u["user_id"]}, {"_id": 0})
+    if not b:
+        raise HTTPException(404, "Booking not found")
+    if b.get("status") not in ("paid", "confirmed"):
+        raise HTTPException(400, "You can only check in to a confirmed or paid booking.")
+    if b.get("attended"):
+        return {"booking": b}
+    await db.bookings.update_one(
+        {"booking_id": booking_id},
+        {"$set": {"attended": True, "checked_in_at": now_utc(), "checked_in_by": "member"}},
+    )
+    await create_notification(
+        u["user_id"],
+        "Checked in ✅",
+        f"You're checked in for {b['class_name']}. Have a great session!",
+        "booking",
     )
     b = await db.bookings.find_one({"booking_id": booking_id}, {"_id": 0})
     return {"booking": b}
@@ -1623,6 +1650,16 @@ async def admin_booking_reschedule(booking_id: str, body: AdminRescheduleReq, u:
         email_lines=[f"Your <b>{b['class_name']}</b> session has been confirmed for:", f"<b>{body.new_time}</b>", (f"Note: {body.note}" if body.note else ""), "See you there!"],
     )
     return {"ok": True}
+
+
+@api.post("/admin/bookings/{booking_id}/attendance")
+async def admin_booking_attendance(booking_id: str, body: AttendanceReq, u: dict = Depends(require_admin)):
+    b = await _admin_get_booking(booking_id)
+    await db.bookings.update_one(
+        {"booking_id": booking_id},
+        {"$set": {"attended": body.attended, "checked_in_at": now_utc() if body.attended else None, "checked_in_by": "admin" if body.attended else None}},
+    )
+    return {"ok": True, "attended": body.attended}
 
 
 @api.post("/admin/reminders/run")
