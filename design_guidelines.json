@@ -1,0 +1,196 @@
+{
+  "app_name": "VoltFit",
+  "personality": "7 Dark-First Utility DARK",
+  "personality_one_liner": "A high-performance, command-center athletic experience that feels tactile, responsive, and relentlessly focused on the workout.",
+  "color": {
+    "surface": "#121214",
+    "onSurface": "#F9FAFB",
+    "surfaceSecondary": "#1C1C1F",
+    "onSurfaceSecondary": "#A1A1AA",
+    "surfaceTertiary": "#27272A",
+    "onSurfaceTertiary": "#E4E4E7",
+    "surfaceInverse": "#F9FAFB",
+    "onSurfaceInverse": "#121214",
+    "brand": "#CCFF00",
+    "brandPrimary": "#CCFF00",
+    "onBrandPrimary": "#000000",
+    "brandSecondary": "#B3E600",
+    "onBrandSecondary": "#000000",
+    "brandTertiary": "rgba(204, 255, 0, 0.15)",
+    "onBrandTertiary": "#CCFF00",
+    "success": "#10B981",
+    "onSuccess": "#022C22",
+    "warning": "#F59E0B",
+    "onWarning": "#451A03",
+    "error": "#EF4444",
+    "onError": "#450A0A",
+    "info": "#71717A",
+    "onInfo": "#F4F4F5",
+    "border": "#27272A",
+    "borderStrong": "#3F3F46",
+    "divider": "#1C1C1F"
+  },
+  "typography": {
+    "displayFontFamily": "Barlow Condensed",
+    "textFontFamily": "DM Sans",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24
+    }
+  },
+  "spacing": {
+    "rule": "Use tight modular spacing to maximize screen real estate. Use generous bottom padding for scroll views to clear the sticky CTAs and tab bar.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 4,
+    "md": 8,
+    "lg": 12,
+    "pill": 999
+  },
+  "shadow_tier": "0",
+  "navigation": "bottom_tabs",
+  "icon_set": "Phosphor",
+  "glassmorphism": {
+    "enabled": "true",
+    "do's": [
+      "Use heavy tint (75%+ opacity #121214) underneath the blur for bottom tab bar and sticky headers to guarantee readability."
+    ],
+    "dont's": [
+      "Do not use glass for list items or data cards; rely on solid surfaceSecondary and tonal dividers."
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "Auth (Sign Up / Login)",
+      "purpose": "Frictionless entry using Email or Google.",
+      "states": {
+        "loading": "Centered brand-colored spinner.",
+        "empty": "N/A",
+        "error": "Standard error toast with retry."
+      },
+      "layout": "Minimalist layout with a full-bleed dark gym image overlaid by a heavy top-to-bottom gradient scrim (transparent to #121214). Large Barlow Condensed title. Social login buttons (Google, Apple) as wide pill buttons with brandTertiary background. Email input fields at the bottom."
+    },
+    {
+      "name": "Home / Upcoming Events",
+      "purpose": "A dashboard combining the user's next booked class and a feed of upcoming gym events.",
+      "states": {
+        "loading": "Skeleton cards mimicking the layout.",
+        "empty": "Illustration of a gym mat with 'No upcoming classes. Ready to sweat?' and a 'View Timetable' CTA.",
+        "error": "Error message with 'Tap to reload' CTA."
+      },
+      "layout": "Sticky header with user avatar. Top section features a large 'Next Class' hero card (glass over photo) with a countdown timer. Below, a horizontal scroll of 'Upcoming Events' using surfaceSecondary cards. Section titles in uppercase Barlow Condensed."
+    },
+    {
+      "name": "Class Timetable",
+      "purpose": "Easily scan and discover classes by day, time, and type.",
+      "states": {
+        "loading": "List of skeleton rows.",
+        "empty": "Message stating 'No classes scheduled for this day.'",
+        "error": "Error message with retry button."
+      },
+      "layout": "Top edge has a sticky horizontal week/day selector. Content is a vertical list: left column shows time, right column contains heavy surfaceSecondary cards for classes (Yoga, HIIT, Dance) with intensity indicator pills (brandTertiary). Thumb-friendly layout."
+    },
+    {
+      "name": "Class Booking Detail",
+      "purpose": "Deep dive into class info and confirm booking.",
+      "states": {
+        "loading": "Spinner overlay.",
+        "empty": "N/A",
+        "error": "Failed to load class details."
+      },
+      "layout": "Full-bleed image at the top (with a dark gradient scrim). Class title overlay. Below the fold: trainer info, description, spots left. Sticky absolute-positioned 'Book Class' primary CTA button at the bottom of the screen above the safe area."
+    },
+    {
+      "name": "Payment Flow (Stripe/PayPal)",
+      "purpose": "Handle transactions for paid classes or memberships securely.",
+      "states": {
+        "loading": "Processing transaction spinner with 'Authorizing...' text.",
+        "empty": "N/A",
+        "error": "Payment failed state with clear reason and 'Try Another Method' button."
+      },
+      "layout": "Presented as a Gorhom bottom sheet. Breakdown of costs. Options to select PayPal or Credit Card (Stripe). Large high-contrast total amount. Sticky 'Pay Now' CTA in brandPrimary."
+    },
+    {
+      "name": "Notifications",
+      "purpose": "In-app feed of all push and email alerts.",
+      "states": {
+        "loading": "Skeleton rows.",
+        "empty": "Bell icon with 'You're all caught up.'",
+        "error": "Failed to load feed."
+      },
+      "layout": "Simple list using divider separations (not cards). Unread items have a brandPrimary dot indicator. Minimalist layout emphasizing the text."
+    },
+    {
+      "name": "User Profile",
+      "purpose": "Manage membership, payment methods, and app settings.",
+      "states": {
+        "loading": "Skeleton loading.",
+        "empty": "N/A",
+        "error": "Failed to load profile."
+      },
+      "layout": "Header shows user stats (classes attended). Vertical list of settings rows using surfaceSecondary with Phosphor icons inside tinted brandTertiary squares."
+    }
+  ],
+  "images": {
+    "hero_gym_dark": {
+      "url": "https://images.unsplash.com/photo-1637430308606-86576d8fef3c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Nzh8MHwxfHNlYXJjaHwxfHxwcmVtaXVtJTIwZGFyayUyMGd5bSUyMGZpdG5lc3MlMjBjZW50ZXJ8ZW58MHx8fHwxNzg2MjM2NDQ2fDA&ixlib=rb-4.1.0&q=85",
+      "alt": "Premium dark gym fitness center equipment"
+    },
+    "yoga_class_cover": {
+      "url": "https://images.unsplash.com/photo-1599901860904-17e6ed7083a0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2ODh8MHwxfHNlYXJjaHwxfHx5b2dhJTIwcGlsYXRlcyUyMHN0dWRpbyUyMGNsYXNzfGVufDB8fHx8MTc4NjIzNjQ0Nnww&ixlib=rb-4.1.0&q=85",
+      "alt": "Black and white yoga class"
+    },
+    "dance_class_cover": {
+      "url": "https://images.unsplash.com/photo-1524594152303-9fd13543fe6e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzNzl8MHwxfHNlYXJjaHwxfHxncm91cCUyMGZpdG5lc3MlMjBkYW5jZSUyMGNsYXNzfGVufDB8fHx8MTc4NjIzNjQ0Nnww&ixlib=rb-4.1.0&q=85",
+      "alt": "Group fitness dance class in studio"
+    },
+    "google_logo": {
+      "url": "https://images.unsplash.com/photo-1662947190722-5d272f82a526?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTZ8MHwxfHNlYXJjaHwxfHxHb29nbGUlMjBsb2dvJTIwcG5nJTIwdHJhbnNwYXJlbnR8ZW58MHx8fHwxNzg2MjM2NDUxfDA&ixlib=rb-4.1.0&q=85",
+      "alt": "Google logo"
+    },
+    "paypal_logo": {
+      "url": "https://images.unsplash.com/photo-1652017687934-d14ec6280dd5?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODd8MHwxfHNlYXJjaHwxfHxQYXlQYWwlMjBsb2dvJTIwcG5nJTIwdHJhbnNwYXJlbnR8ZW58MHx8fHwxNzg2MjM2NDUxfDA&ixlib=rb-4.1.0&q=85",
+      "alt": "PayPal logo"
+    }
+  },
+  "haptics": {
+    "events": {
+      "primary_cta": "impactLight",
+      "tab_change": "selection",
+      "booking_confirm": "notificationSuccess",
+      "day_selector_tap": "impactLight",
+      "payment_success": "notificationSuccess",
+      "payment_error": "notificationError"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Strictly follow the Dark-First Utility DARK guidelines. Do not use pure black (#000000) for backgrounds; use #121214. Do not use blue or purple anywhere.",
+    "Implement the 'Barlow Condensed' font for titles and large numbers, and 'DM Sans' for body text using expo-font.",
+    "The primary highlight color is Volt/Neon Lime (#CCFF00). Use it sparingly for primary CTAs, active states, and progress bars. Do NOT use it for large surface areas.",
+    "For the Class Timetable, ensure the horizontal day selector is sticky at the top, allowing the schedule list below to scroll cleanly underneath.",
+    "Any hero images or class cover images MUST have a 3-stop vertical gradient scrim (from transparent to #121214 at ≥75% opacity) overlaid before placing text to guarantee WCAG contrast.",
+    "Place the 'Book Class' and 'Pay Now' buttons inside a sticky container anchored to the bottom of the screen, just above the safe area, avoiding the scroll view."
+  ]
+}
