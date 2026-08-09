@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/src/AuthContext";
 import { api } from "@/src/api";
-import { colors, spacing, radius, type } from "@/src/theme";
+import { colors, spacing, radius } from "@/src/theme";
 
 type Cls = {
   class_id: string;
@@ -85,7 +85,11 @@ export default function Home() {
       >
         <View style={styles.headerRow}>
           <View>
-            <Text style={styles.eyebrow}>MAXENERGY FITNESS</Text>
+            <Image
+              source={require("../../assets/images/maxenergy-logo.webp")}
+              style={styles.headerLogo}
+              contentFit="contain"
+            />
             <Text style={styles.hello}>Hey {user?.name?.split(" ")[0] || "there"} 👊</Text>
           </View>
           <Pressable
@@ -208,6 +212,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   eyebrow: { color: colors.brand, fontSize: 11, fontWeight: "800", letterSpacing: 2 },
+  headerLogo: { width: 150, height: 44, marginLeft: -4, marginBottom: 2 },
   hello: { color: colors.onSurface, fontSize: 26, fontWeight: "800", marginTop: 4 },
   avatar: {
     width: 40,

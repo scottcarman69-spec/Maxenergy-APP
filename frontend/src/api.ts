@@ -36,7 +36,14 @@ async function req(path: string, opts: RequestInit = {}) {
     data = text;
   }
   if (!res.ok) {
-    const msg = (data && data.detail) || `Request failed (${res.status})`;
+    let msg = `Request failed (${res.status})`;
+    if (data && data.detail) {
+      if (typeof data.detail === "string") {
+        msg = data.detail;
+      } else if (Array.isArray(data.detail)) {
+        msg = data.detail.map((d: any) => d?.msg || "Invalid input").join(", ");
+      }
+    }
     throw new Error(msg);
   }
   return data;

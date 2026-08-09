@@ -68,7 +68,7 @@ export default function Profile() {
         ) : notifs.length === 0 ? (
           <View style={styles.empty}>
             <Ionicons name="notifications-off-outline" size={28} color={colors.onSurfaceSecondary} />
-            <Text style={styles.emptyText}>You're all caught up.</Text>
+            <Text style={styles.emptyText}>{"You're all caught up."}</Text>
           </View>
         ) : (
           <View style={{ paddingHorizontal: spacing.lg, gap: spacing.sm }}>

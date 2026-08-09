@@ -6,9 +6,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
-import * as Linking from "expo-linking";
 import { api, BACKEND_URL } from "@/src/api";
-import { colors, spacing, radius, type } from "@/src/theme";
+import { colors, spacing, radius } from "@/src/theme";
 
 type Cls = {
   class_id: string;

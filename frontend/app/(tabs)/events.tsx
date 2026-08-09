@@ -41,7 +41,7 @@ export default function Events() {
     <SafeAreaView style={styles.root} edges={["top"]}>
       <View style={styles.header}>
         <Text style={styles.title}>Events</Text>
-        <Text style={styles.subtitle}>What's on at Maxenergy</Text>
+        <Text style={styles.subtitle}>{"What's on at Maxenergy"}</Text>
       </View>
       {loading ? (
         <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />

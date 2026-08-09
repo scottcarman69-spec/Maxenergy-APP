@@ -11,6 +11,7 @@ import {
   ScrollView,
 } from "react-native";
 import { Link, useRouter } from "expo-router";
+import { Image } from "expo-image";
 import { useAuth } from "@/src/AuthContext";
 import { colors, spacing, radius, type } from "@/src/theme";
 import { Ionicons } from "@expo/vector-icons";
@@ -50,7 +51,11 @@ export default function Register() {
               <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
             </Pressable>
           </Link>
-          <Text style={styles.brand}>MAXENERGY</Text>
+          <Image
+            source={require("../../assets/images/maxenergy-logo.webp")}
+            style={styles.brandLogo}
+            contentFit="contain"
+          />
         </View>
 
         <View style={styles.body}>
@@ -125,6 +130,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   brand: { color: colors.brand, letterSpacing: 3, fontWeight: "800", fontSize: 12 },
+  brandLogo: { width: 120, height: 36 },
   body: { padding: spacing.xl, gap: spacing.md },
   title: { ...type.h1, marginTop: spacing.md },
   subtitle: { ...type.bodyDim, marginBottom: spacing.lg },

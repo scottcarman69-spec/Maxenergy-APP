@@ -130,8 +130,11 @@ export default function Login() {
             style={StyleSheet.absoluteFill}
           />
           <View style={styles.heroText}>
-            <Text style={styles.brandEyebrow}>MAXENERGY</Text>
-            <Text style={styles.title}>FITNESS.{"\n"}UNCHAINED.</Text>
+            <Image
+              source={require("../../assets/images/maxenergy-logo.webp")}
+              style={styles.logo}
+              contentFit="contain"
+            />
             <Text style={styles.subtitle}>Book classes. Pay in seconds. Never miss an event.</Text>
           </View>
         </View>
@@ -213,6 +216,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   hero: { height: 340, justifyContent: "flex-end" },
   heroText: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xl },
+  logo: { width: 240, height: 120, marginLeft: -8, marginBottom: spacing.xs },
   brandEyebrow: {
     color: colors.brand,
     fontSize: 12,

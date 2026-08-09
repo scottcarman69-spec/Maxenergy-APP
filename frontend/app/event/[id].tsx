@@ -108,7 +108,7 @@ export default function EventDetail() {
           ) : (
             <>
               <Ionicons name="checkmark-circle" size={18} color={colors.onBrand} />
-              <Text style={styles.rsvpText}>I'M GOING · NOTIFY ME</Text>
+              <Text style={styles.rsvpText}>{"I'M GOING · NOTIFY ME"}</Text>
             </>
           )}
         </Pressable>
