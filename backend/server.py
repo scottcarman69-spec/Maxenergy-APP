@@ -1542,6 +1542,12 @@ async def notifications_read(nid: str, u: dict = Depends(require_user)):
     return {"ok": True}
 
 
+@api.delete("/notifications/{nid}")
+async def notifications_delete(nid: str, u: dict = Depends(require_user)):
+    await db.notifications.delete_one({"notification_id": nid, "user_id": u["user_id"]})
+    return {"ok": True}
+
+
 # -------------------- admin --------------------
 @api.get("/admin/overview")
 async def admin_overview(u: dict = Depends(require_admin)):

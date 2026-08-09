@@ -2,6 +2,7 @@ import React, { useCallback, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, TextInput, Linking } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Swipeable } from "react-native-gesture-handler";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/src/AuthContext";
 import { api, BACKEND_URL } from "@/src/api";
@@ -110,6 +111,11 @@ export default function Profile() {
   const paidCount = bookings.filter((b) => b.status === "paid" || b.status === "confirmed").length;
   const unread = notifs.filter((n) => !n.read).length;
 
+  const deleteNotif = (id: string) => {
+    setNotifs((cur) => cur.filter((x) => x.notification_id !== id));
+    api.deleteNotification(id).catch(() => {});
+  };
+
   const links = [
     { key: "inbox", icon: "chatbubbles", label: "Message the Gym", onPress: () => router.push("/(tabs)/inbox") },
     { key: "membership", icon: "card", label: "Membership Application", onPress: () => router.push("/membership") },
@@ -205,24 +211,44 @@ export default function Profile() {
         ) : (
           <View style={{ paddingHorizontal: spacing.lg, gap: spacing.sm }}>
             {notifs.slice(0, 8).map((n) => (
-              <Pressable
+              <Swipeable
                 key={n.notification_id}
-                testID={`notif-${n.notification_id}`}
-                style={styles.notifRow}
-                onPress={() => {
-                  if (!n.read) {
-                    api.markRead(n.notification_id).catch(() => {});
-                    setNotifs((cur) => cur.map((x) => (x.notification_id === n.notification_id ? { ...x, read: true } : x)));
-                  }
+                renderRightActions={() => (
+                  <Pressable
+                    testID={`notif-delete-${n.notification_id}`}
+                    style={styles.notifDelete}
+                    onPress={() => deleteNotif(n.notification_id)}
+                  >
+                    <Ionicons name="trash" size={20} color="#fff" />
+                    <Text style={styles.notifDeleteText}>Clear</Text>
+                  </Pressable>
+                )}
+                onSwipeableOpen={(direction) => {
+                  if (direction === "right") deleteNotif(n.notification_id);
                 }}
+                overshootRight={false}
+                rightThreshold={40}
               >
-                {!n.read && <View style={styles.unreadDot} />}
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.notifTitle}>{n.title}</Text>
-                  <Text style={styles.notifBody} numberOfLines={2}>{n.body}</Text>
-                </View>
-              </Pressable>
+                <Pressable
+                  testID={`notif-${n.notification_id}`}
+                  style={styles.notifRow}
+                  onPress={() => {
+                    if (!n.read) {
+                      api.markRead(n.notification_id).catch(() => {});
+                      setNotifs((cur) => cur.map((x) => (x.notification_id === n.notification_id ? { ...x, read: true } : x)));
+                    }
+                  }}
+                >
+                  {!n.read && <View style={styles.unreadDot} />}
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.notifTitle}>{n.title}</Text>
+                    <Text style={styles.notifBody} numberOfLines={2}>{n.body}</Text>
+                  </View>
+                  <Ionicons name="chevron-back" size={16} color={colors.onSurfaceSecondary} style={{ opacity: 0.5 }} />
+                </Pressable>
+              </Swipeable>
             ))}
+            <Text style={styles.swipeHint}>Swipe a notification left to clear it</Text>
           </View>
         )}
 
@@ -440,6 +466,9 @@ const styles = StyleSheet.create({
   downloadSub: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 1 },
   section: { color: colors.onSurfaceSecondary, fontSize: 12, fontFamily: font.heading, letterSpacing: 1.5, paddingHorizontal: spacing.lg, marginTop: spacing.xl, marginBottom: spacing.md },
   notifRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md, backgroundColor: colors.surfaceSecondary, padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
+  notifDelete: { backgroundColor: colors.error, justifyContent: "center", alignItems: "center", width: 84, borderRadius: radius.md, marginLeft: spacing.sm, gap: 2 },
+  notifDeleteText: { color: "#fff", fontWeight: "800", fontSize: 12 },
+  swipeHint: { color: colors.onSurfaceSecondary, fontSize: 11, textAlign: "center", marginTop: 4, opacity: 0.7 },
   unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.brand, marginTop: 6 },
   notifTitle: { color: colors.onSurface, fontWeight: "800", fontSize: 14 },
   notifBody: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 3 },
