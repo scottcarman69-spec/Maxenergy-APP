@@ -881,10 +881,10 @@ async def messages_send(body: MessageReq, u: dict = Depends(require_user)):
     }
     await db.messages.insert_one(msg)
     await notify_admins(
-        "New member message",
+        f"New message from {msg['sender_name']}",
         f"{msg['sender_name']}: {text[:120]}",
         "message",
-        email_lines=[f"<b>{msg['sender_name']}</b> ({u.get('email')}) sent a message:", f"\"{text}\"", "Reply in the app: Admin → Inbox."],
+        email_lines=[f"<b>{msg['sender_name']}</b> ({u.get('email')}) sent you a new message:", f"\"{text}\"", "Open the app → Admin → Inbox to reply."],
     )
     msg.pop("_id", None)
     return {"message": msg}
