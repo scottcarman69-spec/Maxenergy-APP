@@ -1149,6 +1149,8 @@ async def trials_claim(body: TrialClaimReq, u: dict = Depends(require_user)):
     trial = {
         "trial_id": new_id("trial"),
         "user_id": u["user_id"],
+        "member_name": u.get("name") or "",
+        "member_email": u.get("email"),
         "category": category,
         "status": "claimed",
         "created_at": now_utc(),
@@ -1168,18 +1170,42 @@ async def trials_claim(body: TrialClaimReq, u: dict = Depends(require_user)):
             "created_at": now_utc(),
         }
     )
-    html = f"""
-    <table width="100%" style="font-family:Arial,sans-serif;background:#121214;color:#F9FAFB;padding:24px">
-      <tr><td>
-        <h2 style="color:#FF7A00;margin:0 0 8px">Your free {category} trial is confirmed!</h2>
-        <p>Welcome to Max Energy Muay Thai Academy. Just turn up to a {category} class and mention your free trial at the front desk.</p>
-        <p style="color:#A1A1AA">Smithfield · Open 24/7 · 07 4057 9005</p>
-      </td></tr>
-    </table>
-    """
-    await send_email(u["email"], f"Your free {category} trial at Max Energy", html)
-    await send_email(GYM_ADMIN_EMAIL, f"New free {category} trial – {u.get('name') or u['email']}",
-                     f"<p>{u.get('name') or ''} ({u['email']}) claimed a free {category} trial.</p>")
+    schedule = (
+        "Mondays & Thursdays, 5:00–5:45pm" if category == "Kids"
+        else "Mondays & Wednesdays 6:00pm (Muay Thai) · Tuesdays & Thursdays 6:00pm (Kickboxing)"
+    )
+    mname = u.get("name") or u.get("email")
+    await send_email(
+        u["email"],
+        f"Your free {category} trial at Max Energy 🎉",
+        _email_shell(
+            f"Your free {category} trial is confirmed!",
+            [
+                f"Hi {mname},",
+                f"Welcome to Max Energy Muay Thai Academy! Your <b>free {category} trial class</b> is confirmed. Here are the details:",
+                "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
+                f"<b>Trial:</b> Free {category} class",
+                f"<b>Class times:</b> {schedule}",
+                f"<b>Trial reference:</b> {trial['trial_id']}",
+                f"<b>Location:</b> {GYM_INFO['address']}",
+                f"<b>Phone:</b> {GYM_INFO['phone']}",
+                "<b>What to bring:</b> comfortable workout clothes, a water bottle and a towel. Gloves can be borrowed at the gym.",
+                "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
+                "Just turn up to a class and mention your free trial at the front desk. See you on the mats! 🥊",
+            ],
+        ),
+    )
+    await notify_admins(
+        f"New free {category} trial claimed",
+        f"{mname} ({u['email']}) claimed a free {category} trial.",
+        "trial",
+        email_lines=[
+            f"<b>{mname}</b> claimed a free <b>{category}</b> trial.",
+            f"Email: {u['email']}",
+            f"Claimed: {now_utc().strftime('%A %d %B %Y')}",
+            "You can view all members and trial claims in the app: Admin → Members.",
+        ],
+    )
     trial.pop("_id", None)
     return {"trial": trial}
 
@@ -1206,7 +1232,8 @@ async def admin_overview(u: dict = Depends(require_admin)):
     ann = await db.announcements.count_documents({})
     members = await db.users.count_documents({})
     pending_bookings = await db.bookings.count_documents({"status": {"$in": ["pending", "reschedule_requested"]}})
-    return {"classes": classes, "applications": apps, "pending_applications": pending, "announcements": ann, "members": members, "pending_bookings": pending_bookings}
+    trials = await db.free_trials.count_documents({})
+    return {"classes": classes, "applications": apps, "pending_applications": pending, "announcements": ann, "members": members, "pending_bookings": pending_bookings, "trials": trials}
 
 
 @api.get("/admin/classes")
@@ -1314,6 +1341,44 @@ async def admin_announcement_update(announcement_id: str, body: AnnouncementUpda
 async def admin_applications(u: dict = Depends(require_admin)):
     rows = await db.membership_applications.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
     return {"applications": rows}
+
+
+@api.get("/admin/members")
+async def admin_members(u: dict = Depends(require_admin)):
+    users = await db.users.find({}, {"_id": 0, "password_hash": 0}).sort("created_at", -1).to_list(2000)
+    trials = await db.free_trials.find({}, {"_id": 0}).to_list(5000)
+    apps = await db.membership_applications.find({}, {"_id": 0}).to_list(5000)
+    bookings = await db.bookings.find({}, {"_id": 0, "user_id": 1, "status": 1}).to_list(5000)
+
+    trials_by_user: dict = {}
+    for t in trials:
+        trials_by_user.setdefault(t["user_id"], []).append(t.get("category"))
+    apps_by_user: dict = {}
+    for a in apps:
+        apps_by_user.setdefault(a["user_id"], []).append(a.get("status"))
+    bookings_count: dict = {}
+    for b in bookings:
+        if b.get("status") in ("paid", "confirmed"):
+            bookings_count[b["user_id"]] = bookings_count.get(b["user_id"], 0) + 1
+
+    members = []
+    for m in users:
+        uid = m["user_id"]
+        statuses = apps_by_user.get(uid, [])
+        members.append({
+            "user_id": uid,
+            "name": m.get("name"),
+            "email": m.get("email"),
+            "is_admin": bool(m.get("is_admin")),
+            "provider": m.get("provider", "password"),
+            "created_at": m.get("created_at"),
+            "trials": trials_by_user.get(uid, []),
+            "is_member": "approved" in statuses,
+            "application_status": ("approved" if "approved" in statuses else ("pending" if "pending" in statuses else (statuses[0] if statuses else None))),
+            "active_bookings": bookings_count.get(uid, 0),
+        })
+    trial_count = len(trials)
+    return {"members": members, "total": len(members), "trial_claims": trial_count}
 
 
 @api.post("/admin/applications/{application_id}/status")

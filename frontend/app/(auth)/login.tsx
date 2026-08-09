@@ -142,10 +142,9 @@ export default function Login() {
         </View>
 
         <View style={styles.pitch}>
-          <Text style={styles.pitchTitle}>Train harder. Feel unstoppable.</Text>
+          <Text style={styles.pitchTitle}>Train. Get Stronger. Feel Your Best.</Text>
           <Text style={styles.pitchBody}>
-            Independently owned and family-run in Smithfield — from kids &amp; adult Muay Thai and kickboxing to boot camp,
-            personal training and a fully-equipped 24/7 gym. Everything you need to reach your goals, all in your pocket.
+            {"We're a friendly, family-run gym in Smithfield, welcoming everyone from complete beginners to experienced athletes. Enjoy 24/7 gym access, Muay Thai & Kickboxing for adults and kids, Boot Camp and Personal Training.\n\nWhatever your age, experience or fitness goals, you'll always be welcome here. Come train, have fun and be part of our gym community."}
           </Text>
 
           <View style={styles.features}>
