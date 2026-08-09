@@ -123,7 +123,7 @@ async def send_email(recipient: str, subject: str, html: str, attachments: Optio
 
 
 def _email_shell(heading: str, lines: list) -> str:
-    body = "".join(f"<p style='margin:0 0 10px;color:#333;font-size:15px;line-height:1.5'>{ln}</p>" for ln in lines)
+    body = "".join(f"<p style='margin:0 0 10px;color:#333;font-size:15px;line-height:1.5'>{ln}</p>" for ln in lines if ln)
     return (
         "<div style='font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;'>"
         "<div style='background:#FF7A00;padding:20px 24px;border-radius:10px 10px 0 0;'>"
@@ -160,6 +160,71 @@ async def notify_admins(title: str, body: str, ntype: str = "booking", email_lin
     for a in admins:
         await create_notification(a["user_id"], title, body, ntype)
     await send_email(GYM_ADMIN_EMAIL, title, _email_shell(title, email_lines or [body]))
+
+
+async def mark_booking_paid(booking_id: str) -> None:
+    """Mark a booking paid and send member + admin confirmations exactly once."""
+    b = await db.bookings.find_one({"booking_id": booking_id}, {"_id": 0})
+    if not b or b.get("paid_notified"):
+        # Still ensure status is paid even if already notified
+        if b and b.get("status") != "paid":
+            await db.bookings.update_one({"booking_id": booking_id}, {"$set": {"status": "paid", "paid_at": now_utc()}})
+        return
+    await db.bookings.update_one(
+        {"booking_id": booking_id},
+        {"$set": {"status": "paid", "paid_at": now_utc(), "paid_notified": True}},
+    )
+    member = await db.users.find_one({"user_id": b["user_id"]}, {"_id": 0})
+    mname = (member or {}).get("name") or (member or {}).get("email") or "A member"
+    cls = await db.classes.find_one({"class_id": b["class_id"]}, {"_id": 0})
+    when = "By appointment"
+    start = (cls or {}).get("start_at") or b.get("class_start")
+    if isinstance(start, datetime):
+        if start.tzinfo is None:
+            start = start.replace(tzinfo=timezone.utc)
+        when = start.strftime("%A %d %B %Y at %-I:%M %p")
+    trainer = (cls or {}).get("trainer", "")
+    duration = (cls or {}).get("duration_min")
+    amount = float(b.get("amount", 0)) / 100.0
+    currency = b.get("currency", "aud").upper()
+    # In-app confirmation for the member
+    await create_notification(
+        b["user_id"],
+        "Payment verified — booking confirmed",
+        f"Your payment for {b['class_name']} is verified. See you {when}.",
+        "booking",
+    )
+    # Full-detail confirmation email to the member
+    if (member or {}).get("email"):
+        await send_email(
+            member["email"],
+            f"Payment confirmed — {b['class_name']} at Max Energy",
+            _email_shell(
+                "Payment Confirmed ✅",
+                [
+                    f"Hi {mname},",
+                    "Great news — your payment has been <b>verified</b> and your class is booked! Here are your booking details:",
+                    "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
+                    f"<b>Class:</b> {b['class_name']}",
+                    (f"<b>Coach:</b> {trainer}" if trainer else ""),
+                    f"<b>When:</b> {when}",
+                    (f"<b>Duration:</b> {duration} minutes" if duration else ""),
+                    f"<b>Amount paid:</b> ${amount:.2f} {currency}",
+                    f"<b>Booking reference:</b> {b['booking_id']}",
+                    f"<b>Location:</b> {GYM_INFO['address']}",
+                    "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
+                    "Need to cancel or reschedule? Open the Max Energy app → Profile → My Bookings.",
+                    "See you on the mats! 🥊",
+                ],
+            ),
+        )
+    # Notify gym admins
+    await notify_admins(
+        "New paid booking",
+        f"{mname} booked and paid for {b['class_name']} ({when}).",
+        "booking",
+        email_lines=[f"<b>{mname}</b> booked and paid for <b>{b['class_name']}</b>.", f"When: {when}", f"Amount: ${amount:.2f} {currency}"],
+    )
 
 
 async def get_user_by_token(authorization: Optional[str]) -> Optional[dict]:
@@ -724,31 +789,7 @@ async def payments_status(session_id: str, request: Request, u: dict = Depends(r
             {"$set": {"payment_status": status.payment_status, "status": status.status, "updated_at": now_utc()}},
         )
         if status.payment_status == "paid" and tx.get("payment_status") != "paid":
-            await db.bookings.update_one(
-                {"booking_id": tx["booking_id"], "status": {"$ne": "paid"}},
-                {"$set": {"status": "paid", "paid_at": now_utc()}},
-            )
-            b = await db.bookings.find_one({"booking_id": tx["booking_id"]}, {"_id": 0})
-            if b:
-                await db.notifications.insert_one(
-                    {
-                        "notification_id": new_id("ntf"),
-                        "user_id": tx["user_id"],
-                        "title": "Booking confirmed",
-                        "body": f"Your booking for {b['class_name']} is confirmed.",
-                        "type": "booking",
-                        "read": False,
-                        "created_at": now_utc(),
-                    }
-                )
-                member = await db.users.find_one({"user_id": tx["user_id"]}, {"_id": 0})
-                mname = (member or {}).get("name") or (member or {}).get("email") or "A member"
-                await notify_admins(
-                    "New paid booking",
-                    f"{mname} booked and paid for {b['class_name']}.",
-                    "booking",
-                    email_lines=[f"<b>{mname}</b> booked and paid for <b>{b['class_name']}</b>."],
-                )
+            await mark_booking_paid(tx["booking_id"])
     return {
         "payment_status": status.payment_status,
         "status": status.status,
@@ -776,7 +817,7 @@ async def stripe_webhook(request: Request):
                 {"session_id": wh.session_id},
                 {"$set": {"payment_status": "paid", "status": "complete", "updated_at": now_utc()}},
             )
-            await db.bookings.update_one({"booking_id": tx["booking_id"]}, {"$set": {"status": "paid", "paid_at": now_utc()}})
+            await mark_booking_paid(tx["booking_id"])
     return {"received": True}
 
 

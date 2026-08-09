@@ -24,6 +24,7 @@ export default function Profile() {
   const [notifs, setNotifs] = useState<Notif[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isMember, setIsMember] = useState(false);
   const [rescheduleFor, setRescheduleFor] = useState<Booking | null>(null);
   const [rTime, setRTime] = useState("");
   const [rNote, setRNote] = useState("");
@@ -32,9 +33,10 @@ export default function Profile() {
 
   const load = useCallback(async () => {
     try {
-      const [n, b] = await Promise.all([api.notifications(), api.myBookings()]);
+      const [n, b, a] = await Promise.all([api.notifications(), api.myBookings(), api.myApplications()]);
       setNotifs(n.notifications || []);
       setBookings(b.bookings || []);
+      setIsMember((a.applications || []).some((x: any) => x.status === "approved"));
     } catch {}
     setLoading(false);
   }, []);
@@ -93,12 +95,20 @@ export default function Profile() {
           </View>
           <Text style={styles.name}>{user?.name || "Member"}</Text>
           <Text style={styles.email}>{user?.email}</Text>
-          {user?.is_admin && (
-            <View style={styles.adminBadge}>
-              <Ionicons name="shield-checkmark" size={12} color={colors.onBrand} />
-              <Text style={styles.adminBadgeText}>ADMIN</Text>
-            </View>
-          )}
+          <View style={styles.badgeRow}>
+            {isMember && (
+              <View style={styles.memberBadge}>
+                <Ionicons name="star" size={12} color={colors.onBrand} />
+                <Text style={styles.memberBadgeText}>ACTIVE MEMBER</Text>
+              </View>
+            )}
+            {user?.is_admin && (
+              <View style={styles.adminBadge}>
+                <Ionicons name="shield-checkmark" size={12} color={colors.onBrand} />
+                <Text style={styles.adminBadgeText}>ADMIN</Text>
+              </View>
+            )}
+          </View>
 
           <View style={styles.statsRow}>
             <View style={styles.statBox}>
@@ -289,8 +299,11 @@ const styles = StyleSheet.create({
   avatarText: { color: colors.onBrand, fontSize: 34, fontWeight: "900" },
   name: { ...type.h2 },
   email: { ...type.bodyDim, marginTop: 2 },
-  adminBadge: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.brand, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill, marginTop: spacing.sm },
+  adminBadge: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.brand, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
   adminBadgeText: { color: colors.onBrand, fontSize: 10, fontWeight: "900", letterSpacing: 1 },
+  badgeRow: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.sm, flexWrap: "wrap", justifyContent: "center" },
+  memberBadge: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#16A34A", paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
+  memberBadgeText: { color: "#fff", fontSize: 10, fontWeight: "900", letterSpacing: 1 },
   statsRow: { flexDirection: "row", marginTop: spacing.xl, gap: spacing.md, alignSelf: "stretch" },
   statBox: { flex: 1, backgroundColor: colors.surfaceSecondary, padding: spacing.md, borderRadius: radius.md, alignItems: "center", borderWidth: 1, borderColor: colors.border },
   statNum: { color: colors.brand, fontSize: 22, fontWeight: "900" },

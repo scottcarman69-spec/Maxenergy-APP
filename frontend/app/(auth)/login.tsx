@@ -136,8 +136,8 @@ export default function Login() {
               style={styles.logo}
               contentFit="contain"
             />
-            <Text style={styles.heroTagline}>{"Cairns' home of Muay Thai, Boxing & 24/7 fitness."}</Text>
-            <Text style={styles.subtitle}>Book classes. Pay in seconds. Never miss an event.</Text>
+            <Text style={styles.heroTagline}>{"24/7 Gym & Fitness in Smithfield Cairns"}</Text>
+            <Text style={styles.subtitle}>{"Muay Thai • Kickboxing • Boot Camp • Personal Training\nAdults & Kids Classes • All Levels Welcome"}</Text>
           </View>
         </View>
 
