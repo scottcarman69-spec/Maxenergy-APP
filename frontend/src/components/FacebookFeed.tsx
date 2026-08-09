@@ -10,7 +10,7 @@ const PAGES = [
   { key: "combat", label: "Combat Club", url: "https://www.facebook.com/profile.php?id=61561343624470" },
 ];
 
-const FEED_HEIGHT = 500;
+const FEED_HEIGHT = 640;
 
 function pluginUri(pageUrl: string, width: number) {
   const w = Math.max(180, Math.min(500, Math.round(width))); // FB plugin supports 180-500
@@ -40,6 +40,7 @@ export default function FacebookFeed() {
   };
 
   const uri = width ? pluginUri(active.url, width) : null;
+  const plugW = Math.max(180, Math.min(500, Math.round(width)));
 
   return (
     <View style={styles.wrap}>
@@ -62,24 +63,25 @@ export default function FacebookFeed() {
           Platform.OS === "web" ? (
             // @ts-ignore - iframe is valid on web
             <iframe
-              key={active.key + width}
+              key={active.key + plugW}
               title={active.label}
               src={uri}
-              style={{ width: "100%", height: FEED_HEIGHT, border: "none", display: "block" }}
-              scrolling="no"
+              style={{ width: plugW, maxWidth: "100%", height: FEED_HEIGHT, border: "none", display: "block" }}
+              scrolling="yes"
               frameBorder="0"
               allowFullScreen
             />
           ) : (
             <WebView
-              key={active.key + width}
+              key={active.key + plugW}
               testID="fb-webview"
               source={{ uri }}
-              style={{ width: width, height: FEED_HEIGHT, backgroundColor: "transparent" }}
+              style={{ width: plugW, height: FEED_HEIGHT, backgroundColor: "transparent" }}
               javaScriptEnabled
               domStorageEnabled
               startInLoadingState
               scrollEnabled
+              nestedScrollEnabled
               setSupportMultipleWindows={false}
             />
           )
@@ -117,6 +119,8 @@ const styles = StyleSheet.create({
   feedCard: {
     width: "100%",
     alignSelf: "stretch",
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: "#fff",
     borderRadius: radius.md,
     overflow: "hidden",
