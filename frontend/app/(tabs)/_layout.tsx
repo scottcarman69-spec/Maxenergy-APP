@@ -40,13 +40,13 @@ export default function TabsLayout() {
           backgroundColor: colors.surfaceSecondary,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          height: Platform.OS === "ios" ? 84 : 64,
-          paddingTop: 6,
-          paddingBottom: Platform.OS === "ios" ? 24 : 8,
+          height: Platform.select({ ios: 84, android: 64, web: 74 }),
+          paddingTop: 8,
+          paddingBottom: Platform.select({ ios: 24, android: 8, web: 14 }),
         },
         tabBarActiveTintColor: colors.brand,
         tabBarInactiveTintColor: colors.onSurfaceSecondary,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: "700", letterSpacing: 0.5 },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: "700", letterSpacing: 0.5, marginTop: 2 },
       }}
     >
       <Tabs.Screen
