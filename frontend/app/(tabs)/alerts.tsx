@@ -1,13 +1,14 @@
 import React, { useCallback, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, RefreshControl } from "react-native";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Swipeable } from "react-native-gesture-handler";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
+import { useAuth } from "@/src/AuthContext";
 import { colors, spacing, radius } from "@/src/theme";
 
-type Notif = { notification_id: string; title: string; body: string; read: boolean; created_at: string; type: string };
+type Notif = { notification_id: string; title: string; body: string; read: boolean; created_at: string; type: string; data?: { nav?: string; user_id?: string; name?: string } };
 
 function fmtWhen(iso?: string) {
   if (!iso) return "";
@@ -28,6 +29,8 @@ const ICONS: Record<string, any> = {
 };
 
 export default function AlertsTab() {
+  const router = useRouter();
+  const { user } = useAuth();
   const [notifs, setNotifs] = useState<Notif[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -50,6 +53,17 @@ export default function AlertsTab() {
   const markOne = (id: string) => {
     setNotifs((cur) => cur.map((x) => (x.notification_id === id ? { ...x, read: true } : x)));
     api.markRead(id).catch(() => {});
+  };
+  const openNotif = (n: Notif) => {
+    if (!n.read) markOne(n.notification_id);
+    if (n.type === "message") {
+      const nav = n.data?.nav;
+      if (nav === "admin_thread" && user?.is_admin && n.data?.user_id) {
+        router.push({ pathname: "/admin/thread", params: { userId: n.data.user_id, name: n.data?.name || "Member" } } as any);
+      } else {
+        router.push("/(tabs)/inbox");
+      }
+    }
   };
   const deleteNotif = (id: string) => {
     setNotifs((cur) => cur.filter((x) => x.notification_id !== id));
@@ -106,7 +120,7 @@ export default function AlertsTab() {
                 <Pressable
                   testID={`notif-${n.notification_id}`}
                   style={[styles.row, !n.read && styles.rowUnread]}
-                  onPress={() => { if (!n.read) markOne(n.notification_id); }}
+                  onPress={() => openNotif(n)}
                 >
                   <View style={[styles.iconWrap, !n.read && { backgroundColor: colors.brand }]}>
                     <Ionicons name={ICONS[n.type] || "notifications"} size={18} color={!n.read ? colors.onBrand : colors.brand} />
@@ -117,6 +131,7 @@ export default function AlertsTab() {
                       <Text style={styles.when}>{fmtWhen(n.created_at)}</Text>
                     </View>
                     <Text style={styles.body} numberOfLines={2}>{n.body}</Text>
+                    {n.type === "message" && <Text style={styles.tapHint}>Tap to open conversation ›</Text>}
                   </View>
                   {!n.read && <View style={styles.dot} />}
                 </Pressable>
@@ -146,6 +161,7 @@ const styles = StyleSheet.create({
   title: { color: colors.onSurface, fontWeight: "800", fontSize: 15, flex: 1 },
   when: { color: colors.onSurfaceSecondary, fontSize: 11 },
   body: { color: colors.onSurfaceSecondary, fontSize: 13, marginTop: 3, lineHeight: 18 },
+  tapHint: { color: colors.brand, fontSize: 11, fontWeight: "800", marginTop: 5 },
   dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.brand },
   delete: { backgroundColor: colors.error, justifyContent: "center", alignItems: "center", width: 84, borderRadius: radius.md, marginLeft: spacing.sm, gap: 2 },
   deleteText: { color: "#fff", fontWeight: "800", fontSize: 12 },

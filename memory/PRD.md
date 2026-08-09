@@ -70,3 +70,6 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 ## Session update 10 (Jun 2026 fork)
 - Added a bottom-bar "Alerts" tab (bell icon) = personal notifications center. New screen app/(tabs)/alerts.tsx lists all notifications (icon per type, timestamp, unread dot), with Mark all read + swipe-left to clear + pull-to-refresh. Bottom bar now: Home, Timetable, Notices, Inbox, Alerts, Profile.
 - Tab badge shows exact unread notification count via new GET /api/notifications/unread; also added POST /api/notifications/read-all. Tab layout polls both unread messages (Inbox badge) and unread notifications (Alerts badge) every 15s + on focus/appstate.
+
+## Session update 11 (Jun 2026 fork)
+- Message alerts are now tappable & deep-link to the conversation. Added optional `data` field to notifications (create_notification/notify_user/notify_admins). Member-message alert stores {nav:admin_thread,user_id,name} -> admin taps to open /admin/thread for that member; gym-reply alert stores {nav:member_inbox} -> member taps to open /(tabs)/inbox. Alerts screen (alerts.tsx) routes on tap based on data + user.is_admin, shows "Tap to open conversation" hint on message alerts. Verified: admin tap opens the member thread with reply box.

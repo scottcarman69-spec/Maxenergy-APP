@@ -183,7 +183,7 @@ def _download_button(url: str, label: str) -> str:
     )
 
 
-async def create_notification(user_id: str, title: str, body: str, ntype: str = "booking") -> None:
+async def create_notification(user_id: str, title: str, body: str, ntype: str = "booking", data: Optional[dict] = None) -> None:
     await db.notifications.insert_one(
         {
             "notification_id": new_id("ntf"),
@@ -191,24 +191,25 @@ async def create_notification(user_id: str, title: str, body: str, ntype: str = 
             "title": title,
             "body": body,
             "type": ntype,
+            "data": data or {},
             "read": False,
             "created_at": now_utc(),
         }
     )
 
 
-async def notify_user(user_id: str, email: Optional[str], title: str, body: str, ntype: str = "booking", email_lines: Optional[list] = None) -> None:
+async def notify_user(user_id: str, email: Optional[str], title: str, body: str, ntype: str = "booking", email_lines: Optional[list] = None, data: Optional[dict] = None) -> None:
     """In-app notification + email to a specific member."""
-    await create_notification(user_id, title, body, ntype)
+    await create_notification(user_id, title, body, ntype, data)
     if email:
         await send_email(email, title, _email_shell(title, email_lines or [body]))
 
 
-async def notify_admins(title: str, body: str, ntype: str = "booking", email_lines: Optional[list] = None) -> None:
+async def notify_admins(title: str, body: str, ntype: str = "booking", email_lines: Optional[list] = None, data: Optional[dict] = None) -> None:
     """In-app notification to every admin user + email to the gym inbox."""
     admins = await db.users.find({"is_admin": True}, {"_id": 0, "user_id": 1}).to_list(100)
     for a in admins:
-        await create_notification(a["user_id"], title, body, ntype)
+        await create_notification(a["user_id"], title, body, ntype, data)
     await send_email(GYM_ADMIN_EMAIL, title, _email_shell(title, email_lines or [body]))
 
 
@@ -913,6 +914,7 @@ async def messages_send(body: MessageReq, request: Request, u: dict = Depends(re
         f"{msg['sender_name']}: {text[:120]}",
         "message",
         email_lines=email_lines,
+        data={"nav": "admin_thread", "user_id": u["user_id"], "name": msg["sender_name"]},
     )
     msg.pop("_id", None)
     return {"message": msg}
@@ -976,10 +978,11 @@ async def admin_thread_reply(user_id: str, body: MessageReq, request: Request, u
     open_btn = _download_button(f"{base}/messages", "Open your messages") if base else "Open the app to reply: Profile → Message the Gym."
     await notify_user(
         user_id, member.get("email"),
-        "New message from Max Energy",
+        "New message from Maxenergy Fitness",
         text[:140],
         "message",
         email_lines=["You have a new message from the Maxenergy Team:", f"\"{text}\"", open_btn],
+        data={"nav": "member_inbox"},
     )
     msg.pop("_id", None)
     return {"message": msg}
