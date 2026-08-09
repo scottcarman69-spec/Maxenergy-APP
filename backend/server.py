@@ -330,7 +330,8 @@ class TrialClaimReq(BaseModel):
     category: str  # "Kids" or "Adults"
     child_name: Optional[str] = None
     child_age: Optional[str] = None
-    preferred_day: Optional[str] = None  # "Monday" or "Wednesday" (Kids)
+    attendee_name: Optional[str] = None  # Adults: person's name
+    preferred_day: Optional[str] = None  # Kids: Monday/Wednesday · Adults: "Muay Thai - Monday" etc
 
 
 class RescheduleReq(BaseModel):
@@ -1148,14 +1149,22 @@ async def trials_claim(body: TrialClaimReq, u: dict = Depends(require_user)):
         raise HTTPException(400, "Invalid category")
     child_name = (body.child_name or "").strip()
     child_age = (body.child_age or "").strip()
-    preferred_day = (body.preferred_day or "").strip().title()
+    attendee_name = (body.attendee_name or "").strip()
+    preferred_day = (body.preferred_day or "").strip()
+    ADULT_DAYS = ("Muay Thai - Monday", "Muay Thai - Wednesday", "Kickboxing - Tuesday", "Kickboxing - Thursday")
     if category == "Kids":
+        preferred_day = preferred_day.title()
         if not child_name:
             raise HTTPException(400, "Please enter the child's name.")
         if not child_age:
             raise HTTPException(400, "Please enter the child's age.")
         if preferred_day not in ("Monday", "Wednesday"):
             raise HTTPException(400, "Please choose Monday or Wednesday for the trial.")
+    else:  # Adults
+        if not attendee_name:
+            raise HTTPException(400, "Please enter your name.")
+        if preferred_day not in ADULT_DAYS:
+            raise HTTPException(400, "Please choose a class and day for the trial.")
     existing = await db.free_trials.find_one({"user_id": u["user_id"], "category": category})
     if existing:
         raise HTTPException(409, f"You've already claimed your {category} free trial")
@@ -1167,6 +1176,7 @@ async def trials_claim(body: TrialClaimReq, u: dict = Depends(require_user)):
         "category": category,
         "child_name": child_name or None,
         "child_age": child_age or None,
+        "attendee_name": attendee_name or None,
         "preferred_day": preferred_day or None,
         "status": "claimed",
         "created_at": now_utc(),
@@ -1183,20 +1193,16 @@ async def trials_claim(body: TrialClaimReq, u: dict = Depends(require_user)):
             "body": (
                 f"{child_name}'s free Kids trial is booked for {preferred_day}. Show this at the front desk — see you on the mats!"
                 if category == "Kids" else
-                "Your free trial class is booked in. Show this at the front desk — we'll see you on the mats!"
+                f"Your free trial ({preferred_day}, 6:00pm) is booked in. Show this at the front desk — we'll see you on the mats!"
             ),
             "type": "trial",
             "read": False,
             "created_at": now_utc(),
         }
     )
-    if category == "Kids":
-        schedule = f"{preferred_day}, 5:00–5:45pm"
-    else:
-        schedule = "Mondays & Wednesdays 6:00pm (Muay Thai) · Tuesdays & Thursdays 6:00pm (Kickboxing)"
     mname = u.get("name") or u.get("email")
     member_lines = [
-        f"Hi {mname},",
+        f"Hi {attendee_name or mname},",
         f"Welcome to Max Energy Muay Thai Academy! Your <b>free {category} trial class</b> is confirmed. Here are the details:",
         "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
     ]
@@ -1208,8 +1214,9 @@ async def trials_claim(body: TrialClaimReq, u: dict = Depends(require_user)):
         ]
     else:
         member_lines += [
-            f"<b>Trial:</b> Free {category} class",
-            f"<b>Class times:</b> {schedule}",
+            f"<b>Name:</b> {attendee_name}",
+            f"<b>Class:</b> {preferred_day}",
+            "<b>Start time:</b> 6:00pm",
         ]
     member_lines += [
         f"<b>Trial reference:</b> {trial['trial_id']}",
@@ -1228,6 +1235,11 @@ async def trials_claim(body: TrialClaimReq, u: dict = Depends(require_user)):
             f"<b>Age:</b> {child_age}",
             f"<b>Preferred day:</b> {preferred_day}",
         ]
+    else:
+        admin_lines += [
+            f"<b>Name:</b> {attendee_name}",
+            f"<b>Class:</b> {preferred_day}, 6:00pm",
+        ]
     admin_lines += [
         f"Claimed: {now_utc().strftime('%A %d %B %Y')}",
         "You can view all members and trial claims in the app: Admin → Members.",
@@ -1235,7 +1247,7 @@ async def trials_claim(body: TrialClaimReq, u: dict = Depends(require_user)):
     admin_body = (
         f"{child_name} (age {child_age}) — Kids trial on {preferred_day}. Parent: {mname} ({u['email']})."
         if category == "Kids" else
-        f"{mname} ({u['email']}) claimed a free {category} trial."
+        f"{attendee_name} — Adults trial: {preferred_day}, 6:00pm ({u['email']})."
     )
     await notify_admins(f"New free {category} trial claimed", admin_body, "trial", email_lines=admin_lines)
     trial.pop("_id", None)
