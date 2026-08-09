@@ -28,3 +28,11 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 ## Backlog
 - P1: PayPal payment option; Push notifications (needs native build); Term-dates config for Kids block.
 - P2: Locations & Services pages; Trainer booking from profile; Digital member ID card; class capacity/spots-left.
+
+## Session update (Jun 2026 fork)
+- FIXED (user bug): Membership application "copy" email was not arriving and PDF was never attached.
+  Root cause: (1) Emergent email (Resend) proxy silently DROPS the `attachments` field; (2) sends were hitting a 429 rate limit and being dropped. 
+  Fix: added a global email throttle (0.7s min spacing) + retry backoff in send_email; replaced PDF/CSV attachments with SECURE PUBLIC DOWNLOAD LINKS.
+  New endpoints: GET /api/membership/forms/{application_id}.pdf and GET /api/admin/exports/{export_id}.csv (public capability URLs). Membership + members-export emails now embed a "Download" button built from the request host (works in preview & deploy). Verified: PDF/CSV download HTTP 200, test email delivered (202) to scottcarman69@gmail.com.
+- DONE: In-app Messaging fully wired. Member "Message the Gym" link on Profile -> /messages. Admin Inbox card on dashboard -> /admin/inbox (thread list w/ unread) -> /admin/thread (reply). Admin Members list now has per-member Call (tel:), Email (mailto:), and Message (opens admin thread) buttons; phone shown. admin/overview returns unread_messages.
+- Backend tested: 15/15 passing (iteration_6).
