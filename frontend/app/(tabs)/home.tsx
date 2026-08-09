@@ -67,14 +67,14 @@ export default function Home() {
   const nextClass = upcoming[0];
 
   const quickActions = [
-    { key: "schedule", label: "View Schedule", icon: "calendar", onPress: () => router.push("/(tabs)/timetable") },
-    { key: "checkin", label: "Class Check-In", icon: "log-in", onPress: () => router.push("/check-in") },
-    { key: "trial", label: "Free Trial", icon: "gift", onPress: () => router.push("/free-trial") },
-    { key: "membership", label: "Join Membership", icon: "card", onPress: () => router.push("/membership") },
-    { key: "services", label: "Our Services", icon: "barbell", onPress: () => router.push("/services") },
-    { key: "notices", label: "Gym Notices", icon: "megaphone", onPress: () => router.push("/(tabs)/events") },
-    { key: "about", label: "About Us", icon: "people", onPress: () => router.push("/about") },
-    { key: "contact", label: "Contact", icon: "call", onPress: () => router.push("/contact") },
+    { key: "schedule", label: "View Schedule", icon: "calendar", grad: ["#FF7A00", "#FFB259"], onPress: () => router.push("/(tabs)/timetable") },
+    { key: "checkin", label: "Class Check-In", icon: "checkmark-done", grad: ["#16A34A", "#4ADE80"], onPress: () => router.push("/check-in") },
+    { key: "trial", label: "Free Trial", icon: "gift", grad: ["#9333EA", "#C084FC"], onPress: () => router.push("/free-trial") },
+    { key: "membership", label: "Join Membership", icon: "ribbon", grad: ["#2563EB", "#60A5FA"], onPress: () => router.push("/membership") },
+    { key: "services", label: "Our Services", icon: "barbell", grad: ["#DC2626", "#F87171"], onPress: () => router.push("/services") },
+    { key: "notices", label: "Gym Notices", icon: "megaphone", grad: ["#D97706", "#FBBF24"], onPress: () => router.push("/(tabs)/events") },
+    { key: "about", label: "About Us", icon: "people", grad: ["#0891B2", "#22D3EE"], onPress: () => router.push("/about") },
+    { key: "contact", label: "Contact", icon: "chatbubbles", grad: ["#DB2777", "#F472B6"], onPress: () => router.push("/contact") },
   ] as const;
 
   return (
@@ -138,11 +138,22 @@ export default function Home() {
             <Text style={styles.sectionTitle}>QUICK ACTIONS</Text>
             <View style={styles.quickGrid}>
               {quickActions.map((a) => (
-                <Pressable key={a.key} testID={`quick-${a.key}`} style={styles.quickCard} onPress={a.onPress}>
-                  <View style={styles.quickIcon}>
-                    <Ionicons name={a.icon as any} size={20} color={colors.brand} />
-                  </View>
+                <Pressable
+                  key={a.key}
+                  testID={`quick-${a.key}`}
+                  style={({ pressed }) => [styles.quickCard, pressed && styles.quickCardPressed]}
+                  onPress={a.onPress}
+                >
+                  <LinearGradient
+                    colors={a.grad as unknown as [string, string]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.quickIcon}
+                  >
+                    <Ionicons name={a.icon as any} size={22} color="#fff" />
+                  </LinearGradient>
                   <Text style={styles.quickLabel}>{a.label}</Text>
+                  <Ionicons name="chevron-forward" size={16} color={colors.onSurfaceSecondary} style={styles.quickChevron} />
                 </Pressable>
               ))}
             </View>
@@ -281,19 +292,26 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceSecondary,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     padding: spacing.lg,
-    gap: spacing.sm,
+    gap: spacing.md,
+    overflow: "hidden",
   },
+  quickCardPressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
   quickIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.sm,
-    backgroundColor: colors.brandTertiary,
+    width: 46,
+    height: 46,
+    borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 5,
   },
   quickLabel: { color: colors.onSurface, fontFamily: font.heading, fontSize: 15 },
+  quickChevron: { position: "absolute", top: spacing.lg, right: spacing.md },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",

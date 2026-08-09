@@ -521,6 +521,26 @@ async def auth_logout(authorization: Optional[str] = Header(None)):
     return {"ok": True}
 
 
+@api.delete("/auth/account")
+async def delete_account(u: dict = Depends(require_user)):
+    """Permanently delete the signed-in user's account and all associated data.
+    Required for Apple App Store review (in-app account deletion)."""
+    uid = u["user_id"]
+    if u.get("is_admin"):
+        # Safety: don't let the seeded gym admin accounts delete themselves via the app.
+        raise HTTPException(400, "Admin accounts cannot be deleted from the app. Please contact support.")
+    await db.bookings.delete_many({"user_id": uid})
+    await db.event_rsvps.delete_many({"user_id": uid})
+    await db.free_trials.delete_many({"user_id": uid})
+    await db.membership_applications.delete_many({"user_id": uid})
+    await db.notifications.delete_many({"user_id": uid})
+    await db.payment_transactions.delete_many({"user_id": uid})
+    await db.messages.delete_many({"thread_user_id": uid})
+    await db.user_sessions.delete_many({"user_id": uid})
+    await db.users.delete_one({"user_id": uid})
+    return {"ok": True, "deleted": True}
+
+
 # -------------------- gym info --------------------
 @api.get("/gym/info")
 async def gym_info():

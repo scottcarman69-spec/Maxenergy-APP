@@ -52,3 +52,7 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Session update 6 (Jun 2026 fork)
 - DONE (already existed, now with tap-through link): Member Reply Email. When an admin replies (POST /api/admin/threads/{user_id}), the member gets an in-app notification + email ("New message from Max Energy") which now includes an orange "Open your messages" button linking to {base}/messages. Verified 202 delivery to a real address (scottcarman69@gmail.com). Fake test emails get a 422 undeliverable (expected, not a bug).
+
+## Session update 7 (Jun 2026 fork)
+- DONE: Delete Account (Apple review requirement). DELETE /api/auth/account removes the signed-in user + all their data (bookings, RSVPs, trials, applications, notifications, payment_transactions, messages, sessions); admin accounts blocked (400). In-app "Delete my account" button + confirm modal on Profile (hidden for admins). Verified: member delete 200, re-login 401, admin delete 400. Also removed hardcoded admin cred fallbacks (now env-only) and quoted .env values with spaces to clear deployment health-check blockers (status now PASS/warn only).
+- DONE: Modernised Home Quick Actions icons — gradient icon chips with per-action vibrant colors + shadow + corner chevron + press scale (View Schedule/Check-In/Free Trial/Join Membership/Our Services/Gym Notices/About Us/Contact).

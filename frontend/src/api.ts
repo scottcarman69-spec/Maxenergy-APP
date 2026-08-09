@@ -59,6 +59,7 @@ export const api = {
     req("/api/auth/session", { method: "POST", body: JSON.stringify({ session_id }) }),
   me: () => req("/api/auth/me"),
   logout: () => req("/api/auth/logout", { method: "POST" }),
+  deleteAccount: () => req("/api/auth/account", { method: "DELETE" }),
 
   classes: (category?: string) =>
     req(`/api/classes${category && category !== "All" ? `?category=${encodeURIComponent(category)}` : ""}`),

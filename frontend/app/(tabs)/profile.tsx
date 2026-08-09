@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, TextInput, Platform, Linking } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, TextInput, Linking } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -31,6 +31,8 @@ export default function Profile() {
   const [rNote, setRNote] = useState("");
   const [actioning, setActioning] = useState<string | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
+  const [showDelete, setShowDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -89,6 +91,20 @@ export default function Profile() {
   const doLogout = async () => {
     await logout();
     router.replace("/(auth)/login");
+  };
+
+  const doDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      await api.deleteAccount();
+      setShowDelete(false);
+      await logout();
+      router.replace("/(auth)/login");
+    } catch (e: any) {
+      setShowDelete(false);
+      setBanner(e?.message || "Could not delete your account. Please try again.");
+    }
+    setDeleting(false);
   };
 
   const paidCount = bookings.filter((b) => b.status === "paid" || b.status === "confirmed").length;
@@ -302,6 +318,13 @@ export default function Profile() {
           <Ionicons name="log-out-outline" size={18} color={colors.error} />
           <Text style={styles.logoutText}>Log out</Text>
         </Pressable>
+
+        {!user?.is_admin && (
+          <Pressable testID="delete-account-button" style={styles.deleteAccount} onPress={() => setShowDelete(true)}>
+            <Ionicons name="trash-outline" size={16} color={colors.onSurfaceSecondary} />
+            <Text style={styles.deleteAccountText}>Delete my account</Text>
+          </Pressable>
+        )}
       </ScrollView>
 
       <Modal visible={!!rescheduleFor} transparent animationType="fade" onRequestClose={() => setRescheduleFor(null)}>
@@ -339,6 +362,30 @@ export default function Profile() {
                 disabled={!rTime.trim() || !!actioning}
               >
                 {actioning ? <ActivityIndicator color={colors.onBrand} /> : <Text style={styles.modalSubmitText}>SEND REQUEST</Text>}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showDelete} transparent animationType="fade" onRequestClose={() => setShowDelete(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Delete your account?</Text>
+            <Text style={styles.deleteWarn}>
+              This permanently removes your account and all your data — bookings, applications, trial claims, messages and notifications. This cannot be undone.
+            </Text>
+            <View style={styles.modalActions}>
+              <Pressable testID="delete-cancel" style={styles.modalCancel} onPress={() => setShowDelete(false)} disabled={deleting}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                testID="delete-confirm"
+                style={[styles.deleteConfirm, deleting && { opacity: 0.6 }]}
+                onPress={doDeleteAccount}
+                disabled={deleting}
+              >
+                {deleting ? <ActivityIndicator color="#fff" /> : <Text style={styles.deleteConfirmText}>DELETE ACCOUNT</Text>}
               </Pressable>
             </View>
           </View>
@@ -429,4 +476,9 @@ const styles = StyleSheet.create({
   modalSubmitText: { color: colors.onBrand, fontWeight: "900", letterSpacing: 1 },
   logout: { marginTop: spacing.xxl, marginHorizontal: spacing.lg, padding: spacing.lg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: spacing.sm },
   logoutText: { color: colors.error, fontWeight: "800", letterSpacing: 0.5 },
+  deleteAccount: { marginTop: spacing.md, marginHorizontal: spacing.lg, paddingVertical: spacing.md, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 6 },
+  deleteAccountText: { color: colors.onSurfaceSecondary, fontWeight: "700", fontSize: 13, textDecorationLine: "underline" },
+  deleteWarn: { color: colors.onSurfaceSecondary, fontSize: 14, lineHeight: 21, marginTop: spacing.sm, marginBottom: spacing.lg },
+  deleteConfirm: { flex: 2, alignItems: "center", justifyContent: "center", paddingVertical: 14, borderRadius: radius.md, backgroundColor: colors.error },
+  deleteConfirmText: { color: "#fff", fontWeight: "900", letterSpacing: 1 },
 });
