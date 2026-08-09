@@ -34,7 +34,7 @@ ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "MaxAdmin123!")
 
 EMAIL_BASE_URL = "https://integrations.emergentagent.com"
 EMERGENT_AUTH_SESSION_URL = "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data"
-SEED_VERSION = "v4"
+SEED_VERSION = "v6"
 
 GYM_INFO = {
     "name": "Max Energy Muay Thai Academy",
@@ -784,11 +784,10 @@ app.add_middleware(
 # -------------------- seed --------------------
 CLASS_TEMPLATES = [
     # (name, category, trainer, level, duration, price_cents, day_of_week(0=Mon), hour, image, desc, program)
-    ("Kids Muay Thai", "Kids", "Coach Alex", "Ages 6-16", 45, 1500, [0, 3], 17, "https://images.unsplash.com/photo-1595078475328-1ab05d0a6a0e?w=1200&q=80", "10-week term program running each school term. Mondays & Thursdays, 5:00–5:45pm. Builds confidence, focus and fitness for kids.", "10 Week Term"),
-    ("Adult Muay Thai", "Adults", "Coach Alex", "All levels", 60, 2500, [0, 1, 2, 3, 4], 18, "https://images.unsplash.com/photo-1591117207239-788bf8de6c3b?w=1200&q=80", "High-intensity Muay Thai. Pad work, clinch drills and conditioning.", ""),
+    ("Kids Muay Thai", "Kids", "Coach Alex", "Ages 6-16", 45, 30000, [0, 3], 17, "https://images.unsplash.com/photo-1595078475328-1ab05d0a6a0e?w=1200&q=80", "10-week term program running each school term. Mondays & Thursdays, 5:00–5:45pm. Cost: $300 for the 10-week term, or direct debit $35/week. No joining fee. Builds confidence, focus and fitness for kids.", "10 Week Term"),
+    ("Muay Thai - Adults", "Adults", "Coach Alex", "All levels", 60, 2500, [0, 2], 18, "https://images.unsplash.com/photo-1591117207239-788bf8de6c3b?w=1200&q=80", "High-intensity adult Muay Thai. Mondays & Wednesdays, 6:00pm. Pad work, clinch drills and conditioning.", ""),
     ("Beginners Muay Thai", "Adults", "Coach Mia", "Beginner", 60, 2500, [1, 3], 19, "https://images.unsplash.com/photo-1517438322307-e67111335449?w=1200&q=80", "Learn the fundamentals of Muay Thai in a supportive beginner class.", ""),
     ("Kickboxing", "Adults", "Coach Alex", "All levels", 60, 2500, [1, 3], 18, "https://images.unsplash.com/photo-1549824506-7f0f8b7f5b23?w=1200&q=80", "Kickboxing conditioning and technique combining strikes and cardio.", ""),
-    ("Fighter Conditioning", "Adults", "Coach Alex", "Intermediate+", 45, 2000, [0, 2, 4], 6, "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=1200&q=80", "Strength and cardio conditioning built for fighters. Early morning session.", ""),
     ("Sparring Session", "Adults", "Coach Alex", "Advanced", 60, 2500, [5], 10, "https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=1200&q=80", "Controlled sparring for experienced students. Gear required.", ""),
     ("Personal Training", "Adults", "Coach Alex", "Any", 60, 8000, [1, 3, 5], 12, "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1200&q=80", "1-on-1 tailored coaching session with a certified trainer.", ""),
 ]
@@ -872,7 +871,7 @@ async def seed_data():
 
         # Membership plans
         plans = [
-            {"plan_id": new_id("plan"), "sort": 1, "name": "Kids Unlimited", "category": "Kids", "price_display": "20/week", "price_cents": 2000, "interval": "week", "features": ["All kids classes", "Free grading", "Uniform discount"]},
+            {"plan_id": new_id("plan"), "sort": 1, "name": "Kids 10 Week Term", "category": "Kids", "price_display": "300 / term", "price_cents": 30000, "interval": "term", "features": ["10-week term program", "Mon & Thu 5:00–5:45pm", "Or direct debit $35/week", "No joining fee"]},
             {"plan_id": new_id("plan"), "sort": 2, "name": "Adult Casual", "category": "Adults", "price_display": "25/class", "price_cents": 2500, "interval": "class", "features": ["Pay as you go", "Any adult class", "No lock-in"]},
             {"plan_id": new_id("plan"), "sort": 3, "name": "Adult 3x / Week", "category": "Adults", "price_display": "40/week", "price_cents": 4000, "interval": "week", "features": ["3 classes per week", "All disciplines", "Open gym access"]},
             {"plan_id": new_id("plan"), "sort": 4, "name": "Adult Unlimited", "category": "Adults", "price_display": "55/week", "price_cents": 5500, "interval": "week", "features": ["Unlimited classes", "24/7 gym access", "Free grading", "Bring a friend"]},
