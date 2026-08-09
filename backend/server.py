@@ -328,6 +328,9 @@ class ApplicationStatusReq(BaseModel):
 
 class TrialClaimReq(BaseModel):
     category: str  # "Kids" or "Adults"
+    child_name: Optional[str] = None
+    child_age: Optional[str] = None
+    preferred_day: Optional[str] = None  # "Monday" or "Wednesday" (Kids)
 
 
 class RescheduleReq(BaseModel):
@@ -1143,6 +1146,16 @@ async def trials_claim(body: TrialClaimReq, u: dict = Depends(require_user)):
     category = body.category
     if category not in ("Kids", "Adults"):
         raise HTTPException(400, "Invalid category")
+    child_name = (body.child_name or "").strip()
+    child_age = (body.child_age or "").strip()
+    preferred_day = (body.preferred_day or "").strip().title()
+    if category == "Kids":
+        if not child_name:
+            raise HTTPException(400, "Please enter the child's name.")
+        if not child_age:
+            raise HTTPException(400, "Please enter the child's age.")
+        if preferred_day not in ("Monday", "Wednesday"):
+            raise HTTPException(400, "Please choose Monday or Wednesday for the trial.")
     existing = await db.free_trials.find_one({"user_id": u["user_id"], "category": category})
     if existing:
         raise HTTPException(409, f"You've already claimed your {category} free trial")
@@ -1152,6 +1165,9 @@ async def trials_claim(body: TrialClaimReq, u: dict = Depends(require_user)):
         "member_name": u.get("name") or "",
         "member_email": u.get("email"),
         "category": category,
+        "child_name": child_name or None,
+        "child_age": child_age or None,
+        "preferred_day": preferred_day or None,
         "status": "claimed",
         "created_at": now_utc(),
     }
@@ -1164,48 +1180,64 @@ async def trials_claim(body: TrialClaimReq, u: dict = Depends(require_user)):
             "notification_id": new_id("ntf"),
             "user_id": u["user_id"],
             "title": f"{category} free trial claimed 🎉",
-            "body": f"Your free {category} trial class is booked in. Show this at the front desk — we'll see you on the mats!",
+            "body": (
+                f"{child_name}'s free Kids trial is booked for {preferred_day}. Show this at the front desk — see you on the mats!"
+                if category == "Kids" else
+                "Your free trial class is booked in. Show this at the front desk — we'll see you on the mats!"
+            ),
             "type": "trial",
             "read": False,
             "created_at": now_utc(),
         }
     )
-    schedule = (
-        "Mondays & Thursdays, 5:00–5:45pm" if category == "Kids"
-        else "Mondays & Wednesdays 6:00pm (Muay Thai) · Tuesdays & Thursdays 6:00pm (Kickboxing)"
-    )
+    if category == "Kids":
+        schedule = f"{preferred_day}, 5:00–5:45pm"
+    else:
+        schedule = "Mondays & Wednesdays 6:00pm (Muay Thai) · Tuesdays & Thursdays 6:00pm (Kickboxing)"
     mname = u.get("name") or u.get("email")
-    await send_email(
-        u["email"],
-        f"Your free {category} trial at Max Energy 🎉",
-        _email_shell(
-            f"Your free {category} trial is confirmed!",
-            [
-                f"Hi {mname},",
-                f"Welcome to Max Energy Muay Thai Academy! Your <b>free {category} trial class</b> is confirmed. Here are the details:",
-                "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
-                f"<b>Trial:</b> Free {category} class",
-                f"<b>Class times:</b> {schedule}",
-                f"<b>Trial reference:</b> {trial['trial_id']}",
-                f"<b>Location:</b> {GYM_INFO['address']}",
-                f"<b>Phone:</b> {GYM_INFO['phone']}",
-                "<b>What to bring:</b> comfortable workout clothes, a water bottle and a towel. Gloves can be borrowed at the gym.",
-                "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
-                "Just turn up to a class and mention your free trial at the front desk. See you on the mats! 🥊",
-            ],
-        ),
+    member_lines = [
+        f"Hi {mname},",
+        f"Welcome to Max Energy Muay Thai Academy! Your <b>free {category} trial class</b> is confirmed. Here are the details:",
+        "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
+    ]
+    if category == "Kids":
+        member_lines += [
+            f"<b>Child's name:</b> {child_name}",
+            f"<b>Age:</b> {child_age}",
+            f"<b>Trial day:</b> {preferred_day}, 5:00–5:45pm",
+        ]
+    else:
+        member_lines += [
+            f"<b>Trial:</b> Free {category} class",
+            f"<b>Class times:</b> {schedule}",
+        ]
+    member_lines += [
+        f"<b>Trial reference:</b> {trial['trial_id']}",
+        f"<b>Location:</b> {GYM_INFO['address']}",
+        f"<b>Phone:</b> {GYM_INFO['phone']}",
+        "<b>What to bring:</b> comfortable workout clothes, a water bottle and a towel. Gloves can be borrowed at the gym.",
+        "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
+        "Just turn up on your chosen day and mention your free trial at the front desk. See you on the mats! 🥊",
+    ]
+    await send_email(u["email"], f"Your free {category} trial at Max Energy 🎉", _email_shell(f"Your free {category} trial is confirmed!", member_lines))
+
+    admin_lines = [f"<b>{mname}</b> ({u['email']}) claimed a free <b>{category}</b> trial."]
+    if category == "Kids":
+        admin_lines += [
+            f"<b>Child's name:</b> {child_name}",
+            f"<b>Age:</b> {child_age}",
+            f"<b>Preferred day:</b> {preferred_day}",
+        ]
+    admin_lines += [
+        f"Claimed: {now_utc().strftime('%A %d %B %Y')}",
+        "You can view all members and trial claims in the app: Admin → Members.",
+    ]
+    admin_body = (
+        f"{child_name} (age {child_age}) — Kids trial on {preferred_day}. Parent: {mname} ({u['email']})."
+        if category == "Kids" else
+        f"{mname} ({u['email']}) claimed a free {category} trial."
     )
-    await notify_admins(
-        f"New free {category} trial claimed",
-        f"{mname} ({u['email']}) claimed a free {category} trial.",
-        "trial",
-        email_lines=[
-            f"<b>{mname}</b> claimed a free <b>{category}</b> trial.",
-            f"Email: {u['email']}",
-            f"Claimed: {now_utc().strftime('%A %d %B %Y')}",
-            "You can view all members and trial claims in the app: Admin → Members.",
-        ],
-    )
+    await notify_admins(f"New free {category} trial claimed", admin_body, "trial", email_lines=admin_lines)
     trial.pop("_id", None)
     return {"trial": trial}
 
@@ -1343,19 +1375,28 @@ async def admin_applications(u: dict = Depends(require_admin)):
     return {"applications": rows}
 
 
-@api.get("/admin/members")
-async def admin_members(u: dict = Depends(require_admin)):
+async def _build_members_list() -> list:
     users = await db.users.find({}, {"_id": 0, "password_hash": 0}).sort("created_at", -1).to_list(2000)
     trials = await db.free_trials.find({}, {"_id": 0}).to_list(5000)
     apps = await db.membership_applications.find({}, {"_id": 0}).to_list(5000)
     bookings = await db.bookings.find({}, {"_id": 0, "user_id": 1, "status": 1}).to_list(5000)
 
     trials_by_user: dict = {}
+    trial_details_by_user: dict = {}
     for t in trials:
         trials_by_user.setdefault(t["user_id"], []).append(t.get("category"))
+        trial_details_by_user.setdefault(t["user_id"], []).append({
+            "category": t.get("category"),
+            "child_name": t.get("child_name"),
+            "child_age": t.get("child_age"),
+            "preferred_day": t.get("preferred_day"),
+        })
     apps_by_user: dict = {}
+    phone_by_user: dict = {}
     for a in apps:
         apps_by_user.setdefault(a["user_id"], []).append(a.get("status"))
+        if a.get("phone") and a["user_id"] not in phone_by_user:
+            phone_by_user[a["user_id"]] = a.get("phone")
     bookings_count: dict = {}
     for b in bookings:
         if b.get("status") in ("paid", "confirmed"):
@@ -1369,16 +1410,58 @@ async def admin_members(u: dict = Depends(require_admin)):
             "user_id": uid,
             "name": m.get("name"),
             "email": m.get("email"),
+            "phone": phone_by_user.get(uid),
             "is_admin": bool(m.get("is_admin")),
             "provider": m.get("provider", "password"),
             "created_at": m.get("created_at"),
             "trials": trials_by_user.get(uid, []),
+            "trial_details": trial_details_by_user.get(uid, []),
             "is_member": "approved" in statuses,
             "application_status": ("approved" if "approved" in statuses else ("pending" if "pending" in statuses else (statuses[0] if statuses else None))),
             "active_bookings": bookings_count.get(uid, 0),
         })
-    trial_count = len(trials)
+    return members
+
+
+@api.get("/admin/members")
+async def admin_members(u: dict = Depends(require_admin)):
+    members = await _build_members_list()
+    trial_count = await db.free_trials.count_documents({})
     return {"members": members, "total": len(members), "trial_claims": trial_count}
+
+
+@api.post("/admin/members/export")
+async def admin_members_export(u: dict = Depends(require_admin)):
+    members = await _build_members_list()
+    import csv, io as _io
+    buf = _io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["Name", "Email", "Phone", "Signup", "Joined", "Approved Member", "Application Status", "Trials", "Child Name(s)", "Trial Day(s)", "Active Bookings"])
+    for m in members:
+        joined = ""
+        if isinstance(m.get("created_at"), datetime):
+            joined = m["created_at"].strftime("%Y-%m-%d")
+        children = "; ".join([d.get("child_name") for d in m.get("trial_details", []) if d.get("child_name")])
+        days = "; ".join([d.get("preferred_day") for d in m.get("trial_details", []) if d.get("preferred_day")])
+        w.writerow([
+            m.get("name") or "", m.get("email") or "", m.get("phone") or "",
+            "Google" if m.get("provider") == "google" else "Email", joined,
+            "Yes" if m.get("is_member") else "No", m.get("application_status") or "",
+            ", ".join(m.get("trials", [])), children, days, m.get("active_bookings", 0),
+        ])
+    csv_text = buf.getvalue()
+    csv_b64 = base64.b64encode(csv_text.encode("utf-8")).decode()
+    fname = f"MaxEnergy_Members_{now_utc().strftime('%Y%m%d')}.csv"
+    ok = await send_email(
+        GYM_ADMIN_EMAIL,
+        f"Max Energy — Members & Trials export ({len(members)})",
+        _email_shell("Members & Trials Export", [
+            f"Attached is your current members & trials list ({len(members)} members).",
+            "Open the attached CSV file in Excel, Numbers or Google Sheets.",
+        ]),
+        attachments=[{"filename": fname, "content": csv_b64, "content_type": "text/csv"}],
+    )
+    return {"ok": ok, "count": len(members), "sent_to": GYM_ADMIN_EMAIL}
 
 
 @api.post("/admin/applications/{application_id}/status")
