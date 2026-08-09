@@ -34,10 +34,10 @@ EMERGENT_EMAIL_KEY = os.environ["EMERGENT_EMAIL_KEY"]
 EMAIL_FROM_NAME = os.environ["EMAIL_FROM_NAME"]
 STRIPE_API_KEY = os.environ["STRIPE_API_KEY"]
 GYM_ADMIN_EMAIL = os.environ["GYM_ADMIN_EMAIL"]
-ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@maxenergy.com.au")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "MaxAdmin123!")
-ADMIN2_EMAIL = os.environ.get("ADMIN2_EMAIL", "info@maxenergy.com.au")
-ADMIN2_PASSWORD = os.environ.get("ADMIN2_PASSWORD", "maxenergy12@")
+ADMIN_EMAIL = os.environ["ADMIN_EMAIL"]
+ADMIN_PASSWORD = os.environ["ADMIN_PASSWORD"]
+ADMIN2_EMAIL = os.environ["ADMIN2_EMAIL"]
+ADMIN2_PASSWORD = os.environ["ADMIN2_PASSWORD"]
 
 EMAIL_BASE_URL = "https://integrations.emergentagent.com"
 EMERGENT_AUTH_SESSION_URL = "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data"
