@@ -864,7 +864,7 @@ async def messages_list(u: dict = Depends(require_user)):
 
 
 @api.post("/messages")
-async def messages_send(body: MessageReq, u: dict = Depends(require_user)):
+async def messages_send(body: MessageReq, request: Request, u: dict = Depends(require_user)):
     text = (body.body or "").strip()
     if not text:
         raise HTTPException(400, "Message cannot be empty.")
@@ -880,11 +880,19 @@ async def messages_send(body: MessageReq, u: dict = Depends(require_user)):
         "created_at": now_utc(),
     }
     await db.messages.insert_one(msg)
+    from urllib.parse import quote_plus
+    base = _public_base(request)
+    thread_url = f"{base}/admin/thread?userId={u['user_id']}&name={quote_plus(msg['sender_name'])}" if base else ""
+    email_lines = [
+        f"<b>{msg['sender_name']}</b> ({u.get('email')}) sent you a new message:",
+        f"\"{text}\"",
+        _download_button(thread_url, "Open conversation") if thread_url else "Open the app → Admin → Inbox to reply.",
+    ]
     await notify_admins(
         f"New message from {msg['sender_name']}",
         f"{msg['sender_name']}: {text[:120]}",
         "message",
-        email_lines=[f"<b>{msg['sender_name']}</b> ({u.get('email')}) sent you a new message:", f"\"{text}\"", "Open the app → Admin → Inbox to reply."],
+        email_lines=email_lines,
     )
     msg.pop("_id", None)
     return {"message": msg}
