@@ -11,10 +11,14 @@ import { colors, spacing, radius } from "@/src/theme";
  */
 export function SignaturePad({
   onChange,
+  onDrawStart,
+  onDrawEnd,
   height = 180,
   testID,
 }: {
   onChange: (svgPath: string) => void;
+  onDrawStart?: () => void;
+  onDrawEnd?: () => void;
   height?: number;
   testID?: string;
 }) {
@@ -26,8 +30,13 @@ export function SignaturePad({
   const responder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
       onMoveShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponderCapture: () => true,
+      onPanResponderTerminationRequest: () => false,
+      onShouldBlockNativeResponder: () => true,
       onPanResponderGrant: (e: GestureResponderEvent) => {
+        onDrawStart && onDrawStart();
         const { locationX, locationY } = e.nativeEvent;
         current.current = `M${locationX.toFixed(1)},${locationY.toFixed(1)}`;
         setActive(current.current);
@@ -38,13 +47,17 @@ export function SignaturePad({
         setActive(current.current);
       },
       onPanResponderRelease: () => {
-        if (current.current) {
+        if (current.current && current.current.includes("L")) {
           finalized.current = [...finalized.current, current.current];
           setPaths(finalized.current);
           onChange(finalized.current.join(" "));
         }
         current.current = "";
         setActive("");
+        onDrawEnd && onDrawEnd();
+      },
+      onPanResponderTerminate: () => {
+        onDrawEnd && onDrawEnd();
       },
     })
   ).current;
@@ -61,8 +74,8 @@ export function SignaturePad({
 
   return (
     <View testID={testID}>
-      <View style={[styles.pad, { height }]} {...responder.panHandlers}>
-        <Svg width="100%" height="100%">
+      <View style={[styles.pad, { height }]} {...responder.panHandlers} collapsable={false}>
+        <Svg width="100%" height="100%" pointerEvents="none">
           {paths.map((d, i) => (
             <Path key={i} d={d} stroke={colors.onSurface} strokeWidth={2.5} fill="none" strokeLinejoin="round" strokeLinecap="round" />
           ))}

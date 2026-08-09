@@ -68,6 +68,7 @@ export default function Membership() {
   const [signature, setSignature] = useState("");
   const [signaturePath, setSignaturePath] = useState("");
   const [photo, setPhoto] = useState<string | null>(null);
+  const [scrollEnabled, setScrollEnabled] = useState(true);
 
   const load = useCallback(async () => {
     try {
@@ -88,15 +89,43 @@ export default function Membership() {
 
   const selectedPlan = plans.find((p) => p.plan_id === planId);
 
-  const canNext = () => {
-    if (step === 0) return !!planId;
-    if (step === 1) return firstName && lastName && mobile && category;
-    if (step === 2) return true;
-    if (step === 3) return waiverAgreed && signaturePath.length > 0 && mediaConsent !== null;
-    return false;
+  const validateStep = (s: number): string | null => {
+    if (s === 0) return planId ? null : "Please choose a membership plan to continue.";
+    if (s === 1) {
+      if (!firstName.trim()) return "Please enter your first name.";
+      if (!lastName.trim()) return "Please enter your last name.";
+      if (!dob.trim()) return "Please enter your date of birth.";
+      if (!mobile.trim()) return "Please enter a mobile number.";
+      if (!category) return "Please select a membership category.";
+      return null;
+    }
+    if (s === 2) return null;
+    if (s === 3) {
+      if (mediaConsent === null) return "Please choose Yes or No for media consent.";
+      if (!waiverAgreed) return "Please tick the box to agree to the terms and waiver.";
+      if (!signaturePath) return "Please sign in the signature box with your finger.";
+      if (!signature.trim()) return "Please type your full name as your signature.";
+      return null;
+    }
+    return null;
+  };
+
+  const goNext = () => {
+    const e = validateStep(step);
+    if (e) {
+      setErr(e);
+      return;
+    }
+    setErr(null);
+    setStep(step + 1);
   };
 
   const submit = async () => {
+    const e = validateStep(3);
+    if (e) {
+      setErr(e);
+      return;
+    }
     setErr(null);
     setSubmitting(true);
     try {
@@ -187,7 +216,7 @@ export default function Membership() {
         {loading ? (
           <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />
         ) : (
-          <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+          <ScrollView scrollEnabled={scrollEnabled} contentContainerStyle={{ padding: spacing.lg, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
             {step === 0 && (
               <>
                 <SectionTitle>MEMBERSHIP TYPE</SectionTitle>
@@ -238,13 +267,13 @@ export default function Membership() {
                 <Text style={styles.miniLabel}>Sex</Text>
                 <Segmented options={["Male", "Female", "Prefer not to say"]} value={sex} onChange={setSex} testIDPrefix="sex" />
                 <View style={{ height: spacing.md }} />
-                <Field label="First name" testID="m-first" value={firstName} onChangeText={setFirstName} placeholder="First name" />
-                <Field label="Last name" testID="m-last" value={lastName} onChangeText={setLastName} placeholder="Last name" />
-                <Field label="Date of birth" testID="m-dob" value={dob} onChangeText={setDob} placeholder="DD/MM/YYYY" />
+                <Field label="First name *" testID="m-first" value={firstName} onChangeText={setFirstName} placeholder="First name" />
+                <Field label="Last name *" testID="m-last" value={lastName} onChangeText={setLastName} placeholder="Last name" />
+                <Field label="Date of birth *" testID="m-dob" value={dob} onChangeText={setDob} placeholder="DD/MM/YYYY" />
                 <Field label="Home address" testID="m-address" value={address} onChangeText={setAddress} placeholder="Street address" />
                 <Field label="Suburb" testID="m-suburb" value={suburb} onChangeText={setSuburb} placeholder="Suburb" />
                 <Field label="Postcode" testID="m-postcode" value={postcode} onChangeText={setPostcode} keyboardType="number-pad" placeholder="Postcode" />
-                <Field label="Mobile" testID="m-mobile" value={mobile} onChangeText={setMobile} keyboardType="phone-pad" placeholder="Mobile number" />
+                <Field label="Mobile *" testID="m-mobile" value={mobile} onChangeText={setMobile} keyboardType="phone-pad" placeholder="Mobile number" />
                 <Field label="Emergency contact name" testID="m-emg-name" value={emergencyName} onChangeText={setEmergencyName} placeholder="Contact name" />
                 <Field label="Emergency contact phone" testID="m-emg-phone" value={emergencyPhone} onChangeText={setEmergencyPhone} keyboardType="phone-pad" placeholder="Contact phone" />
                 <YesNo label="Consent to receive info via email/post?" value={consentMarketing} onChange={setConsentMarketing} testID="m-consent" />
@@ -324,8 +353,13 @@ export default function Membership() {
                 />
 
                 <SectionTitle>SIGNATURE</SectionTitle>
-                <Text style={styles.helpText}>Draw your signature below to confirm your declaration.</Text>
-                <SignaturePad testID="signature-pad" onChange={setSignaturePath} />
+                <Text style={styles.helpText}>Draw your signature below with your finger to confirm your declaration.</Text>
+                <SignaturePad
+                  testID="signature-pad"
+                  onChange={setSignaturePath}
+                  onDrawStart={() => setScrollEnabled(false)}
+                  onDrawEnd={() => setScrollEnabled(true)}
+                />
                 <View style={{ height: spacing.sm }} />
                 <Field label="Full name (as signed)" testID="waiver-signature" value={signature} onChangeText={setSignature} placeholder="Your full name" />
 
@@ -355,9 +389,8 @@ export default function Membership() {
         {step < STEPS.length - 1 ? (
           <Pressable
             testID="membership-next"
-            style={[styles.primaryBtn, !canNext() && styles.btnDisabled]}
-            onPress={() => canNext() && setStep(step + 1)}
-            disabled={!canNext()}
+            style={styles.primaryBtn}
+            onPress={goNext}
           >
             <Text style={styles.primaryBtnText}>CONTINUE</Text>
             <Ionicons name="arrow-forward" size={16} color={colors.onBrand} />
@@ -365,9 +398,9 @@ export default function Membership() {
         ) : (
           <Pressable
             testID="membership-submit"
-            style={[styles.primaryBtn, (!canNext() || submitting) && styles.btnDisabled]}
+            style={[styles.primaryBtn, submitting && styles.btnDisabled]}
             onPress={submit}
-            disabled={!canNext() || submitting}
+            disabled={submitting}
           >
             {submitting ? <ActivityIndicator color={colors.onBrand} /> : <Text style={styles.primaryBtnText}>SUBMIT APPLICATION</Text>}
           </Pressable>
