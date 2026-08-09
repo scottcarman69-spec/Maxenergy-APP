@@ -1662,6 +1662,60 @@ async def admin_booking_attendance(booking_id: str, body: AttendanceReq, u: dict
     return {"ok": True, "attended": body.attended}
 
 
+@api.get("/admin/attendance/report")
+async def admin_attendance_report(u: dict = Depends(require_admin)):
+    QLD = timedelta(hours=10)  # Queensland time (no DST)
+    rows = await db.bookings.find(
+        {"attended": True, "checked_in_at": {"$ne": None}},
+        {"_id": 0, "class_name": 1, "checked_in_at": 1, "user_id": 1, "category": 1},
+    ).to_list(20000)
+
+    def local_date(dt: datetime):
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return (dt.astimezone(timezone.utc) + QLD).date()
+
+    now_local = (now_utc() + QLD).date()
+    week_start = now_local - timedelta(days=now_local.weekday())  # Monday
+    month_start = now_local.replace(day=1)
+
+    totals = {"today": 0, "week": 0, "month": 0, "all": 0}
+    by_class: dict = {}
+    by_member: dict = {}
+    daily: dict = {}
+    for r in rows:
+        d = local_date(r["checked_in_at"])
+        totals["all"] += 1
+        if d == now_local:
+            totals["today"] += 1
+        if d >= week_start:
+            totals["week"] += 1
+        if d >= month_start:
+            totals["month"] += 1
+        by_class[r.get("class_name", "Class")] = by_class.get(r.get("class_name", "Class"), 0) + 1
+        by_member[r["user_id"]] = by_member.get(r["user_id"], 0) + 1
+        daily[d.isoformat()] = daily.get(d.isoformat(), 0) + 1
+
+    # last 14 days series (oldest -> newest)
+    series = []
+    for i in range(13, -1, -1):
+        day = now_local - timedelta(days=i)
+        series.append({"date": day.strftime("%a %d"), "iso": day.isoformat(), "count": daily.get(day.isoformat(), 0)})
+
+    # resolve member names
+    uids = list(by_member.keys())
+    users = await db.users.find({"user_id": {"$in": uids}}, {"_id": 0, "user_id": 1, "name": 1, "email": 1}).to_list(5000)
+    umap = {x["user_id"]: x for x in users}
+    top_members = sorted(
+        [{"name": umap.get(uid, {}).get("name") or umap.get(uid, {}).get("email") or "Member",
+          "email": umap.get(uid, {}).get("email"), "count": c} for uid, c in by_member.items()],
+        key=lambda x: x["count"], reverse=True,
+    )[:15]
+    by_class_list = sorted([{"name": k, "count": v} for k, v in by_class.items()], key=lambda x: x["count"], reverse=True)
+
+    return {"totals": totals, "daily": series, "by_class": by_class_list, "top_members": top_members}
+
+
 @api.post("/admin/reminders/run")
 async def admin_run_reminders(u: dict = Depends(require_admin)):
     sent = await send_due_reminders()
