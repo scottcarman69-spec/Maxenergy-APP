@@ -90,7 +90,6 @@ export default function Home() {
               style={styles.headerLogo}
               contentFit="contain"
             />
-            <Text style={styles.academy}>FITNESS & MUAY THAI</Text>
             <Text style={styles.hello}>Welcome back, {user?.name?.split(" ")[0] || "champ"}</Text>
           </View>
           <Pressable testID="home-profile-btn" onPress={() => router.push("/(tabs)/profile")} style={styles.avatar}>
@@ -217,7 +216,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   headerLogo: { width: 150, height: 96, marginLeft: -6, marginBottom: 2 },
-  academy: { color: colors.brand, fontSize: 10, fontFamily: font.heading, letterSpacing: 3, marginTop: -2 },
   hello: { color: colors.onSurface, fontSize: 24, fontFamily: font.display, letterSpacing: 0.3, marginTop: 6 },
   avatar: {
     width: 44,
