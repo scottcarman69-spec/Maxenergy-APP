@@ -69,10 +69,6 @@ const styles = StyleSheet.create({
   appFrame: {
     flex: 1,
     width: "100%",
-    maxWidth: Platform.OS === "web" ? 480 : undefined,
     backgroundColor: colors.surface,
-    ...(Platform.OS === "web"
-      ? { shadowColor: "#000", shadowOpacity: 0.5, shadowRadius: 24, shadowOffset: { width: 0, height: 0 } }
-      : {}),
   },
 });
