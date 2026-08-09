@@ -10,9 +10,11 @@ import {
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius, type, font } from "@/src/theme";
+import { teamPhotos } from "@/src/gymPhotos";
 
 type Cls = {
   class_id: string;
@@ -147,7 +149,11 @@ export default function Timetable() {
                     style={styles.apptCard}
                   >
                     <View style={styles.apptIcon}>
-                      <Ionicons name="person" size={20} color={colors.brand} />
+                      {teamPhotos[item.trainer] || (item.trainer && item.trainer.includes("Alex")) ? (
+                        <Image source={teamPhotos["Alex Honorato"]} style={styles.apptAvatar} contentFit="cover" />
+                      ) : (
+                        <Ionicons name="person" size={20} color={colors.brand} />
+                      )}
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.className}>{item.name}</Text>
@@ -276,7 +282,8 @@ const styles = StyleSheet.create({
   emptyText: { color: colors.onSurfaceSecondary, fontSize: 14 },
   apptHeading: { color: colors.onSurfaceSecondary, fontSize: 12, fontFamily: font.heading, letterSpacing: 1.5 },
   apptCard: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.lg, borderWidth: 1, borderColor: colors.brand },
-  apptIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center" },
+  apptIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  apptAvatar: { width: 44, height: 44, borderRadius: 22 },
   apptTag: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6, alignSelf: "flex-start", backgroundColor: colors.brandTertiary, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },
   apptTagText: { color: colors.brand, fontSize: 11, fontFamily: font.semibold },
   bookPill: { backgroundColor: colors.brand, paddingHorizontal: spacing.lg, paddingVertical: 10, borderRadius: radius.pill },

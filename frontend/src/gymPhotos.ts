@@ -14,6 +14,7 @@ export const gymPhotos = [
 // Local override photos for team members (keyed by name).
 export const teamPhotos: Record<string, any> = {
   "Jamie Blackman": require("../assets/images/jamie.jpg"),
+  "Alex Honorato": require("../assets/images/alex.jpg"),
 };
 
 export const gymPhotoByService: Record<string, any> = {
