@@ -845,6 +845,14 @@ async def booking_checkin(booking_id: str, u: dict = Depends(require_user)):
 
 
 # -------------------- messaging (member <-> gym) --------------------
+@api.get("/messages/unread")
+async def messages_unread(u: dict = Depends(require_user)):
+    count = await db.messages.count_documents(
+        {"thread_user_id": u["user_id"], "sender_is_admin": True, "read_by_member": {"$ne": True}}
+    )
+    return {"count": count}
+
+
 @api.get("/messages")
 async def messages_list(u: dict = Depends(require_user)):
     rows = await db.messages.find({"thread_user_id": u["user_id"]}, {"_id": 0}).sort("created_at", 1).to_list(500)
@@ -1366,7 +1374,9 @@ async def download_membership_pdf(application_id: str):
 
 @api.get("/membership/applications/me")
 async def my_applications(u: dict = Depends(require_user)):
-    rows = await db.membership_applications.find({"user_id": u["user_id"]}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    rows = await db.membership_applications.find(
+        {"user_id": u["user_id"]}, {"_id": 0, "pdf_base64": 0}
+    ).sort("created_at", -1).to_list(50)
     return {"applications": rows}
 
 

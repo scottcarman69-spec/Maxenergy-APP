@@ -1,10 +1,10 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, TextInput, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, TextInput, Platform, Linking } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/src/AuthContext";
-import { api } from "@/src/api";
+import { api, BACKEND_URL } from "@/src/api";
 import { colors, spacing, radius, type, font } from "@/src/theme";
 
 type Notif = { notification_id: string; title: string; body: string; read: boolean; created_at: string; type: string };
@@ -25,6 +25,7 @@ export default function Profile() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [isMember, setIsMember] = useState(false);
+  const [pdfApp, setPdfApp] = useState<{ application_id: string; plan_name?: string } | null>(null);
   const [rescheduleFor, setRescheduleFor] = useState<Booking | null>(null);
   const [rTime, setRTime] = useState("");
   const [rNote, setRNote] = useState("");
@@ -36,7 +37,9 @@ export default function Profile() {
       const [n, b, a] = await Promise.all([api.notifications(), api.myBookings(), api.myApplications()]);
       setNotifs(n.notifications || []);
       setBookings(b.bookings || []);
-      setIsMember((a.applications || []).some((x: any) => x.status === "approved"));
+      const apps = a.applications || [];
+      setIsMember(apps.some((x: any) => x.status === "approved"));
+      setPdfApp(apps.find((x: any) => x.pdf_filename) || null);
     } catch {}
     setLoading(false);
   }, []);
@@ -157,6 +160,22 @@ export default function Profile() {
               <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceSecondary} />
             </Pressable>
           ))}
+          {pdfApp && (
+            <Pressable
+              testID="profile-download-form"
+              style={styles.downloadRow}
+              onPress={() => Linking.openURL(`${BACKEND_URL}/api/membership/forms/${pdfApp.application_id}.pdf`)}
+            >
+              <View style={styles.downloadIcon}>
+                <Ionicons name="document-text" size={18} color={colors.onBrand} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.downloadLabel}>Download my membership form</Text>
+                <Text style={styles.downloadSub}>PDF copy of your completed form</Text>
+              </View>
+              <Ionicons name="download-outline" size={20} color={colors.brand} />
+            </Pressable>
+          )}
         </View>
 
         <Text style={styles.section}>NOTIFICATIONS</Text>
@@ -368,6 +387,10 @@ const styles = StyleSheet.create({
   },
   linkIcon: { width: 36, height: 36, borderRadius: radius.sm, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center" },
   linkLabel: { color: colors.onSurface, fontFamily: font.heading, fontSize: 15, flex: 1 },
+  downloadRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.brand },
+  downloadIcon: { width: 36, height: 36, borderRadius: radius.sm, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
+  downloadLabel: { color: colors.onSurface, fontFamily: font.heading, fontSize: 15 },
+  downloadSub: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 1 },
   section: { color: colors.onSurfaceSecondary, fontSize: 12, fontFamily: font.heading, letterSpacing: 1.5, paddingHorizontal: spacing.lg, marginTop: spacing.xl, marginBottom: spacing.md },
   notifRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md, backgroundColor: colors.surfaceSecondary, padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
   unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.brand, marginTop: 6 },

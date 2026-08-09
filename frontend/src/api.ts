@@ -136,6 +136,7 @@ export const api = {
   attendanceReport: () => req("/api/admin/attendance/report"),
   // messaging
   myMessages: () => req("/api/messages"),
+  unreadMessages: () => req("/api/messages/unread"),
   sendMessage: (body: string) => req("/api/messages", { method: "POST", body: JSON.stringify({ body }) }),
   adminThreads: () => req("/api/admin/threads"),
   adminThreadMessages: (userId: string) => req(`/api/admin/threads/${userId}`),
