@@ -14,7 +14,7 @@ import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius, type, font } from "@/src/theme";
-import { teamPhotos } from "@/src/gymPhotos";
+import { teamPhotos, academyLogo } from "@/src/gymPhotos";
 
 type Cls = {
   class_id: string;
@@ -189,24 +189,31 @@ export default function Timetable() {
                 <Text style={styles.dur}>{item.duration_min}m</Text>
               </View>
               <View style={styles.card}>
-                <View style={styles.cardTop}>
-                  <Text style={styles.className}>{item.name}</Text>
-                  <View style={[styles.catTag, { backgroundColor: item.category === "Kids" ? "rgba(34,197,94,0.15)" : colors.brandTertiary }]}>
-                    <Text style={[styles.catTagText, { color: item.category === "Kids" ? "#22C55E" : colors.brand }]}>{item.category}</Text>
+                <View style={styles.cardBody}>
+                  <View style={styles.logoBadge}>
+                    <Image source={academyLogo} style={styles.logoImg} contentFit="contain" />
                   </View>
-                </View>
-                <Text style={styles.trainer}>with {item.trainer}</Text>
-                {!!item.program && (
-                  <View style={styles.programTag}>
-                    <Ionicons name="school" size={11} color={colors.brand} />
-                    <Text style={styles.programText}>{item.program}</Text>
+                  <View style={{ flex: 1 }}>
+                    <View style={styles.cardTop}>
+                      <Text style={styles.className}>{item.name}</Text>
+                      <View style={[styles.catTag, { backgroundColor: item.category === "Kids" ? "rgba(34,197,94,0.15)" : colors.brandTertiary }]}>
+                        <Text style={[styles.catTagText, { color: item.category === "Kids" ? "#22C55E" : colors.brand }]}>{item.category}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.trainer}>with {item.trainer}</Text>
+                    {!!item.program && (
+                      <View style={styles.programTag}>
+                        <Ionicons name="school" size={11} color={colors.brand} />
+                        <Text style={styles.programText}>{item.program}</Text>
+                      </View>
+                    )}
+                    <View style={styles.metaRow}>
+                      <View style={styles.pill}>
+                        <Text style={styles.pillText}>{item.level}</Text>
+                      </View>
+                      <Text style={styles.duration}>{item.duration_min} min</Text>
+                    </View>
                   </View>
-                )}
-                <View style={styles.metaRow}>
-                  <View style={styles.pill}>
-                    <Text style={styles.pillText}>{item.level}</Text>
-                  </View>
-                  <Text style={styles.duration}>{item.duration_min} min</Text>
                 </View>
               </View>
             </Pressable>
@@ -267,6 +274,9 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   cardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  cardBody: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  logoBadge: { width: 52, height: 52, borderRadius: 26, backgroundColor: "#000", alignItems: "center", justifyContent: "center", overflow: "hidden", borderWidth: 1, borderColor: colors.border },
+  logoImg: { width: 46, height: 46 },
   className: { color: colors.onSurface, fontSize: 17, fontWeight: "800", flex: 1 },
   catTag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },
   catTagText: { fontSize: 10, fontWeight: "900", letterSpacing: 0.5 },

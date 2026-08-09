@@ -17,6 +17,9 @@ export const teamPhotos: Record<string, any> = {
   "Alex Honorato": require("../assets/images/alex.jpg"),
 };
 
+// Max Energy Muay Thai Academy skull logo (shown beside timetable classes).
+export const academyLogo = require("../assets/images/academy-logo.jpg");
+
 export const gymPhotoByService: Record<string, any> = {
   gym: require("../assets/images/gym1.jpg"),
   supplements: require("../assets/images/gym4.jpg"),
