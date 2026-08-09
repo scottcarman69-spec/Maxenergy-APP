@@ -12,7 +12,7 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
-import { colors, spacing, radius, type } from "@/src/theme";
+import { colors, spacing, radius, type, font } from "@/src/theme";
 
 type Cls = {
   class_id: string;
@@ -162,7 +162,7 @@ export default function Timetable() {
                   <View style={styles.pill}>
                     <Text style={styles.pillText}>{item.level}</Text>
                   </View>
-                  <Text style={styles.price}>${(item.price_cents / 100).toFixed(0)}</Text>
+                  <Text style={styles.duration}>{item.duration_min} min</Text>
                 </View>
               </View>
             </Pressable>
@@ -233,6 +233,7 @@ const styles = StyleSheet.create({
   pill: { backgroundColor: colors.surfaceTertiary, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
   pillText: { color: colors.onSurfaceTertiary, fontSize: 11, fontWeight: "700" },
   price: { color: colors.brand, fontSize: 18, fontWeight: "900" },
+  duration: { color: colors.onSurfaceSecondary, fontSize: 12, fontFamily: font.medium },
   empty: { alignItems: "center", padding: 40, gap: spacing.md },
   emptyText: { color: colors.onSurfaceSecondary, fontSize: 14 },
 });
