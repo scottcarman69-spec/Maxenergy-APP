@@ -38,7 +38,7 @@ ADMIN2_PASSWORD = os.environ.get("ADMIN2_PASSWORD", "maxenergy12@")
 
 EMAIL_BASE_URL = "https://integrations.emergentagent.com"
 EMERGENT_AUTH_SESSION_URL = "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data"
-SEED_VERSION = "v13"
+SEED_VERSION = "v14"
 
 GYM_INFO = {
     "name": "Max Energy Muay Thai Academy",
@@ -1515,11 +1515,9 @@ async def seed_data():
 
         # Membership plans
         plans = [
-            {"plan_id": new_id("plan"), "sort": 1, "name": "Kids Casual", "category": "Kids", "price_display": "15/class", "price_cents": 1500, "interval": "class", "features": ["Pay as you go", "Mon & Thu 5:00–5:45pm", "Muay Thai - Kids", "No lock-in"]},
+            {"plan_id": new_id("plan"), "sort": 1, "name": "Kids Muay Thai Casual Visit", "category": "Kids", "price_display": "15/class", "price_cents": 1500, "interval": "class", "features": ["Pay as you go", "Mon & Thu 5:00–5:45pm", "Muay Thai - Kids", "No lock-in"]},
             {"plan_id": new_id("plan"), "sort": 2, "name": "Kids 10 Week Term", "category": "Kids", "price_display": "300 / term", "price_cents": 30000, "interval": "term", "features": ["10-week term program", "Mon & Thu 5:00–5:45pm", "Or direct debit $35/week", "No joining fee"]},
-            {"plan_id": new_id("plan"), "sort": 3, "name": "Adult Casual", "category": "Adults", "price_display": "25/class", "price_cents": 2500, "interval": "class", "features": ["Pay as you go", "Any adult class", "No lock-in"]},
-            {"plan_id": new_id("plan"), "sort": 4, "name": "Adult 3x / Week", "category": "Adults", "price_display": "40/week", "price_cents": 4000, "interval": "week", "features": ["3 classes per week", "All disciplines", "Open gym access"]},
-            {"plan_id": new_id("plan"), "sort": 5, "name": "Adult Unlimited", "category": "Adults", "price_display": "55/week", "price_cents": 5500, "interval": "week", "features": ["Unlimited classes", "24/7 gym access", "Free grading", "Bring a friend"]},
+            {"plan_id": new_id("plan"), "sort": 3, "name": "Adult Muay Thai Casual Visit", "category": "Adults", "price_display": "25/class", "price_cents": 2500, "interval": "class", "features": ["Pay as you go", "Any adult class", "No lock-in"]},
         ]
         await db.membership_plans.insert_many(plans)
 

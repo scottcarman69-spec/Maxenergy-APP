@@ -35,6 +35,7 @@ export default function ClassDetail() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [isMember, setIsMember] = useState<boolean | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -43,6 +44,12 @@ export default function ClassDetail() {
       setCls(c);
     } catch (e: any) {
       setMsg(e?.message || "Failed to load");
+    }
+    try {
+      const a = await api.myApplications();
+      setIsMember((a.applications || []).length > 0);
+    } catch {
+      setIsMember(null);
     }
     setLoading(false);
   }, [id]);
@@ -168,6 +175,19 @@ export default function ClassDetail() {
           <Text style={styles.sectionTitle}>ABOUT</Text>
           <Text style={styles.desc}>{cls.description}</Text>
 
+          {isMember === false && (
+            <Pressable testID="join-notice" style={styles.joinNotice} onPress={() => router.push("/membership")}>
+              <View style={styles.joinIcon}>
+                <Ionicons name="card" size={18} color={colors.brand} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.joinTitle}>Not a member yet?</Text>
+                <Text style={styles.joinBody}>Please fill out a membership form to join Max Energy. Tap here to get started.</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.brand} />
+            </Pressable>
+          )}
+
           {!!(cls as any).program && (
             <View style={styles.programBanner}>
               <Ionicons name="school" size={18} color={colors.brand} />
@@ -253,6 +273,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   desc: { color: colors.onSurface, fontSize: 15, lineHeight: 22 },
+  joinNotice: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.brandTertiary, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.md, borderWidth: 1, borderColor: colors.brand },
+  joinIcon: { width: 38, height: 38, borderRadius: radius.sm, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
+  joinTitle: { color: colors.onSurface, fontSize: 15, fontWeight: "800" },
+  joinBody: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 2 },
   programBanner: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.brandTertiary, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.md },
   programBannerText: { color: colors.brand, fontSize: 13, fontWeight: "700", flex: 1 },
   msg: { color: colors.brand, textAlign: "center", marginTop: spacing.md, fontWeight: "700" },
