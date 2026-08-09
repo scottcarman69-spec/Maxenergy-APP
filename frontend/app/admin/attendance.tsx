@@ -11,6 +11,7 @@ type Report = {
   daily: { date: string; iso: string; count: number }[];
   by_class: { name: string; count: number }[];
   top_members: { name: string; email?: string; count: number }[];
+  recent: { name: string; email?: string; class_name: string; date: string; time: string; by: string }[];
 };
 
 export default function AdminAttendance() {
@@ -103,6 +104,29 @@ export default function AdminAttendance() {
               ))
             )}
           </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>RECENT CHECK-INS</Text>
+            {(!data.recent || data.recent.length === 0) ? (
+              <Text style={styles.muted}>No check-ins yet.</Text>
+            ) : (
+              data.recent.map((c, i) => (
+                <View key={i} style={styles.checkinRow}>
+                  <View style={styles.checkinDot}>
+                    <Ionicons name="checkmark" size={12} color="#fff" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.rowName} numberOfLines={1}>{c.name}</Text>
+                    <Text style={styles.rowEmail} numberOfLines={1}>{c.class_name}</Text>
+                  </View>
+                  <View style={{ alignItems: "flex-end" }}>
+                    <Text style={styles.ciDate}>{c.date}</Text>
+                    <Text style={styles.ciTime}>{c.time}{c.by === "admin" ? " · by staff" : ""}</Text>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
         </ScrollView>
       )}
     </SafeAreaView>
@@ -131,4 +155,8 @@ const styles = StyleSheet.create({
   rowEmail: { color: colors.onSurfaceSecondary, fontSize: 11 },
   rowCount: { color: colors.brand, fontWeight: "900", fontSize: 16 },
   muted: { color: colors.onSurfaceSecondary, fontSize: 13, paddingVertical: 6 },
+  checkinRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: 10, borderTopWidth: 1, borderTopColor: colors.border },
+  checkinDot: { width: 22, height: 22, borderRadius: 11, backgroundColor: "#16A34A", alignItems: "center", justifyContent: "center" },
+  ciDate: { color: colors.onSurface, fontSize: 12, fontWeight: "700" },
+  ciTime: { color: colors.onSurfaceSecondary, fontSize: 11, marginTop: 1 },
 });

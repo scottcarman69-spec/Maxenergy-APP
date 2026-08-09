@@ -1667,7 +1667,7 @@ async def admin_attendance_report(u: dict = Depends(require_admin)):
     QLD = timedelta(hours=10)  # Queensland time (no DST)
     rows = await db.bookings.find(
         {"attended": True, "checked_in_at": {"$ne": None}},
-        {"_id": 0, "class_name": 1, "checked_in_at": 1, "user_id": 1, "category": 1},
+        {"_id": 0, "class_name": 1, "checked_in_at": 1, "user_id": 1, "category": 1, "checked_in_by": 1},
     ).to_list(20000)
 
     def local_date(dt: datetime):
@@ -1713,7 +1713,27 @@ async def admin_attendance_report(u: dict = Depends(require_admin)):
     )[:15]
     by_class_list = sorted([{"name": k, "count": v} for k, v in by_class.items()], key=lambda x: x["count"], reverse=True)
 
-    return {"totals": totals, "daily": series, "by_class": by_class_list, "top_members": top_members}
+    # Detailed recent check-ins (name + class + date/time), newest first
+    def local_dt(dt: datetime):
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc) + QLD
+
+    recent_sorted = sorted(rows, key=lambda r: r["checked_in_at"], reverse=True)[:150]
+    recent = []
+    for r in recent_sorted:
+        m = umap.get(r["user_id"], {})
+        ld = local_dt(r["checked_in_at"])
+        recent.append({
+            "name": m.get("name") or m.get("email") or "Member",
+            "email": m.get("email"),
+            "class_name": r.get("class_name", "Class"),
+            "date": ld.strftime("%a %d %b %Y"),
+            "time": ld.strftime("%-I:%M %p"),
+            "by": r.get("checked_in_by") or "member",
+        })
+
+    return {"totals": totals, "daily": series, "by_class": by_class_list, "top_members": top_members, "recent": recent}
 
 
 @api.post("/admin/reminders/run")
