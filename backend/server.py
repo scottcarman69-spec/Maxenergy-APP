@@ -5,6 +5,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 import uuid
+import asyncio
 import io
 import base64
 import bcrypt
@@ -1366,6 +1367,12 @@ async def admin_booking_reschedule(booking_id: str, body: AdminRescheduleReq, u:
     return {"ok": True}
 
 
+@api.post("/admin/reminders/run")
+async def admin_run_reminders(u: dict = Depends(require_admin)):
+    sent = await send_due_reminders()
+    return {"ok": True, "reminders_sent": sent}
+
+
 @api.get("/")
 async def root():
     return {"app": "Max Energy Muay Thai Academy API", "ok": True}
@@ -1545,6 +1552,58 @@ async def seed_data():
 @app.on_event("startup")
 async def _startup():
     await seed_data()
+    app.state.reminder_task = asyncio.create_task(reminder_loop())
+
+
+async def send_due_reminders() -> int:
+    """Send a one-time reminder for scheduled classes starting within the next 24h."""
+    now = now_utc()
+    window_end = now + timedelta(hours=24)
+    bookings = await db.bookings.find(
+        {"status": {"$in": ["paid", "confirmed"]}, "reminder_sent": {"$ne": True}},
+        {"_id": 0},
+    ).to_list(2000)
+    sent = 0
+    for b in bookings:
+        cls = await db.classes.find_one({"class_id": b["class_id"]}, {"_id": 0})
+        if not cls:
+            continue
+        start = cls.get("start_at")
+        if not isinstance(start, datetime):
+            continue
+        if start.tzinfo is None:
+            start = start.replace(tzinfo=timezone.utc)
+        if not (now <= start <= window_end):
+            continue
+        member = await db.users.find_one({"user_id": b["user_id"]}, {"_id": 0})
+        when = start.strftime("%A %d %B at %-I:%M %p")
+        await notify_user(
+            b["user_id"], (member or {}).get("email"),
+            "Class reminder",
+            f"Reminder: your {b['class_name']} class is tomorrow — {when}. See you there!",
+            "reminder",
+            email_lines=[
+                f"This is a friendly reminder that your <b>{b['class_name']}</b> class is coming up:",
+                f"<b>{when}</b>",
+                "See you on the mats! 🥊",
+            ],
+        )
+        await db.bookings.update_one({"booking_id": b["booking_id"]}, {"$set": {"reminder_sent": True, "reminder_sent_at": now}})
+        sent += 1
+    if sent:
+        log.info(f"sent {sent} class reminder(s)")
+    return sent
+
+
+async def reminder_loop():
+    # Small initial delay so startup/seed completes first
+    await asyncio.sleep(20)
+    while True:
+        try:
+            await send_due_reminders()
+        except Exception as e:
+            log.error(f"reminder loop error: {e}")
+        await asyncio.sleep(3600)  # hourly
 
 
 @app.on_event("shutdown")
