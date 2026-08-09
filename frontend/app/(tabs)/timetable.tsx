@@ -23,6 +23,7 @@ type Cls = {
   level: string;
   category: string;
   start_at: string;
+  program?: string;
 };
 
 const CATEGORIES = ["All", "Adults", "Kids"];
@@ -151,6 +152,12 @@ export default function Timetable() {
                   </View>
                 </View>
                 <Text style={styles.trainer}>with {item.trainer}</Text>
+                {!!item.program && (
+                  <View style={styles.programTag}>
+                    <Ionicons name="school" size={11} color={colors.brand} />
+                    <Text style={styles.programText}>{item.program}</Text>
+                  </View>
+                )}
                 <View style={styles.metaRow}>
                   <View style={styles.pill}>
                     <Text style={styles.pillText}>{item.level}</Text>
@@ -220,6 +227,8 @@ const styles = StyleSheet.create({
   catTag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },
   catTagText: { fontSize: 10, fontWeight: "900", letterSpacing: 0.5 },
   trainer: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 3 },
+  programTag: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6, alignSelf: "flex-start", backgroundColor: colors.brandTertiary, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },
+  programText: { color: colors.brand, fontSize: 10, fontWeight: "800", letterSpacing: 0.5 },
   metaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: spacing.md },
   pill: { backgroundColor: colors.surfaceTertiary, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
   pillText: { color: colors.onSurfaceTertiary, fontSize: 11, fontWeight: "700" },

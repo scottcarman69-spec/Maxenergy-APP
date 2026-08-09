@@ -167,6 +167,15 @@ export default function ClassDetail() {
           <Text style={styles.sectionTitle}>ABOUT</Text>
           <Text style={styles.desc}>{cls.description}</Text>
 
+          {!!(cls as any).program && (
+            <View style={styles.programBanner}>
+              <Ionicons name="school" size={18} color={colors.brand} />
+              <Text style={styles.programBannerText}>
+                {(cls as any).program} · runs each school term. Enrol via Membership for the full term.
+              </Text>
+            </View>
+          )}
+
           {msg && <Text style={styles.msg}>{msg}</Text>}
         </View>
       </ScrollView>
@@ -243,6 +252,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   desc: { color: colors.onSurface, fontSize: 15, lineHeight: 22 },
+  programBanner: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.brandTertiary, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.md },
+  programBannerText: { color: colors.brand, fontSize: 13, fontWeight: "700", flex: 1 },
   msg: { color: colors.brand, textAlign: "center", marginTop: spacing.md, fontWeight: "700" },
   footer: {
     position: "absolute",
