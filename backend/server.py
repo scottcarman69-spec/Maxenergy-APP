@@ -964,7 +964,7 @@ async def admin_thread_reply(user_id: str, body: MessageReq, request: Request, u
         "message_id": new_id("msg"),
         "thread_user_id": user_id,
         "sender_id": u["user_id"],
-        "sender_name": "Max Energy Team",
+        "sender_name": "Maxenergy Team",
         "sender_is_admin": True,
         "body": text,
         "read_by_member": False,
@@ -979,7 +979,7 @@ async def admin_thread_reply(user_id: str, body: MessageReq, request: Request, u
         "New message from Max Energy",
         text[:140],
         "message",
-        email_lines=["You have a new message from the Max Energy team:", f"\"{text}\"", open_btn],
+        email_lines=["You have a new message from the Maxenergy Team:", f"\"{text}\"", open_btn],
     )
     msg.pop("_id", None)
     return {"message": msg}

@@ -181,7 +181,7 @@ export default function Membership() {
           <Ionicons name="checkmark-circle" size={72} color={colors.brand} />
           <Text style={styles.doneTitle}>Application submitted!</Text>
           <Text style={styles.doneSub}>
-            Thanks {firstName}. The Max Energy team will review your application and be in touch. A confirmation email is on its way.
+            Thanks {firstName}. The Maxenergy Team will review your application and be in touch. A confirmation email is on its way.
           </Text>
           <Pressable testID="membership-done-btn" style={styles.primaryBtn} onPress={() => router.replace("/(tabs)/home")}>
             <Text style={styles.primaryBtnText}>BACK TO HOME</Text>

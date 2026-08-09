@@ -44,7 +44,7 @@ export default function InboxTab() {
     <SafeAreaView style={styles.root} edges={["top"]}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Inbox</Text>
-        <Text style={styles.headerSub}>Message the Max Energy team</Text>
+        <Text style={styles.headerSub}>Message Maxenergy Team</Text>
       </View>
 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }} keyboardVerticalOffset={80}>
@@ -55,12 +55,12 @@ export default function InboxTab() {
             {msgs.length === 0 ? (
               <View style={styles.empty}>
                 <Ionicons name="chatbubbles-outline" size={40} color={colors.onSurfaceSecondary} />
-                <Text style={styles.emptyText}>Have a question or an issue? Send us a message and the Max Energy team will get back to you here.</Text>
+                <Text style={styles.emptyText}>Have a question or an issue? Send us a message and the Maxenergy Team will get back to you here.</Text>
               </View>
             ) : (
               msgs.map((m) => (
                 <View key={m.message_id} style={[styles.bubble, m.sender_is_admin ? styles.bubbleThem : styles.bubbleMe]}>
-                  {m.sender_is_admin && <Text style={styles.sender}>Max Energy Team</Text>}
+                  {m.sender_is_admin && <Text style={styles.sender}>Maxenergy Team</Text>}
                   <Text style={[styles.msgText, !m.sender_is_admin && { color: colors.onBrand }]}>{m.body}</Text>
                 </View>
               ))
