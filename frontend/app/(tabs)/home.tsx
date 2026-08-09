@@ -17,6 +17,7 @@ import { useAuth } from "@/src/AuthContext";
 import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
 import { gymPhotos } from "@/src/gymPhotos";
+import FacebookFeed from "@/src/components/FacebookFeed";
 
 type Cls = {
   class_id: string;
@@ -184,6 +185,9 @@ export default function Home() {
                 <Image key={i} source={src} style={styles.galleryImg} contentFit="cover" />
               ))}
             </ScrollView>
+
+            <Text style={styles.sectionTitle}>LATEST FROM FACEBOOK</Text>
+            <FacebookFeed />
           </>
         )}
       </ScrollView>
