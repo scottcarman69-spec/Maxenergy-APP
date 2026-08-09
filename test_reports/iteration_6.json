@@ -1,0 +1,38 @@
+{
+  "summary": "Backend-only tests for the new download-link + messaging features. All 15/15 tests passed sequentially (100%). Verified: (1) POST /api/membership/apply creates application, stores pdf_base64, and the PUBLIC endpoint GET /api/membership/forms/{id}.pdf returns HTTP 200 with content-type=application/pdf and a valid %PDF header (>500 bytes); missing id returns 404. (2) POST /api/admin/members/export returns download_url and GET /api/admin/exports/{export_id}.csv publicly serves the CSV (content-type=text/csv, header row includes Name/Email/Application Status); missing id returns 404. (3) Full messaging roundtrip: member POST /api/messages -> GET /api/messages, GET /api/admin/threads shows unread>=1, GET /api/admin/threads/{user_id} returns messages+member and marks admin-read (unread cleared to 0), POST /api/admin/threads/{user_id} reply appears in the member's GET /api/messages inbox with sender_is_admin=true. (4) GET /api/admin/overview returns unread_messages integer >=1 after a fresh member ping. (5) Auth guards: /api/messages requires auth, admin endpoints reject member tokens with 403, PDF/CSV download endpoints work with NO Authorization header. Only ONE membership application was submitted to respect the Resend rate limit as instructed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_download_and_messaging.py",
+    "/app/test_reports/pytest/pytest_download_messaging.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is now ~2183 lines — approaching the 700-line split threshold. Consider splitting into modules (auth, membership, messaging, admin, payments) in a future refactor. Not blocking.",
+    "send_email throttle (line 108-127) uses a single global asyncio.Lock + monotonic gap of 0.7s and delays [0,2,5,12,25] on 429. Retry only continues on 429; any other HTTP error returns False after first try. Logic is correct for the reported bug (bursts + rate limit dropping copies).",
+    "_public_base() correctly uses x-forwarded-proto/host so the download links work behind ingress; falls back to PUBLIC_BASE_URL env var. Verified: download_url in export response uses the ingress hostname and downloads successfully.",
+    "download_membership_pdf and download_export_csv are intentionally public capability URLs — capability is derived from unguessable UUID id (uuid4 hex, 12 chars = 48 bits). Acceptable; if stricter security is needed later, add short-lived signed tokens.",
+    "GET /api/messages side-effect marks admin messages as read_by_member=True. Consistent with typical inbox behavior but note: it's a GET with a mutation. Same pattern applies to GET /api/admin/threads/{user_id}. Non-blocking.",
+    "admin_threads aggregation runs in Python over all messages (up to 5000). Fine for small user base; consider a MongoDB aggregation pipeline if messages grow. Non-blocking."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_download_and_messaging.py (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (15/15)",
+    "frontend": "N/A (skipped per request)"
+  },
+  "seed_data_creation": "One test member registered per run (testmsg+<random>@gmail.com / Password123) plus one membership application, one members-export doc, and a handful of messages. All prefixed/traceable via TEST or the unique gmail alias.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Reuse /app/backend/tests/test_download_and_messaging.py. Run with `pytest backend/tests/test_download_and_messaging.py -v -o addopts=` to disable pytest-xdist (module-scope fixture state doesn't cross xdist workers -- one auth-guard test uses pytest.skip as a safety net if run under xdist). Admin login uses info@maxenergy.com.au/maxenergy12@ (seeded ADMIN2). Do NOT submit >1 membership application per run — Resend proxy will 429 or 422-reject fake @gmail.com recipients and that is expected, not a bug.",
+  "rca_of_issue": "Original bugs (1) member did not receive application copy and (2) PDF attachment missing. RCA: Emergent-managed Resend email proxy silently drops the `attachments` array in the outgoing payload, and repeated sends within ~1s were being 429-rate-limited (the send_email function previously did not retry on 429). Fix verified: (a) `_post_email_throttled` serializes sends behind an asyncio.Lock with a 0.7s min interval + retry backoff [0,2,5,12,25]s on 429; (b) attachments were replaced with public capability download URLs (`/api/membership/forms/{id}.pdf` and `/api/admin/exports/{id}.csv`) that are stored in Mongo as base64 and streamed on demand. Both endpoints now confirmed public, correct content-type, valid file bytes, and 404 on missing ids. Messaging system verified end-to-end (member->admin unread, admin read state, admin reply visible to member, overview counter)."
+}

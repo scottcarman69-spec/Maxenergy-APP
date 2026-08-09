@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, TextInput } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, TextInput, Linking } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,6 +17,7 @@ type Member = {
   is_member?: boolean;
   application_status?: string | null;
   active_bookings?: number;
+  phone?: string;
 };
 
 const FILTERS = ["All", "Members", "Free Trials"] as const;
@@ -144,22 +145,53 @@ export default function AdminMembers() {
           ) : (
             filtered.map((m) => (
               <View key={m.user_id} testID={`adminmem-row-${m.user_id}`} style={styles.card}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{(m.name || m.email || "?").slice(0, 1).toUpperCase()}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.name}>{m.name || "—"}</Text>
-                  <Text style={styles.email}>{m.email}</Text>
-                  <View style={styles.tagRow}>
-                    {m.is_admin && <View style={[styles.tag, { backgroundColor: colors.brand }]}><Text style={styles.tagText}>ADMIN</Text></View>}
-                    {m.is_member && <View style={[styles.tag, { backgroundColor: "#16A34A" }]}><Text style={styles.tagText}>MEMBER</Text></View>}
-                    {!m.is_member && m.application_status === "pending" && <View style={[styles.tag, { backgroundColor: colors.surfaceTertiary }]}><Text style={[styles.tagText, { color: colors.onSurface }]}>APP PENDING</Text></View>}
-                    {(m.trials || []).map((t) => (
-                      <View key={t} style={[styles.tag, { backgroundColor: "#7C3AED" }]}><Text style={styles.tagText}>{t?.toUpperCase()} TRIAL</Text></View>
-                    ))}
-                    {!!m.active_bookings && <View style={[styles.tag, { backgroundColor: colors.surfaceTertiary }]}><Text style={[styles.tagText, { color: colors.onSurface }]}>{m.active_bookings} BOOKED</Text></View>}
+                <View style={styles.cardTop}>
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>{(m.name || m.email || "?").slice(0, 1).toUpperCase()}</Text>
                   </View>
-                  <Text style={styles.joined}>Joined {fmtDate(m.created_at)} · {m.provider === "google" ? "Google" : "Email"}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.name}>{m.name || "—"}</Text>
+                    <Text style={styles.email}>{m.email}</Text>
+                    {!!m.phone && <Text style={styles.phone}>{m.phone}</Text>}
+                    <View style={styles.tagRow}>
+                      {m.is_admin && <View style={[styles.tag, { backgroundColor: colors.brand }]}><Text style={styles.tagText}>ADMIN</Text></View>}
+                      {m.is_member && <View style={[styles.tag, { backgroundColor: "#16A34A" }]}><Text style={styles.tagText}>MEMBER</Text></View>}
+                      {!m.is_member && m.application_status === "pending" && <View style={[styles.tag, { backgroundColor: colors.surfaceTertiary }]}><Text style={[styles.tagText, { color: colors.onSurface }]}>APP PENDING</Text></View>}
+                      {(m.trials || []).map((t) => (
+                        <View key={t} style={[styles.tag, { backgroundColor: "#7C3AED" }]}><Text style={styles.tagText}>{t?.toUpperCase()} TRIAL</Text></View>
+                      ))}
+                      {!!m.active_bookings && <View style={[styles.tag, { backgroundColor: colors.surfaceTertiary }]}><Text style={[styles.tagText, { color: colors.onSurface }]}>{m.active_bookings} BOOKED</Text></View>}
+                    </View>
+                    <Text style={styles.joined}>Joined {fmtDate(m.created_at)} · {m.provider === "google" ? "Google" : "Email"}</Text>
+                  </View>
+                </View>
+                <View style={styles.contactRow}>
+                  <Pressable
+                    testID={`adminmem-call-${m.user_id}`}
+                    style={[styles.contactBtn, !m.phone && styles.contactBtnDisabled]}
+                    disabled={!m.phone}
+                    onPress={() => m.phone && Linking.openURL(`tel:${m.phone.replace(/\s/g, "")}`)}
+                  >
+                    <Ionicons name="call" size={16} color={m.phone ? colors.brand : colors.onSurfaceSecondary} />
+                    <Text style={[styles.contactText, !m.phone && { color: colors.onSurfaceSecondary }]}>Call</Text>
+                  </Pressable>
+                  <Pressable
+                    testID={`adminmem-email-${m.user_id}`}
+                    style={[styles.contactBtn, !m.email && styles.contactBtnDisabled]}
+                    disabled={!m.email}
+                    onPress={() => m.email && Linking.openURL(`mailto:${m.email}`)}
+                  >
+                    <Ionicons name="mail" size={16} color={m.email ? colors.brand : colors.onSurfaceSecondary} />
+                    <Text style={[styles.contactText, !m.email && { color: colors.onSurfaceSecondary }]}>Email</Text>
+                  </Pressable>
+                  <Pressable
+                    testID={`adminmem-msg-${m.user_id}`}
+                    style={[styles.contactBtn, styles.contactBtnLast]}
+                    onPress={() => router.push({ pathname: "/admin/thread", params: { userId: m.user_id, name: m.name || m.email || "Member" } } as any)}
+                  >
+                    <Ionicons name="chatbubble-ellipses" size={16} color={colors.brand} />
+                    <Text style={styles.contactText}>Message</Text>
+                  </Pressable>
                 </View>
               </View>
             ))

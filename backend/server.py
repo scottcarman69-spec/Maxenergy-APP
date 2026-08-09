@@ -1,4 +1,5 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Header, Request, Depends
+from fastapi.responses import Response
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -6,6 +7,7 @@ import os
 import logging
 import uuid
 import asyncio
+import time
 import io
 import base64
 import bcrypt
@@ -101,26 +103,45 @@ def user_public(u: dict) -> dict:
     }
 
 
+# Global throttle so we never exceed Resend's per-second rate limit (which was
+# silently dropping application/confirmation copies during email bursts).
+_email_lock = asyncio.Lock()
+_last_email_ts = 0.0
+EMAIL_MIN_INTERVAL = 0.7  # seconds enforced between any two outgoing emails
+
+
+async def _post_email_throttled(payload: dict) -> httpx.Response:
+    """Serialize + space out sends so bursts stay under the provider rate limit."""
+    global _last_email_ts
+    async with _email_lock:
+        gap = time.monotonic() - _last_email_ts
+        if gap < EMAIL_MIN_INTERVAL:
+            await asyncio.sleep(EMAIL_MIN_INTERVAL - gap)
+        async with httpx.AsyncClient(timeout=30) as hc:
+            r = await hc.post(
+                f"{EMAIL_BASE_URL}/api/v1/email/send",
+                headers={"X-Email-Key": EMERGENT_EMAIL_KEY},
+                json=payload,
+            )
+        _last_email_ts = time.monotonic()
+        return r
+
+
 async def send_email(recipient: str, subject: str, html: str, attachments: Optional[list] = None) -> bool:
     payload = {"to": [recipient], "subject": subject, "html": html, "from_name": EMAIL_FROM_NAME}
     if attachments:
         payload["attachments"] = attachments
-    delays = [0, 3, 8, 15]  # retry with backoff when rate-limited (429)
+    delays = [0, 2, 5, 12, 25]  # retry with backoff when rate-limited (429)
     for attempt, wait in enumerate(delays):
         if wait:
             await asyncio.sleep(wait)
         try:
-            async with httpx.AsyncClient(timeout=30) as hc:
-                r = await hc.post(
-                    f"{EMAIL_BASE_URL}/api/v1/email/send",
-                    headers={"X-Email-Key": EMERGENT_EMAIL_KEY},
-                    json=payload,
-                )
-                if r.status_code == 429 and attempt < len(delays) - 1:
-                    log.warning(f"email rate-limited to {recipient}, retrying (attempt {attempt + 1})")
-                    continue
-                r.raise_for_status()
-                return True
+            r = await _post_email_throttled(payload)
+            if r.status_code == 429 and attempt < len(delays) - 1:
+                log.warning(f"email rate-limited to {recipient}, retrying (attempt {attempt + 1})")
+                continue
+            r.raise_for_status()
+            return True
         except httpx.HTTPStatusError as e:
             log.error(f"email failed to {recipient}: {e.response.status_code} body={e.response.text[:300]}")
             return False
@@ -138,6 +159,27 @@ def _email_shell(heading: str, lines: list) -> str:
         f"<h1 style='color:#fff;margin:0;font-size:20px;'>{heading}</h1></div>"
         f"<div style='padding:24px;background:#fafafa;border-radius:0 0 10px 10px;border:1px solid #eee;'>{body}"
         "<p style='margin:18px 0 0;color:#999;font-size:12px;'>Max Energy Muay Thai Academy · Smithfield QLD</p></div></div>"
+    )
+
+
+def _public_base(request: Optional[Request]) -> str:
+    """Build the externally reachable base URL from the incoming request so
+    email links work in both preview and deployed environments (the app's own
+    public domain is not stored in the environment)."""
+    if request is not None:
+        proto = request.headers.get("x-forwarded-proto") or request.url.scheme or "https"
+        host = request.headers.get("x-forwarded-host") or request.headers.get("host")
+        if host:
+            return f"{proto}://{host}"
+    return os.environ.get("PUBLIC_BASE_URL", "")
+
+
+def _download_button(url: str, label: str) -> str:
+    return (
+        f"<p style='margin:18px 0'><a href='{url}' "
+        "style='display:inline-block;background:#FF7A00;color:#fff;text-decoration:none;"
+        "padding:12px 22px;border-radius:8px;font-weight:bold;font-size:15px'>"
+        f"{label}</a></p>"
     )
 
 
@@ -1195,7 +1237,7 @@ def build_membership_pdf(doc: dict, plan: dict) -> bytes:
 
 
 @api.post("/membership/apply")
-async def membership_apply(body: MembershipApplyReq, u: dict = Depends(require_user)):
+async def membership_apply(body: MembershipApplyReq, request: Request, u: dict = Depends(require_user)):
     plan = await db.membership_plans.find_one({"plan_id": body.plan_id}, {"_id": 0})
     plan_name = plan["name"] if plan else "New Membership Form"
     app_id = new_id("app")
@@ -1265,7 +1307,7 @@ async def membership_apply(body: MembershipApplyReq, u: dict = Depends(require_u
     </table>
     """
     # Generate a PDF copy of the completed membership form
-    pdf_attachments = []
+    pdf_link = ""
     try:
         pdf_bytes = build_membership_pdf(doc, plan or {"name": plan_name, "price_display": ""})
         pdf_b64 = base64.b64encode(pdf_bytes).decode()
@@ -1274,24 +1316,52 @@ async def membership_apply(body: MembershipApplyReq, u: dict = Depends(require_u
         await db.membership_applications.update_one(
             {"application_id": app_id}, {"$set": {"pdf_base64": pdf_b64, "pdf_filename": filename}}
         )
-        pdf_attachments = [{"filename": filename, "content": pdf_b64, "content_type": "application/pdf"}]
+        base = _public_base(request)
+        if base:
+            pdf_link = f"{base}/api/membership/forms/{app_id}.pdf"
     except Exception as e:
         log.error(f"membership pdf failed: {e}")
 
-    await send_email(GYM_ADMIN_EMAIL, f"New membership application – {body.full_name}", gym_html, pdf_attachments)
-    # confirmation to applicant (with a copy of their completed form attached)
+    gym_pdf_html = (
+        f"<p><a href='{pdf_link}' style='color:#FF7A00;font-weight:bold'>Download the completed membership form (PDF)</a></p>"
+        if pdf_link else ""
+    )
+    gym_html = gym_html.replace("</td></tr>", f"{gym_pdf_html}</td></tr>", 1)
+    await send_email(GYM_ADMIN_EMAIL, f"New membership application – {body.full_name}", gym_html)
+    # confirmation to applicant (with a link to download a copy of their completed form)
     conf_html = f"""
     <table width="100%" style="font-family:Arial,sans-serif;background:#121214;color:#F9FAFB;padding:24px">
       <tr><td>
         <h2 style="color:#FF7A00;margin:0 0 8px">Your membership form</h2>
         <p>Hi {body.full_name}, thanks for applying for the <strong>{plan_name}</strong> membership at Max Energy Muay Thai Academy.</p>
-        <p>A PDF copy of your completed membership form is attached for your records. Our team will review your application and get in touch shortly.</p>
+        <p>You can download a PDF copy of your completed membership form using the button below. Our team will review your application and get in touch shortly.</p>
+        {_download_button(pdf_link, "Download my membership form (PDF)") if pdf_link else ""}
+        {"" if pdf_link else "<p>Your completed form is saved to your account.</p>"}
       </td></tr>
     </table>
     """
-    await send_email(u["email"], "Your Max Energy membership form (copy attached)", conf_html, pdf_attachments)
+    await send_email(u["email"], "Your Max Energy membership form (copy)", conf_html)
     doc.pop("_id", None)
     return {"application": doc}
+
+
+@api.get("/membership/forms/{application_id}.pdf")
+async def download_membership_pdf(application_id: str):
+    doc = await db.membership_applications.find_one(
+        {"application_id": application_id}, {"_id": 0, "pdf_base64": 1, "pdf_filename": 1}
+    )
+    if not doc or not doc.get("pdf_base64"):
+        raise HTTPException(404, "Membership form not found")
+    try:
+        pdf_bytes = base64.b64decode(doc["pdf_base64"])
+    except Exception:
+        raise HTTPException(500, "Could not read form")
+    filename = doc.get("pdf_filename") or "membership_form.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
 
 
 @api.get("/membership/applications/me")
@@ -1442,7 +1512,8 @@ async def admin_overview(u: dict = Depends(require_admin)):
     members = await db.users.count_documents({})
     pending_bookings = await db.bookings.count_documents({"status": {"$in": ["pending", "reschedule_requested"]}})
     trials = await db.free_trials.count_documents({})
-    return {"classes": classes, "applications": apps, "pending_applications": pending, "announcements": ann, "members": members, "pending_bookings": pending_bookings, "trials": trials}
+    unread_messages = await db.messages.count_documents({"sender_is_admin": False, "read_by_admin": {"$ne": True}})
+    return {"classes": classes, "applications": apps, "pending_applications": pending, "announcements": ann, "members": members, "pending_bookings": pending_bookings, "trials": trials, "unread_messages": unread_messages}
 
 
 @api.get("/admin/classes")
@@ -1608,7 +1679,7 @@ async def admin_members(u: dict = Depends(require_admin)):
 
 
 @api.post("/admin/members/export")
-async def admin_members_export(u: dict = Depends(require_admin)):
+async def admin_members_export(request: Request, u: dict = Depends(require_admin)):
     members = await _build_members_list()
     import csv, io as _io
     buf = _io.StringIO()
@@ -1628,17 +1699,41 @@ async def admin_members_export(u: dict = Depends(require_admin)):
         ])
     csv_text = buf.getvalue()
     csv_b64 = base64.b64encode(csv_text.encode("utf-8")).decode()
+    export_id = new_id("exp")
     fname = f"MaxEnergy_Members_{now_utc().strftime('%Y%m%d')}.csv"
+    await db.exports.insert_one({
+        "export_id": export_id,
+        "filename": fname,
+        "csv_base64": csv_b64,
+        "count": len(members),
+        "created_at": now_utc(),
+    })
+    base = _public_base(request)
+    dl_link = f"{base}/api/admin/exports/{export_id}.csv" if base else ""
     ok = await send_email(
         GYM_ADMIN_EMAIL,
         f"Max Energy — Members & Trials export ({len(members)})",
         _email_shell("Members & Trials Export", [
-            f"Attached is your current members & trials list ({len(members)} members).",
-            "Open the attached CSV file in Excel, Numbers or Google Sheets.",
+            f"Your current members & trials list is ready ({len(members)} members).",
+            "Tap the button below to download the CSV, then open it in Excel, Numbers or Google Sheets.",
+            _download_button(dl_link, "Download CSV") if dl_link else "",
         ]),
-        attachments=[{"filename": fname, "content": csv_b64, "content_type": "text/csv"}],
     )
-    return {"ok": ok, "count": len(members), "sent_to": GYM_ADMIN_EMAIL}
+    return {"ok": ok, "count": len(members), "sent_to": GYM_ADMIN_EMAIL, "download_url": dl_link}
+
+
+@api.get("/admin/exports/{export_id}.csv")
+async def download_export_csv(export_id: str):
+    doc = await db.exports.find_one({"export_id": export_id}, {"_id": 0, "csv_base64": 1, "filename": 1})
+    if not doc or not doc.get("csv_base64"):
+        raise HTTPException(404, "Export not found")
+    csv_bytes = base64.b64decode(doc["csv_base64"])
+    filename = doc.get("filename") or "export.csv"
+    return Response(
+        content=csv_bytes,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @api.post("/admin/applications/{application_id}/status")
