@@ -7,7 +7,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
-import { aboutHero, gymPhotos } from "@/src/gymPhotos";
+import { aboutHero, gymPhotos, teamPhotos } from "@/src/gymPhotos";
 
 type Member = { name: string; role: string; image: string; bio: string; quals: string[] };
 type About = { heading: string; subheading: string; since: string; story: string[]; team: Member[] };
@@ -63,7 +63,7 @@ export default function AboutScreen() {
             <Text style={styles.sectionTitle}>MEET THE TEAM</Text>
             {data?.team.map((m) => (
               <View key={m.name} style={styles.card}>
-                <Image source={m.image} style={styles.avatar} contentFit="cover" />
+                <Image source={teamPhotos[m.name] || m.image} style={styles.avatar} contentFit="cover" />
                 <View style={styles.cardBody}>
                   <Text style={styles.name}>{m.name}</Text>
                   <Text style={styles.role}>{m.role}</Text>
