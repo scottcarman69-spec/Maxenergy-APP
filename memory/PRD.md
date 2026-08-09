@@ -56,3 +56,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 ## Session update 7 (Jun 2026 fork)
 - DONE: Delete Account (Apple review requirement). DELETE /api/auth/account removes the signed-in user + all their data (bookings, RSVPs, trials, applications, notifications, payment_transactions, messages, sessions); admin accounts blocked (400). In-app "Delete my account" button + confirm modal on Profile (hidden for admins). Verified: member delete 200, re-login 401, admin delete 400. Also removed hardcoded admin cred fallbacks (now env-only) and quoted .env values with spaces to clear deployment health-check blockers (status now PASS/warn only).
 - DONE: Modernised Home Quick Actions icons — gradient icon chips with per-action vibrant colors + shadow + corner chevron + press scale (View Schedule/Check-In/Free Trial/Join Membership/Our Services/Gym Notices/About Us/Contact).
+
+## Session update 8 (Jun 2026 fork)
+- Removed classes: Beginners Muay Thai and Sparring Session (deleted DB instances + seed templates; no bookings affected).
+- Muay Thai - Kids moved to Mon & Wed only (shifted Thu sessions to Wed to preserve 4 existing bookings; updated template days [0,2], class description, and Kids membership plan features text).
+- Web view fix: app now renders as a centered phone-width column on web (appFrame maxWidth 480 + side borders on Platform web) instead of stretching full browser width. Mobile unchanged.

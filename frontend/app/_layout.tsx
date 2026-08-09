@@ -69,6 +69,16 @@ const styles = StyleSheet.create({
   appFrame: {
     flex: 1,
     width: "100%",
+    alignSelf: "center",
     backgroundColor: colors.surface,
+    ...Platform.select({
+      web: {
+        maxWidth: 480,
+        borderLeftWidth: 1,
+        borderRightWidth: 1,
+        borderColor: colors.border,
+      },
+      default: {},
+    }),
   },
 });
