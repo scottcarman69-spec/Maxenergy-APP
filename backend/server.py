@@ -2003,7 +2003,7 @@ app.add_middleware(
 # -------------------- seed --------------------
 CLASS_TEMPLATES = [
     # (name, category, trainer, level, duration, price_cents, day_of_week(0=Mon), hour, image, desc, program)
-    ("Muay Thai - Kids", "Kids", "Coach Alex", "Ages 6-16", 45, 1500, [0, 3], 17, "https://images.unsplash.com/photo-1595078475328-1ab05d0a6a0e?w=1200&q=80", "Kids Muay Thai Classes\n🥊 Mondays & Thursdays | 5:00–5:45pm\nHelp your child build confidence, focus, discipline and fitness in a fun and supportive environment.\nPricing:\n• $15 casual per class\n• $300 upfront for the full 10-week term\n• Or $35/week by direct debit\n• No joining fee!\nA great way for kids to stay active, learn new skills and grow in confidence.", "10 Week Term"),
+    ("Muay Thai - Kids", "Kids", "Coach Alex", "Ages 6-16", 45, 1500, [0, 2], 17, "https://images.unsplash.com/photo-1595078475328-1ab05d0a6a0e?w=1200&q=80", "Kids Muay Thai Classes\n🥊 Mondays & Wednesdays | 5:00–5:45pm\nHelp your child build confidence, focus, discipline and fitness in a fun and supportive environment.\nPricing:\n• $15 casual per class\n• $300 upfront for the full 10-week term\n• Or $35/week by direct debit\n• No joining fee!\nA great way for kids to stay active, learn new skills and grow in confidence.", "10 Week Term"),
     ("Muay Thai - Adults", "Adults", "Coach Alex", "All levels", 60, 2500, [0, 2], 18, "https://images.unsplash.com/photo-1591117207239-788bf8de6c3b?w=1200&q=80", "Adults Muay Thai Classes\n🥊 Mondays & Wednesdays | 6:00pm\nBuild real strength, fitness and confidence in a high-energy class that welcomes all levels.\nWhat you'll do:\n• Pad work and technique drills\n• Clinch work and combinations\n• Strength and conditioning\nWhether you're training for fitness or fighting form, our coaches will meet you where you're at. No experience needed — just bring your energy!", ""),
     ("Kickboxing", "Adults", "Coach Alex", "All levels", 60, 2500, [1, 3], 18, "https://images.unsplash.com/photo-1549824506-7f0f8b7f5b23?w=1200&q=80", "Kickboxing Classes\n🥊 Tuesdays & Thursdays | 6:00pm\nTorch calories, relieve stress and learn real technique in a fun, fast-paced class for all levels.\nWhat you'll get:\n• Strikes, kicks and combinations\n• Cardio and conditioning\n• A full-body workout that never gets boring\nA great way to get fit, build confidence and pick up new skills — beginners welcome!", ""),
 ]
@@ -2131,8 +2131,8 @@ async def seed_data():
 
         # Membership plans
         plans = [
-            {"plan_id": new_id("plan"), "sort": 1, "name": "Kids Muay Thai Casual Visit", "category": "Kids", "price_display": "15/class", "price_cents": 1500, "interval": "class", "features": ["Pay as you go", "Mon & Thu 5:00–5:45pm", "Muay Thai - Kids", "No lock-in"]},
-            {"plan_id": new_id("plan"), "sort": 2, "name": "Kids 10 Week Term", "category": "Kids", "price_display": "300 / term", "price_cents": 30000, "interval": "term", "features": ["10-week term program", "Mon & Thu 5:00–5:45pm", "Or direct debit $35/week", "No joining fee"]},
+            {"plan_id": new_id("plan"), "sort": 1, "name": "Kids Muay Thai Casual Visit", "category": "Kids", "price_display": "15/class", "price_cents": 1500, "interval": "class", "features": ["Pay as you go", "Mon & Wed 5:00–5:45pm", "Muay Thai - Kids", "No lock-in"]},
+            {"plan_id": new_id("plan"), "sort": 2, "name": "Kids 10 Week Term", "category": "Kids", "price_display": "300 / term", "price_cents": 30000, "interval": "term", "features": ["10-week term program", "Mon & Wed 5:00–5:45pm", "Or direct debit $35/week", "No joining fee"]},
             {"plan_id": new_id("plan"), "sort": 3, "name": "Adult Muay Thai Casual Visit", "category": "Adults", "price_display": "25/class", "price_cents": 2500, "interval": "class", "features": ["Pay as you go", "Any adult class", "No lock-in"]},
         ]
         await db.membership_plans.insert_many(plans)
