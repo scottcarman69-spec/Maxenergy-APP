@@ -1,38 +1,30 @@
-# Maxenergy Fitness — Mobile App PRD
+# Max Energy Muay Thai Academy — Mobile App PRD
 
 ## Original Problem Statement
-Build a mobile app: sign up/register page, view class timetables, make online payments for classes, and notify members about upcoming events. Branded for **Maxenergy Fitness** (Cairns/Smithfield gym — Muay Thai, Kickboxing, BJJ, Boxing, Boot Camp, Personal Training).
+Mobile app: sign up/register, view class timetables, pay online for classes, notify members of events. Rebranded to **Max Energy Muay Thai Academy** (Cairns/Smithfield) based on maxenergy.com.au.
 
-## Stack & Architecture
-- Frontend: Expo Router (SDK 54), React Native, dark theme + orange accent (#FF7A00), Maxenergy logo.
-- Backend: FastAPI (`/api` prefix), MongoDB (motor).
-- Integrations: JWT email/password auth, Emergent-managed Google Auth, Stripe checkout (emergentintegrations, `sk_test_emergent`), Emergent-managed Resend email.
-
-## User Personas
-- Gym member: browses timetable, books & pays for classes, RSVPs to events, gets notified.
-
-## Core Requirements (static)
-1. Sign up / login (email+password and Google). ✅
-2. View class timetable by day. ✅
-3. Pay online for a class (Stripe). ✅
-4. Upcoming events + notify members (in-app feed + email on RSVP). ✅
+## Stack
+- Frontend: Expo Router (SDK 54), RN, dark theme + orange (#FF7A00), Maxenergy logo.
+- Backend: FastAPI (/api), MongoDB (motor). Seed versioned (currently v6).
+- Integrations: JWT email/password + Emergent Google Auth; Stripe checkout (emergentintegrations, sk_test_emergent); Emergent Resend email.
 
 ## Implemented (2026-08-09)
-- Auth: register/login (JWT) + Google OAuth session exchange; `/auth/me`, logout.
-- Classes: 84 seeded across 14 days; timetable with sticky day selector; class detail.
-- Bookings + Stripe checkout session, status polling, webhook, booking confirmation notification.
-- Events: 4 seeded; event detail; RSVP creates in-app notification + confirmation email (Resend).
-- Notifications feed + My Bookings in Profile.
-- Branding: Maxenergy white logo on login/register/home; orange accent theme.
-- Backend fully tested (16/16 passing).
+- Auth: register/login (JWT) + Google; is_admin flag; admin account seeded.
+- Classes: Muay Thai academy schedule w/ Kids & Adults categories + timetable filter.
+  - Kids Muay Thai: Mon & Thu 5:00–5:45pm, 10 Week Term ($300/term or $35/wk DD, no joining fee).
+  - Muay Thai - Adults: Mon & Wed 6pm. Plus Beginners Muay Thai, Kickboxing, Sparring, Personal Training.
+- Booking + Stripe checkout + status polling + webhook.
+- Events + RSVP (in-app notification + Resend email).
+- Gym Notices (announcements) tab.
+- Membership Application Form: multi-step (plan, member details, medical questionnaire, media consent, waiver) + DRAW-TO-SIGN signature pad (react-native-svg) + photo capture (expo-image-picker, permission-handled). Emails gym + applicant.
+- Contact/Gym Info screen (real Maxenergy details, tap-to-call/email/map, socials).
+- About Us screen mirroring website /about: story + trainer profiles (Alex, Jamie, Andrew, Scott).
+- Admin Dashboard: overview stats, manage classes (CRUD w/ datetime), post/delete notices, review applications (approve/decline, view signature + photo).
+- Backend tested: 41/41 passing (iteration_2).
 
-## Backlog / Remaining
-- P1: PayPal payment option (user requested; Stripe done first).
-- P1: Push notifications for event reminders (requires deployed native build; not testable in Expo Go).
-- P2: Class capacity/seat reservation enforcement.
-- P2: Membership plans / recurring subscriptions.
-- P2: Cancel booking + refund flow.
+## Admin credentials
+admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
-## Next Tasks
-- Add PayPal as a second pay option on class detail.
-- Add push notifications (Emergent-managed) once user deploys a build.
+## Backlog
+- P1: PayPal payment option; Push notifications (needs native build); Term-dates config for Kids block.
+- P2: Locations & Services pages; Trainer booking from profile; Digital member ID card; class capacity/spots-left.
