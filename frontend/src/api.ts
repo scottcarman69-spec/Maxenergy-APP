@@ -134,6 +134,13 @@ export const api = {
   adminSetAttendance: (id: string, attended: boolean) =>
     req(`/api/admin/bookings/${id}/attendance`, { method: "POST", body: JSON.stringify({ attended }) }),
   attendanceReport: () => req("/api/admin/attendance/report"),
+  // messaging
+  myMessages: () => req("/api/messages"),
+  sendMessage: (body: string) => req("/api/messages", { method: "POST", body: JSON.stringify({ body }) }),
+  adminThreads: () => req("/api/admin/threads"),
+  adminThreadMessages: (userId: string) => req(`/api/admin/threads/${userId}`),
+  adminThreadReply: (userId: string, body: string) =>
+    req(`/api/admin/threads/${userId}`, { method: "POST", body: JSON.stringify({ body }) }),
 };
 
 export const BACKEND_URL = API_URL;

@@ -379,6 +379,10 @@ class AttendanceReq(BaseModel):
     attended: bool = True
 
 
+class MessageReq(BaseModel):
+    body: str
+
+
 class AnnouncementUpdate(BaseModel):
     title: str
     body: str
@@ -796,6 +800,109 @@ async def booking_checkin(booking_id: str, u: dict = Depends(require_user)):
     )
     b = await db.bookings.find_one({"booking_id": booking_id}, {"_id": 0})
     return {"booking": b}
+
+
+# -------------------- messaging (member <-> gym) --------------------
+@api.get("/messages")
+async def messages_list(u: dict = Depends(require_user)):
+    rows = await db.messages.find({"thread_user_id": u["user_id"]}, {"_id": 0}).sort("created_at", 1).to_list(500)
+    await db.messages.update_many(
+        {"thread_user_id": u["user_id"], "sender_is_admin": True, "read_by_member": {"$ne": True}},
+        {"$set": {"read_by_member": True}},
+    )
+    return {"messages": rows}
+
+
+@api.post("/messages")
+async def messages_send(body: MessageReq, u: dict = Depends(require_user)):
+    text = (body.body or "").strip()
+    if not text:
+        raise HTTPException(400, "Message cannot be empty.")
+    msg = {
+        "message_id": new_id("msg"),
+        "thread_user_id": u["user_id"],
+        "sender_id": u["user_id"],
+        "sender_name": u.get("name") or u.get("email"),
+        "sender_is_admin": False,
+        "body": text,
+        "read_by_member": True,
+        "read_by_admin": False,
+        "created_at": now_utc(),
+    }
+    await db.messages.insert_one(msg)
+    await notify_admins(
+        "New member message",
+        f"{msg['sender_name']}: {text[:120]}",
+        "message",
+        email_lines=[f"<b>{msg['sender_name']}</b> ({u.get('email')}) sent a message:", f"\"{text}\"", "Reply in the app: Admin → Inbox."],
+    )
+    msg.pop("_id", None)
+    return {"message": msg}
+
+
+@api.get("/admin/threads")
+async def admin_threads(u: dict = Depends(require_admin)):
+    rows = await db.messages.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
+    threads: dict = {}
+    for m in rows:
+        tid = m["thread_user_id"]
+        if tid not in threads:
+            threads[tid] = {"user_id": tid, "last_body": m["body"], "last_at": m["created_at"], "last_is_admin": m["sender_is_admin"], "unread": 0}
+        if not m["sender_is_admin"] and not m.get("read_by_admin"):
+            threads[tid]["unread"] += 1
+    uids = list(threads.keys())
+    users = await db.users.find({"user_id": {"$in": uids}}, {"_id": 0, "user_id": 1, "name": 1, "email": 1}).to_list(5000)
+    umap = {x["user_id"]: x for x in users}
+    out = []
+    for tid, t in threads.items():
+        m = umap.get(tid, {})
+        t["name"] = m.get("name") or m.get("email") or "Member"
+        t["email"] = m.get("email")
+        out.append(t)
+    out.sort(key=lambda x: x["last_at"], reverse=True)
+    return {"threads": out}
+
+
+@api.get("/admin/threads/{user_id}")
+async def admin_thread_messages(user_id: str, u: dict = Depends(require_admin)):
+    rows = await db.messages.find({"thread_user_id": user_id}, {"_id": 0}).sort("created_at", 1).to_list(500)
+    await db.messages.update_many(
+        {"thread_user_id": user_id, "sender_is_admin": False, "read_by_admin": {"$ne": True}},
+        {"$set": {"read_by_admin": True}},
+    )
+    member = await db.users.find_one({"user_id": user_id}, {"_id": 0, "name": 1, "email": 1})
+    return {"messages": rows, "member": member}
+
+
+@api.post("/admin/threads/{user_id}")
+async def admin_thread_reply(user_id: str, body: MessageReq, u: dict = Depends(require_admin)):
+    text = (body.body or "").strip()
+    if not text:
+        raise HTTPException(400, "Message cannot be empty.")
+    member = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    if not member:
+        raise HTTPException(404, "Member not found")
+    msg = {
+        "message_id": new_id("msg"),
+        "thread_user_id": user_id,
+        "sender_id": u["user_id"],
+        "sender_name": "Max Energy Team",
+        "sender_is_admin": True,
+        "body": text,
+        "read_by_member": False,
+        "read_by_admin": True,
+        "created_at": now_utc(),
+    }
+    await db.messages.insert_one(msg)
+    await notify_user(
+        user_id, member.get("email"),
+        "New message from Max Energy",
+        text[:140],
+        "message",
+        email_lines=["You have a new message from the Max Energy team:", f"\"{text}\"", "Open the app to reply: Profile → Message the Gym."],
+    )
+    msg.pop("_id", None)
+    return {"message": msg}
 
 
 # -------------------- payments (Stripe) --------------------
