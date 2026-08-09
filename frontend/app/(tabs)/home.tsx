@@ -90,7 +90,7 @@ export default function Home() {
               style={styles.headerLogo}
               contentFit="contain"
             />
-            <Text style={styles.academy}>MUAY THAI ACADEMY</Text>
+            <Text style={styles.academy}>FITNESS & MUAY THAI</Text>
             <Text style={styles.hello}>Welcome back, {user?.name?.split(" ")[0] || "champ"}</Text>
           </View>
           <Pressable testID="home-profile-btn" onPress={() => router.push("/(tabs)/profile")} style={styles.avatar}>

@@ -53,7 +53,7 @@ export default function Contact() {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: 40 }}>
-        <Text style={styles.gymName}>{info?.name || "Max Energy Muay Thai Academy"}</Text>
+        <Text style={styles.gymName}>{info?.name || "Maxenergy Fitness"}</Text>
         <Text style={styles.tagline}>Your gym in Cairns · Get fit. Feel good.</Text>
 
         <View style={{ gap: spacing.sm, marginTop: spacing.xl }}>

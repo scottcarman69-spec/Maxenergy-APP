@@ -44,7 +44,7 @@ EMERGENT_AUTH_SESSION_URL = "https://demobackend.emergentagent.com/auth/v1/env/o
 SEED_VERSION = "v14"
 
 GYM_INFO = {
-    "name": "Max Energy Muay Thai Academy",
+    "name": "Maxenergy Fitness",
     "phone": "07 4057 9005",
     "email": "info@maxenergy.com.au",
     "address": "Shop 38 Campus Village Shopping Centre, 38 Faculty Cl, Smithfield QLD 4878",
@@ -57,7 +57,7 @@ GYM_INFO = {
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
 
-app = FastAPI(title="Max Energy Muay Thai Academy API")
+app = FastAPI(title="Maxenergy Fitness API")
 api = APIRouter(prefix="/api")
 
 logging.basicConfig(level=logging.INFO)
@@ -158,7 +158,7 @@ def _email_shell(heading: str, lines: list) -> str:
         "<div style='background:#FF7A00;padding:20px 24px;border-radius:10px 10px 0 0;'>"
         f"<h1 style='color:#fff;margin:0;font-size:20px;'>{heading}</h1></div>"
         f"<div style='padding:24px;background:#fafafa;border-radius:0 0 10px 10px;border:1px solid #eee;'>{body}"
-        "<p style='margin:18px 0 0;color:#999;font-size:12px;'>Max Energy Muay Thai Academy · Smithfield QLD</p></div></div>"
+        "<p style='margin:18px 0 0;color:#999;font-size:12px;'>Maxenergy Fitness · Smithfield QLD</p></div></div>"
     )
 
 
@@ -263,7 +263,7 @@ async def mark_booking_paid(booking_id: str) -> None:
             start,
             duration or 60,
             GYM_INFO["address"],
-            f"{b['class_name']} at Max Energy Muay Thai Academy. Booking ref: {b['booking_id']}.",
+            f"{b['class_name']} at Maxenergy Fitness. Booking ref: {b['booking_id']}.",
         )
         cal_line = f"<a href='{cal_url}' style='color:#FF7A00;font-weight:bold'>➕ Add this class to your calendar</a>"
     # Full-detail confirmation email to the member
@@ -1123,9 +1123,9 @@ async def event_rsvp(body: EventRSVPReq, u: dict = Depends(require_user)):
     <table width="100%" style="font-family:Arial,sans-serif;background:#121214;color:#F9FAFB;padding:24px">
       <tr><td>
         <h2 style="color:#FF7A00;margin:0 0 8px">You're going to {e['title']}</h2>
-        <p style="color:#A1A1AA;margin:0 0 12px">See you at Max Energy Muay Thai Academy.</p>
+        <p style="color:#A1A1AA;margin:0 0 12px">See you at Maxenergy Fitness.</p>
         <p><strong>When:</strong> {when}</p>
-        <p><strong>Where:</strong> {e.get('location','Max Energy Muay Thai Academy, Smithfield')}</p>
+        <p><strong>Where:</strong> {e.get('location','Maxenergy Fitness, Smithfield')}</p>
         <p style="margin-top:16px">{e.get('description','')}</p>
       </td></tr>
     </table>
@@ -1175,7 +1175,7 @@ def build_membership_pdf(doc: dict, plan: dict) -> bytes:
     # Header
     c.setFillColorRGB(*ORANGE)
     c.setFont("Helvetica-Bold", 20)
-    c.drawString(45, y, "Max Energy Muay Thai Academy")
+    c.drawString(45, y, "Maxenergy Fitness")
     y -= 22
     c.setFillColorRGB(0.3, 0.3, 0.3)
     c.setFont("Helvetica", 11)
@@ -1371,7 +1371,7 @@ async def membership_apply(body: MembershipApplyReq, request: Request, u: dict =
     <table width="100%" style="font-family:Arial,sans-serif;background:#121214;color:#F9FAFB;padding:24px">
       <tr><td>
         <h2 style="color:#FF7A00;margin:0 0 8px">Your membership form</h2>
-        <p>Hi {body.full_name}, thanks for applying for the <strong>{plan_name}</strong> membership at Max Energy Muay Thai Academy.</p>
+        <p>Hi {body.full_name}, thanks for applying for the <strong>{plan_name}</strong> membership at Maxenergy Fitness.</p>
         <p>You can download a PDF copy of your completed membership form using the button below. Our team will review your application and get in touch shortly.</p>
         {_download_button(pdf_link, "Download my membership form (PDF)") if pdf_link else ""}
         {"" if pdf_link else "<p>Your completed form is saved to your account.</p>"}
@@ -1478,7 +1478,7 @@ async def trials_claim(body: TrialClaimReq, u: dict = Depends(require_user)):
     mname = u.get("name") or u.get("email")
     member_lines = [
         f"Hi {attendee_name or mname},",
-        f"Welcome to Max Energy Muay Thai Academy! Your <b>free {category} trial class</b> is confirmed. Here are the details:",
+        f"Welcome to Maxenergy Fitness! Your <b>free {category} trial class</b> is confirmed. Here are the details:",
         "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
     ]
     if category == "Kids":
@@ -1986,7 +1986,7 @@ async def admin_run_reminders(u: dict = Depends(require_admin)):
 
 @api.get("/")
 async def root():
-    return {"app": "Max Energy Muay Thai Academy API", "ok": True}
+    return {"app": "Maxenergy Fitness API", "ok": True}
 
 
 app.include_router(api)
@@ -2148,9 +2148,9 @@ async def seed_data():
         # Events
         base_e = now_utc().replace(hour=18, minute=0, second=0, microsecond=0)
         events = [
-            {"event_id": new_id("evt"), "title": "Community Fight Night", "start_at": base_e + timedelta(days=6), "location": "Max Energy Muay Thai Academy, Smithfield", "image": "https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=1200&q=80", "description": "Amateur showcase night. Come cheer on our fighters. Doors open at 6pm.", "created_at": now_utc()},
-            {"event_id": new_id("evt"), "title": "Free Beginner Workshop", "start_at": base_e + timedelta(days=3), "location": "Max Energy Muay Thai Academy, Smithfield", "image": "https://images.unsplash.com/photo-1517438322307-e67111335449?w=1200&q=80", "description": "Free 2-hour beginner workshop covering stance, guard and basic strikes.", "created_at": now_utc()},
-            {"event_id": new_id("evt"), "title": "Kids Grading Day", "start_at": base_e + timedelta(days=10), "location": "Max Energy Muay Thai Academy, Smithfield", "image": "https://images.unsplash.com/photo-1595078475328-1ab05d0a6a0e?w=1200&q=80", "description": "Official armband grading for our junior students. Families welcome.", "created_at": now_utc()},
+            {"event_id": new_id("evt"), "title": "Community Fight Night", "start_at": base_e + timedelta(days=6), "location": "Maxenergy Fitness, Smithfield", "image": "https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=1200&q=80", "description": "Amateur showcase night. Come cheer on our fighters. Doors open at 6pm.", "created_at": now_utc()},
+            {"event_id": new_id("evt"), "title": "Free Beginner Workshop", "start_at": base_e + timedelta(days=3), "location": "Maxenergy Fitness, Smithfield", "image": "https://images.unsplash.com/photo-1517438322307-e67111335449?w=1200&q=80", "description": "Free 2-hour beginner workshop covering stance, guard and basic strikes.", "created_at": now_utc()},
+            {"event_id": new_id("evt"), "title": "Kids Grading Day", "start_at": base_e + timedelta(days=10), "location": "Maxenergy Fitness, Smithfield", "image": "https://images.unsplash.com/photo-1595078475328-1ab05d0a6a0e?w=1200&q=80", "description": "Official armband grading for our junior students. Families welcome.", "created_at": now_utc()},
         ]
         await db.events.insert_many(events)
 
