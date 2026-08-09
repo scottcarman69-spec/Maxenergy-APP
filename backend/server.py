@@ -378,6 +378,95 @@ async def locations():
     return {"locations": LOCATIONS}
 
 
+GOOGLE_PLACES_API_KEY = os.environ.get("GOOGLE_PLACES_API_KEY", "").strip()
+GOOGLE_PLACE_QUERY = os.environ.get("GOOGLE_PLACE_QUERY", "Maxenergy Fitness, Smithfield QLD")
+GOOGLE_PLACE_ID = os.environ.get("GOOGLE_PLACE_ID", "").strip()
+
+# Deep links that work without an API key
+REVIEW_VIEW_URL = "https://www.google.com/maps/search/?api=1&query=" + GOOGLE_PLACE_QUERY.replace(" ", "%20")
+REVIEW_WRITE_URL = "https://www.google.com/maps/search/?api=1&query=" + GOOGLE_PLACE_QUERY.replace(" ", "%20")
+
+_reviews_cache: dict = {"data": None, "ts": 0}
+
+
+async def _fetch_google_reviews() -> Optional[dict]:
+    if not GOOGLE_PLACES_API_KEY:
+        return None
+    field_mask = "id,displayName,formattedAddress,rating,userRatingCount,reviews,googleMapsLinks,googleMapsUri"
+    try:
+        async with httpx.AsyncClient(timeout=12) as hc:
+            place_id = GOOGLE_PLACE_ID
+            if not place_id:
+                sr = await hc.post(
+                    "https://places.googleapis.com/v1/places:searchText",
+                    headers={
+                        "X-Goog-Api-Key": GOOGLE_PLACES_API_KEY,
+                        "X-Goog-FieldMask": "places.id",
+                        "Content-Type": "application/json",
+                    },
+                    json={"textQuery": GOOGLE_PLACE_QUERY, "pageSize": 1, "languageCode": "en"},
+                )
+                sr.raise_for_status()
+                places = sr.json().get("places", [])
+                if not places:
+                    return None
+                place_id = places[0]["id"]
+            dr = await hc.get(
+                f"https://places.googleapis.com/v1/places/{place_id}",
+                headers={"X-Goog-Api-Key": GOOGLE_PLACES_API_KEY, "X-Goog-FieldMask": field_mask},
+                params={"languageCode": "en"},
+            )
+            dr.raise_for_status()
+            p = dr.json()
+    except Exception as e:
+        log.error(f"places error: {e}")
+        return None
+
+    reviews = []
+    for x in (p.get("reviews") or [])[:5]:
+        author = x.get("authorAttribution", {}) or {}
+        reviews.append(
+            {
+                "author_name": author.get("displayName"),
+                "profile_photo": author.get("photoUri"),
+                "rating": x.get("rating"),
+                "text": (x.get("text") or {}).get("text", ""),
+                "relative_time": x.get("relativePublishTimeDescription"),
+            }
+        )
+    links = p.get("googleMapsLinks", {}) or {}
+    return {
+        "rating": p.get("rating"),
+        "total": p.get("userRatingCount"),
+        "reviews": reviews,
+        "write_url": links.get("writeAReviewUri") or REVIEW_WRITE_URL,
+        "view_url": links.get("reviewsUri") or p.get("googleMapsUri") or REVIEW_VIEW_URL,
+    }
+
+
+@api.get("/reviews")
+async def reviews():
+    now_ts = now_utc().timestamp()
+    if _reviews_cache["data"] and now_ts - _reviews_cache["ts"] < 900:
+        return _reviews_cache["data"]
+
+    google = await _fetch_google_reviews()
+    if google:
+        result = {"source": "google", **google}
+    else:
+        result = {
+            "source": "links",
+            "rating": None,
+            "total": None,
+            "reviews": [],
+            "write_url": REVIEW_WRITE_URL,
+            "view_url": REVIEW_VIEW_URL,
+        }
+    _reviews_cache["data"] = result
+    _reviews_cache["ts"] = now_ts
+    return result
+
+
 # -------------------- classes --------------------
 @api.get("/classes")
 async def classes_list(category: Optional[str] = None):

@@ -1,7 +1,7 @@
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
-import { LogBox, StatusBar, View, Text, TextInput } from "react-native";
+import { LogBox, StatusBar, View, Text, TextInput, StyleSheet, Platform } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useFonts } from "expo-font";
 
@@ -42,18 +42,37 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <View style={{ flex: 1, backgroundColor: colors.surface }}>
+      <View style={styles.outer}>
         <StatusBar barStyle="light-content" backgroundColor={colors.surface} />
-        <AuthProvider>
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: colors.surface },
-              animation: "fade",
-            }}
-          />
-        </AuthProvider>
+        <View style={styles.appFrame}>
+          <AuthProvider>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: colors.surface },
+                animation: "fade",
+              }}
+            />
+          </AuthProvider>
+        </View>
       </View>
     </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  outer: {
+    flex: 1,
+    backgroundColor: Platform.OS === "web" ? "#0A0A0B" : colors.surface,
+    alignItems: "center",
+  },
+  appFrame: {
+    flex: 1,
+    width: "100%",
+    maxWidth: Platform.OS === "web" ? 480 : undefined,
+    backgroundColor: colors.surface,
+    ...(Platform.OS === "web"
+      ? { shadowColor: "#000", shadowOpacity: 0.5, shadowRadius: 24, shadowOffset: { width: 0, height: 0 } }
+      : {}),
+  },
+});
