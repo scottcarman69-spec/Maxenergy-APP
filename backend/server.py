@@ -36,7 +36,7 @@ ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "MaxAdmin123!")
 
 EMAIL_BASE_URL = "https://integrations.emergentagent.com"
 EMERGENT_AUTH_SESSION_URL = "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data"
-SEED_VERSION = "v11"
+SEED_VERSION = "v12"
 
 GYM_INFO = {
     "name": "Max Energy Muay Thai Academy",
@@ -1156,7 +1156,7 @@ app.add_middleware(
 # -------------------- seed --------------------
 CLASS_TEMPLATES = [
     # (name, category, trainer, level, duration, price_cents, day_of_week(0=Mon), hour, image, desc, program)
-    ("Muay Thai - Kids", "Kids", "Coach Alex", "Ages 6-16", 45, 1500, [0, 3], 17, "https://images.unsplash.com/photo-1595078475328-1ab05d0a6a0e?w=1200&q=80", "Mondays & Thursdays, 5:00–5:45pm. $15 casual per class, or enrol for the 10-week term: $300 upfront or $35/week direct debit (no joining fee). Builds confidence, focus and fitness for kids.", "10 Week Term"),
+    ("Muay Thai - Kids", "Kids", "Coach Alex", "Ages 6-16", 45, 1500, [0, 3], 17, "https://images.unsplash.com/photo-1595078475328-1ab05d0a6a0e?w=1200&q=80", "Kids Muay Thai Classes\n🥊 Mondays & Thursdays | 5:00–5:45pm\nHelp your child build confidence, focus, discipline and fitness in a fun and supportive environment.\nPricing:\n• $15 casual per class\n• $300 upfront for the full 10-week term\n• Or $35/week by direct debit\n• No joining fee!\nA great way for kids to stay active, learn new skills and grow in confidence.", "10 Week Term"),
     ("Muay Thai - Adults", "Adults", "Coach Alex", "All levels", 60, 2500, [0, 2], 18, "https://images.unsplash.com/photo-1591117207239-788bf8de6c3b?w=1200&q=80", "High-intensity adult Muay Thai. Mondays & Wednesdays, 6:00pm. Pad work, clinch drills and conditioning.", ""),
     ("Beginners Muay Thai", "Adults", "Coach Mia", "Beginner", 60, 2500, [1, 3], 19, "https://images.unsplash.com/photo-1517438322307-e67111335449?w=1200&q=80", "Learn the fundamentals of Muay Thai in a supportive beginner class.", ""),
     ("Kickboxing", "Adults", "Coach Alex", "All levels", 60, 2500, [1, 3], 18, "https://images.unsplash.com/photo-1549824506-7f0f8b7f5b23?w=1200&q=80", "Kickboxing conditioning and technique combining strikes and cardio.", ""),
