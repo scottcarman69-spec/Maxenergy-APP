@@ -24,6 +24,7 @@ type Cls = {
   category: string;
   start_at: string;
   program?: string;
+  by_appointment?: boolean;
 };
 
 const CATEGORIES = ["All", "Adults", "Kids"];
@@ -66,10 +67,16 @@ export default function Timetable() {
     const target = days[dayOffset];
     if (!target) return [];
     return classes
+      .filter((c) => !c.by_appointment)
       .filter((c) => sameDay(new Date(c.start_at), target))
       .filter((c) => category === "All" || c.category === category)
       .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
   }, [classes, dayOffset, days, category]);
+
+  const appointmentClasses = useMemo(
+    () => classes.filter((c) => c.by_appointment && (category === "All" || c.category === category)),
+    [classes, category]
+  );
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
@@ -128,6 +135,37 @@ export default function Timetable() {
           data={filtered}
           keyExtractor={(c) => c.class_id}
           contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: 40 }}
+          ListHeaderComponent={
+            appointmentClasses.length > 0 ? (
+              <View style={{ gap: spacing.md, marginBottom: spacing.md }}>
+                <Text style={styles.apptHeading}>BOOK A SESSION</Text>
+                {appointmentClasses.map((item) => (
+                  <Pressable
+                    key={item.class_id}
+                    testID={`appt-row-${item.class_id}`}
+                    onPress={() => router.push({ pathname: "/class/[id]", params: { id: item.class_id } })}
+                    style={styles.apptCard}
+                  >
+                    <View style={styles.apptIcon}>
+                      <Ionicons name="person" size={20} color={colors.brand} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.className}>{item.name}</Text>
+                      <Text style={styles.trainer}>with {item.trainer}</Text>
+                      <View style={styles.apptTag}>
+                        <Ionicons name="time-outline" size={12} color={colors.brand} />
+                        <Text style={styles.apptTagText}>By appointment</Text>
+                      </View>
+                    </View>
+                    <View style={styles.bookPill}>
+                      <Text style={styles.bookPillText}>Book</Text>
+                    </View>
+                  </Pressable>
+                ))}
+                <Text style={styles.apptHeading}>CLASSES</Text>
+              </View>
+            ) : null
+          }
           ListEmptyComponent={
             <View style={styles.empty}>
               <Ionicons name="calendar-outline" size={40} color={colors.onSurfaceSecondary} />
@@ -236,4 +274,11 @@ const styles = StyleSheet.create({
   duration: { color: colors.onSurfaceSecondary, fontSize: 12, fontFamily: font.medium },
   empty: { alignItems: "center", padding: 40, gap: spacing.md },
   emptyText: { color: colors.onSurfaceSecondary, fontSize: 14 },
+  apptHeading: { color: colors.onSurfaceSecondary, fontSize: 12, fontFamily: font.heading, letterSpacing: 1.5 },
+  apptCard: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.lg, borderWidth: 1, borderColor: colors.brand },
+  apptIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center" },
+  apptTag: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6, alignSelf: "flex-start", backgroundColor: colors.brandTertiary, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },
+  apptTagText: { color: colors.brand, fontSize: 11, fontFamily: font.semibold },
+  bookPill: { backgroundColor: colors.brand, paddingHorizontal: spacing.lg, paddingVertical: 10, borderRadius: radius.pill },
+  bookPillText: { color: colors.onBrand, fontFamily: font.heading, fontSize: 13 },
 });

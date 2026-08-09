@@ -5,6 +5,8 @@ from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 import uuid
+import io
+import base64
 import bcrypt
 import jwt
 import httpx
@@ -34,7 +36,7 @@ ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "MaxAdmin123!")
 
 EMAIL_BASE_URL = "https://integrations.emergentagent.com"
 EMERGENT_AUTH_SESSION_URL = "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data"
-SEED_VERSION = "v7"
+SEED_VERSION = "v9"
 
 GYM_INFO = {
     "name": "Max Energy Muay Thai Academy",
@@ -96,18 +98,24 @@ def user_public(u: dict) -> dict:
     }
 
 
-async def send_email(recipient: str, subject: str, html: str) -> bool:
+async def send_email(recipient: str, subject: str, html: str, attachments: Optional[list] = None) -> bool:
     try:
-        async with httpx.AsyncClient(timeout=20) as hc:
+        payload = {"to": [recipient], "subject": subject, "html": html, "from_name": EMAIL_FROM_NAME}
+        if attachments:
+            payload["attachments"] = attachments
+        async with httpx.AsyncClient(timeout=30) as hc:
             r = await hc.post(
                 f"{EMAIL_BASE_URL}/api/v1/email/send",
                 headers={"X-Email-Key": EMERGENT_EMAIL_KEY},
-                json={"to": [recipient], "subject": subject, "html": html, "from_name": EMAIL_FROM_NAME},
+                json=payload,
             )
             r.raise_for_status()
             return True
+    except httpx.HTTPStatusError as e:
+        log.error(f"email failed to {recipient}: {e.response.status_code} body={e.response.text[:300]}")
+        return False
     except Exception as e:
-        log.error(f"email failed: {e}")
+        log.error(f"email failed to {recipient}: {e}")
         return False
 
 
@@ -692,6 +700,138 @@ async def membership_plans():
     return {"plans": rows}
 
 
+def build_membership_pdf(doc: dict, plan: dict) -> bytes:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfgen import canvas as pdfcanvas
+    from reportlab.lib.utils import ImageReader
+
+    d = doc.get("details") or {}
+    med = d.get("medical") or {}
+    buf = io.BytesIO()
+    c = pdfcanvas.Canvas(buf, pagesize=A4)
+    W, H = A4
+    y = H - 50
+    ORANGE = (1, 0.478, 0)
+
+    def line(label, value, bold=False):
+        nonlocal y
+        if y < 70:
+            c.showPage()
+            y = H - 50
+        c.setFont("Helvetica-Bold" if bold else "Helvetica", 10)
+        c.setFillColorRGB(0.1, 0.1, 0.1)
+        if value is None:
+            c.setFont("Helvetica-Bold", 12)
+            c.setFillColorRGB(*ORANGE)
+            c.drawString(45, y, label)
+        else:
+            c.drawString(45, y, f"{label}: ")
+            c.setFont("Helvetica", 10)
+            c.setFillColorRGB(0.25, 0.25, 0.25)
+            c.drawString(45 + c.stringWidth(f"{label}: ", "Helvetica-Bold" if bold else "Helvetica", 10), y, str(value))
+        y -= 16
+
+    # Header
+    c.setFillColorRGB(*ORANGE)
+    c.setFont("Helvetica-Bold", 20)
+    c.drawString(45, y, "Max Energy Muay Thai Academy")
+    y -= 22
+    c.setFillColorRGB(0.3, 0.3, 0.3)
+    c.setFont("Helvetica", 11)
+    c.drawString(45, y, "Membership Registration Form")
+    y -= 12
+    c.drawString(45, y, "Shop 38 Campus Village Shopping Centre, Smithfield QLD 4878 · Ph 07 4057 9005")
+    y -= 24
+
+    line("MEMBERSHIP", None)
+    line("Type", d.get("membership_type", "-"))
+    line("Plan", f"{plan.get('name')} (${plan.get('price_display')})")
+    line("Category", doc.get("category", "-"))
+    line("Term", d.get("term", "-"))
+    line("Submitted", d.get("submitted_date", ""))
+
+    line("MEMBER DETAILS", None)
+    line("Name", doc.get("full_name"))
+    line("Title / Sex", f"{d.get('title','-')} / {d.get('sex','-')}")
+    line("Date of birth", d.get("dob", "-"))
+    line("Email", doc.get("email"))
+    line("Mobile", doc.get("phone"))
+    line("Address", ", ".join([x for x in [d.get("address"), d.get("suburb"), d.get("postcode")] if x]) or "-")
+    line("Emergency contact", f"{d.get('emergency_name','-')} · {d.get('emergency_phone','-')}")
+    line("Marketing consent", "Yes" if d.get("consent_marketing") else "No")
+    line("How found", d.get("how_found", "-"))
+
+    line("MEDICAL", None)
+    flags = []
+    for g in ("medications", "conditions"):
+        obj = med.get(g) or {}
+        flags += [k for k, v in obj.items() if v]
+    line("Declared flags", ", ".join(flags) if flags else "None")
+    line("Smoker", "Yes" if med.get("smoke") else "No")
+    line("Major operations/fractures", "Yes" if med.get("operations") else "No")
+    line("Pregnant / recent baby", "Yes" if med.get("pregnant") else "No")
+    line("Exercises regularly", "Yes" if med.get("regular_exercise") else "No")
+    if med.get("notes"):
+        line("Notes", med.get("notes"))
+
+    line("CONSENT & WAIVER", None)
+    line("Media consent", "Yes" if d.get("media_consent") else "No")
+    line("Waiver agreed", "Yes" if d.get("waiver_agreed") else "No")
+    line("Signed (name)", d.get("signature", "-"))
+
+    # Photo
+    photo = d.get("photo_base64")
+    if photo and "," in photo:
+        try:
+            img = base64.b64decode(photo.split(",", 1)[1])
+            if y < 180:
+                c.showPage(); y = H - 50
+            c.setFont("Helvetica-Bold", 10); c.setFillColorRGB(0.1, 0.1, 0.1)
+            c.drawString(45, y, "Photo:")
+            c.drawImage(ImageReader(io.BytesIO(img)), 45, y - 120, width=110, height=110, preserveAspectRatio=True, mask="auto")
+            y -= 130
+        except Exception as e:
+            log.error(f"pdf photo: {e}")
+
+    # Signature strokes
+    sig = d.get("signature_path")
+    if sig:
+        try:
+            pts = []
+            for tok in sig.replace("M", " M").replace("L", " L").split():
+                if tok and tok[0] in "ML" and "," in tok[1:]:
+                    xs, ys = tok[1:].split(",")
+                    pts.append((float(xs), float(ys), tok[0]))
+            if pts:
+                xs = [p[0] for p in pts]; ys = [p[1] for p in pts]
+                minx, maxx, miny, maxy = min(xs), max(xs), min(ys), max(ys)
+                sw = max(maxx - minx, 1); sh = max(maxy - miny, 1)
+                box_w, box_h = 220, 80
+                scale = min(box_w / sw, box_h / sh)
+                if y < 120:
+                    c.showPage(); y = H - 50
+                bx, by = 45, y - 90
+                c.setFont("Helvetica-Bold", 10); c.setFillColorRGB(0.1, 0.1, 0.1)
+                c.drawString(45, y, "Signature:")
+                c.setStrokeColorRGB(0, 0, 0); c.setLineWidth(1.5)
+                prev = None
+                for (px, py, cmd) in pts:
+                    X = bx + (px - minx) * scale
+                    Y = by + (box_h - (py - miny) * scale)  # invert y
+                    if cmd == "M" or prev is None:
+                        prev = (X, Y)
+                    else:
+                        c.line(prev[0], prev[1], X, Y)
+                        prev = (X, Y)
+                y -= 100
+        except Exception as e:
+            log.error(f"pdf sig: {e}")
+
+    c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
 @api.post("/membership/apply")
 async def membership_apply(body: MembershipApplyReq, u: dict = Depends(require_user)):
     plan = await db.membership_plans.find_one({"plan_id": body.plan_id}, {"_id": 0})
@@ -763,18 +903,32 @@ async def membership_apply(body: MembershipApplyReq, u: dict = Depends(require_u
       </td></tr>
     </table>
     """
-    await send_email(GYM_ADMIN_EMAIL, f"New membership application – {body.full_name}", gym_html)
-    # confirmation to applicant
+    # Generate a PDF copy of the completed membership form
+    pdf_attachments = []
+    try:
+        pdf_bytes = build_membership_pdf(doc, plan)
+        pdf_b64 = base64.b64encode(pdf_bytes).decode()
+        safe_name = "".join(ch for ch in body.full_name if ch.isalnum() or ch in (" ", "-", "_")).strip().replace(" ", "_") or "member"
+        filename = f"Maxenergy_Membership_{safe_name}.pdf"
+        await db.membership_applications.update_one(
+            {"application_id": app_id}, {"$set": {"pdf_base64": pdf_b64, "pdf_filename": filename}}
+        )
+        pdf_attachments = [{"filename": filename, "content": pdf_b64, "content_type": "application/pdf"}]
+    except Exception as e:
+        log.error(f"membership pdf failed: {e}")
+
+    await send_email(GYM_ADMIN_EMAIL, f"New membership application – {body.full_name}", gym_html, pdf_attachments)
+    # confirmation to applicant (with a copy of their completed form attached)
     conf_html = f"""
     <table width="100%" style="font-family:Arial,sans-serif;background:#121214;color:#F9FAFB;padding:24px">
       <tr><td>
-        <h2 style="color:#FF7A00;margin:0 0 8px">Application received</h2>
+        <h2 style="color:#FF7A00;margin:0 0 8px">Your membership form</h2>
         <p>Hi {body.full_name}, thanks for applying for the <strong>{plan['name']}</strong> membership at Max Energy Muay Thai Academy.</p>
-        <p>Our team will review your application and get in touch shortly.</p>
+        <p>A PDF copy of your completed membership form is attached for your records. Our team will review your application and get in touch shortly.</p>
       </td></tr>
     </table>
     """
-    await send_email(u["email"], "Your Max Energy membership application", conf_html)
+    await send_email(u["email"], "Your Max Energy membership form (copy attached)", conf_html, pdf_attachments)
     doc.pop("_id", None)
     return {"application": doc}
 
@@ -950,7 +1104,6 @@ CLASS_TEMPLATES = [
     ("Beginners Muay Thai", "Adults", "Coach Mia", "Beginner", 60, 2500, [1, 3], 19, "https://images.unsplash.com/photo-1517438322307-e67111335449?w=1200&q=80", "Learn the fundamentals of Muay Thai in a supportive beginner class.", ""),
     ("Kickboxing", "Adults", "Coach Alex", "All levels", 60, 2500, [1, 3], 18, "https://images.unsplash.com/photo-1549824506-7f0f8b7f5b23?w=1200&q=80", "Kickboxing conditioning and technique combining strikes and cardio.", ""),
     ("Sparring Session", "Adults", "Coach Alex", "Advanced", 60, 2500, [5], 10, "https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=1200&q=80", "Controlled sparring for experienced students. Gear required.", ""),
-    ("Personal Training", "Adults", "Coach Alex", "Any", 60, 8000, [1, 3, 5], 12, "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1200&q=80", "1-on-1 tailored coaching session with a certified trainer.", ""),
 ]
 
 
@@ -1023,12 +1176,35 @@ async def seed_data():
                             "color": "#FF7A00",
                             "start_at": date + timedelta(hours=hour),
                             "capacity": 20,
+                            "by_appointment": False,
                             "created_at": now_utc(),
                         }
                     )
         if docs:
             await db.classes.insert_many(docs)
         log.info(f"seeded {len(docs)} classes")
+
+        # Personal Training — bookable by appointment (no fixed time)
+        await db.classes.insert_one(
+            {
+                "class_id": new_id("cls"),
+                "name": "Personal Training",
+                "category": "Adults",
+                "trainer": "Coach Alex",
+                "level": "Any level",
+                "duration_min": 60,
+                "price_cents": 8000,
+                "currency": "aud",
+                "image": "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1200&q=80",
+                "description": "1-on-1 tailored coaching session with a certified trainer. Booked by appointment — we'll contact you to arrange a time that suits you.",
+                "program": "",
+                "color": "#FF7A00",
+                "start_at": now_utc(),
+                "capacity": 1,
+                "by_appointment": True,
+                "created_at": now_utc(),
+            }
+        )
 
         # Membership plans
         plans = [

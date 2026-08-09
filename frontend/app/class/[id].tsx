@@ -20,6 +20,7 @@ type Cls = {
   description: string;
   level: string;
   capacity: number;
+  by_appointment?: boolean;
 };
 
 function fmt(iso: string) {
@@ -150,7 +151,7 @@ export default function ClassDetail() {
             <View style={styles.metaCol}>
               <Ionicons name="calendar-outline" size={16} color={colors.brand} />
               <Text style={styles.metaLabel}>WHEN</Text>
-              <Text style={styles.metaVal}>{fmt(cls.start_at)}</Text>
+              <Text style={styles.metaVal}>{cls.by_appointment ? "By appointment" : fmt(cls.start_at)}</Text>
             </View>
             <View style={styles.metaCol}>
               <Ionicons name="time-outline" size={16} color={colors.brand} />
@@ -160,7 +161,7 @@ export default function ClassDetail() {
             <View style={styles.metaCol}>
               <Ionicons name="people-outline" size={16} color={colors.brand} />
               <Text style={styles.metaLabel}>SPOTS</Text>
-              <Text style={styles.metaVal}>{cls.capacity} max</Text>
+              <Text style={styles.metaVal}>{cls.by_appointment ? "1-on-1" : `${cls.capacity} max`}</Text>
             </View>
           </View>
 
@@ -195,7 +196,7 @@ export default function ClassDetail() {
             <ActivityIndicator color={colors.onBrand} />
           ) : (
             <>
-              <Text style={styles.payBtnText}>BOOK & PAY</Text>
+              <Text style={styles.payBtnText}>{cls.by_appointment ? "BOOK SESSION" : "BOOK & PAY"}</Text>
               <Ionicons name="arrow-forward" size={18} color={colors.onBrand} />
             </>
           )}

@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Linking, Platform } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,6 +18,8 @@ type App = {
   status: string;
   created_at: string;
   details?: any;
+  pdf_base64?: string;
+  pdf_filename?: string;
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -129,6 +131,20 @@ export default function AdminApplications() {
 
                 {open && renderDetails(a.details)}
 
+                {open && !!a.pdf_base64 && (
+                  <Pressable
+                    testID={`adminapp-pdf-${a.application_id}`}
+                    style={styles.pdfBtn}
+                    onPress={() => {
+                      const uri = `data:application/pdf;base64,${a.pdf_base64}`;
+                      Linking.openURL(uri).catch(() => {});
+                    }}
+                  >
+                    <Ionicons name="document-text" size={16} color={colors.brand} />
+                    <Text style={styles.pdfBtnText}>{Platform.OS === "web" ? "Open membership PDF" : "View membership PDF"}</Text>
+                  </Pressable>
+                )}
+
                 <View style={styles.actions}>
                   <Pressable
                     testID={`adminapp-approve-${a.application_id}`}
@@ -170,6 +186,8 @@ const styles = StyleSheet.create({
   detailRow: { color: colors.onSurfaceSecondary, fontSize: 13 },
   detailKey: { color: colors.onSurface, fontWeight: "700" },
   photo: { width: 120, height: 120, borderRadius: radius.md, marginTop: 6, borderWidth: 1, borderColor: colors.border },
+  pdfBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: spacing.md, backgroundColor: colors.brandTertiary, borderRadius: radius.md, paddingVertical: 12, borderWidth: 1, borderColor: colors.brand },
+  pdfBtnText: { color: colors.brand, fontWeight: "800", fontSize: 14 },
   actions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
   actBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 12, borderRadius: radius.md },
   actText: { fontWeight: "800", fontSize: 14 },
