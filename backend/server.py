@@ -102,24 +102,32 @@ def user_public(u: dict) -> dict:
 
 
 async def send_email(recipient: str, subject: str, html: str, attachments: Optional[list] = None) -> bool:
-    try:
-        payload = {"to": [recipient], "subject": subject, "html": html, "from_name": EMAIL_FROM_NAME}
-        if attachments:
-            payload["attachments"] = attachments
-        async with httpx.AsyncClient(timeout=30) as hc:
-            r = await hc.post(
-                f"{EMAIL_BASE_URL}/api/v1/email/send",
-                headers={"X-Email-Key": EMERGENT_EMAIL_KEY},
-                json=payload,
-            )
-            r.raise_for_status()
-            return True
-    except httpx.HTTPStatusError as e:
-        log.error(f"email failed to {recipient}: {e.response.status_code} body={e.response.text[:300]}")
-        return False
-    except Exception as e:
-        log.error(f"email failed to {recipient}: {e}")
-        return False
+    payload = {"to": [recipient], "subject": subject, "html": html, "from_name": EMAIL_FROM_NAME}
+    if attachments:
+        payload["attachments"] = attachments
+    delays = [0, 3, 8, 15]  # retry with backoff when rate-limited (429)
+    for attempt, wait in enumerate(delays):
+        if wait:
+            await asyncio.sleep(wait)
+        try:
+            async with httpx.AsyncClient(timeout=30) as hc:
+                r = await hc.post(
+                    f"{EMAIL_BASE_URL}/api/v1/email/send",
+                    headers={"X-Email-Key": EMERGENT_EMAIL_KEY},
+                    json=payload,
+                )
+                if r.status_code == 429 and attempt < len(delays) - 1:
+                    log.warning(f"email rate-limited to {recipient}, retrying (attempt {attempt + 1})")
+                    continue
+                r.raise_for_status()
+                return True
+        except httpx.HTTPStatusError as e:
+            log.error(f"email failed to {recipient}: {e.response.status_code} body={e.response.text[:300]}")
+            return False
+        except Exception as e:
+            log.error(f"email failed to {recipient}: {e}")
+            return False
+    return False
 
 
 def _email_shell(heading: str, lines: list) -> str:
