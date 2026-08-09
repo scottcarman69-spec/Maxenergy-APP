@@ -191,7 +191,7 @@ export default function Timetable() {
               <View style={styles.card}>
                 <View style={styles.cardBody}>
                   <View style={styles.logoBadge}>
-                    <Image source={academyLogo} style={styles.logoImg} contentFit="contain" />
+                    <Image source={academyLogo} style={styles.logoImg} contentFit="cover" />
                   </View>
                   <View style={{ flex: 1 }}>
                     <View style={styles.cardTop}>
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
   cardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   cardBody: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   logoBadge: { width: 52, height: 52, borderRadius: 26, backgroundColor: "#000", alignItems: "center", justifyContent: "center", overflow: "hidden", borderWidth: 1, borderColor: colors.border },
-  logoImg: { width: 46, height: 46 },
+  logoImg: { width: 52, height: 52 },
   className: { color: colors.onSurface, fontSize: 17, fontWeight: "800", flex: 1 },
   catTag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },
   catTagText: { fontSize: 10, fontWeight: "900", letterSpacing: 0.5 },
