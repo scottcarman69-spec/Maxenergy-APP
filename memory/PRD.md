@@ -1,39 +1,38 @@
 # Maxenergy Fitness — Mobile App PRD
 
 ## Original Problem Statement
-Build a mobile app: sign up/register page, view class timetables, make online payments for classes, and notify members about upcoming events. Based on Maxenergy Fitness (Cairns/Smithfield gym — Muay Thai, Kickboxing, BJJ, Boxing, Boot Camp, Personal Training).
+Build a mobile app: sign up/register page, view class timetables, make online payments for classes, and notify members about upcoming events. Branded for **Maxenergy Fitness** (Cairns/Smithfield gym — Muay Thai, Kickboxing, BJJ, Boxing, Boot Camp, Personal Training).
 
-## User Choices
-- Auth: Email/password (JWT) + Google social login (Emergent-managed)
-- Payments: Stripe (implemented via emergentintegrations). PayPal requested but not yet built.
-- Notifications: In-app feed + email (Resend). Push notifications requested (needs native build).
-- Design: Dark theme with vibrant lime (#CCFF00) accents.
+## Stack & Architecture
+- Frontend: Expo Router (SDK 54), React Native, dark theme + orange accent (#FF7A00), Maxenergy logo.
+- Backend: FastAPI (`/api` prefix), MongoDB (motor).
+- Integrations: JWT email/password auth, Emergent-managed Google Auth, Stripe checkout (emergentintegrations, `sk_test_emergent`), Emergent-managed Resend email.
 
-## Architecture
-- Frontend: Expo Router (SDK 54), React Native. Dark theme in `/src/theme.ts`. Auth in `/src/AuthContext.tsx`, API client `/src/api.ts`.
-- Backend: FastAPI + MongoDB (motor). All routes under `/api`.
-- Integrations: Emergent Google Auth, Stripe (emergentintegrations StripeCheckout, key `sk_test_emergent`), Emergent Resend email.
+## User Personas
+- Gym member: browses timetable, books & pays for classes, RSVPs to events, gets notified.
 
-## User Persona
-Gym members who want to browse the class timetable, book & pay for classes on their phone, and stay informed about gym events.
+## Core Requirements (static)
+1. Sign up / login (email+password and Google). ✅
+2. View class timetable by day. ✅
+3. Pay online for a class (Stripe). ✅
+4. Upcoming events + notify members (in-app feed + email on RSVP). ✅
 
-## Implemented (2026-06-09)
-- Email/password register + login (JWT, bcrypt) and Google OAuth session flow.
-- Home dashboard: next class hero, upcoming classes carousel, upcoming events.
-- Class timetable: 14-day horizontal day selector + per-day class list (84 seeded classes).
-- Class detail: full info + "Book & Pay" → Stripe Checkout (WebBrowser) + status polling.
-- Events feed + event detail with RSVP → in-app notification + confirmation email.
-- Profile: stats, notifications feed (mark read), my bookings, logout.
-- Backend tested: 16/16 passed.
+## Implemented (2026-08-09)
+- Auth: register/login (JWT) + Google OAuth session exchange; `/auth/me`, logout.
+- Classes: 84 seeded across 14 days; timetable with sticky day selector; class detail.
+- Bookings + Stripe checkout session, status polling, webhook, booking confirmation notification.
+- Events: 4 seeded; event detail; RSVP creates in-app notification + confirmation email (Resend).
+- Notifications feed + My Bookings in Profile.
+- Branding: Maxenergy white logo on login/register/home; orange accent theme.
+- Backend fully tested (16/16 passing).
 
-## Backlog
-- P1: PayPal payment option alongside Stripe.
-- P1: Push notifications for event/class reminders (requires deploy + native build).
-- P2: Class capacity / spots-left decrement and waitlist.
-- P2: Membership plans / subscriptions.
-- P2: Cancel/reschedule bookings.
-- P2: Trainer profiles & filtering timetable by class type.
+## Backlog / Remaining
+- P1: PayPal payment option (user requested; Stripe done first).
+- P1: Push notifications for event reminders (requires deployed native build; not testable in Expo Go).
+- P2: Class capacity/seat reservation enforcement.
+- P2: Membership plans / recurring subscriptions.
+- P2: Cancel booking + refund flow.
 
 ## Next Tasks
-- Gather user's real business email for admin notifications.
-- Add PayPal + push notifications if user requests.
+- Add PayPal as a second pay option on class detail.
+- Add push notifications (Emergent-managed) once user deploys a build.
