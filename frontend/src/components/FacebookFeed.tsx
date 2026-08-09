@@ -41,6 +41,10 @@ export default function FacebookFeed() {
 
   const uri = width ? pluginUri(active.url, width) : null;
   const plugW = Math.max(180, Math.min(500, Math.round(width)));
+  // The FB plugin is hard-capped at 500px wide. On wider (desktop/web) boxes we
+  // scale the iframe up so it fills the container instead of leaving white space.
+  const scale = width && plugW ? Math.max(1, width / plugW) : 1;
+  const scaledHeight = Math.round(FEED_HEIGHT * scale);
 
   return (
     <View style={styles.wrap}>
@@ -61,16 +65,26 @@ export default function FacebookFeed() {
       <View style={styles.feedCard} onLayout={onLayout}>
         {uri ? (
           Platform.OS === "web" ? (
-            // @ts-ignore - iframe is valid on web
-            <iframe
-              key={active.key + plugW}
-              title={active.label}
-              src={uri}
-              style={{ width: plugW, maxWidth: "100%", height: FEED_HEIGHT, border: "none", display: "block" }}
-              scrolling="yes"
-              frameBorder="0"
-              allowFullScreen
-            />
+            // @ts-ignore - div/iframe are valid on web
+            <div style={{ width: "100%", height: scaledHeight, overflow: "hidden" }}>
+              {/* @ts-ignore - iframe is valid on web */}
+              <iframe
+                key={active.key + plugW}
+                title={active.label}
+                src={uri}
+                style={{
+                  width: plugW,
+                  height: FEED_HEIGHT,
+                  border: "none",
+                  display: "block",
+                  transform: `scale(${scale})`,
+                  transformOrigin: "top left",
+                }}
+                scrolling="yes"
+                frameBorder="0"
+                allowFullScreen
+              />
+            </div>
           ) : (
             <WebView
               key={active.key + plugW}
