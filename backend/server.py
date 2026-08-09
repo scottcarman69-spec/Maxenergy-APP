@@ -170,6 +170,18 @@ async def notify_admins(title: str, body: str, ntype: str = "booking", email_lin
     await send_email(GYM_ADMIN_EMAIL, title, _email_shell(title, email_lines or [body]))
 
 
+def _gcal_link(title: str, start: datetime, minutes: int, location: str, details: str) -> str:
+    from urllib.parse import quote_plus
+    end = start + timedelta(minutes=minutes or 60)
+    fmt = "%Y%m%dT%H%M%SZ"
+    dates = f"{start.astimezone(timezone.utc).strftime(fmt)}/{end.astimezone(timezone.utc).strftime(fmt)}"
+    return (
+        "https://calendar.google.com/calendar/render?action=TEMPLATE"
+        f"&text={quote_plus(title)}&dates={dates}"
+        f"&details={quote_plus(details)}&location={quote_plus(location)}"
+    )
+
+
 async def mark_booking_paid(booking_id: str) -> None:
     """Mark a booking paid and send member + admin confirmations exactly once."""
     b = await db.bookings.find_one({"booking_id": booking_id}, {"_id": 0})
@@ -202,6 +214,16 @@ async def mark_booking_paid(booking_id: str) -> None:
         f"Your payment for {b['class_name']} is verified. See you {when}.",
         "booking",
     )
+    cal_line = ""
+    if isinstance(start, datetime):
+        cal_url = _gcal_link(
+            f"{b['class_name']} — Max Energy",
+            start,
+            duration or 60,
+            GYM_INFO["address"],
+            f"{b['class_name']} at Max Energy Muay Thai Academy. Booking ref: {b['booking_id']}.",
+        )
+        cal_line = f"<a href='{cal_url}' style='color:#FF7A00;font-weight:bold'>➕ Add this class to your calendar</a>"
     # Full-detail confirmation email to the member
     if (member or {}).get("email"):
         await send_email(
@@ -220,6 +242,7 @@ async def mark_booking_paid(booking_id: str) -> None:
                     f"<b>Amount paid:</b> ${amount:.2f} {currency}",
                     f"<b>Booking reference:</b> {b['booking_id']}",
                     f"<b>Location:</b> {GYM_INFO['address']}",
+                    cal_line,
                     "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
                     "Need to cancel or reschedule? Open the Max Energy app → Profile → My Bookings.",
                     "See you on the mats! 🥊",
@@ -1492,17 +1515,43 @@ async def admin_application_status(application_id: str, body: ApplicationStatusR
     if not app_doc:
         raise HTTPException(404, "Application not found")
     await db.membership_applications.update_one({"application_id": application_id}, {"$set": {"status": body.status}})
-    await db.notifications.insert_one(
-        {
-            "notification_id": new_id("ntf"),
-            "user_id": app_doc["user_id"],
-            "title": f"Membership {body.status}",
-            "body": f"Your application for {app_doc['plan_name']} was {body.status}.",
-            "type": "membership",
-            "read": False,
-            "created_at": now_utc(),
-        }
-    )
+    member = await db.users.find_one({"user_id": app_doc["user_id"]}, {"_id": 0})
+    mname = (member or {}).get("name") or app_doc.get("full_name") or "there"
+    if body.status == "approved":
+        await notify_user(
+            app_doc["user_id"], (member or {}).get("email"),
+            "Membership approved 🎉",
+            f"Great news! Your {app_doc['plan_name']} application has been approved. Welcome to Max Energy!",
+            "membership",
+            email_lines=[
+                f"Hi {mname},",
+                f"Great news — your <b>{app_doc['plan_name']}</b> application has been <b>approved</b>! Welcome to the Max Energy family. 🥊",
+                "You're all set to train. Check the app for the class schedule and book your sessions.",
+                f"<b>Location:</b> {GYM_INFO['address']}",
+                f"<b>Phone:</b> {GYM_INFO['phone']}",
+                "See you on the mats!",
+            ],
+        )
+    elif body.status == "declined":
+        await notify_user(
+            app_doc["user_id"], (member or {}).get("email"),
+            "Membership application update",
+            f"Your {app_doc['plan_name']} application was not approved at this time. Please contact us for details.",
+            "membership",
+            email_lines=[
+                f"Hi {mname},",
+                f"Thank you for your interest in Max Energy. Unfortunately your <b>{app_doc['plan_name']}</b> application was <b>not approved</b> at this time.",
+                f"If you have any questions or would like to discuss this, please contact us on {GYM_INFO['phone']}.",
+                "We'd love to help you find the right fit.",
+            ],
+        )
+    else:
+        await create_notification(
+            app_doc["user_id"],
+            "Membership status updated",
+            f"Your application for {app_doc['plan_name']} is now {body.status}.",
+            "membership",
+        )
     return {"ok": True}
 
 
