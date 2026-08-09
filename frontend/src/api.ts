@@ -8,6 +8,7 @@ export type User = {
   email: string;
   name?: string | null;
   picture?: string | null;
+  is_admin?: boolean;
 };
 
 export async function getToken(): Promise<string | null> {
@@ -59,7 +60,8 @@ export const api = {
   me: () => req("/api/auth/me"),
   logout: () => req("/api/auth/logout", { method: "POST" }),
 
-  classes: () => req("/api/classes"),
+  classes: (category?: string) =>
+    req(`/api/classes${category && category !== "All" ? `?category=${encodeURIComponent(category)}` : ""}`),
   classDetail: (id: string) => req(`/api/classes/${id}`),
   createBooking: (class_id: string) =>
     req("/api/bookings", { method: "POST", body: JSON.stringify({ class_id }) }),
@@ -77,8 +79,38 @@ export const api = {
   rsvp: (event_id: string) =>
     req("/api/events/rsvp", { method: "POST", body: JSON.stringify({ event_id }) }),
 
+  announcements: () => req("/api/announcements"),
+  gymInfo: () => req("/api/gym/info"),
+
+  plans: () => req("/api/membership/plans"),
+  applyMembership: (payload: {
+    plan_id: string;
+    full_name: string;
+    phone: string;
+    category: string;
+    experience?: string;
+    message?: string;
+  }) => req("/api/membership/apply", { method: "POST", body: JSON.stringify(payload) }),
+  myApplications: () => req("/api/membership/applications/me"),
+
   notifications: () => req("/api/notifications"),
   markRead: (id: string) => req(`/api/notifications/${id}/read`, { method: "POST" }),
+
+  // admin
+  adminOverview: () => req("/api/admin/overview"),
+  adminClasses: () => req("/api/admin/classes"),
+  adminCreateClass: (payload: any) =>
+    req("/api/admin/classes", { method: "POST", body: JSON.stringify(payload) }),
+  adminUpdateClass: (id: string, payload: any) =>
+    req(`/api/admin/classes/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
+  adminDeleteClass: (id: string) => req(`/api/admin/classes/${id}`, { method: "DELETE" }),
+  adminCreateAnnouncement: (payload: { title: string; body: string; pinned: boolean }) =>
+    req("/api/admin/announcements", { method: "POST", body: JSON.stringify(payload) }),
+  adminDeleteAnnouncement: (id: string) =>
+    req(`/api/admin/announcements/${id}`, { method: "DELETE" }),
+  adminApplications: () => req("/api/admin/applications"),
+  adminSetApplicationStatus: (id: string, status: string) =>
+    req(`/api/admin/applications/${id}/status`, { method: "POST", body: JSON.stringify({ status }) }),
 };
 
 export const BACKEND_URL = API_URL;

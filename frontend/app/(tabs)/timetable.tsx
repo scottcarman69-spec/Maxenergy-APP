@@ -21,12 +21,14 @@ type Cls = {
   duration_min: number;
   price_cents: number;
   level: string;
+  category: string;
   start_at: string;
 };
 
+const CATEGORIES = ["All", "Adults", "Kids"];
+
 function fmtTime(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 function sameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
@@ -37,6 +39,7 @@ export default function Timetable() {
   const [classes, setClasses] = useState<Cls[]>([]);
   const [loading, setLoading] = useState(true);
   const [dayOffset, setDayOffset] = useState(0);
+  const [category, setCategory] = useState("All");
 
   const load = useCallback(async () => {
     try {
@@ -51,7 +54,7 @@ export default function Timetable() {
   const days = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return Array.from({ length: 14 }, (_, i) => {
+    return Array.from({ length: 21 }, (_, i) => {
       const d = new Date(today);
       d.setDate(today.getDate() + i);
       return d;
@@ -63,16 +66,35 @@ export default function Timetable() {
     if (!target) return [];
     return classes
       .filter((c) => sameDay(new Date(c.start_at), target))
+      .filter((c) => category === "All" || c.category === category)
       .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
-  }, [classes, dayOffset, days]);
+  }, [classes, dayOffset, days, category]);
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Timetable</Text>
+        <Text style={styles.title}>Schedule</Text>
         <Text style={styles.subtitle}>Cairns · Smithfield</Text>
       </View>
 
+      {/* Category filter chips */}
+      <View style={styles.chipRow}>
+        {CATEGORIES.map((cat) => {
+          const active = cat === category;
+          return (
+            <Pressable
+              key={cat}
+              testID={`cat-chip-${cat.toLowerCase()}`}
+              onPress={() => setCategory(cat)}
+              style={[styles.chip, active && styles.chipActive]}
+            >
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>{cat}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {/* Day selector */}
       <View style={styles.daysWrap}>
         <ScrollView
           horizontal
@@ -108,7 +130,7 @@ export default function Timetable() {
           ListEmptyComponent={
             <View style={styles.empty}>
               <Ionicons name="calendar-outline" size={40} color={colors.onSurfaceSecondary} />
-              <Text style={styles.emptyText}>No classes scheduled for this day.</Text>
+              <Text style={styles.emptyText}>No {category !== "All" ? category.toLowerCase() + " " : ""}classes this day.</Text>
             </View>
           }
           renderItem={({ item }) => (
@@ -122,7 +144,12 @@ export default function Timetable() {
                 <Text style={styles.dur}>{item.duration_min}m</Text>
               </View>
               <View style={styles.card}>
-                <Text style={styles.className}>{item.name}</Text>
+                <View style={styles.cardTop}>
+                  <Text style={styles.className}>{item.name}</Text>
+                  <View style={[styles.catTag, { backgroundColor: item.category === "Kids" ? "rgba(34,197,94,0.15)" : colors.brandTertiary }]}>
+                    <Text style={[styles.catTagText, { color: item.category === "Kids" ? "#22C55E" : colors.brand }]}>{item.category}</Text>
+                  </View>
+                </View>
                 <Text style={styles.trainer}>with {item.trainer}</Text>
                 <View style={styles.metaRow}>
                   <View style={styles.pill}>
@@ -144,7 +171,22 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
   title: { ...type.h1 },
   subtitle: { ...type.small, marginTop: 2 },
-  daysWrap: { paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
+  chipRow: { flexDirection: "row", gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
+  chip: {
+    height: 36,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  chipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
+  chipText: { color: colors.onSurfaceSecondary, fontWeight: "800", fontSize: 13 },
+  chipTextActive: { color: colors.onBrand },
+  daysWrap: { paddingBottom: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
   dayChip: {
     width: 56,
     height: 76,
@@ -173,16 +215,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  className: { color: colors.onSurface, fontSize: 18, fontWeight: "800" },
+  cardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  className: { color: colors.onSurface, fontSize: 17, fontWeight: "800", flex: 1 },
+  catTag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },
+  catTagText: { fontSize: 10, fontWeight: "900", letterSpacing: 0.5 },
   trainer: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 3 },
   metaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: spacing.md },
-  pill: {
-    backgroundColor: colors.brandTertiary,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: radius.pill,
-  },
-  pillText: { color: colors.brand, fontSize: 11, fontWeight: "800", letterSpacing: 0.5 },
+  pill: { backgroundColor: colors.surfaceTertiary, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
+  pillText: { color: colors.onSurfaceTertiary, fontSize: 11, fontWeight: "700" },
   price: { color: colors.brand, fontSize: 18, fontWeight: "900" },
   empty: { alignItems: "center", padding: 40, gap: spacing.md },
   emptyText: { color: colors.onSurfaceSecondary, fontSize: 14 },

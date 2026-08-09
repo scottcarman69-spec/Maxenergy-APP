@@ -1,0 +1,39 @@
+{
+  "summary": "Backend-only testing for NEW Max Energy Muay Thai Academy features. Created /app/backend/tests/test_new_features.py with 25 tests covering: admin login + is_admin flag, /api/auth/me admin check, classes category filter (Kids/Adults/all), 4 membership plans, announcements sorted pinned-first, /api/gym/info payload, membership apply (full nested details incl. medical + waiver + media consent) creating application + notification + listed in /me, admin-guards on 5 endpoints for anonymous (401) and member (403) callers (10 parametrized cases), admin overview counts, admin classes CRUD (create + list + update + delete + 404 after delete), admin announcement create + public visibility + delete, admin list applications + approve status + member notification, and Stripe booking/checkout regression. All 25 new tests PASS. Also updated legacy test_backend.py to align stale seed-count assertions with seed v3 (classes >=40 instead of >=70, events >=3 instead of >=4) and made payments test resilient under pytest-xdist parallelization. Full suite: 41/41 pass.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_new_features.py",
+    "/app/backend/tests/test_backend.py",
+    "/app/backend/tests/conftest.py",
+    "/app/test_reports/pytest/pytest_new_features.xml",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is now ~910 lines (single file). Approaching the 700-line split threshold; consider splitting into routers (auth, classes, bookings, payments, membership, admin, events, announcements) for future maintainability.",
+    "seed_data() reseeds catalog collections whenever SEED_VERSION changes, but membership_applications and users are preserved correctly — safe.",
+    "Admin guard is Bearer-only for the JWT path; if an admin uses Emergent Google session_token (session cookie flow), the is_admin flag is honored from DB — verified via require_admin path.",
+    "membership/apply awaits send_email twice sequentially (gym + applicant). Best-effort try/except inside send_email handles email service failures, so /apply does not fail on email errors (matches spec).",
+    "Admin overview does not currently distinguish between members and admins in 'members' count — includes admin user. Minor; documented for main agent.",
+    "All Mongo queries correctly project out _id. No ObjectID leakage detected in responses."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_new_features.py (new)",
+    "/app/backend/tests/test_backend.py (relaxed 2 stale seed-count assertions; made payments test resilient under xdist)"
+  ],
+  "success_rate": {"backend": "100% (41/41)", "frontend": "not tested (per request)"},
+  "seed_data_creation": "Test-only: created TEST_member_<uuid>@gmail.com via /api/auth/register per test session; submitted 1 membership application which was approved by admin. Admin account is auto-seeded (admin@maxenergy.com.au / MaxAdmin123!). Class/announcement CRUD artifacts (TEST_Admin_Class, TEST_Notice) are cleaned up by their own delete steps.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend base URL: https://class-notify-8.preview.emergentagent.com (EXPO_PUBLIC_BACKEND_URL). Admin login: admin@maxenergy.com.au / MaxAdmin123!. Use @gmail.com style emails for member registration (reserved TLDs like .local rejected by pydantic EmailStr). Test suites: /app/backend/tests/test_backend.py (core auth/classes/events/bookings/stripe/rsvp/notifications) and /app/backend/tests/test_new_features.py (admin, categories, membership, announcements, gym info, admin CRUD, guards). Both use conftest.py fixtures (base_url, api_client). Run: `pytest backend/tests/ -v --junitxml=/app/test_reports/pytest/pytest_results.xml`.",
+  "rca_of_issue": "N/A - no failures encountered on new endpoints. Legacy test_backend.py had 3 stale assertions carried over from iteration_1 (seed v2 vs v3 counts + xdist parallelization not sharing module-scope fixture state); fixed as test-only tweaks."
+}
