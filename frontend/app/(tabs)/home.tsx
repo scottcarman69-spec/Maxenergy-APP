@@ -67,6 +67,7 @@ export default function Home() {
 
   const quickActions = [
     { key: "schedule", label: "View Schedule", icon: "calendar", onPress: () => router.push("/(tabs)/timetable") },
+    { key: "trial", label: "Free Trial", icon: "gift", onPress: () => router.push("/free-trial") },
     { key: "membership", label: "Join Membership", icon: "card", onPress: () => router.push("/membership") },
     { key: "services", label: "Our Services", icon: "barbell", onPress: () => router.push("/services") },
     { key: "notices", label: "Gym Notices", icon: "megaphone", onPress: () => router.push("/(tabs)/events") },

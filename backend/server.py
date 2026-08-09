@@ -218,6 +218,10 @@ class ApplicationStatusReq(BaseModel):
     status: str  # pending | approved | declined
 
 
+class TrialClaimReq(BaseModel):
+    category: str  # "Kids" or "Adults"
+
+
 DEFAULT_CLASS_IMAGE = "https://images.unsplash.com/photo-1591117207239-788bf8de6c3b?w=1200&q=80"
 
 
@@ -939,6 +943,59 @@ async def my_applications(u: dict = Depends(require_user)):
     return {"applications": rows}
 
 
+# -------------------- free trials --------------------
+@api.get("/trials/me")
+async def trials_me(u: dict = Depends(require_user)):
+    rows = await db.free_trials.find({"user_id": u["user_id"]}, {"_id": 0}).to_list(20)
+    return {"trials": rows, "claimed": [r["category"] for r in rows]}
+
+
+@api.post("/trials/claim")
+async def trials_claim(body: TrialClaimReq, u: dict = Depends(require_user)):
+    category = body.category
+    if category not in ("Kids", "Adults"):
+        raise HTTPException(400, "Invalid category")
+    existing = await db.free_trials.find_one({"user_id": u["user_id"], "category": category})
+    if existing:
+        raise HTTPException(409, f"You've already claimed your {category} free trial")
+    trial = {
+        "trial_id": new_id("trial"),
+        "user_id": u["user_id"],
+        "category": category,
+        "status": "claimed",
+        "created_at": now_utc(),
+    }
+    try:
+        await db.free_trials.insert_one(trial)
+    except Exception:
+        raise HTTPException(409, f"You've already claimed your {category} free trial")
+    await db.notifications.insert_one(
+        {
+            "notification_id": new_id("ntf"),
+            "user_id": u["user_id"],
+            "title": f"{category} free trial claimed 🎉",
+            "body": f"Your free {category} trial class is booked in. Show this at the front desk — we'll see you on the mats!",
+            "type": "trial",
+            "read": False,
+            "created_at": now_utc(),
+        }
+    )
+    html = f"""
+    <table width="100%" style="font-family:Arial,sans-serif;background:#121214;color:#F9FAFB;padding:24px">
+      <tr><td>
+        <h2 style="color:#FF7A00;margin:0 0 8px">Your free {category} trial is confirmed!</h2>
+        <p>Welcome to Max Energy Muay Thai Academy. Just turn up to a {category} class and mention your free trial at the front desk.</p>
+        <p style="color:#A1A1AA">Smithfield · Open 24/7 · 07 4057 9005</p>
+      </td></tr>
+    </table>
+    """
+    await send_email(u["email"], f"Your free {category} trial at Max Energy", html)
+    await send_email(GYM_ADMIN_EMAIL, f"New free {category} trial – {u.get('name') or u['email']}",
+                     f"<p>{u.get('name') or ''} ({u['email']}) claimed a free {category} trial.</p>")
+    trial.pop("_id", None)
+    return {"trial": trial}
+
+
 # -------------------- notifications --------------------
 @api.get("/notifications")
 async def notifications_list(u: dict = Depends(require_user)):
@@ -1120,6 +1177,7 @@ async def seed_data():
         await db.announcements.create_index("announcement_id", unique=True)
         await db.membership_plans.create_index("plan_id", unique=True)
         await db.membership_applications.create_index("application_id", unique=True)
+        await db.free_trials.create_index([("user_id", 1), ("category", 1)], unique=True)
     except Exception as e:
         log.warning(f"index warn: {e}")
 

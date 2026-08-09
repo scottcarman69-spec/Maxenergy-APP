@@ -86,6 +86,10 @@ export const api = {
   locations: () => req("/api/locations"),
   reviews: () => req("/api/reviews"),
 
+  myTrials: () => req("/api/trials/me"),
+  claimTrial: (category: string) =>
+    req("/api/trials/claim", { method: "POST", body: JSON.stringify({ category }) }),
+
   plans: () => req("/api/membership/plans"),
   applyMembership: (payload: {
     plan_id: string;
