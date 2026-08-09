@@ -15,7 +15,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/src/AuthContext";
 import { api } from "@/src/api";
-import { colors, spacing, radius } from "@/src/theme";
+import { colors, spacing, radius, font } from "@/src/theme";
 import { gymPhotos } from "@/src/gymPhotos";
 
 type Cls = {
@@ -200,8 +200,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   headerLogo: { width: 150, height: 40, marginLeft: -4 },
-  academy: { color: colors.brand, fontSize: 10, fontWeight: "800", letterSpacing: 3, marginTop: -2 },
-  hello: { color: colors.onSurface, fontSize: 22, fontWeight: "800", marginTop: 6 },
+  academy: { color: colors.brand, fontSize: 10, fontFamily: font.heading, letterSpacing: 3, marginTop: -2 },
+  hello: { color: colors.onSurface, fontSize: 24, fontFamily: font.display, letterSpacing: 0.3, marginTop: 6 },
   avatar: {
     width: 44,
     height: 44,
@@ -210,12 +210,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarText: { color: colors.onBrand, fontWeight: "900", fontSize: 18 },
+  avatarText: { color: colors.onBrand, fontFamily: font.display, fontSize: 18 },
   sectionTitle: {
     color: colors.onSurfaceSecondary,
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 2,
+    fontSize: 12,
+    fontFamily: font.heading,
+    letterSpacing: 1.5,
     paddingHorizontal: spacing.lg,
     marginTop: spacing.xl,
     marginBottom: spacing.md,
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  quickLabel: { color: colors.onSurface, fontWeight: "800", fontSize: 14 },
+  quickLabel: { color: colors.onSurface, fontFamily: font.heading, fontSize: 15 },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",

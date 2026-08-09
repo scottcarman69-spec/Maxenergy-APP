@@ -23,16 +23,19 @@ export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32, xxxl: 48
 export const radius = { sm: 4, md: 8, lg: 12, pill: 999 };
 
 export const font = {
-  display: "System",
-  text: "System",
+  display: "Anton",
+  heading: "DMSans-Bold",
+  semibold: "DMSans-SemiBold",
+  medium: "DMSans-Medium",
+  text: "DMSans",
 };
 
 export const type = StyleSheet.create({
-  h1: { fontSize: 32, fontWeight: "800", color: colors.onSurface, letterSpacing: -0.5 },
-  h2: { fontSize: 24, fontWeight: "800", color: colors.onSurface, letterSpacing: -0.3 },
-  h3: { fontSize: 20, fontWeight: "700", color: colors.onSurface },
-  eyebrow: { fontSize: 11, fontWeight: "800", color: colors.onSurfaceSecondary, letterSpacing: 1.5, textTransform: "uppercase" },
-  body: { fontSize: 14, color: colors.onSurface },
-  bodyDim: { fontSize: 14, color: colors.onSurfaceSecondary },
-  small: { fontSize: 12, color: colors.onSurfaceSecondary },
+  h1: { fontSize: 32, fontFamily: font.display, color: colors.onSurface, letterSpacing: 0.3 },
+  h2: { fontSize: 25, fontFamily: font.display, color: colors.onSurface, letterSpacing: 0.3 },
+  h3: { fontSize: 19, fontFamily: font.heading, color: colors.onSurface },
+  eyebrow: { fontSize: 11, fontFamily: font.heading, color: colors.onSurfaceSecondary, letterSpacing: 1.5, textTransform: "uppercase" },
+  body: { fontSize: 14, fontFamily: font.text, color: colors.onSurface },
+  bodyDim: { fontSize: 14, fontFamily: font.text, color: colors.onSurfaceSecondary },
+  small: { fontSize: 12, fontFamily: font.text, color: colors.onSurfaceSecondary },
 });

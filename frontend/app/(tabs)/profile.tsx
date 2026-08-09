@@ -5,7 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/src/AuthContext";
 import { api } from "@/src/api";
-import { colors, spacing, radius, type } from "@/src/theme";
+import { colors, spacing, radius, type, font } from "@/src/theme";
 
 type Notif = { notification_id: string; title: string; body: string; read: boolean; created_at: string; type: string };
 type Booking = { booking_id: string; class_name: string; status: string; amount: number };
@@ -192,8 +192,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   linkIcon: { width: 36, height: 36, borderRadius: radius.sm, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center" },
-  linkLabel: { color: colors.onSurface, fontWeight: "700", fontSize: 15, flex: 1 },
-  section: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "800", letterSpacing: 2, paddingHorizontal: spacing.lg, marginTop: spacing.xl, marginBottom: spacing.md },
+  linkLabel: { color: colors.onSurface, fontFamily: font.heading, fontSize: 15, flex: 1 },
+  section: { color: colors.onSurfaceSecondary, fontSize: 12, fontFamily: font.heading, letterSpacing: 1.5, paddingHorizontal: spacing.lg, marginTop: spacing.xl, marginBottom: spacing.md },
   notifRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md, backgroundColor: colors.surfaceSecondary, padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
   unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.brand, marginTop: 6 },
   notifTitle: { color: colors.onSurface, fontWeight: "800", fontSize: 14 },

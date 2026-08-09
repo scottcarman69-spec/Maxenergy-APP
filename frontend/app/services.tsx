@@ -6,7 +6,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
-import { colors, spacing, radius, type } from "@/src/theme";
+import { colors, spacing, radius, type, font } from "@/src/theme";
 import { gymPhotoByService } from "@/src/gymPhotos";
 
 type Service = { key: string; title: string; icon: string; image: string; desc: string };
@@ -67,12 +67,12 @@ export default function Services() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
-  headerTitle: { color: colors.onSurface, fontSize: 17, fontWeight: "800" },
+  headerTitle: { color: colors.onSurface, fontSize: 20, fontFamily: font.display, letterSpacing: 0.3 },
   intro: { ...type.bodyDim, marginBottom: spacing.sm },
   card: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, overflow: "hidden", borderWidth: 1, borderColor: colors.border },
   imgWrap: { height: 150, justifyContent: "flex-end" },
   iconBadge: { position: "absolute", top: spacing.md, left: spacing.md, width: 40, height: 40, borderRadius: 20, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
-  cardTitle: { color: colors.onSurface, fontSize: 22, fontWeight: "900", padding: spacing.lg, paddingBottom: spacing.md },
+  cardTitle: { color: colors.onSurface, fontSize: 24, fontFamily: font.display, letterSpacing: 0.3, padding: spacing.lg, paddingBottom: spacing.md },
   cardDesc: { color: colors.onSurfaceSecondary, fontSize: 14, lineHeight: 21, padding: spacing.lg, paddingTop: spacing.md },
   cta: { backgroundColor: colors.brand, paddingVertical: 16, borderRadius: radius.md, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, marginTop: spacing.sm },
   ctaText: { color: colors.onBrand, fontWeight: "900", letterSpacing: 1 },
