@@ -105,6 +105,7 @@ export default function Membership() {
       if (!waiverAgreed) return "Please tick the box to agree to the terms and waiver.";
       if (!signaturePath) return "Please sign in the signature box with your finger.";
       if (!signature.trim()) return "Please type your full name as your signature.";
+      if (!photo) return "Please add a photo for your member profile / ID.";
       return null;
     }
     return null;
@@ -363,7 +364,7 @@ export default function Membership() {
                 <View style={{ height: spacing.sm }} />
                 <Field label="Full name (as signed)" testID="waiver-signature" value={signature} onChangeText={setSignature} placeholder="Your full name" />
 
-                <SectionTitle>PHOTO (OPTIONAL)</SectionTitle>
+                <SectionTitle>PHOTO (REQUIRED)</SectionTitle>
                 <Text style={styles.helpText}>Add a photo for your member profile / ID.</Text>
                 <PhotoCapture testID="member-photo" value={photo} onChange={setPhoto} />
 
