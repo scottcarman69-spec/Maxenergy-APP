@@ -16,7 +16,7 @@ import { Link, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import { useAuth } from "@/src/AuthContext";
-import { colors, spacing, radius, type } from "@/src/theme";
+import { colors, spacing, radius, type, font } from "@/src/theme";
 import { loginHero } from "@/src/gymPhotos";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -136,12 +136,40 @@ export default function Login() {
               style={styles.logo}
               contentFit="contain"
             />
+            <Text style={styles.heroTagline}>{"Cairns' home of Muay Thai, Boxing & 24/7 fitness."}</Text>
             <Text style={styles.subtitle}>Book classes. Pay in seconds. Never miss an event.</Text>
           </View>
         </View>
 
+        <View style={styles.pitch}>
+          <Text style={styles.pitchTitle}>Train harder. Feel unstoppable.</Text>
+          <Text style={styles.pitchBody}>
+            Independently owned and family-run in Smithfield — from kids &amp; adult Muay Thai and kickboxing to boot camp,
+            personal training and a fully-equipped 24/7 gym. Everything you need to reach your goals, all in your pocket.
+          </Text>
+
+          <View style={styles.features}>
+            {[
+              { icon: "calendar", title: "Live Timetable", desc: "See kids & adult classes and book your spot" },
+              { icon: "card", title: "Easy Membership", desc: "Apply & pay online — no paperwork, no queues" },
+              { icon: "megaphone", title: "Gym Notices", desc: "Stay across events, gradings & updates" },
+              { icon: "star", title: "5-Star Community", desc: "Join a crew that trains hard and lifts each other up" },
+            ].map((f) => (
+              <View key={f.title} style={styles.featureRow}>
+                <View style={styles.featureIcon}>
+                  <Ionicons name={f.icon as any} size={18} color={colors.brand} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.featureTitle}>{f.title}</Text>
+                  <Text style={styles.featureDesc}>{f.desc}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+
         <View style={styles.form}>
-          <Text style={styles.formTitle}>Log in</Text>
+          <Text style={styles.formTitle}>Log in to get started</Text>
 
           <TextInput
             testID="login-email-input"
@@ -218,6 +246,15 @@ const styles = StyleSheet.create({
   hero: { height: 340, justifyContent: "flex-end" },
   heroText: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xl },
   logo: { width: 240, height: 120, marginLeft: -8, marginBottom: spacing.xs },
+  heroTagline: { color: colors.onSurface, fontFamily: font.semibold, fontSize: 15, marginTop: spacing.xs },
+  pitch: { paddingHorizontal: spacing.xl, paddingTop: spacing.sm },
+  pitchTitle: { color: colors.onSurface, fontFamily: font.display, fontSize: 26, letterSpacing: 0.3, marginBottom: spacing.sm },
+  pitchBody: { color: colors.onSurfaceSecondary, fontSize: 14, lineHeight: 21 },
+  features: { marginTop: spacing.lg, gap: spacing.md },
+  featureRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  featureIcon: { width: 40, height: 40, borderRadius: radius.sm, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center" },
+  featureTitle: { color: colors.onSurface, fontFamily: font.heading, fontSize: 15 },
+  featureDesc: { color: colors.onSurfaceSecondary, fontSize: 12.5, marginTop: 1 },
   brandEyebrow: {
     color: colors.brand,
     fontSize: 12,
