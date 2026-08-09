@@ -90,8 +90,8 @@ export const api = {
   reviews: () => req("/api/reviews"),
 
   myTrials: () => req("/api/trials/me"),
-  claimTrial: (category: string) =>
-    req("/api/trials/claim", { method: "POST", body: JSON.stringify({ category }) }),
+  claimTrial: (category: string, extra?: { child_name?: string; child_age?: string; preferred_day?: string }) =>
+    req("/api/trials/claim", { method: "POST", body: JSON.stringify({ category, ...(extra || {}) }) }),
 
   plans: () => req("/api/membership/plans"),
   applyMembership: (payload: {

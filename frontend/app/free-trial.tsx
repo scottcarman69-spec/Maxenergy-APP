@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, TextInput, Modal, KeyboardAvoidingView, Platform } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,6 +17,12 @@ export default function FreeTrial() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  // Kids form modal
+  const [kidsFormOpen, setKidsFormOpen] = useState(false);
+  const [childName, setChildName] = useState("");
+  const [childAge, setChildAge] = useState("");
+  const [preferredDay, setPreferredDay] = useState<"Monday" | "Wednesday" | "">("");
+  const [formErr, setFormErr] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -27,15 +33,34 @@ export default function FreeTrial() {
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const claim = async (category: string) => {
+  const claimAdults = async () => {
     setMsg(null);
-    setBusy(category);
+    setBusy("Adults");
     try {
-      await api.claimTrial(category);
-      setClaimed((c) => [...c, category]);
-      setMsg(`🎉 Your free ${category} trial is confirmed! Check your email and notifications.`);
+      await api.claimTrial("Adults");
+      setClaimed((c) => [...c, "Adults"]);
+      setMsg("🎉 Your free Adults trial is confirmed! Check your email and notifications.");
     } catch (e: any) {
       setMsg(e?.message || "Could not claim trial");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const submitKids = async () => {
+    setFormErr(null);
+    if (!childName.trim()) return setFormErr("Please enter the child's name.");
+    if (!childAge.trim()) return setFormErr("Please enter the child's age.");
+    if (!preferredDay) return setFormErr("Please choose Monday or Wednesday.");
+    setBusy("Kids");
+    try {
+      await api.claimTrial("Kids", { child_name: childName.trim(), child_age: childAge.trim(), preferred_day: preferredDay });
+      setClaimed((c) => [...c, "Kids"]);
+      setKidsFormOpen(false);
+      setChildName(""); setChildAge(""); setPreferredDay("");
+      setMsg(`🎉 ${childName.trim()}'s free Kids trial for ${preferredDay} is confirmed! Check your email and notifications.`);
+    } catch (e: any) {
+      setFormErr(e?.message || "Could not claim trial");
     } finally {
       setBusy(null);
     }
@@ -76,15 +101,23 @@ export default function FreeTrial() {
                   <Pressable
                     testID={`claim-trial-${t.category.toLowerCase()}`}
                     style={styles.claimBtn}
-                    onPress={() => claim(t.category)}
+                    onPress={() => {
+                      setMsg(null);
+                      if (t.category === "Kids") {
+                        setFormErr(null);
+                        setKidsFormOpen(true);
+                      } else {
+                        claimAdults();
+                      }
+                    }}
                     disabled={busy === t.category}
                   >
                     {busy === t.category ? (
                       <ActivityIndicator color={colors.onBrand} />
                     ) : (
                       <>
-                        <Ionicons name="gift" size={16} color={colors.onBrand} />
-                        <Text style={styles.claimText}>CLAIM FREE {t.category.toUpperCase()} TRIAL</Text>
+                        <Ionicons name={t.category === "Kids" ? "create" : "gift"} size={16} color={colors.onBrand} />
+                        <Text style={styles.claimText}>{t.category === "Kids" ? "CLAIM KIDS TRIAL" : "CLAIM FREE ADULTS TRIAL"}</Text>
                       </>
                     )}
                   </Pressable>
@@ -99,6 +132,67 @@ export default function FreeTrial() {
           </Pressable>
         </ScrollView>
       )}
+
+      <Modal visible={kidsFormOpen} transparent animationType="fade" onRequestClose={() => setKidsFormOpen(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Kids Free Trial</Text>
+            <Text style={styles.modalSub}>Tell us about your child so we can get them ready for their first class.</Text>
+
+            <Text style={styles.label}>Child's name</Text>
+            <TextInput
+              testID="kids-child-name"
+              value={childName}
+              onChangeText={setChildName}
+              placeholder="e.g. Sam Carman"
+              placeholderTextColor={colors.onSurfaceSecondary}
+              style={styles.input}
+            />
+
+            <Text style={styles.label}>Child's age</Text>
+            <TextInput
+              testID="kids-child-age"
+              value={childAge}
+              onChangeText={setChildAge}
+              placeholder="e.g. 9"
+              placeholderTextColor={colors.onSurfaceSecondary}
+              keyboardType="number-pad"
+              style={styles.input}
+            />
+
+            <Text style={styles.label}>Which day would you like to trial?</Text>
+            <View style={styles.dayRow}>
+              {(["Monday", "Wednesday"] as const).map((d) => (
+                <Pressable
+                  key={d}
+                  testID={`kids-day-${d.toLowerCase()}`}
+                  style={[styles.dayChip, preferredDay === d && styles.dayChipOn]}
+                  onPress={() => setPreferredDay(d)}
+                >
+                  <Ionicons name="calendar-outline" size={15} color={preferredDay === d ? colors.onBrand : colors.brand} />
+                  <Text style={[styles.dayText, preferredDay === d && styles.dayTextOn]}>{d}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {formErr && <Text style={styles.formErr}>{formErr}</Text>}
+
+            <View style={styles.modalActions}>
+              <Pressable style={styles.modalCancel} onPress={() => setKidsFormOpen(false)} disabled={busy === "Kids"}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                testID="kids-submit"
+                style={[styles.modalSubmit, busy === "Kids" && { opacity: 0.6 }]}
+                onPress={submitKids}
+                disabled={busy === "Kids"}
+              >
+                {busy === "Kids" ? <ActivityIndicator color={colors.onBrand} /> : <Text style={styles.modalSubmitText}>CLAIM FREE TRIAL</Text>}
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -120,4 +214,21 @@ const styles = StyleSheet.create({
   msg: { color: colors.brand, fontFamily: font.semibold, textAlign: "center", marginTop: spacing.sm },
   secondary: { alignItems: "center", paddingVertical: spacing.md },
   secondaryText: { color: colors.onSurfaceSecondary, fontFamily: font.semibold, textDecorationLine: "underline" },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", padding: spacing.xl },
+  modalCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.xl, borderWidth: 1, borderColor: colors.border },
+  modalTitle: { color: colors.onSurface, fontSize: 22, fontFamily: font.display },
+  modalSub: { color: colors.onSurfaceSecondary, fontSize: 13, marginTop: 4, marginBottom: spacing.md },
+  label: { color: colors.onSurfaceSecondary, fontSize: 12, fontWeight: "700", marginTop: spacing.md, marginBottom: 6 },
+  input: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, color: colors.onSurface, paddingHorizontal: spacing.md, paddingVertical: 12, borderRadius: radius.md, fontSize: 15 },
+  dayRow: { flexDirection: "row", gap: spacing.md },
+  dayChip: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 12, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSecondary },
+  dayChipOn: { backgroundColor: colors.brand, borderColor: colors.brand },
+  dayText: { color: colors.onSurface, fontWeight: "800", fontSize: 14 },
+  dayTextOn: { color: colors.onBrand },
+  formErr: { color: colors.error, fontSize: 13, marginTop: spacing.md },
+  modalActions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.lg },
+  modalCancel: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 14, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
+  modalCancelText: { color: colors.onSurface, fontWeight: "800" },
+  modalSubmit: { flex: 2, alignItems: "center", justifyContent: "center", paddingVertical: 14, borderRadius: radius.md, backgroundColor: colors.brand },
+  modalSubmitText: { color: colors.onBrand, fontWeight: "900", letterSpacing: 1 },
 });
