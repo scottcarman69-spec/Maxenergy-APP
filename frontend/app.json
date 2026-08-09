@@ -10,7 +10,11 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.emergent.classnotify.hl9igt"
+      "bundleIdentifier": "com.emergent.classnotify.hl9igt",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Take a photo for your membership application",
+        "NSPhotoLibraryUsageDescription": "Attach a photo to your membership application"
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -18,7 +22,8 @@
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.emergent.classnotify.hl9igt"
+      "package": "com.emergent.classnotify.hl9igt",
+      "permissions": ["CAMERA", "READ_MEDIA_IMAGES"]
     },
     "web": {
       "bundler": "metro",
@@ -27,6 +32,13 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Attach a photo to your membership application",
+          "cameraPermission": "Take a photo for your membership application"
+        }
+      ],
       [
         "expo-splash-screen",
         {

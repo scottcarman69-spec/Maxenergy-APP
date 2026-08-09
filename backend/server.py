@@ -306,6 +306,53 @@ async def gym_info():
     return GYM_INFO
 
 
+ABOUT = {
+    "heading": "About Our Team",
+    "subheading": "Your Fitness Family",
+    "since": "Operating in Cairns since 2013",
+    "story": [
+        "At Max Energy, we're more than just a gym—we're a community passionate about helping you achieve your fitness goals. As an independently owned and family-run fitness centre in Cairns, we take pride in offering a personalised experience for every member.",
+        "Whether you're just starting out or looking to push your limits, we're here to support you with tailored programs, one-on-one coaching and expert guidance. Our fully refurbished gym provides a welcoming space for all fitness levels — from personal training and boot camps to Muay Thai, kickboxing and boxing.",
+        "Your journey matters, and we're committed to being there for you every step of the way. Visit us in Smithfield today!",
+    ],
+    "team": [
+        {
+            "name": "Alex Honorato",
+            "role": "Owner / Manager",
+            "image": "https://irp.cdn-website.com/3ca70639/dms3rep/multi/opt/709-800h_enhanced-1920w.jpg",
+            "bio": "An experienced trainer with over 30 years in the industry. An ex-member of the Portuguese SAS, Alex's military background helps him create efficient weight-loss and high-intensity sessions, tailored to each client.",
+            "quals": ["30+ years experience", "Diploma in Fitness", "Certified Massage Practitioner", "Muay Thai / Boxing / Kickboxing / MMA", "Certified Pilates & LES MILLS Instructor"],
+        },
+        {
+            "name": "Jamie Blackman",
+            "role": "Muay Thai Coach",
+            "image": "https://images.unsplash.com/photo-1591117207239-788bf8de6c3b?w=1200&q=80",
+            "bio": "Over 40 years in Muay Thai, competing worldwide including world titles in Bangkok and Dubai. Trained and certified in Thailand, Jamie has taught kids and adults for over 27 years across Australia, the Middle East and Thailand.",
+            "quals": ["World-level competitor", "Certified in Thailand", "Kids & Adults (Blue Card)", "Boxing / Kickboxing / Muay Thai"],
+        },
+        {
+            "name": "Andrew Roussety",
+            "role": "Personal Trainer",
+            "image": "https://irp.cdn-website.com/3ca70639/dms3rep/multi/opt/Andrew+Profile-1920w.jpg",
+            "bio": "Passionate about healthy eating and combining nutrition with training for optimal results. Andrew specialises in circuit and weight training, building muscle and trimming excess weight.",
+            "quals": ["Cert 3 & 4 in Fitness", "Strength & Conditioning", "Bulking / Cutting / Nutrition", "Boxing Fitness / Muay Thai"],
+        },
+        {
+            "name": "Scott Carman",
+            "role": "Administration & Marketing",
+            "image": "https://irp.cdn-website.com/3ca70639/dms3rep/multi/opt/Scott+Profile+HD-a7ab5007-1920w.png",
+            "bio": "With a strong background in administration and marketing, Scott keeps the business running smoothly while driving brand growth through customer relations and digital marketing.",
+            "quals": ["IT Support", "Marketing / Sales", "Community Helper"],
+        },
+    ],
+}
+
+
+@api.get("/about")
+async def about():
+    return ABOUT
+
+
 # -------------------- classes --------------------
 @api.get("/classes")
 async def classes_list(category: Optional[str] = None):

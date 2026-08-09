@@ -81,6 +81,7 @@ export const api = {
 
   announcements: () => req("/api/announcements"),
   gymInfo: () => req("/api/gym/info"),
+  about: () => req("/api/about"),
 
   plans: () => req("/api/membership/plans"),
   applyMembership: (payload: {

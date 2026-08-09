@@ -16,6 +16,8 @@ import { api } from "@/src/api";
 import { useAuth } from "@/src/AuthContext";
 import { colors, spacing, radius } from "@/src/theme";
 import { SectionTitle, Field, Checkbox, Segmented, YesNo } from "@/src/components/Form";
+import { SignaturePad } from "@/src/components/SignaturePad";
+import { PhotoCapture } from "@/src/components/PhotoCapture";
 
 type Plan = { plan_id: string; name: string; category: string; price_display: string; features: string[] };
 
@@ -64,6 +66,8 @@ export default function Membership() {
   const [mediaConsent, setMediaConsent] = useState<boolean | null>(null);
   const [waiverAgreed, setWaiverAgreed] = useState(false);
   const [signature, setSignature] = useState("");
+  const [signaturePath, setSignaturePath] = useState("");
+  const [photo, setPhoto] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -88,7 +92,7 @@ export default function Membership() {
     if (step === 0) return !!planId;
     if (step === 1) return firstName && lastName && mobile && category;
     if (step === 2) return true;
-    if (step === 3) return waiverAgreed && signature.trim().length > 1 && mediaConsent !== null;
+    if (step === 3) return waiverAgreed && signaturePath.length > 0 && mediaConsent !== null;
     return false;
   };
 
@@ -127,6 +131,8 @@ export default function Membership() {
           media_consent: mediaConsent,
           waiver_agreed: waiverAgreed,
           signature,
+          signature_path: signaturePath,
+          photo_base64: photo,
           submitted_date: new Date().toISOString().slice(0, 10),
         },
       });
@@ -316,9 +322,18 @@ export default function Membership() {
                   value={waiverAgreed}
                   onToggle={() => setWaiverAgreed((v) => !v)}
                 />
+
+                <SectionTitle>SIGNATURE</SectionTitle>
+                <Text style={styles.helpText}>Draw your signature below to confirm your declaration.</Text>
+                <SignaturePad testID="signature-pad" onChange={setSignaturePath} />
                 <View style={{ height: spacing.sm }} />
-                <Field label="Signature (type your full name)" testID="waiver-signature" value={signature} onChangeText={setSignature} placeholder="Your full name" />
-                <Text style={styles.helpText}>Date: {new Date().toLocaleDateString()}</Text>
+                <Field label="Full name (as signed)" testID="waiver-signature" value={signature} onChangeText={setSignature} placeholder="Your full name" />
+
+                <SectionTitle>PHOTO (OPTIONAL)</SectionTitle>
+                <Text style={styles.helpText}>Add a photo for your member profile / ID.</Text>
+                <PhotoCapture testID="member-photo" value={photo} onChange={setPhoto} />
+
+                <Text style={[styles.helpText, { marginTop: spacing.md }]}>Date: {new Date().toLocaleDateString()}</Text>
 
                 {selectedPlan && (
                   <View style={styles.summary}>

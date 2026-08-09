@@ -3,8 +3,10 @@ import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
+import { SignatureView } from "@/src/components/SignaturePad";
 
 type App = {
   application_id: string;
@@ -74,6 +76,18 @@ export default function AdminApplications() {
             {v}
           </Text>
         ))}
+        {!!d.photo_base64 && (
+          <View style={{ marginTop: spacing.sm }}>
+            <Text style={styles.detailKey}>Photo</Text>
+            <Image source={d.photo_base64} style={styles.photo} contentFit="cover" />
+          </View>
+        )}
+        {!!d.signature_path && (
+          <View style={{ marginTop: spacing.sm }}>
+            <Text style={styles.detailKey}>Signature</Text>
+            <SignatureView d={d.signature_path} height={90} />
+          </View>
+        )}
       </View>
     );
   };
@@ -155,6 +169,7 @@ const styles = StyleSheet.create({
   details: { marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, gap: 4 },
   detailRow: { color: colors.onSurfaceSecondary, fontSize: 13 },
   detailKey: { color: colors.onSurface, fontWeight: "700" },
+  photo: { width: 120, height: 120, borderRadius: radius.md, marginTop: 6, borderWidth: 1, borderColor: colors.border },
   actions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
   actBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 12, borderRadius: radius.md },
   actText: { fontWeight: "800", fontSize: 14 },

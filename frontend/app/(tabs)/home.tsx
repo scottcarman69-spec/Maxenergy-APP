@@ -68,6 +68,7 @@ export default function Home() {
     { key: "schedule", label: "View Schedule", icon: "calendar", onPress: () => router.push("/(tabs)/timetable") },
     { key: "membership", label: "Join Membership", icon: "card", onPress: () => router.push("/membership") },
     { key: "notices", label: "Gym Notices", icon: "megaphone", onPress: () => router.push("/(tabs)/events") },
+    { key: "about", label: "About Us", icon: "people", onPress: () => router.push("/about") },
     { key: "contact", label: "Contact", icon: "call", onPress: () => router.push("/contact") },
   ] as const;
 
