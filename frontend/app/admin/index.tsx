@@ -36,8 +36,9 @@ export default function AdminHome() {
   }
 
   const cards = [
-    { key: "classes", icon: "calendar", label: "Manage Classes", desc: "Add, edit & remove class times", route: "/admin/classes", count: stats?.classes },
-    { key: "announcements", icon: "megaphone", label: "Gym Notices", desc: "Post announcements to members", route: "/admin/announcements", count: stats?.announcements },
+    { key: "classes", icon: "calendar", label: "Manage Classes", desc: "Add, edit, rename & remove classes", route: "/admin/classes", count: stats?.classes },
+    { key: "bookings", icon: "clipboard", label: "Bookings", desc: "Accept, reschedule or cancel bookings", route: "/admin/bookings", count: stats?.pending_bookings, badge: true },
+    { key: "announcements", icon: "megaphone", label: "Gym Notices", desc: "Post & edit announcements to members", route: "/admin/announcements", count: stats?.announcements },
     { key: "applications", icon: "document-text", label: "Applications", desc: "Review membership applications", route: "/admin/applications", count: stats?.pending_applications, badge: true },
   ];
 

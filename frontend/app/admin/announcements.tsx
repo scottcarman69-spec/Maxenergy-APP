@@ -29,6 +29,7 @@ export default function AdminAnnouncements() {
   const [pinned, setPinned] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -39,6 +40,21 @@ export default function AdminAnnouncements() {
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
+  const resetForm = () => {
+    setTitle("");
+    setBody("");
+    setPinned(false);
+    setEditingId(null);
+  };
+
+  const startEdit = (a: Ann) => {
+    setEditingId(a.announcement_id);
+    setTitle(a.title);
+    setBody(a.body);
+    setPinned(a.pinned);
+    setShowForm(true);
+  };
+
   const post = async () => {
     setErr(null);
     if (!title || !body) {
@@ -47,14 +63,16 @@ export default function AdminAnnouncements() {
     }
     setSaving(true);
     try {
-      await api.adminCreateAnnouncement({ title, body, pinned });
-      setTitle("");
-      setBody("");
-      setPinned(false);
+      if (editingId) {
+        await api.adminUpdateAnnouncement(editingId, { title, body, pinned });
+      } else {
+        await api.adminCreateAnnouncement({ title, body, pinned });
+      }
+      resetForm();
       setShowForm(false);
       await load();
     } catch (e: any) {
-      setErr(e?.message || "Failed to post");
+      setErr(e?.message || "Failed to save");
     } finally {
       setSaving(false);
     }
@@ -74,7 +92,7 @@ export default function AdminAnnouncements() {
           <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
         </Pressable>
         <Text style={styles.headerTitle}>Gym Notices</Text>
-        <Pressable testID="admina-add" onPress={() => setShowForm((s) => !s)} hitSlop={12}>
+        <Pressable testID="admina-add" onPress={() => { if (showForm) { resetForm(); } setShowForm((s) => !s); }} hitSlop={12}>
           <Ionicons name={showForm ? "close-circle" : "add-circle"} size={28} color={colors.brand} />
         </Pressable>
       </View>
@@ -83,7 +101,7 @@ export default function AdminAnnouncements() {
         <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
           {showForm && (
             <View style={styles.form}>
-              <Text style={styles.formTitle}>New announcement</Text>
+              <Text style={styles.formTitle}>{editingId ? "Edit notice" : "New announcement"}</Text>
               <TextInput
                 testID="admina-title"
                 value={title}
@@ -104,7 +122,7 @@ export default function AdminAnnouncements() {
               <Checkbox testID="admina-pinned" label="Pin to top" value={pinned} onToggle={() => setPinned((p) => !p)} />
               {err && <Text style={styles.error}>{err}</Text>}
               <Pressable testID="admina-post" style={[styles.postBtn, saving && { opacity: 0.5 }]} onPress={post} disabled={saving}>
-                {saving ? <ActivityIndicator color={colors.onBrand} /> : <Text style={styles.postText}>POST NOTICE</Text>}
+                {saving ? <ActivityIndicator color={colors.onBrand} /> : <Text style={styles.postText}>{editingId ? "SAVE CHANGES" : "POST NOTICE"}</Text>}
               </Pressable>
             </View>
           )}
@@ -121,6 +139,9 @@ export default function AdminAnnouncements() {
                   </View>
                   <Text style={styles.body} numberOfLines={2}>{a.body}</Text>
                 </View>
+                <Pressable testID={`admina-edit-${a.announcement_id}`} onPress={() => startEdit(a)} style={styles.iconBtn}>
+                  <Ionicons name="create-outline" size={20} color={colors.brand} />
+                </Pressable>
                 <Pressable testID={`admina-del-${a.announcement_id}`} onPress={() => remove(a.announcement_id)} style={styles.iconBtn}>
                   <Ionicons name="trash-outline" size={20} color={colors.error} />
                 </Pressable>

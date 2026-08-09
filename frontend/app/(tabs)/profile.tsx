@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, TextInput, Platform } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -8,7 +8,15 @@ import { api } from "@/src/api";
 import { colors, spacing, radius, type, font } from "@/src/theme";
 
 type Notif = { notification_id: string; title: string; body: string; read: boolean; created_at: string; type: string };
-type Booking = { booking_id: string; class_name: string; status: string; amount: number };
+type Booking = { booking_id: string; class_name: string; status: string; amount: number; by_appointment?: boolean; requested_time?: string; scheduled_time?: string };
+
+const STATUS_META: Record<string, { label: string; bg: string; fg: string }> = {
+  paid: { label: "PAID", bg: colors.brand, fg: colors.onBrand },
+  confirmed: { label: "CONFIRMED", bg: colors.brand, fg: colors.onBrand },
+  pending: { label: "PENDING", bg: colors.surfaceTertiary, fg: colors.onSurface },
+  reschedule_requested: { label: "RESCHEDULE REQUESTED", bg: colors.surfaceTertiary, fg: colors.onSurface },
+  cancelled: { label: "CANCELLED", bg: colors.surfaceTertiary, fg: colors.onSurfaceSecondary },
+};
 
 export default function Profile() {
   const { user, logout } = useAuth();
@@ -16,6 +24,11 @@ export default function Profile() {
   const [notifs, setNotifs] = useState<Notif[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [rescheduleFor, setRescheduleFor] = useState<Booking | null>(null);
+  const [rTime, setRTime] = useState("");
+  const [rNote, setRNote] = useState("");
+  const [actioning, setActioning] = useState<string | null>(null);
+  const [banner, setBanner] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -28,12 +41,40 @@ export default function Profile() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
+  const doCancel = async (b: Booking) => {
+    setActioning(b.booking_id);
+    try {
+      await api.cancelBooking(b.booking_id);
+      setBanner("Booking cancelled. We've notified the gym.");
+      await load();
+    } catch (e: any) {
+      setBanner(e?.message || "Could not cancel booking.");
+    }
+    setActioning(null);
+  };
+
+  const submitReschedule = async () => {
+    if (!rescheduleFor || !rTime.trim()) return;
+    setActioning(rescheduleFor.booking_id);
+    try {
+      await api.rescheduleBooking(rescheduleFor.booking_id, rTime.trim(), rNote.trim() || undefined);
+      setBanner("Reschedule request sent. The gym will confirm a time.");
+      setRescheduleFor(null);
+      setRTime("");
+      setRNote("");
+      await load();
+    } catch (e: any) {
+      setBanner(e?.message || "Could not request reschedule.");
+    }
+    setActioning(null);
+  };
+
   const doLogout = async () => {
     await logout();
     router.replace("/(auth)/login");
   };
 
-  const paidCount = bookings.filter((b) => b.status === "paid").length;
+  const paidCount = bookings.filter((b) => b.status === "paid" || b.status === "confirmed").length;
   const unread = notifs.filter((n) => !n.read).length;
 
   const links = [
@@ -132,27 +173,111 @@ export default function Profile() {
           {bookings.length === 0 ? (
             <Text style={styles.emptyInline}>No bookings yet. Head to the Schedule to book a class.</Text>
           ) : (
-            bookings.map((b) => (
-              <View key={b.booking_id} style={styles.bookingRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.notifTitle}>{b.class_name}</Text>
-                  <Text style={styles.notifBody}>${(b.amount / 100).toFixed(0)} · {b.status.toUpperCase()}</Text>
+            bookings.map((b) => {
+              const meta = STATUS_META[b.status] || { label: b.status.toUpperCase(), bg: colors.surfaceTertiary, fg: colors.onSurface };
+              const canManage = b.status !== "cancelled";
+              return (
+                <View key={b.booking_id} style={styles.bookingCard}>
+                  <View style={styles.bookingRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.notifTitle}>{b.class_name}</Text>
+                      <Text style={styles.notifBody}>
+                        {b.by_appointment ? "By appointment" : `$${(b.amount / 100).toFixed(0)}`}
+                        {b.scheduled_time ? ` · ${b.scheduled_time}` : ""}
+                        {b.status === "reschedule_requested" && b.requested_time ? ` · asked: ${b.requested_time}` : ""}
+                      </Text>
+                    </View>
+                    <View style={[styles.statusPill, { backgroundColor: meta.bg }]}>
+                      <Text style={[styles.statusText, { color: meta.fg }]}>{meta.label}</Text>
+                    </View>
+                  </View>
+                  {canManage && (
+                    <View style={styles.bookingActions}>
+                      <Pressable
+                        testID={`booking-reschedule-${b.booking_id}`}
+                        style={styles.actionBtnGhost}
+                        onPress={() => { setRescheduleFor(b); setRTime(""); setRNote(""); }}
+                        disabled={actioning === b.booking_id}
+                      >
+                        <Ionicons name="time-outline" size={15} color={colors.brand} />
+                        <Text style={styles.actionGhostText}>Reschedule</Text>
+                      </Pressable>
+                      <Pressable
+                        testID={`booking-cancel-${b.booking_id}`}
+                        style={styles.actionBtnDanger}
+                        onPress={() => doCancel(b)}
+                        disabled={actioning === b.booking_id}
+                      >
+                        {actioning === b.booking_id ? (
+                          <ActivityIndicator size="small" color={colors.error} />
+                        ) : (
+                          <>
+                            <Ionicons name="close-circle-outline" size={15} color={colors.error} />
+                            <Text style={styles.actionDangerText}>Cancel</Text>
+                          </>
+                        )}
+                      </Pressable>
+                    </View>
+                  )}
                 </View>
-                <View style={[styles.statusPill, b.status === "paid" ? styles.paid : styles.pending]}>
-                  <Text style={[styles.statusText, { color: b.status === "paid" ? colors.onBrand : colors.onSurface }]}>
-                    {b.status === "paid" ? "PAID" : b.status.toUpperCase()}
-                  </Text>
-                </View>
-              </View>
-            ))
+              );
+            })
           )}
         </View>
+
+        {banner && (
+          <Pressable onPress={() => setBanner(null)} style={styles.banner}>
+            <Ionicons name="checkmark-circle" size={16} color={colors.brand} />
+            <Text style={styles.bannerText}>{banner}</Text>
+          </Pressable>
+        )}
 
         <Pressable testID="logout-button" style={styles.logout} onPress={doLogout}>
           <Ionicons name="log-out-outline" size={18} color={colors.error} />
           <Text style={styles.logoutText}>Log out</Text>
         </Pressable>
       </ScrollView>
+
+      <Modal visible={!!rescheduleFor} transparent animationType="fade" onRequestClose={() => setRescheduleFor(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Request a reschedule</Text>
+            <Text style={styles.modalSub}>{rescheduleFor?.class_name}</Text>
+            <Text style={styles.modalLabel}>Preferred day & time</Text>
+            <TextInput
+              testID="reschedule-time"
+              value={rTime}
+              onChangeText={setRTime}
+              placeholder="e.g. Tuesday 6:00pm"
+              placeholderTextColor={colors.onSurfaceSecondary}
+              style={styles.modalInput}
+            />
+            <Text style={styles.modalLabel}>Note (optional)</Text>
+            <TextInput
+              testID="reschedule-note"
+              value={rNote}
+              onChangeText={setRNote}
+              placeholder="Anything the gym should know"
+              placeholderTextColor={colors.onSurfaceSecondary}
+              multiline
+              style={[styles.modalInput, { minHeight: 70, textAlignVertical: "top" }]}
+            />
+            <View style={styles.modalActions}>
+              <Pressable style={styles.modalCancel} onPress={() => setRescheduleFor(null)}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                testID="reschedule-submit"
+                style={[styles.modalSubmit, (!rTime.trim() || !!actioning) && { opacity: 0.5 }]}
+                onPress={submitReschedule}
+                disabled={!rTime.trim() || !!actioning}
+              >
+                {actioning ? <ActivityIndicator color={colors.onBrand} /> : <Text style={styles.modalSubmitText}>SEND REQUEST</Text>}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -202,10 +327,29 @@ const styles = StyleSheet.create({
   emptyText: { color: colors.onSurfaceSecondary },
   emptyInline: { color: colors.onSurfaceSecondary, fontSize: 13, paddingVertical: spacing.md },
   bookingRow: { flexDirection: "row", alignItems: "center", backgroundColor: colors.surfaceSecondary, padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, gap: spacing.md },
+  bookingCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, overflow: "hidden" },
+  bookingActions: { flexDirection: "row", borderTopWidth: 1, borderTopColor: colors.border },
+  actionBtnGhost: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 12, borderRightWidth: 1, borderRightColor: colors.border },
+  actionGhostText: { color: colors.brand, fontWeight: "800", fontSize: 13 },
+  actionBtnDanger: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 12 },
+  actionDangerText: { color: colors.error, fontWeight: "800", fontSize: 13 },
+  banner: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginHorizontal: spacing.lg, marginTop: spacing.md, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.brandTertiary },
+  bannerText: { color: colors.brand, fontSize: 13, fontWeight: "700", flex: 1 },
   statusPill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill },
   paid: { backgroundColor: colors.brand },
   pending: { backgroundColor: colors.surfaceTertiary },
   statusText: { fontSize: 10, fontWeight: "900", letterSpacing: 1 },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", padding: spacing.xl },
+  modalCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.xl, borderWidth: 1, borderColor: colors.border },
+  modalTitle: { color: colors.onSurface, fontSize: 20, fontFamily: font.heading },
+  modalSub: { color: colors.brand, fontSize: 14, fontWeight: "700", marginTop: 2, marginBottom: spacing.md },
+  modalLabel: { color: colors.onSurfaceSecondary, fontSize: 12, fontWeight: "700", marginTop: spacing.sm, marginBottom: 6 },
+  modalInput: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, color: colors.onSurface, paddingHorizontal: spacing.md, paddingVertical: 12, borderRadius: radius.md, fontSize: 15 },
+  modalActions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.lg },
+  modalCancel: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 14, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
+  modalCancelText: { color: colors.onSurface, fontWeight: "800" },
+  modalSubmit: { flex: 2, alignItems: "center", justifyContent: "center", paddingVertical: 14, borderRadius: radius.md, backgroundColor: colors.brand },
+  modalSubmitText: { color: colors.onBrand, fontWeight: "900", letterSpacing: 1 },
   logout: { marginTop: spacing.xxl, marginHorizontal: spacing.lg, padding: spacing.lg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: spacing.sm },
   logoutText: { color: colors.error, fontWeight: "800", letterSpacing: 0.5 },
 });

@@ -66,6 +66,9 @@ export const api = {
   createBooking: (class_id: string) =>
     req("/api/bookings", { method: "POST", body: JSON.stringify({ class_id }) }),
   myBookings: () => req("/api/bookings"),
+  cancelBooking: (id: string) => req(`/api/bookings/${id}/cancel`, { method: "POST" }),
+  rescheduleBooking: (id: string, requested_time: string, note?: string) =>
+    req(`/api/bookings/${id}/reschedule`, { method: "POST", body: JSON.stringify({ requested_time, note }) }),
 
   checkout: (booking_id: string, origin_url: string) =>
     req("/api/payments/checkout", {
@@ -114,11 +117,18 @@ export const api = {
   adminDeleteClass: (id: string) => req(`/api/admin/classes/${id}`, { method: "DELETE" }),
   adminCreateAnnouncement: (payload: { title: string; body: string; pinned: boolean }) =>
     req("/api/admin/announcements", { method: "POST", body: JSON.stringify(payload) }),
+  adminUpdateAnnouncement: (id: string, payload: { title: string; body: string; pinned: boolean }) =>
+    req(`/api/admin/announcements/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
   adminDeleteAnnouncement: (id: string) =>
     req(`/api/admin/announcements/${id}`, { method: "DELETE" }),
   adminApplications: () => req("/api/admin/applications"),
   adminSetApplicationStatus: (id: string, status: string) =>
     req(`/api/admin/applications/${id}/status`, { method: "POST", body: JSON.stringify({ status }) }),
+  adminBookings: () => req("/api/admin/bookings"),
+  adminAcceptBooking: (id: string) => req(`/api/admin/bookings/${id}/accept`, { method: "POST" }),
+  adminCancelBooking: (id: string) => req(`/api/admin/bookings/${id}/cancel`, { method: "POST" }),
+  adminRescheduleBooking: (id: string, new_time: string, note?: string) =>
+    req(`/api/admin/bookings/${id}/reschedule`, { method: "POST", body: JSON.stringify({ new_time, note }) }),
 };
 
 export const BACKEND_URL = API_URL;

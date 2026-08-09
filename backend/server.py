@@ -33,6 +33,8 @@ STRIPE_API_KEY = os.environ["STRIPE_API_KEY"]
 GYM_ADMIN_EMAIL = os.environ["GYM_ADMIN_EMAIL"]
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@maxenergy.com.au")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "MaxAdmin123!")
+ADMIN2_EMAIL = os.environ.get("ADMIN2_EMAIL", "info@maxenergy.com.au")
+ADMIN2_PASSWORD = os.environ.get("ADMIN2_PASSWORD", "maxenergy12@")
 
 EMAIL_BASE_URL = "https://integrations.emergentagent.com"
 EMERGENT_AUTH_SESSION_URL = "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data"
@@ -117,6 +119,46 @@ async def send_email(recipient: str, subject: str, html: str, attachments: Optio
     except Exception as e:
         log.error(f"email failed to {recipient}: {e}")
         return False
+
+
+def _email_shell(heading: str, lines: list) -> str:
+    body = "".join(f"<p style='margin:0 0 10px;color:#333;font-size:15px;line-height:1.5'>{ln}</p>" for ln in lines)
+    return (
+        "<div style='font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;'>"
+        "<div style='background:#FF7A00;padding:20px 24px;border-radius:10px 10px 0 0;'>"
+        f"<h1 style='color:#fff;margin:0;font-size:20px;'>{heading}</h1></div>"
+        f"<div style='padding:24px;background:#fafafa;border-radius:0 0 10px 10px;border:1px solid #eee;'>{body}"
+        "<p style='margin:18px 0 0;color:#999;font-size:12px;'>Max Energy Muay Thai Academy · Smithfield QLD</p></div></div>"
+    )
+
+
+async def create_notification(user_id: str, title: str, body: str, ntype: str = "booking") -> None:
+    await db.notifications.insert_one(
+        {
+            "notification_id": new_id("ntf"),
+            "user_id": user_id,
+            "title": title,
+            "body": body,
+            "type": ntype,
+            "read": False,
+            "created_at": now_utc(),
+        }
+    )
+
+
+async def notify_user(user_id: str, email: Optional[str], title: str, body: str, ntype: str = "booking", email_lines: Optional[list] = None) -> None:
+    """In-app notification + email to a specific member."""
+    await create_notification(user_id, title, body, ntype)
+    if email:
+        await send_email(email, title, _email_shell(title, email_lines or [body]))
+
+
+async def notify_admins(title: str, body: str, ntype: str = "booking", email_lines: Optional[list] = None) -> None:
+    """In-app notification to every admin user + email to the gym inbox."""
+    admins = await db.users.find({"is_admin": True}, {"_id": 0, "user_id": 1}).to_list(100)
+    for a in admins:
+        await create_notification(a["user_id"], title, body, ntype)
+    await send_email(GYM_ADMIN_EMAIL, title, _email_shell(title, email_lines or [body]))
 
 
 async def get_user_by_token(authorization: Optional[str]) -> Optional[dict]:
@@ -220,6 +262,22 @@ class ApplicationStatusReq(BaseModel):
 
 class TrialClaimReq(BaseModel):
     category: str  # "Kids" or "Adults"
+
+
+class RescheduleReq(BaseModel):
+    requested_time: str
+    note: Optional[str] = None
+
+
+class AdminRescheduleReq(BaseModel):
+    new_time: str
+    note: Optional[str] = None
+
+
+class AnnouncementUpdate(BaseModel):
+    title: str
+    body: str
+    pinned: bool = False
 
 
 DEFAULT_CLASS_IMAGE = "https://images.unsplash.com/photo-1591117207239-788bf8de6c3b?w=1200&q=80"
@@ -511,6 +569,7 @@ async def booking_create(body: BookingCreate, u: dict = Depends(require_user)):
     if existing:
         return {"booking": existing}
     booking_id = new_id("bk")
+    is_appt = bool(cls.get("by_appointment"))
     doc = {
         "booking_id": booking_id,
         "user_id": u["user_id"],
@@ -518,11 +577,30 @@ async def booking_create(body: BookingCreate, u: dict = Depends(require_user)):
         "class_name": cls["name"],
         "amount": cls["price_cents"],
         "currency": cls.get("currency", "aud"),
+        "by_appointment": is_appt,
+        "class_start": cls.get("start_at"),
         "status": "pending",
         "created_at": now_utc(),
     }
     await db.bookings.insert_one(doc)
     doc.pop("_id", None)
+    if is_appt:
+        member_name = u.get("name") or u.get("email")
+        await notify_admins(
+            "New session request",
+            f"{member_name} requested a {cls['name']} session (by appointment).",
+            "booking",
+            email_lines=[
+                f"<b>{member_name}</b> has requested a <b>{cls['name']}</b> session.",
+                "This is a by-appointment booking — open the app Admin → Bookings to accept, reschedule or cancel.",
+            ],
+        )
+        await create_notification(
+            u["user_id"],
+            "Session request received",
+            f"We received your request for {cls['name']}. We'll confirm a time shortly.",
+            "booking",
+        )
     return {"booking": doc}
 
 
@@ -530,6 +608,66 @@ async def booking_create(body: BookingCreate, u: dict = Depends(require_user)):
 async def bookings_list(u: dict = Depends(require_user)):
     rows = await db.bookings.find({"user_id": u["user_id"]}, {"_id": 0}).sort("created_at", -1).to_list(200)
     return {"bookings": rows}
+
+
+@api.post("/bookings/{booking_id}/cancel")
+async def booking_cancel(booking_id: str, u: dict = Depends(require_user)):
+    b = await db.bookings.find_one({"booking_id": booking_id, "user_id": u["user_id"]}, {"_id": 0})
+    if not b:
+        raise HTTPException(404, "Booking not found")
+    if b.get("status") == "cancelled":
+        return {"booking": b}
+    await db.bookings.update_one({"booking_id": booking_id}, {"$set": {"status": "cancelled", "cancelled_at": now_utc(), "cancelled_by": "member"}})
+    member_name = u.get("name") or u.get("email")
+    await notify_user(
+        u["user_id"], u.get("email"),
+        "Booking cancelled",
+        f"Your booking for {b['class_name']} has been cancelled.",
+        "booking",
+        email_lines=[f"Your booking for <b>{b['class_name']}</b> has been cancelled.", "We hope to see you back on the mats soon!"],
+    )
+    await notify_admins(
+        "Booking cancelled by member",
+        f"{member_name} cancelled their {b['class_name']} booking.",
+        "booking",
+        email_lines=[f"<b>{member_name}</b> cancelled their <b>{b['class_name']}</b> booking."],
+    )
+    b = await db.bookings.find_one({"booking_id": booking_id}, {"_id": 0})
+    return {"booking": b}
+
+
+@api.post("/bookings/{booking_id}/reschedule")
+async def booking_reschedule(booking_id: str, body: RescheduleReq, u: dict = Depends(require_user)):
+    b = await db.bookings.find_one({"booking_id": booking_id, "user_id": u["user_id"]}, {"_id": 0})
+    if not b:
+        raise HTTPException(404, "Booking not found")
+    if b.get("status") == "cancelled":
+        raise HTTPException(400, "This booking is cancelled and cannot be rescheduled.")
+    await db.bookings.update_one(
+        {"booking_id": booking_id},
+        {"$set": {"status": "reschedule_requested", "requested_time": body.requested_time, "reschedule_note": body.note, "reschedule_requested_at": now_utc()}},
+    )
+    member_name = u.get("name") or u.get("email")
+    note_txt = f" Note: {body.note}" if body.note else ""
+    await create_notification(
+        u["user_id"],
+        "Reschedule requested",
+        f"We received your reschedule request for {b['class_name']} ({body.requested_time}). We'll confirm shortly.",
+        "booking",
+    )
+    await notify_admins(
+        "Reschedule request",
+        f"{member_name} asked to reschedule {b['class_name']} to: {body.requested_time}.{note_txt}",
+        "booking",
+        email_lines=[
+            f"<b>{member_name}</b> requested to reschedule their <b>{b['class_name']}</b> booking.",
+            f"Preferred time: <b>{body.requested_time}</b>",
+            (f"Note: {body.note}" if body.note else ""),
+            "Open Admin → Bookings to confirm the new time.",
+        ],
+    )
+    b = await db.bookings.find_one({"booking_id": booking_id}, {"_id": 0})
+    return {"booking": b}
 
 
 # -------------------- payments (Stripe) --------------------
@@ -601,6 +739,14 @@ async def payments_status(session_id: str, request: Request, u: dict = Depends(r
                         "read": False,
                         "created_at": now_utc(),
                     }
+                )
+                member = await db.users.find_one({"user_id": tx["user_id"]}, {"_id": 0})
+                mname = (member or {}).get("name") or (member or {}).get("email") or "A member"
+                await notify_admins(
+                    "New paid booking",
+                    f"{mname} booked and paid for {b['class_name']}.",
+                    "booking",
+                    email_lines=[f"<b>{mname}</b> booked and paid for <b>{b['class_name']}</b>."],
                 )
     return {
         "payment_status": status.payment_status,
@@ -1017,7 +1163,8 @@ async def admin_overview(u: dict = Depends(require_admin)):
     pending = await db.membership_applications.count_documents({"status": "pending"})
     ann = await db.announcements.count_documents({})
     members = await db.users.count_documents({})
-    return {"classes": classes, "applications": apps, "pending_applications": pending, "announcements": ann, "members": members}
+    pending_bookings = await db.bookings.count_documents({"status": {"$in": ["pending", "reschedule_requested"]}})
+    return {"classes": classes, "applications": apps, "pending_applications": pending, "announcements": ann, "members": members, "pending_bookings": pending_bookings}
 
 
 @api.get("/admin/classes")
@@ -1109,6 +1256,18 @@ async def admin_announcement_delete(announcement_id: str, u: dict = Depends(requ
     return {"ok": True}
 
 
+@api.put("/admin/announcements/{announcement_id}")
+async def admin_announcement_update(announcement_id: str, body: AnnouncementUpdate, u: dict = Depends(require_admin)):
+    r = await db.announcements.update_one(
+        {"announcement_id": announcement_id},
+        {"$set": {"title": body.title, "body": body.body, "pinned": body.pinned}},
+    )
+    if r.matched_count == 0:
+        raise HTTPException(404, "Announcement not found")
+    a = await db.announcements.find_one({"announcement_id": announcement_id}, {"_id": 0})
+    return {"announcement": a}
+
+
 @api.get("/admin/applications")
 async def admin_applications(u: dict = Depends(require_admin)):
     rows = await db.membership_applications.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
@@ -1133,6 +1292,76 @@ async def admin_application_status(application_id: str, body: ApplicationStatusR
             "read": False,
             "created_at": now_utc(),
         }
+    )
+    return {"ok": True}
+
+
+@api.get("/admin/bookings")
+async def admin_bookings(u: dict = Depends(require_admin)):
+    rows = await db.bookings.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    # enrich with member info
+    uids = list({r["user_id"] for r in rows})
+    users = await db.users.find({"user_id": {"$in": uids}}, {"_id": 0, "user_id": 1, "name": 1, "email": 1}).to_list(500)
+    umap = {x["user_id"]: x for x in users}
+    for r in rows:
+        m = umap.get(r["user_id"], {})
+        r["member_name"] = m.get("name") or m.get("email") or "Member"
+        r["member_email"] = m.get("email")
+    return {"bookings": rows}
+
+
+async def _admin_get_booking(booking_id: str) -> dict:
+    b = await db.bookings.find_one({"booking_id": booking_id}, {"_id": 0})
+    if not b:
+        raise HTTPException(404, "Booking not found")
+    return b
+
+
+@api.post("/admin/bookings/{booking_id}/accept")
+async def admin_booking_accept(booking_id: str, u: dict = Depends(require_admin)):
+    b = await _admin_get_booking(booking_id)
+    await db.bookings.update_one({"booking_id": booking_id}, {"$set": {"status": "confirmed", "confirmed_at": now_utc()}})
+    member = await db.users.find_one({"user_id": b["user_id"]}, {"_id": 0})
+    await notify_user(
+        b["user_id"], (member or {}).get("email"),
+        "Booking accepted",
+        f"Great news! Your booking for {b['class_name']} has been accepted.",
+        "booking",
+        email_lines=[f"Great news — your booking for <b>{b['class_name']}</b> has been <b>accepted</b>!", "See you at the gym. 🥊"],
+    )
+    return {"ok": True}
+
+
+@api.post("/admin/bookings/{booking_id}/cancel")
+async def admin_booking_cancel(booking_id: str, u: dict = Depends(require_admin)):
+    b = await _admin_get_booking(booking_id)
+    await db.bookings.update_one({"booking_id": booking_id}, {"$set": {"status": "cancelled", "cancelled_at": now_utc(), "cancelled_by": "admin"}})
+    member = await db.users.find_one({"user_id": b["user_id"]}, {"_id": 0})
+    await notify_user(
+        b["user_id"], (member or {}).get("email"),
+        "Booking cancelled",
+        f"Your booking for {b['class_name']} has been cancelled by the gym. Please contact us if you have questions.",
+        "booking",
+        email_lines=[f"Your booking for <b>{b['class_name']}</b> has been cancelled by the gym.", "Please contact us on 07 4057 9005 if you have any questions."],
+    )
+    return {"ok": True}
+
+
+@api.post("/admin/bookings/{booking_id}/reschedule")
+async def admin_booking_reschedule(booking_id: str, body: AdminRescheduleReq, u: dict = Depends(require_admin)):
+    b = await _admin_get_booking(booking_id)
+    await db.bookings.update_one(
+        {"booking_id": booking_id},
+        {"$set": {"status": "confirmed", "scheduled_time": body.new_time, "requested_time": None, "confirmed_at": now_utc()}},
+    )
+    member = await db.users.find_one({"user_id": b["user_id"]}, {"_id": 0})
+    note_txt = f" Note: {body.note}" if body.note else ""
+    await notify_user(
+        b["user_id"], (member or {}).get("email"),
+        "Booking rescheduled & confirmed",
+        f"Your {b['class_name']} session is confirmed for: {body.new_time}.{note_txt}",
+        "booking",
+        email_lines=[f"Your <b>{b['class_name']}</b> session has been confirmed for:", f"<b>{body.new_time}</b>", (f"Note: {body.note}" if body.note else ""), "See you there!"],
     )
     return {"ok": True}
 
@@ -1199,6 +1428,26 @@ async def seed_data():
         log.info("seeded admin account")
     else:
         await db.users.update_one({"email": ADMIN_EMAIL.lower()}, {"$set": {"is_admin": True}})
+
+    # Second admin (info@maxenergy.com.au) — idempotent: create if missing, promote if exists, never overwrite password
+    admin2_email = ADMIN2_EMAIL.strip().lower()
+    admin2 = await db.users.find_one({"email": admin2_email})
+    if not admin2:
+        await db.users.insert_one(
+            {
+                "user_id": new_id("user"),
+                "email": admin2_email,
+                "name": "Max Energy Admin",
+                "password_hash": hash_pw(ADMIN2_PASSWORD),
+                "provider": "password",
+                "picture": None,
+                "is_admin": True,
+                "created_at": now_utc(),
+            }
+        )
+        log.info("seeded second admin account")
+    else:
+        await db.users.update_one({"email": admin2_email}, {"$set": {"is_admin": True}})
 
     meta = await db.meta.find_one({"key": "seed_version"})
     version = meta.get("value") if meta else None

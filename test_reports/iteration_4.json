@@ -1,0 +1,45 @@
+{
+  "summary": "End-to-end verification of the new booking-management + second-admin + notice-edit feature set. All 8 review scenarios pass. Backend: 13/13 pytest cases green in /app/backend/tests/test_booking_admin_features.py covering second admin login, member cancel/reschedule (incl. 404 & 400 edge cases), admin GET/accept/cancel/reschedule with member enrichment, admin guard on /admin/bookings, and PUT /admin/announcements/{id} update + 404. Frontend UI (Expo web, 390x844): (1) info@maxenergy.com.au / maxenergy12@ logs in and Profile shows ADMIN badge + ADMIN DASHBOARD CTA. (2) Admin Dashboard shows the new 'Bookings' card (with pending count badge) that routes to /admin/bookings. (3) Admin -> Bookings lists rows with member name + email, Active/Requests/All filter chips work, Accept turns row CONFIRMED, Cancel turns row CANCELLED, Reschedule modal (prefilled with member's requested_time) submits Thursday 7:00pm and status becomes CONFIRMED with 'Rescheduled & member notified.' banner. (4) Admin -> Gym Notices supports create + edit-via-pencil (title/body/pin update reflected in list; PUT response confirmed by pytest as well) + delete. (5) Member (test_ui_6033df@gmail.com) sees the PT booking (by-appointment) as PENDING with Reschedule + Cancel buttons on Profile MY BOOKINGS. (6) Cancel produced 'Booking cancelled. We've notified the gym.' banner and moved Kickboxing to CANCELLED (buttons hidden). Reschedule modal (reschedule-time + reschedule-note + reschedule-submit) sent 'Wednesday 6:00pm' -> status became RESCHEDULE REQUESTED with 'asked: Wednesday 6:00pm' meta. (7) After admin confirmed to Thursday 7:00pm, member's PT row switched to CONFIRMED with 'Thursday 7:00pm' meta. (8) Profile NOTIFICATIONS list correctly received 'Session request received', 'Reschedule requested', 'Booking cancelled', and 'Booking rescheduled & confirmed' entries. No React Native red screen, no console errors on any flow (only a harmless RNW deprecation warning about props.pointerEvents originating from src/components/SignaturePad.tsx — not in scope of this review).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "SignaturePad", "issue": "props.pointerEvents is deprecated on react-native-web; use style.pointerEvents. Reference: /app/frontend/src/components/SignaturePad.tsx:78 and :87. Emits a console warning on every load of the Membership form. Not in scope of this iteration's review request but should be migrated to style prop."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_booking_admin_features.py",
+    "/app/test_reports/pytest/pytest_booking_admin.xml",
+    "/tmp/01_admin_dash.png",
+    "/tmp/02_admin_bookings.png",
+    "/tmp/03_admin_announce.png",
+    "/tmp/10_profile.png",
+    "/tmp/11_after_cancel.png",
+    "/tmp/12_after_reschedule.png",
+    "/tmp/13_notifs.png",
+    "/tmp/20_admin_requests.png",
+    "/tmp/21_admin_after_confirm.png",
+    "/tmp/22_member_after_confirm.png"
+  ],
+  "action_items": [
+    "Optional: migrate SignaturePad.tsx pointerEvents={'none'} JSX prop to style={{ pointerEvents: 'none' }} to silence RNW deprecation warning."
+  ],
+  "critical_code_review_comments": [
+    "backend/server.py:559 POST /api/bookings dedupes pending bookings per (user, class) — this is correct behaviour but callers/tests should not expect two distinct pending IDs for the same class. Documented in /app/backend/tests/test_booking_admin_features.py by using different class_ids per test booking.",
+    "backend/server.py:1350 admin_booking_reschedule clears requested_time and sets scheduled_time + status='confirmed'. Frontend admin/bookings.tsx correctly reflects this on the row (`confirmed: <time>`) and Profile shows CONFIRMED + Thursday 7:00pm.",
+    "frontend/app/admin/bookings.tsx uses filter='Requests' as (status=='reschedule_requested' OR (by_appointment AND status=='pending')) which properly surfaces by-appointment sessions awaiting admin action as well as member reschedule requests. Verified visually.",
+    "frontend/app/(tabs)/profile.tsx correctly hides Reschedule + Cancel buttons for cancelled bookings and shows the reschedule_requested state with 'asked: <time>' meta.",
+    "frontend/app/admin/announcements.tsx correctly branches on editingId to call PUT vs POST; verified both via UI (button label toggles to SAVE CHANGES) and via pytest against PUT /api/admin/announcements/{id}."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_booking_admin_features.py (new)"
+  ],
+  "success_rate": {"backend": "100% (13/13)", "frontend": "100% (8/8 review scenarios)"},
+  "seed_data_creation": "Registered a fresh member test_ui_6033df@gmail.com / Password123! with 2 bookings (Personal Training by-appointment + Kickboxing) purely for UI flow verification. Pytest also creates transient TEST_* accounts and announcements which it cleans up.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Member cancel/reschedule + admin Bookings screen + notice edit all confirmed working end-to-end. testIDs used: login-email-input, login-password-input, login-submit-button, open-admin-dashboard, admin-nav-bookings, adminbk-filter-Active|Requests|All, adminbk-row-<id>, adminbk-accept-<id>, adminbk-reschedule-<id>, adminbk-cancel-<id>, adminbk-newtime, adminbk-note, adminbk-reschedule-submit, admina-add, admina-title, admina-body, admina-post, admina-edit-<id>, admina-del-<id>, booking-reschedule-<id>, booking-cancel-<id>, reschedule-time, reschedule-note, reschedule-submit, logout-button. Backend endpoints verified: POST /api/bookings/{id}/cancel, POST /api/bookings/{id}/reschedule (400 if already cancelled, 404 if unknown), GET/POST /api/admin/bookings + /accept|/cancel|/reschedule (403 for non-admin), PUT /api/admin/announcements/{id} (404 if missing).",
+  "rca_of_issue": "N/A — no bugs found. Initial pytest failure of test_member_reschedule was a test-authoring issue (booking creation dedupes pending records per class), fixed by using different class IDs. This is documented behaviour of POST /api/bookings."
+}
