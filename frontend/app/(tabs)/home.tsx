@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/src/AuthContext";
 import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
+import { gymPhotos } from "@/src/gymPhotos";
 
 type Cls = {
   class_id: string;
@@ -67,6 +68,7 @@ export default function Home() {
   const quickActions = [
     { key: "schedule", label: "View Schedule", icon: "calendar", onPress: () => router.push("/(tabs)/timetable") },
     { key: "membership", label: "Join Membership", icon: "card", onPress: () => router.push("/membership") },
+    { key: "services", label: "Our Services", icon: "barbell", onPress: () => router.push("/services") },
     { key: "notices", label: "Gym Notices", icon: "megaphone", onPress: () => router.push("/(tabs)/events") },
     { key: "about", label: "About Us", icon: "people", onPress: () => router.push("/about") },
     { key: "contact", label: "Contact", icon: "call", onPress: () => router.push("/contact") },
@@ -165,6 +167,22 @@ export default function Home() {
                 </Pressable>
               ))}
             </View>
+
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>OUR GYM</Text>
+              <Pressable testID="home-see-about" onPress={() => router.push("/about")}>
+                <Text style={styles.linkText}>About us</Text>
+              </Pressable>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.md }}
+            >
+              {gymPhotos.map((src, i) => (
+                <Image key={i} source={src} style={styles.galleryImg} contentFit="cover" />
+              ))}
+            </ScrollView>
           </>
         )}
       </ScrollView>
@@ -289,4 +307,5 @@ const styles = StyleSheet.create({
   catDot: { width: 10, height: 10, borderRadius: 5 },
   className: { color: colors.onSurface, fontWeight: "800", fontSize: 15 },
   classMeta: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 2 },
+  galleryImg: { width: 240, height: 160, borderRadius: radius.lg },
 });

@@ -17,11 +17,12 @@ import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import { useAuth } from "@/src/AuthContext";
 import { colors, spacing, radius, type } from "@/src/theme";
+import { loginHero } from "@/src/gymPhotos";
 import { Ionicons } from "@expo/vector-icons";
 
 WebBrowser.maybeCompleteAuthSession();
 
-const HERO = "https://images.unsplash.com/photo-1637430308606-86576d8fef3c?w=1400&q=80";
+const HERO = loginHero;
 
 function extractSessionId(url: string): string | null {
   const m = url.match(/[?#&]session_id=([^&#]+)/);

@@ -6,6 +6,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius, type } from "@/src/theme";
 
+type Loc = { name: string; address: string; hours: string; map_url: string };
+
 type Info = {
   name: string;
   phone: string;
@@ -20,10 +22,13 @@ type Info = {
 export default function Contact() {
   const router = useRouter();
   const [info, setInfo] = useState<Info | null>(null);
+  const [locs, setLocs] = useState<Loc[]>([]);
 
   const load = useCallback(async () => {
     try {
-      setInfo(await api.gymInfo());
+      const [i, l] = await Promise.all([api.gymInfo(), api.locations()]);
+      setInfo(i);
+      setLocs(l.locations || []);
     } catch {}
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -72,6 +77,23 @@ export default function Contact() {
           ))}
         </View>
 
+        <Text style={styles.section}>LOCATIONS</Text>
+        <View style={{ gap: spacing.sm }}>
+          {locs.map((l) => (
+            <Pressable key={l.name} testID={`location-${l.name.toLowerCase()}`} style={styles.locCard} onPress={() => Linking.openURL(l.map_url)}>
+              <View style={styles.iconBox}>
+                <Ionicons name="business" size={18} color={colors.brand} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.rowValue}>{l.name}</Text>
+                <Text style={styles.locAddr}>{l.address}</Text>
+                <Text style={styles.locHours}>{l.hours}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceSecondary} />
+            </Pressable>
+          ))}
+        </View>
+
         <Text style={styles.section}>FOLLOW US</Text>
         <View style={styles.socialRow}>
           <Pressable testID="social-facebook" style={styles.social} onPress={() => info && Linking.openURL(info.facebook)}>
@@ -103,6 +125,9 @@ const styles = StyleSheet.create({
   iconBox: { width: 40, height: 40, borderRadius: radius.sm, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center" },
   rowLabel: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "700", letterSpacing: 1 },
   rowValue: { color: colors.onSurface, fontSize: 14, fontWeight: "600", marginTop: 2 },
+  locCard: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
+  locAddr: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 3, lineHeight: 17 },
+  locHours: { color: colors.brand, fontSize: 12, fontWeight: "700", marginTop: 3 },
   section: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "800", letterSpacing: 2, marginTop: spacing.xl, marginBottom: spacing.md },
   socialRow: { flexDirection: "row", gap: spacing.md },
   social: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.surfaceSecondary, padding: spacing.lg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },

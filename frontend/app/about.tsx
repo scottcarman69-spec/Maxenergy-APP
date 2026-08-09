@@ -7,11 +7,12 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
+import { aboutHero, gymPhotos } from "@/src/gymPhotos";
 
 type Member = { name: string; role: string; image: string; bio: string; quals: string[] };
 type About = { heading: string; subheading: string; since: string; story: string[]; team: Member[] };
 
-const HERO = "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=1400&q=80";
+const HERO = aboutHero;
 
 export default function AboutScreen() {
   const router = useRouter();
@@ -51,6 +52,13 @@ export default function AboutScreen() {
             {data?.story.map((p, i) => (
               <Text key={i} style={styles.para}>{p}</Text>
             ))}
+
+            <Text style={styles.sectionTitle}>INSIDE OUR GYM</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.md }} style={{ marginHorizontal: -spacing.xl, paddingHorizontal: spacing.xl }}>
+              {gymPhotos.map((src, i) => (
+                <Image key={i} source={src} style={styles.galleryImg} contentFit="cover" />
+              ))}
+            </ScrollView>
 
             <Text style={styles.sectionTitle}>MEET THE TEAM</Text>
             {data?.team.map((m) => (
@@ -94,6 +102,7 @@ const styles = StyleSheet.create({
   sub: { color: colors.brand, fontSize: 18, fontWeight: "900", marginBottom: spacing.md, letterSpacing: 0.5 },
   para: { color: colors.onSurface, fontSize: 15, lineHeight: 23, marginBottom: spacing.md },
   sectionTitle: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "800", letterSpacing: 2, marginTop: spacing.lg, marginBottom: spacing.md },
+  galleryImg: { width: 260, height: 175, borderRadius: radius.lg },
   card: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, overflow: "hidden", borderWidth: 1, borderColor: colors.border, marginBottom: spacing.lg },
   avatar: { width: "100%", height: 220 },
   cardBody: { padding: spacing.lg },

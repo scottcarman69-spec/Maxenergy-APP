@@ -353,6 +353,33 @@ async def about():
     return ABOUT
 
 
+SERVICES = [
+    {"key": "gym", "title": "24/7 Gym", "icon": "barbell", "image": "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1000&q=80", "desc": "Take charge of your schedule with 24/7 access to our fully refurbished gym. Train whenever it suits your lifestyle."},
+    {"key": "muaythai", "title": "Muay Thai", "icon": "flame", "image": "https://images.unsplash.com/photo-1591117207239-788bf8de6c3b?w=1000&q=80", "desc": "Learn discipline and build strength through our Muay Thai classes for all skill levels, kids and adults."},
+    {"key": "kickboxing", "title": "Kickboxing", "icon": "flash", "image": "https://images.unsplash.com/photo-1549824506-7f0f8b7f5b23?w=1000&q=80", "desc": "Combine technique with fitness. Ideal for all levels wanting to build power and cardio."},
+    {"key": "boxing", "title": "Boxing", "icon": "hand-left", "image": "https://images.unsplash.com/photo-1517438322307-e67111335449?w=1000&q=80", "desc": "Channel your energy into boxing. Build endurance, coordination and enjoy the thrill of a great workout."},
+    {"key": "pt", "title": "Personal Training", "icon": "person", "image": "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=1000&q=80", "desc": "Personalised coaching tailored to your needs, with consistent support and expertise from our trainers."},
+    {"key": "bootcamp", "title": "Boot Camp", "icon": "fitness", "image": "https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=1000&q=80", "desc": "High-energy group sessions combining strength and cardio for an all-in-one workout experience."},
+    {"key": "massage", "title": "Massage", "icon": "sparkles", "image": "https://images.unsplash.com/photo-1600334129128-685c5582fd35?w=1000&q=80", "desc": "Recover and relax with professional massage services to reduce tension and support muscle recovery."},
+    {"key": "supplements", "title": "Supplement Store", "icon": "nutrition", "image": "https://images.unsplash.com/photo-1593095948071-474c5cc2989d?w=1000&q=80", "desc": "High-quality supplements to complement your training — from protein powders to vitamins."},
+]
+
+LOCATIONS = [
+    {"name": "Smithfield", "address": "Shop 38 Campus Village Shopping Centre, 38 Faculty Cl, Smithfield QLD 4878", "hours": "Open 24/7", "map_url": "https://maps.app.goo.gl/hWLvuqRqy5V6txsh8"},
+    {"name": "Cairns", "address": "Servicing the greater Cairns region", "hours": "Open 24/7", "map_url": "https://maps.app.goo.gl/hWLvuqRqy5V6txsh8"},
+]
+
+
+@api.get("/services")
+async def services():
+    return {"services": SERVICES}
+
+
+@api.get("/locations")
+async def locations():
+    return {"locations": LOCATIONS}
+
+
 # -------------------- classes --------------------
 @api.get("/classes")
 async def classes_list(category: Optional[str] = None):
