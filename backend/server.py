@@ -1536,6 +1536,18 @@ async def notifications_list(u: dict = Depends(require_user)):
     return {"notifications": rows}
 
 
+@api.get("/notifications/unread")
+async def notifications_unread(u: dict = Depends(require_user)):
+    count = await db.notifications.count_documents({"user_id": u["user_id"], "read": {"$ne": True}})
+    return {"count": count}
+
+
+@api.post("/notifications/read-all")
+async def notifications_read_all(u: dict = Depends(require_user)):
+    await db.notifications.update_many({"user_id": u["user_id"], "read": {"$ne": True}}, {"$set": {"read": True}})
+    return {"ok": True}
+
+
 @api.post("/notifications/{nid}/read")
 async def notifications_read(nid: str, u: dict = Depends(require_user)):
     await db.notifications.update_one({"notification_id": nid, "user_id": u["user_id"]}, {"$set": {"read": True}})

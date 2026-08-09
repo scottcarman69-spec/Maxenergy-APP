@@ -66,3 +66,7 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Renamed brand "Max Energy Muay Thai Academy" -> "Maxenergy Fitness" everywhere (emails, PDF, events, gym info, EMAIL_FROM_NAME, contact); home tagline now "FITNESS & MUAY THAI".
 - Logo: kept design but trimmed transparent padding on maxenergy-logo.webp (now 1200x793, aspect ~1.51) and fixed aspect-correct sizing (login 250x166, register 150x99, home 150x96) with contentFit contain — larger/cleaner on dark theme, no crop.
 - Tab bar: added Inbox tab (new app/(tabs)/inbox.tsx reusing member chat UI) and removed Reviews (href:null). Unread message badge moved from Profile tab to Inbox tab. Profile "Message the Gym" link now routes to /(tabs)/inbox. Bar order: Home, Timetable, Notices, Inbox, Profile.
+
+## Session update 10 (Jun 2026 fork)
+- Added a bottom-bar "Alerts" tab (bell icon) = personal notifications center. New screen app/(tabs)/alerts.tsx lists all notifications (icon per type, timestamp, unread dot), with Mark all read + swipe-left to clear + pull-to-refresh. Bottom bar now: Home, Timetable, Notices, Inbox, Alerts, Profile.
+- Tab badge shows exact unread notification count via new GET /api/notifications/unread; also added POST /api/notifications/read-all. Tab layout polls both unread messages (Inbox badge) and unread notifications (Alerts badge) every 15s + on focus/appstate.

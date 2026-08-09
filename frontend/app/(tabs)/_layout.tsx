@@ -10,12 +10,14 @@ export default function TabsLayout() {
   const { user } = useAuth();
   const segments = useSegments();
   const [unread, setUnread] = useState(0);
+  const [alerts, setAlerts] = useState(0);
 
   const refresh = useCallback(async () => {
     if (!user) return;
     try {
-      const r = await api.unreadMessages();
-      setUnread(r.count || 0);
+      const [m, n] = await Promise.all([api.unreadMessages(), api.unreadNotifications()]);
+      setUnread(m.count || 0);
+      setAlerts(n.count || 0);
     } catch {}
   }, [user]);
 
@@ -76,6 +78,15 @@ export default function TabsLayout() {
           title: "Inbox",
           tabBarIcon: ({ color, size }) => <Ionicons name="chatbubbles" size={size} color={color} />,
           tabBarBadge: unread > 0 ? unread : undefined,
+          tabBarBadgeStyle: { backgroundColor: colors.brand, color: colors.onBrand, fontSize: 10, fontWeight: "900" },
+        }}
+      />
+      <Tabs.Screen
+        name="alerts"
+        options={{
+          title: "Alerts",
+          tabBarIcon: ({ color, size }) => <Ionicons name="notifications" size={size} color={color} />,
+          tabBarBadge: alerts > 0 ? alerts : undefined,
           tabBarBadgeStyle: { backgroundColor: colors.brand, color: colors.onBrand, fontSize: 10, fontWeight: "900" },
         }}
       />

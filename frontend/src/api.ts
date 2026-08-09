@@ -109,6 +109,8 @@ export const api = {
   notifications: () => req("/api/notifications"),
   markRead: (id: string) => req(`/api/notifications/${id}/read`, { method: "POST" }),
   deleteNotification: (id: string) => req(`/api/notifications/${id}`, { method: "DELETE" }),
+  unreadNotifications: () => req("/api/notifications/unread"),
+  markAllNotificationsRead: () => req("/api/notifications/read-all", { method: "POST" }),
 
   // admin
   adminOverview: () => req("/api/admin/overview"),
