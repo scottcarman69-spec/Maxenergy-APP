@@ -71,19 +71,23 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="reviews"
+        name="inbox"
         options={{
-          title: "Reviews",
-          tabBarIcon: ({ color, size }) => <Ionicons name="star" size={size} color={color} />,
+          title: "Inbox",
+          tabBarIcon: ({ color, size }) => <Ionicons name="chatbubbles" size={size} color={color} />,
+          tabBarBadge: unread > 0 ? unread : undefined,
+          tabBarBadgeStyle: { backgroundColor: colors.brand, color: colors.onBrand, fontSize: 10, fontWeight: "900" },
         }}
+      />
+      <Tabs.Screen
+        name="reviews"
+        options={{ href: null }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: "Profile",
           tabBarIcon: ({ color, size }) => <Ionicons name="person-circle" size={size} color={color} />,
-          tabBarBadge: unread > 0 ? unread : undefined,
-          tabBarBadgeStyle: { backgroundColor: colors.brand, color: colors.onBrand, fontSize: 10, fontWeight: "900" },
         }}
       />
     </Tabs>

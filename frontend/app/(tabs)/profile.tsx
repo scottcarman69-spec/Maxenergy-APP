@@ -111,7 +111,7 @@ export default function Profile() {
   const unread = notifs.filter((n) => !n.read).length;
 
   const links = [
-    { key: "inbox", icon: "chatbubbles", label: "Message the Gym", onPress: () => router.push("/messages") },
+    { key: "inbox", icon: "chatbubbles", label: "Message the Gym", onPress: () => router.push("/(tabs)/inbox") },
     { key: "membership", icon: "card", label: "Membership Application", onPress: () => router.push("/membership") },
     { key: "services", icon: "barbell", label: "Our Services", onPress: () => router.push("/services") },
     { key: "about", icon: "people", label: "About Us & Team", onPress: () => router.push("/about") },

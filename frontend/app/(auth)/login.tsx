@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   hero: { height: 340, justifyContent: "flex-end" },
   heroText: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xl },
-  logo: { width: 240, height: 120, marginLeft: -8, marginBottom: spacing.xs },
+  logo: { width: 250, height: 166, marginLeft: -8, marginBottom: spacing.sm },
   heroTagline: { color: colors.onSurface, fontFamily: font.semibold, fontSize: 15, marginTop: spacing.xs },
   pitch: { paddingHorizontal: spacing.xl, paddingTop: spacing.sm },
   pitchTitle: { color: colors.onSurface, fontFamily: font.display, fontSize: 26, letterSpacing: 0.3, marginBottom: spacing.sm },

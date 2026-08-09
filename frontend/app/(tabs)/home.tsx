@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     justifyContent: "space-between",
   },
-  headerLogo: { width: 150, height: 40, marginLeft: -4 },
+  headerLogo: { width: 150, height: 96, marginLeft: -6, marginBottom: 2 },
   academy: { color: colors.brand, fontSize: 10, fontFamily: font.heading, letterSpacing: 3, marginTop: -2 },
   hello: { color: colors.onSurface, fontSize: 24, fontFamily: font.display, letterSpacing: 0.3, marginTop: 6 },
   avatar: {
