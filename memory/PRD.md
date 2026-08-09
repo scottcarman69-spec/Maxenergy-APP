@@ -49,3 +49,6 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Session update 5 (Jun 2026 fork)
 - FIXED: Facebook widget not filling its box on wide/desktop web. The FB Page plugin is hard-capped at 500px wide, so it left white side-gaps in wider containers. FacebookFeed.tsx now scales the 500px iframe up on web (CSS transform scale = containerWidth/plugW, transform-origin top-left, wrapper height scaled to match). Verified: iframe visual width == box width (992==992, scale 1.984). Phone/narrow (Expo Go) uses scale=1 (already fit). Note: FB content shows blank in headless/automated browsers (cookie policy) but renders on real devices/normal browsers.
+
+## Session update 6 (Jun 2026 fork)
+- DONE (already existed, now with tap-through link): Member Reply Email. When an admin replies (POST /api/admin/threads/{user_id}), the member gets an in-app notification + email ("New message from Max Energy") which now includes an orange "Open your messages" button linking to {base}/messages. Verified 202 delivery to a real address (scottcarman69@gmail.com). Fake test emails get a 422 undeliverable (expected, not a bug).

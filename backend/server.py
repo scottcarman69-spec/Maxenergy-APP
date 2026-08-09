@@ -933,7 +933,7 @@ async def admin_thread_messages(user_id: str, u: dict = Depends(require_admin)):
 
 
 @api.post("/admin/threads/{user_id}")
-async def admin_thread_reply(user_id: str, body: MessageReq, u: dict = Depends(require_admin)):
+async def admin_thread_reply(user_id: str, body: MessageReq, request: Request, u: dict = Depends(require_admin)):
     text = (body.body or "").strip()
     if not text:
         raise HTTPException(400, "Message cannot be empty.")
@@ -952,12 +952,14 @@ async def admin_thread_reply(user_id: str, body: MessageReq, u: dict = Depends(r
         "created_at": now_utc(),
     }
     await db.messages.insert_one(msg)
+    base = _public_base(request)
+    open_btn = _download_button(f"{base}/messages", "Open your messages") if base else "Open the app to reply: Profile → Message the Gym."
     await notify_user(
         user_id, member.get("email"),
         "New message from Max Energy",
         text[:140],
         "message",
-        email_lines=["You have a new message from the Max Energy team:", f"\"{text}\"", "Open the app to reply: Profile → Message the Gym."],
+        email_lines=["You have a new message from the Max Energy team:", f"\"{text}\"", open_btn],
     )
     msg.pop("_id", None)
     return {"message": msg}
