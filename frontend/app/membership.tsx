@@ -38,7 +38,7 @@ export default function Membership() {
 
   // form state
   const [membershipType, setMembershipType] = useState("New Membership");
-  const [planId, setPlanId] = useState<string | null>(null);
+  const [planId, setPlanId] = useState<string | null>("new_membership_form");
   const [title, setTitle] = useState("");
   const [sex, setSex] = useState("Prefer not to say");
   const [firstName, setFirstName] = useState("");
@@ -222,41 +222,29 @@ export default function Membership() {
               <>
                 <SectionTitle>MEMBERSHIP TYPE</SectionTitle>
                 <Segmented options={["New Membership", "Renewing Membership"]} value={membershipType} onChange={setMembershipType} testIDPrefix="mtype" />
-                <SectionTitle>CHOOSE A PLAN</SectionTitle>
+                <SectionTitle>MEMBERSHIP FORM</SectionTitle>
                 <View style={{ gap: spacing.md }}>
-                  {plans.map((p) => {
-                    const active = p.plan_id === planId;
-                    return (
-                      <Pressable
-                        key={p.plan_id}
-                        testID={`plan-${p.plan_id}`}
-                        style={[styles.planCard, active && styles.planCardOn]}
-                        onPress={() => setPlanId(p.plan_id)}
-                      >
-                        <View style={styles.planTop}>
-                          <View>
-                            <Text style={styles.planName}>{p.name}</Text>
-                            <View style={styles.planCatTag}>
-                              <Text style={styles.planCatText}>{p.category}</Text>
-                            </View>
-                          </View>
-                          <Text style={styles.planPrice}>${p.price_display}</Text>
+                  <View style={[styles.planCard, styles.planCardOn]}>
+                    <View style={styles.planTop}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md, flex: 1 }}>
+                        <View style={styles.formIcon}>
+                          <Ionicons name="document-text" size={22} color={colors.brand} />
                         </View>
-                        {p.features?.map((f) => (
-                          <View key={f} style={styles.featRow}>
-                            <Ionicons name="checkmark" size={14} color={colors.brand} />
-                            <Text style={styles.featText}>{f}</Text>
-                          </View>
-                        ))}
-                        {active && (
-                          <View style={styles.selectedTag}>
-                            <Ionicons name="checkmark-circle" size={16} color={colors.brand} />
-                            <Text style={styles.selectedText}>Selected</Text>
-                          </View>
-                        )}
-                      </Pressable>
-                    );
-                  })}
+                        <Text style={styles.planName}>New Membership Form</Text>
+                      </View>
+                    </View>
+                    {[
+                      "Complete your details & emergency contact",
+                      "Health & medical questionnaire",
+                      "Sign the waiver and add your photo",
+                      "Our team will confirm your membership",
+                    ].map((f) => (
+                      <View key={f} style={styles.featRow}>
+                        <Ionicons name="checkmark" size={14} color={colors.brand} />
+                        <Text style={styles.featText}>{f}</Text>
+                      </View>
+                    ))}
+                  </View>
                 </View>
               </>
             )}
@@ -370,14 +358,12 @@ export default function Membership() {
 
                 <Text style={[styles.helpText, { marginTop: spacing.md }]}>Date: {new Date().toLocaleDateString()}</Text>
 
-                {selectedPlan && (
-                  <View style={styles.summary}>
-                    <Text style={styles.summaryTitle}>SUMMARY</Text>
-                    <Text style={styles.summaryRow}>Plan: {selectedPlan.name} (${selectedPlan.price_display})</Text>
-                    <Text style={styles.summaryRow}>Category: {category} · Term: {term}</Text>
-                    <Text style={styles.summaryRow}>Applicant: {firstName} {lastName}</Text>
-                  </View>
-                )}
+                <View style={styles.summary}>
+                  <Text style={styles.summaryTitle}>SUMMARY</Text>
+                  <Text style={styles.summaryRow}>Form: New Membership Form</Text>
+                  <Text style={styles.summaryRow}>Category: {category} · Term: {term}</Text>
+                  <Text style={styles.summaryRow}>Applicant: {firstName} {lastName}</Text>
+                </View>
               </>
             )}
 
@@ -424,6 +410,7 @@ const styles = StyleSheet.create({
   miniLabel: { color: colors.onSurfaceSecondary, fontSize: 12, fontWeight: "700", marginBottom: 6 },
   helpText: { color: colors.onSurfaceSecondary, fontSize: 12, marginBottom: spacing.sm },
   planCard: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.lg, gap: 6 },
+  formIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center" },
   planCardOn: { borderColor: colors.brand, borderWidth: 2 },
   planTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: spacing.sm },
   planName: { color: colors.onSurface, fontSize: 18, fontWeight: "800" },

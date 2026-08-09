@@ -125,7 +125,8 @@ export const api = {
   adminSetApplicationStatus: (id: string, status: string) =>
     req(`/api/admin/applications/${id}/status`, { method: "POST", body: JSON.stringify({ status }) }),
   adminBookings: () => req("/api/admin/bookings"),
-  adminMembers: () => req("/api/admin/members"),  adminAcceptBooking: (id: string) => req(`/api/admin/bookings/${id}/accept`, { method: "POST" }),
+  adminMembers: () => req("/api/admin/members"),
+  exportMembers: () => req("/api/admin/members/export", { method: "POST" }),  adminAcceptBooking: (id: string) => req(`/api/admin/bookings/${id}/accept`, { method: "POST" }),
   adminCancelBooking: (id: string) => req(`/api/admin/bookings/${id}/cancel`, { method: "POST" }),
   adminRescheduleBooking: (id: string, new_time: string, note?: string) =>
     req(`/api/admin/bookings/${id}/reschedule`, { method: "POST", body: JSON.stringify({ new_time, note }) }),

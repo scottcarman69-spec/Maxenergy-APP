@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, Pressable, Platform, Linking } from "react-native";
+import { View, Text, StyleSheet, Pressable, Platform, Linking, LayoutChangeEvent } from "react-native";
 import { WebView } from "react-native-webview";
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
@@ -10,19 +10,26 @@ const PAGES = [
   { key: "combat", label: "Combat Club", url: "https://www.facebook.com/profile.php?id=61561343624470" },
 ];
 
-const FEED_HEIGHT = 480;
+const FEED_HEIGHT = 500;
 
-function pluginUri(pageUrl: string) {
+function pluginUri(pageUrl: string, width: number) {
+  const w = Math.max(180, Math.min(500, Math.round(width))); // FB plugin supports 180-500
   const href = encodeURIComponent(pageUrl);
   return (
     `https://www.facebook.com/plugins/page.php?href=${href}` +
-    `&tabs=timeline&width=500&height=${FEED_HEIGHT}` +
+    `&tabs=timeline&width=${w}&height=${FEED_HEIGHT}` +
     `&small_header=false&adapt_container_width=true&hide_cover=false&show_facepile=true`
   );
 }
 
 export default function FacebookFeed() {
   const [active, setActive] = useState(PAGES[0]);
+  const [width, setWidth] = useState(0);
+
+  const onLayout = (e: LayoutChangeEvent) => {
+    const w = e.nativeEvent.layout.width;
+    if (w && Math.abs(w - width) > 1) setWidth(w);
+  };
 
   const openPage = async () => {
     try {
@@ -32,7 +39,7 @@ export default function FacebookFeed() {
     }
   };
 
-  const uri = pluginUri(active.url);
+  const uri = width ? pluginUri(active.url, width) : null;
 
   return (
     <View style={styles.wrap}>
@@ -50,29 +57,34 @@ export default function FacebookFeed() {
         ))}
       </View>
 
-      <View style={styles.feedCard}>
-        {Platform.OS === "web" ? (
-          // react-native-web: render the plugin directly as an iframe
-          // @ts-ignore - iframe is valid on web
-          <iframe
-            title={active.label}
-            src={uri}
-            style={{ width: "100%", height: FEED_HEIGHT, border: "none", borderRadius: radius.md }}
-            scrolling="no"
-            frameBorder="0"
-            allowFullScreen
-          />
+      <View style={styles.feedCard} onLayout={onLayout}>
+        {uri ? (
+          Platform.OS === "web" ? (
+            // @ts-ignore - iframe is valid on web
+            <iframe
+              key={active.key + width}
+              title={active.label}
+              src={uri}
+              style={{ width: "100%", height: FEED_HEIGHT, border: "none", display: "block" }}
+              scrolling="no"
+              frameBorder="0"
+              allowFullScreen
+            />
+          ) : (
+            <WebView
+              key={active.key + width}
+              testID="fb-webview"
+              source={{ uri }}
+              style={{ width: width, height: FEED_HEIGHT, backgroundColor: "transparent" }}
+              javaScriptEnabled
+              domStorageEnabled
+              startInLoadingState
+              scrollEnabled
+              setSupportMultipleWindows={false}
+            />
+          )
         ) : (
-          <WebView
-            testID="fb-webview"
-            source={{ uri }}
-            style={{ height: FEED_HEIGHT, backgroundColor: "transparent" }}
-            javaScriptEnabled
-            domStorageEnabled
-            startInLoadingState
-            scrollEnabled
-            setSupportMultipleWindows={false}
-          />
+          <View style={{ height: FEED_HEIGHT }} />
         )}
       </View>
 
@@ -103,6 +115,8 @@ const styles = StyleSheet.create({
   tabText: { color: colors.onSurface, fontWeight: "800", fontSize: 12, flexShrink: 1 },
   tabTextOn: { color: colors.onBrand },
   feedCard: {
+    width: "100%",
+    alignSelf: "stretch",
     backgroundColor: "#fff",
     borderRadius: radius.md,
     overflow: "hidden",

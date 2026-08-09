@@ -949,7 +949,8 @@ def build_membership_pdf(doc: dict, plan: dict) -> bytes:
 
     line("MEMBERSHIP", None)
     line("Type", d.get("membership_type", "-"))
-    line("Plan", f"{plan.get('name')} (${plan.get('price_display')})")
+    _pd = plan.get('price_display')
+    line("Plan", f"{plan.get('name')}" + (f" (${_pd})" if _pd else ""))
     line("Category", doc.get("category", "-"))
     line("Term", d.get("term", "-"))
     line("Submitted", d.get("submitted_date", ""))
@@ -1039,8 +1040,7 @@ def build_membership_pdf(doc: dict, plan: dict) -> bytes:
 @api.post("/membership/apply")
 async def membership_apply(body: MembershipApplyReq, u: dict = Depends(require_user)):
     plan = await db.membership_plans.find_one({"plan_id": body.plan_id}, {"_id": 0})
-    if not plan:
-        raise HTTPException(404, "Plan not found")
+    plan_name = plan["name"] if plan else "New Membership Form"
     app_id = new_id("app")
     doc = {
         "application_id": app_id,
@@ -1049,7 +1049,7 @@ async def membership_apply(body: MembershipApplyReq, u: dict = Depends(require_u
         "email": u["email"],
         "phone": body.phone,
         "plan_id": body.plan_id,
-        "plan_name": plan["name"],
+        "plan_name": plan_name,
         "category": body.category,
         "experience": body.experience,
         "message": body.message,
@@ -1063,7 +1063,7 @@ async def membership_apply(body: MembershipApplyReq, u: dict = Depends(require_u
             "notification_id": new_id("ntf"),
             "user_id": u["user_id"],
             "title": "Membership application received",
-            "body": f"We've received your application for {plan['name']}. Our team will be in touch soon.",
+            "body": f"We've received your application for {plan_name}. Our team will be in touch soon.",
             "type": "membership",
             "read": False,
             "created_at": now_utc(),
@@ -1101,7 +1101,7 @@ async def membership_apply(body: MembershipApplyReq, u: dict = Depends(require_u
         <p><strong>Name:</strong> {body.full_name}</p>
         <p><strong>Email:</strong> {u['email']}</p>
         <p><strong>Phone:</strong> {body.phone}</p>
-        <p><strong>Plan:</strong> {plan['name']} (${plan['price_display']})</p>
+        <p><strong>Plan:</strong> {plan_name}{f" (${plan['price_display']})" if plan else ""}</p>
         <p><strong>Category:</strong> {body.category}</p>
         {details_html}
       </td></tr>
@@ -1110,7 +1110,7 @@ async def membership_apply(body: MembershipApplyReq, u: dict = Depends(require_u
     # Generate a PDF copy of the completed membership form
     pdf_attachments = []
     try:
-        pdf_bytes = build_membership_pdf(doc, plan)
+        pdf_bytes = build_membership_pdf(doc, plan or {"name": plan_name, "price_display": ""})
         pdf_b64 = base64.b64encode(pdf_bytes).decode()
         safe_name = "".join(ch for ch in body.full_name if ch.isalnum() or ch in (" ", "-", "_")).strip().replace(" ", "_") or "member"
         filename = f"Maxenergy_Membership_{safe_name}.pdf"
@@ -1127,7 +1127,7 @@ async def membership_apply(body: MembershipApplyReq, u: dict = Depends(require_u
     <table width="100%" style="font-family:Arial,sans-serif;background:#121214;color:#F9FAFB;padding:24px">
       <tr><td>
         <h2 style="color:#FF7A00;margin:0 0 8px">Your membership form</h2>
-        <p>Hi {body.full_name}, thanks for applying for the <strong>{plan['name']}</strong> membership at Max Energy Muay Thai Academy.</p>
+        <p>Hi {body.full_name}, thanks for applying for the <strong>{plan_name}</strong> membership at Max Energy Muay Thai Academy.</p>
         <p>A PDF copy of your completed membership form is attached for your records. Our team will review your application and get in touch shortly.</p>
       </td></tr>
     </table>

@@ -35,6 +35,8 @@ export default function AdminMembers() {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
   const [totals, setTotals] = useState<{ total: number; trial_claims: number }>({ total: 0, trial_claims: 0 });
+  const [exporting, setExporting] = useState(false);
+  const [banner, setBanner] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -45,6 +47,20 @@ export default function AdminMembers() {
     setLoading(false);
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const doExport = async () => {
+    setExporting(true);
+    setBanner(null);
+    try {
+      const r = await api.exportMembers();
+      setBanner(r.ok
+        ? `✅ Spreadsheet emailed to ${r.sent_to} (${r.count} members).`
+        : `Could not send the export right now — the email service may be rate-limited. Please try again shortly.`);
+    } catch (e: any) {
+      setBanner(e?.message || "Export failed. Please try again.");
+    }
+    setExporting(false);
+  };
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -63,8 +79,17 @@ export default function AdminMembers() {
           <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
         </Pressable>
         <Text style={styles.headerTitle}>Members & Trials</Text>
-        <View style={{ width: 26 }} />
+        <Pressable testID="adminmem-export" onPress={doExport} hitSlop={12} disabled={exporting}>
+          {exporting ? <ActivityIndicator size="small" color={colors.brand} /> : <Ionicons name="download-outline" size={24} color={colors.brand} />}
+        </Pressable>
       </View>
+
+      {banner && (
+        <Pressable onPress={() => setBanner(null)} style={styles.banner}>
+          <Ionicons name="mail" size={16} color={colors.brand} />
+          <Text style={styles.bannerText}>{banner}</Text>
+        </Pressable>
+      )}
 
       <View style={styles.statsRow}>
         <View style={styles.statBox}>
@@ -149,6 +174,8 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
   headerTitle: { color: colors.onSurface, fontSize: 17, fontWeight: "800" },
+  banner: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginHorizontal: spacing.lg, marginTop: spacing.md, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.brandTertiary },
+  bannerText: { color: colors.brand, fontSize: 13, fontWeight: "700", flex: 1 },
   statsRow: { flexDirection: "row", gap: spacing.md, padding: spacing.lg, paddingBottom: 0 },
   statBox: { flex: 1, backgroundColor: colors.surfaceSecondary, padding: spacing.md, borderRadius: radius.md, alignItems: "center", borderWidth: 1, borderColor: colors.border },
   statNum: { color: colors.brand, fontSize: 22, fontWeight: "900" },
