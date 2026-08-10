@@ -1640,7 +1640,7 @@ def build_membership_pdf(doc: dict, plan: dict) -> bytes:
         c.drawString(45, y, bl); y -= 12
     y -= 6
     c.setFont("Helvetica-Bold", 9); c.setFillColorRGB(*ORANGE)
-    _acc = f"Accepted by {doc.get('full_name','')} on {d.get('submitted_date','')}".strip()
+    _acc = f"Accepted by Maxenergy Fitness on {d.get('submitted_date','')}".strip()
     c.drawString(45, y, _acc)
 
     c.showPage()
