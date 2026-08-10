@@ -294,3 +294,7 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - When today's classes have all ended, the empty state now also shows an "UP NEXT" card with the very next upcoming class (name, weekday · time · coach, coach photo) and a chevron. Tapping it jumps the day selector to that class's day (goToClassDay computes day index from today).
 - timetable.tsx: nextClass useMemo (earliest non-appointment, non-ended, category-matched class); peek card rendered inside ListEmptyComponent only when allEndedToday && nextClass. Uses coachSource for avatar.
 - Verified via screenshot: Mon 10 all-ended -> UP NEXT = Kickboxing · Tuesday · 6:00 PM · Coach Alex.
+
+## Session update 52 (Jun 2026 fork) — Fix wrapping class times (DONE)
+- Schedule class-row time (e.g. "5:00 PM") was wrapping to two lines. Fixed: timeCol width 60 -> 78; time Text now numberOfLines={1} adjustsFontSizeToFit minimumFontScale=0.8.
+- Verified via screenshot: Tuesday shows "6:00 PM" on one line with "60m" below.

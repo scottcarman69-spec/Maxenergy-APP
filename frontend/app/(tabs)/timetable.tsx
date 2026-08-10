@@ -288,7 +288,7 @@ export default function Timetable() {
               style={styles.row}
             >
               <View style={styles.timeCol}>
-                <Text style={styles.time}>{fmtTime(item.start_at)}</Text>
+                <Text style={styles.time} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{fmtTime(item.start_at)}</Text>
                 <Text style={styles.dur}>{item.duration_min}m</Text>
               </View>
               <View style={styles.card}>
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
   dayNum: { color: colors.onSurface, fontSize: 20, fontWeight: "800", marginTop: 4 },
   dayNumActive: { color: colors.onBrand },
   row: { flexDirection: "row", gap: spacing.md, alignItems: "flex-start" },
-  timeCol: { width: 60, alignItems: "flex-end", paddingTop: spacing.md },
+  timeCol: { width: 78, alignItems: "flex-end", paddingTop: spacing.md },
   time: { color: colors.onSurface, fontSize: 15, fontWeight: "800" },
   dur: { color: colors.onSurfaceSecondary, fontSize: 11, marginTop: 2 },
   card: {
