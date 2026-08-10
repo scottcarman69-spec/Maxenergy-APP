@@ -98,6 +98,7 @@ export const api = {
     }),
   paymentStatus: (session_id: string) => req(`/api/payments/status/${session_id}`),
   paymentReceipt: (booking_id: string) => req(`/api/payments/receipt/${booking_id}`),
+  myReceipts: () => req("/api/payments/receipts"),
   checkinCode: (booking_id: string) => req(`/api/bookings/${booking_id}/checkin-code`),
   scanCheckin: (code: string) =>
     req("/api/admin/checkin/scan", { method: "POST", body: JSON.stringify({ code }) }),

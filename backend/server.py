@@ -1590,6 +1590,37 @@ async def payment_receipt(booking_id: str, u: dict = Depends(require_user)):
     }
 
 
+@api.get("/payments/receipts")
+async def my_receipts(u: dict = Depends(require_user)):
+    """List all of the member's paid receipts (most recent first)."""
+    rows = await db.bookings.find(
+        {"user_id": u["user_id"], "status": "paid"}, {"_id": 0}
+    ).to_list(1000)
+    class_ids = list({r.get("class_id") for r in rows if r.get("class_id")})
+    classes = {}
+    if class_ids:
+        async for c in db.classes.find({"class_id": {"$in": class_ids}}, {"_id": 0}):
+            classes[c["class_id"]] = c
+    out = []
+    for b in rows:
+        cls = classes.get(b.get("class_id"), {})
+        start = cls.get("start_at") or b.get("class_start")
+        paid_at = b.get("paid_at")
+        out.append({
+            "booking_id": b["booking_id"],
+            "receipt_number": b["booking_id"].replace("bk_", "").upper()[:10],
+            "class_name": b.get("class_name"),
+            "trainer": cls.get("trainer"),
+            "class_start": start.isoformat() if isinstance(start, datetime) else start,
+            "by_appointment": bool(b.get("by_appointment")),
+            "amount_cents": b.get("amount", 0),
+            "currency": (b.get("currency") or "aud").upper(),
+            "paid_at": paid_at.isoformat() if isinstance(paid_at, datetime) else paid_at,
+        })
+    out.sort(key=lambda x: x.get("paid_at") or "", reverse=True)
+    return {"receipts": out}
+
+
 @api.post("/webhook/stripe")
 async def stripe_webhook(request: Request):
     payload = await request.body()
