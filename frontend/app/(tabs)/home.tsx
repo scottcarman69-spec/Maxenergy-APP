@@ -10,6 +10,7 @@ import {
   Dimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  AppState,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -83,6 +84,18 @@ export default function Home() {
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  // Auto-refresh when the app is reopened (foregrounded) so content stays current.
+  const appState = useRef(AppState.currentState);
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (next) => {
+      if (appState.current.match(/inactive|background/) && next === "active") {
+        load();
+      }
+      appState.current = next;
+    });
+    return () => sub.remove();
+  }, [load]);
 
   const onRefresh = async () => {
     setRefreshing(true);

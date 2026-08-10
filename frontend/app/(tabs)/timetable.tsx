@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   Pressable,
   ActivityIndicator,
   FlatList,
+  AppState,
+  RefreshControl,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -54,28 +56,49 @@ export default function Timetable() {
   const router = useRouter();
   const [classes, setClasses] = useState<Cls[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [dayOffset, setDayOffset] = useState(0);
   const [category, setCategory] = useState("All");
+  const [today, setToday] = useState(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; });
 
   const load = useCallback(async () => {
     try {
       const r = await api.classes();
       setClasses(r.classes || []);
+      // Roll the day tabs forward if the date changed while the app was backgrounded.
+      const d = new Date(); d.setHours(0, 0, 0, 0);
+      setToday((prev) => (prev.getTime() === d.getTime() ? prev : d));
     } catch {}
     setLoading(false);
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
+  // Auto-refresh when the app is reopened (foregrounded) so the schedule is always current.
+  const appState = useRef(AppState.currentState);
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (next) => {
+      if (appState.current.match(/inactive|background/) && next === "active") {
+        load();
+      }
+      appState.current = next;
+    });
+    return () => sub.remove();
+  }, [load]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }, [load]);
+
   const days = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
     return Array.from({ length: 21 }, (_, i) => {
       const d = new Date(today);
       d.setDate(today.getDate() + i);
       return d;
     });
-  }, []);
+  }, [today]);
 
   const filtered = useMemo(() => {
     const target = days[dayOffset];
@@ -150,6 +173,9 @@ export default function Timetable() {
           data={filtered}
           keyExtractor={(c) => c.class_id}
           contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: 40 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} colors={[colors.brand]} />
+          }
           ListHeaderComponent={
             appointmentClasses.length > 0 ? (
               <View style={{ gap: spacing.md, marginBottom: spacing.md }}>

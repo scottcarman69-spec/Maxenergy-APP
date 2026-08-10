@@ -239,3 +239,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 ## Session update 42 (Jun 2026 fork) — Hide ended classes from schedule (DONE)
 - GET /classes now filters out sessions whose end time (start_at + duration_min) is in the past, so the schedule only shows current/upcoming classes. start_at is stored as QLD local wall-clock, so compared against QLD-local now ((now_utc+10h) naive). by_appointment classes (Personal Training) are always kept. Benefits timetable + home upcoming list.
 - Verified via curl at QLD 18:31 Aug 10: the 17:00 (ended 17:45) Muay Thai is hidden, the 18:00 one remains, Personal Training (appt) kept, ended-but-shown count = 0.
+
+## Session update 43 (Jun 2026 fork) — Auto-refresh schedule on reopen (DONE)
+- Schedule (and Home) now auto-refresh when the app returns to the foreground, so ended classes drop off and new ones appear without a manual reload.
+- timetable.tsx: added AppState listener (background/inactive -> active => load()); "today" moved to state and rolled forward inside load() so the day tabs update across midnight; added pull-to-refresh (RefreshControl). Still refreshes on tab focus (useFocusEffect).
+- home.tsx: added the same AppState foreground -> load() listener (already had focus refresh + pull-to-refresh).
+- Verified via screenshot: timetable renders current classes (ended 5 PM class gone, 6 PM remains).
