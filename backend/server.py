@@ -562,10 +562,11 @@ class ClassUpsert(BaseModel):
     level: str
     duration_min: int
     price_cents: int
-    start_at: str  # ISO
+    start_at: Optional[str] = None  # ISO; not required for by-appointment classes
     image: Optional[str] = None
     description: Optional[str] = None
     capacity: int = 16
+    by_appointment: Optional[bool] = None
 
 
 class AnnouncementCreate(BaseModel):
@@ -2260,6 +2261,7 @@ def _parse_dt(s: str) -> datetime:
 
 @api.post("/admin/classes")
 async def admin_class_create(body: ClassUpsert, u: dict = Depends(require_admin)):
+    by_appt = bool(body.by_appointment)
     doc = {
         "class_id": new_id("cls"),
         "name": body.name,
@@ -2272,8 +2274,9 @@ async def admin_class_create(body: ClassUpsert, u: dict = Depends(require_admin)
         "image": body.image or DEFAULT_CLASS_IMAGE,
         "description": body.description or "",
         "color": "#FF7A00",
-        "start_at": _parse_dt(body.start_at),
-        "capacity": body.capacity,
+        "start_at": _parse_dt(body.start_at) if body.start_at else now_utc(),
+        "capacity": 1 if by_appt else body.capacity,
+        "by_appointment": by_appt,
         "created_at": now_utc(),
     }
     await db.classes.insert_one(doc)
@@ -2290,9 +2293,16 @@ async def admin_class_update(class_id: str, body: ClassUpsert, u: dict = Depends
         "level": body.level,
         "duration_min": body.duration_min,
         "price_cents": body.price_cents,
-        "start_at": _parse_dt(body.start_at),
-        "capacity": body.capacity,
     }
+    if body.by_appointment is not None:
+        upd["by_appointment"] = bool(body.by_appointment)
+        if body.by_appointment:
+            upd["capacity"] = 1
+    if not body.by_appointment:
+        # Only fixed-time classes carry a schedule slot / capacity.
+        if body.start_at:
+            upd["start_at"] = _parse_dt(body.start_at)
+        upd["capacity"] = body.capacity
     if body.image:
         upd["image"] = body.image
     if body.description is not None:

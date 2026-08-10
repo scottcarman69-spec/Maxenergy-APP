@@ -29,6 +29,7 @@ type Cls = {
   start_at: string;
   capacity: number;
   description?: string;
+  by_appointment?: boolean;
 };
 
 function toDateStr(iso: string) {
@@ -54,6 +55,7 @@ const emptyForm = {
   time: "18:00",
   capacity: "20",
   description: "",
+  by_appointment: false,
 };
 
 export default function AdminClasses() {
@@ -93,6 +95,7 @@ export default function AdminClasses() {
       time: toTimeStr(c.start_at),
       capacity: String(c.capacity),
       description: c.description || "",
+      by_appointment: !!c.by_appointment,
     });
     setEditing(c.class_id);
     setErr(null);
@@ -100,22 +103,23 @@ export default function AdminClasses() {
 
   const save = async () => {
     setErr(null);
-    if (!form.name || !form.trainer || !form.date || !form.time) {
-      setErr("Fill name, trainer, date and time");
+    const appt = form.by_appointment;
+    if (!form.name || !form.trainer || (!appt && (!form.date || !form.time))) {
+      setErr(appt ? "Fill name and trainer" : "Fill name, trainer, date and time");
       return;
     }
-    const start_at = `${form.date}T${form.time}:00`;
-    const payload = {
+    const payload: any = {
       name: form.name,
       category: form.category,
       trainer: form.trainer,
       level: form.level,
       duration_min: parseInt(form.duration_min || "60", 10),
       price_cents: Math.round(parseFloat(form.price || "0") * 100),
-      start_at,
-      capacity: parseInt(form.capacity || "20", 10),
+      capacity: appt ? 1 : parseInt(form.capacity || "20", 10),
       description: form.description,
+      by_appointment: appt,
     };
+    if (!appt) payload.start_at = `${form.date}T${form.time}:00`;
     setSaving(true);
     try {
       if (editing === "new") await api.adminCreateClass(payload);
@@ -161,7 +165,7 @@ export default function AdminClasses() {
                     <Text style={[styles.tagText, { color: c.category === "Kids" ? "#22C55E" : colors.brand }]}>{c.category}</Text>
                   </View>
                 </View>
-                <Text style={styles.meta}>{fmtLabel(c.start_at)} · {c.trainer}</Text>
+                <Text style={styles.meta}>{c.by_appointment ? "By appointment" : fmtLabel(c.start_at)} · {c.trainer}</Text>
                 <Text style={styles.meta}>${(c.price_cents / 100).toFixed(0)} · {c.duration_min}m</Text>
               </View>
               <Pressable testID={`adminc-edit-${c.class_id}`} onPress={() => openEdit(c)} style={styles.iconBtn}>
@@ -189,6 +193,21 @@ export default function AdminClasses() {
                 <Text style={styles.label}>Category</Text>
                 <Segmented options={["Adults", "Kids"]} value={form.category} onChange={(v) => setForm({ ...form, category: v })} testIDPrefix="adminc-cat" />
                 <View style={{ height: spacing.md }} />
+
+                <Pressable
+                  testID="adminc-appt-toggle"
+                  style={styles.toggleRow}
+                  onPress={() => setForm({ ...form, by_appointment: !form.by_appointment })}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.toggleLabel}>By appointment</Text>
+                    <Text style={styles.toggleHint}>No fixed time — members request a booking (e.g. Personal Training, Custom Programs)</Text>
+                  </View>
+                  <View style={[styles.switch, form.by_appointment && styles.switchOn]}>
+                    <View style={[styles.knob, form.by_appointment && styles.knobOn]} />
+                  </View>
+                </Pressable>
+
                 {[
                   { k: "name", l: "Class name", ph: "e.g. Adult Muay Thai" },
                   { k: "trainer", l: "Trainer", ph: "e.g. Coach Alex" },
@@ -206,16 +225,32 @@ export default function AdminClasses() {
                     />
                   </View>
                 ))}
-                <View style={styles.rowFields}>
-                  <View style={[styles.field, { flex: 1 }]}>
-                    <Text style={styles.label}>Date</Text>
-                    <TextInput testID="adminc-date" value={form.date} onChangeText={(t) => setForm({ ...form, date: t })} placeholder="YYYY-MM-DD" placeholderTextColor={colors.onSurfaceSecondary} style={styles.input} />
-                  </View>
-                  <View style={[styles.field, { flex: 1 }]}>
-                    <Text style={styles.label}>Time (24h)</Text>
-                    <TextInput testID="adminc-time" value={form.time} onChangeText={(t) => setForm({ ...form, time: t })} placeholder="18:00" placeholderTextColor={colors.onSurfaceSecondary} style={styles.input} />
-                  </View>
+
+                <View style={styles.field}>
+                  <Text style={styles.label}>Description</Text>
+                  <TextInput
+                    testID="adminc-description"
+                    value={form.description}
+                    onChangeText={(t) => setForm({ ...form, description: t })}
+                    placeholder="What this session involves"
+                    placeholderTextColor={colors.onSurfaceSecondary}
+                    multiline
+                    style={[styles.input, { minHeight: 84, textAlignVertical: "top" }]}
+                  />
                 </View>
+
+                {!form.by_appointment && (
+                  <View style={styles.rowFields}>
+                    <View style={[styles.field, { flex: 1 }]}>
+                      <Text style={styles.label}>Date</Text>
+                      <TextInput testID="adminc-date" value={form.date} onChangeText={(t) => setForm({ ...form, date: t })} placeholder="YYYY-MM-DD" placeholderTextColor={colors.onSurfaceSecondary} style={styles.input} />
+                    </View>
+                    <View style={[styles.field, { flex: 1 }]}>
+                      <Text style={styles.label}>Time (24h)</Text>
+                      <TextInput testID="adminc-time" value={form.time} onChangeText={(t) => setForm({ ...form, time: t })} placeholder="18:00" placeholderTextColor={colors.onSurfaceSecondary} style={styles.input} />
+                    </View>
+                  </View>
+                )}
                 <View style={styles.rowFields}>
                   <View style={[styles.field, { flex: 1 }]}>
                     <Text style={styles.label}>Duration (min)</Text>
@@ -225,10 +260,12 @@ export default function AdminClasses() {
                     <Text style={styles.label}>Price ($)</Text>
                     <TextInput testID="adminc-price" value={form.price} onChangeText={(t) => setForm({ ...form, price: t })} keyboardType="decimal-pad" placeholderTextColor={colors.onSurfaceSecondary} style={styles.input} />
                   </View>
-                  <View style={[styles.field, { flex: 1 }]}>
-                    <Text style={styles.label}>Capacity</Text>
-                    <TextInput testID="adminc-capacity" value={form.capacity} onChangeText={(t) => setForm({ ...form, capacity: t })} keyboardType="number-pad" placeholderTextColor={colors.onSurfaceSecondary} style={styles.input} />
-                  </View>
+                  {!form.by_appointment && (
+                    <View style={[styles.field, { flex: 1 }]}>
+                      <Text style={styles.label}>Capacity</Text>
+                      <TextInput testID="adminc-capacity" value={form.capacity} onChangeText={(t) => setForm({ ...form, capacity: t })} keyboardType="number-pad" placeholderTextColor={colors.onSurfaceSecondary} style={styles.input} />
+                    </View>
+                  )}
                 </View>
                 {err && <Text style={styles.error}>{err}</Text>}
                 <Pressable testID="adminc-save" style={[styles.saveBtn, saving && { opacity: 0.5 }]} onPress={save} disabled={saving}>
@@ -266,4 +303,11 @@ const styles = StyleSheet.create({
   error: { color: colors.error, fontSize: 13, marginBottom: spacing.sm },
   saveBtn: { backgroundColor: colors.brand, paddingVertical: 16, borderRadius: radius.md, alignItems: "center", marginTop: spacing.sm },
   saveText: { color: colors.onBrand, fontWeight: "900", letterSpacing: 1 },
+  toggleRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.md },
+  toggleLabel: { color: colors.onSurface, fontSize: 15, fontWeight: "800" },
+  toggleHint: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 3, lineHeight: 16 },
+  switch: { width: 48, height: 28, borderRadius: 14, backgroundColor: colors.surfaceTertiary, padding: 3, justifyContent: "center" },
+  switchOn: { backgroundColor: colors.brand },
+  knob: { width: 22, height: 22, borderRadius: 11, backgroundColor: "#fff" },
+  knobOn: { alignSelf: "flex-end" },
 });

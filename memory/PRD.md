@@ -335,3 +335,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Added a second by-appointment class "Custom Programs" (Adults, Coach Alex, $80, by_appointment=true) alongside Personal Training. Appears in the timetable "BOOK A SESSION" section and books via the same appointment flow.
 - Added to seed_data() (after Personal Training) for fresh DBs, and inserted idempotently into the current DB (class_id cls_6c8d46a7128c).
 - Verified: /api/classes returns both appointment classes; screenshot shows Custom Programs card under Personal Training with a Book button.
+
+## Session update 59 (Jun 2026 fork) — Edit appointment class details from Admin (DONE)
+- Admin can now rename/reprice/reword by-appointment classes (Personal Training, Custom Programs) and toggle any class between fixed-time and by-appointment.
+- Backend: ClassUpsert.start_at now Optional + new by_appointment flag. admin_class_create sets by_appointment (capacity forced to 1, start_at defaults to now when appt). admin_class_update sets/keeps by_appointment; only writes start_at/capacity for fixed-time classes.
+- Frontend admin/classes.tsx: added a "By appointment" toggle + a Description (multiline) field; hides Date/Time/Capacity when appointment is on; list row shows "By appointment" instead of a date; save omits start_at for appointment classes.
+- Verified: PUT updates Custom Programs price 8000→9500→reset 8000 with by_appointment staying true and description persisting; screenshot shows the edit form (toggle on, no date/time, editable description + price).
