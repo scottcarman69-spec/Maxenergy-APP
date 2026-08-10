@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Modal,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -18,6 +19,7 @@ import { colors, spacing, radius } from "@/src/theme";
 import { SectionTitle, Field, Checkbox, Segmented, YesNo } from "@/src/components/Form";
 import { SignaturePad } from "@/src/components/SignaturePad";
 import { PhotoCapture } from "@/src/components/PhotoCapture";
+import { MEMBERSHIP_TERMS, TERMS_DECLARATION, TERMS_VERSION } from "@/src/membershipTerms";
 
 type Plan = { plan_id: string; name: string; category: string; price_display: string; features: string[] };
 
@@ -69,6 +71,7 @@ export default function Membership() {
   const [signaturePath, setSignaturePath] = useState("");
   const [photo, setPhoto] = useState<string | null>(null);
   const [scrollEnabled, setScrollEnabled] = useState(true);
+  const [termsVisible, setTermsVisible] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -102,7 +105,7 @@ export default function Membership() {
     if (s === 2) return null;
     if (s === 3) {
       if (mediaConsent === null) return "Please choose Yes or No for media consent.";
-      if (!waiverAgreed) return "Please tick the box to agree to the terms and waiver.";
+      if (!waiverAgreed) return "Please tick the box to agree to the Membership Terms & Conditions.";
       if (!signaturePath) return "Please sign in the signature box with your finger.";
       if (!signature.trim()) return "Please type your full name as your signature.";
       if (!photo) return "Please add a photo for your member profile / ID.";
@@ -160,6 +163,9 @@ export default function Membership() {
           },
           media_consent: mediaConsent,
           waiver_agreed: waiverAgreed,
+          terms_accepted: waiverAgreed,
+          terms_version: TERMS_VERSION,
+          terms_accepted_at: waiverAgreed ? new Date().toISOString() : null,
           signature,
           signature_path: signaturePath,
           photo_base64: photo,
@@ -322,24 +328,29 @@ export default function Membership() {
                 </Text>
                 <YesNo label="I consent to media being recorded" value={mediaConsent} onChange={setMediaConsent} testID="media-consent" />
 
-                <SectionTitle>ACTIVITY WAIVER & TERMS</SectionTitle>
-                <View style={styles.waiverBox}>
-                  <Text style={styles.waiverText}>
-                    I acknowledge that the activity (Boxing, Muay Thai, Kickboxing) is a dangerous activity and that by
-                    participating I am exposed to certain risks including injury or death. I participate at my sole risk
-                    and release, indemnify and hold harmless Max Energy Fitness, its owners, directors, officers,
-                    employees and agents from all claims arising out of injury, loss, damage or death, whether by
-                    negligence or otherwise. I confirm I have no physical limitations or medical conditions (beyond those
-                    declared) that would prevent me from participating safely. I have read and agree to the full
-                    membership terms & conditions, including cooling-off, direct debit and cancellation policies.
+                <SectionTitle>MEMBERSHIP TERMS & CONDITIONS</SectionTitle>
+                <Text style={styles.helpText}>
+                  Please read the full Maxenergy Fitness Policies & Terms Agreement. You must agree before submitting.
+                </Text>
+                <View style={styles.termsPreview}>
+                  <Text style={styles.termsPreviewText} numberOfLines={4}>
+                    {MEMBERSHIP_TERMS[0].body}
                   </Text>
+                  <Pressable testID="view-terms" style={styles.readMoreBtn} onPress={() => setTermsVisible(true)}>
+                    <Ionicons name="document-text-outline" size={16} color={colors.brand} />
+                    <Text style={styles.readMoreText}>Read the full Terms & Conditions</Text>
+                    <Ionicons name="chevron-forward" size={16} color={colors.brand} />
+                  </Pressable>
                 </View>
                 <Checkbox
                   testID="waiver-agree"
-                  label="I have read, understood and agree to the terms, conditions and waiver above."
+                  label="I have read, understood and agree to the Maxenergy Fitness Membership Terms & Conditions, including the risk acknowledgment, release & indemnity, media consent, cooling-off, direct debit and cancellation policies."
                   value={waiverAgreed}
                   onToggle={() => setWaiverAgreed((v) => !v)}
                 />
+                {!waiverAgreed && (
+                  <Text style={styles.mandatoryNote}>* Agreement to the Terms & Conditions is required.</Text>
+                )}
 
                 <SectionTitle>SIGNATURE</SectionTitle>
                 <Text style={styles.helpText}>Draw your signature below with your finger to confirm your declaration.</Text>
@@ -393,6 +404,47 @@ export default function Membership() {
           </Pressable>
         )}
       </View>
+
+      <Modal visible={termsVisible} animationType="slide" onRequestClose={() => setTermsVisible(false)}>
+        <SafeAreaView style={styles.root} edges={["top"]}>
+          <View style={styles.header}>
+            <Pressable testID="terms-close" onPress={() => setTermsVisible(false)} hitSlop={12}>
+              <Ionicons name="close" size={26} color={colors.onSurface} />
+            </Pressable>
+            <Text style={styles.headerTitle}>Terms & Conditions</Text>
+            <View style={{ width: 26 }} />
+          </View>
+          <ScrollView
+            testID="terms-scroll"
+            contentContainerStyle={{ padding: spacing.lg, paddingBottom: 40 }}
+          >
+            <Text style={styles.termsDocTitle}>Maxenergy Fitness</Text>
+            <Text style={styles.termsDocSub}>Membership Policies & Terms Agreement</Text>
+            {MEMBERSHIP_TERMS.map((sec) => (
+              <View key={sec.title} style={{ marginTop: spacing.lg }}>
+                <Text style={styles.termsHeading}>{sec.title}</Text>
+                <Text style={styles.termsBody}>{sec.body}</Text>
+              </View>
+            ))}
+            <View style={styles.declareBox}>
+              <Text style={styles.declareText}>{TERMS_DECLARATION}</Text>
+            </View>
+          </ScrollView>
+          <View style={styles.footer}>
+            <Pressable
+              testID="terms-agree-btn"
+              style={styles.primaryBtn}
+              onPress={() => {
+                setWaiverAgreed(true);
+                setTermsVisible(false);
+              }}
+            >
+              <Ionicons name="checkmark-circle" size={18} color={colors.onBrand} />
+              <Text style={styles.primaryBtnText}>I AGREE TO THESE TERMS</Text>
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -423,6 +475,17 @@ const styles = StyleSheet.create({
   selectedText: { color: colors.brand, fontWeight: "800", fontSize: 12 },
   waiverBox: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.lg, marginBottom: spacing.md },
   waiverText: { color: colors.onSurfaceSecondary, fontSize: 12, lineHeight: 18 },
+  termsPreview: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.lg, marginBottom: spacing.md, gap: spacing.md },
+  termsPreviewText: { color: colors.onSurfaceSecondary, fontSize: 12.5, lineHeight: 18 },
+  readMoreBtn: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", backgroundColor: colors.brandTertiary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.pill },
+  readMoreText: { color: colors.brand, fontWeight: "800", fontSize: 12.5 },
+  mandatoryNote: { color: colors.warning, fontSize: 11.5, marginTop: 4, marginLeft: 2 },
+  termsDocTitle: { color: colors.onSurface, fontSize: 22, fontWeight: "900", textAlign: "center" },
+  termsDocSub: { color: colors.brand, fontSize: 12.5, fontWeight: "800", letterSpacing: 0.5, textAlign: "center", marginTop: 2, textTransform: "uppercase" },
+  termsHeading: { color: colors.onSurface, fontSize: 15, fontWeight: "800", marginBottom: 6 },
+  termsBody: { color: colors.onSurfaceSecondary, fontSize: 13, lineHeight: 20 },
+  declareBox: { marginTop: spacing.xl, backgroundColor: colors.brandTertiary, borderRadius: radius.md, padding: spacing.lg, borderWidth: 1, borderColor: colors.brand },
+  declareText: { color: colors.onSurface, fontSize: 13, lineHeight: 20, fontStyle: "italic" },
   summary: { marginTop: spacing.lg, backgroundColor: colors.brandTertiary, borderRadius: radius.md, padding: spacing.lg },
   summaryTitle: { color: colors.brand, fontSize: 11, fontWeight: "900", letterSpacing: 1, marginBottom: 6 },
   summaryRow: { color: colors.onSurface, fontSize: 13, marginTop: 2 },
