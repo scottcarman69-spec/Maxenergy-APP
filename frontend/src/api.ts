@@ -117,6 +117,8 @@ export const api = {
     message?: string;
   }) => req("/api/membership/apply", { method: "POST", body: JSON.stringify(payload) }),
   myApplications: () => req("/api/membership/applications/me"),
+  reportVigyrSignup: (completed: boolean) =>
+    req("/api/membership/vigyr-report", { method: "POST", body: JSON.stringify({ completed }) }),
 
   notifications: () => req("/api/notifications"),
   notificationsHistory: () => req("/api/notifications/history"),

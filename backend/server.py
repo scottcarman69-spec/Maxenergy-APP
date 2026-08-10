@@ -1439,6 +1439,34 @@ async def membership_plans():
     return {"plans": rows}
 
 
+class VigyrReportReq(BaseModel):
+    completed: bool = True
+
+
+@api.post("/membership/vigyr-report")
+async def membership_vigyr_report(body: VigyrReportReq, u: dict = Depends(require_user)):
+    """Member self-reports whether they finished the external Vigyr sign-up.
+    We cannot verify Vigyr directly, so this records the claim + alerts the gym to verify."""
+    if not body.completed:
+        return {"ok": True, "reported": False}
+    await db.users.update_one(
+        {"user_id": u["user_id"]},
+        {"$set": {"vigyr_signup_reported": True, "vigyr_reported_at": now_utc()}},
+    )
+    name = u.get("name") or u.get("email") or "A member"
+    await notify_admins(
+        "Vigyr sign-up reported",
+        f"{name} says they completed the Vigyr membership sign-up. Please verify in Vigyr.",
+        ntype="application",
+        email_lines=[
+            f"{name} ({u.get('email','')}) reports they finished the online Vigyr sign-up form.",
+            "Please confirm their membership in your Vigyr dashboard (keytag / door access).",
+        ],
+        data={"nav": "admin_members"},
+    )
+    return {"ok": True, "reported": True}
+
+
 def build_membership_pdf(doc: dict, plan: dict) -> bytes:
     from reportlab.lib.pagesizes import A4
     from reportlab.pdfgen import canvas as pdfcanvas
