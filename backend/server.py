@@ -1058,6 +1058,12 @@ async def booking_create(body: BookingCreate, u: dict = Depends(require_user)):
         return {"booking": existing}
     booking_id = new_id("bk")
     is_appt = bool(cls.get("by_appointment"))
+    if not is_appt:
+        cap = cls.get("capacity") or 0
+        if cap > 0:
+            booked = await db.bookings.count_documents({"class_id": body.class_id, "status": {"$in": ["paid", "confirmed"]}})
+            if booked >= cap:
+                raise HTTPException(409, "This class is full.")
     if is_appt:
         if not body.requested_at:
             raise HTTPException(400, "Please choose a preferred time.")

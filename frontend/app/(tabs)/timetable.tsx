@@ -237,8 +237,10 @@ export default function Timetable() {
                         <Text style={styles.apptTagText}>By appointment</Text>
                       </View>
                     </View>
-                    <View style={styles.bookPill}>
-                      <Text style={styles.bookPillText}>Book</Text>
+                    <View style={[styles.bookPill, item.spots_left === 0 && styles.bookPillFull]}>
+                      <Text style={[styles.bookPillText, item.spots_left === 0 && styles.bookPillTextFull]}>
+                        {item.spots_left === 0 ? "Full" : "Book"}
+                      </Text>
                     </View>
                   </Pressable>
                 ))}
@@ -466,4 +468,6 @@ const styles = StyleSheet.create({
   apptTagText: { color: colors.brand, fontSize: 11, fontFamily: font.semibold },
   bookPill: { backgroundColor: colors.brand, paddingHorizontal: spacing.lg, paddingVertical: 10, borderRadius: radius.pill },
   bookPillText: { color: colors.onBrand, fontFamily: font.heading, fontSize: 13 },
+  bookPillFull: { backgroundColor: colors.surfaceTertiary },
+  bookPillTextFull: { color: colors.onSurfaceSecondary },
 });

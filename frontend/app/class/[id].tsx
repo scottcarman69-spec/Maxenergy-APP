@@ -169,6 +169,8 @@ export default function ClassDetail() {
     );
   }
 
+  const isFull = !cls.by_appointment && cls.spots_left === 0;
+
   return (
     <View style={styles.root}>
       <ScrollView contentContainerStyle={{ paddingBottom: 140 }}>
@@ -276,12 +278,14 @@ export default function ClassDetail() {
         </View>
         <Pressable
           testID="book-and-pay-button"
-          style={({ pressed }) => [styles.payBtn, pressed && { opacity: 0.85 }]}
+          style={({ pressed }) => [styles.payBtn, isFull && styles.payBtnFull, pressed && !isFull && { opacity: 0.85 }]}
           onPress={onBookPress}
-          disabled={busy}
+          disabled={busy || isFull}
         >
           {busy ? (
             <ActivityIndicator color={colors.onBrand} />
+          ) : isFull ? (
+            <Text style={styles.payBtnTextFull}>CLASS FULL</Text>
           ) : (
             <>
               <Text style={styles.payBtnText}>{cls.by_appointment ? "BOOK SESSION" : "BOOK & PAY"}</Text>
@@ -451,6 +455,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   payBtnText: { color: colors.onBrand, fontWeight: "900", letterSpacing: 1 },
+  payBtnFull: { backgroundColor: colors.surfaceTertiary },
+  payBtnTextFull: { color: colors.onSurfaceSecondary, fontWeight: "900", letterSpacing: 1 },
   apptOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
   apptSheet: { backgroundColor: colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: spacing.xl, paddingBottom: Platform.OS === "ios" ? 34 : spacing.xl, borderWidth: 1, borderColor: colors.border },
   apptHeader: { flexDirection: "row", alignItems: "center", marginBottom: spacing.lg },
