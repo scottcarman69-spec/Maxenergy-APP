@@ -26,10 +26,17 @@ type Receipt = {
   location?: string;
 };
 
+// "Paid on" is a real UTC instant → show in Queensland time (GMT+10).
 function fmtDateTime(iso?: string) {
   if (!iso) return "—";
   const d = new Date(iso);
-  return `${d.toLocaleDateString([], { weekday: "short", day: "2-digit", month: "short", year: "numeric" })} · ${d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+  return `${d.toLocaleDateString("en-AU", { weekday: "short", day: "2-digit", month: "short", year: "numeric", timeZone: "Australia/Brisbane" })} · ${d.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", timeZone: "Australia/Brisbane" })}`;
+}
+// Class start time is stored as Queensland wall-clock → read via UTC components.
+function fmtClassWhen(iso?: string) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return `${d.toLocaleDateString("en-AU", { weekday: "short", day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" })} · ${d.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", timeZone: "UTC" })}`;
 }
 
 export default function ReceiptScreen() {
@@ -62,7 +69,7 @@ export default function ReceiptScreen() {
 
   const receiptHtml = (r: Receipt) => {
     const amt = (r.amount_cents / 100).toFixed(2);
-    const when = r.by_appointment ? "By appointment" : fmtDateTime(r.class_start);
+    const when = r.by_appointment ? "By appointment" : fmtClassWhen(r.class_start);
     const rows = [
       ["Class", r.class_name],
       ["Coach", r.trainer || "—"],
@@ -155,7 +162,7 @@ export default function ReceiptScreen() {
 
               <Row label="Class" value={receipt.class_name} />
               {!!receipt.trainer && <Row label="Coach" value={receipt.trainer} />}
-              <Row label="When" value={receipt.by_appointment ? "By appointment" : fmtDateTime(receipt.class_start)} />
+              <Row label="When" value={receipt.by_appointment ? "By appointment" : fmtClassWhen(receipt.class_start)} />
               <Row label="Paid on" value={fmtDateTime(receipt.paid_at)} />
               <Row label="Payment method" value={receipt.payment_method} />
               <Row label="Receipt #" value={receipt.receipt_number} />

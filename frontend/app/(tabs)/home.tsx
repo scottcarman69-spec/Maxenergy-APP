@@ -39,18 +39,19 @@ type Cls = {
   category: string;
 };
 
+// Class/event times are stored as Queensland (GMT+10) wall-clock, read via UTC components.
 function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return new Date(iso).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", timeZone: "UTC" });
 }
 function fmtDay(iso: string) {
-  return new Date(iso).toLocaleDateString([], { weekday: "long" });
+  return new Date(iso).toLocaleDateString("en-AU", { weekday: "long", timeZone: "UTC" });
 }
 function fmtDate(iso: string) {
   const d = new Date(iso);
-  return `${d.toLocaleDateString([], { weekday: "short" })} ${d.getDate()} ${d.toLocaleDateString([], { month: "short" })}`;
+  return `${d.toLocaleDateString("en-AU", { weekday: "short", timeZone: "UTC" })} ${d.getUTCDate()} ${d.toLocaleDateString("en-AU", { month: "short", timeZone: "UTC" })}`;
 }
 function greetingText() {
-  const h = new Date().getHours();
+  const h = Number(new Date().toLocaleString("en-AU", { hour: "numeric", hour12: false, timeZone: "Australia/Brisbane" })) % 24;
   if (h < 12) return "Good morning,";
   if (h < 17) return "Good afternoon,";
   return "Good evening,";

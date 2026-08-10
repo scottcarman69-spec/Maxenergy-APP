@@ -29,8 +29,8 @@ function fmtWhen(iso?: string) {
   if (!iso) return "";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "";
-  return d.toLocaleDateString([], { day: "2-digit", month: "short", year: "numeric" }) +
-    " · " + d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return d.toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric", timeZone: "Australia/Brisbane" }) +
+    " · " + d.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", timeZone: "Australia/Brisbane" });
 }
 
 export default function NotificationHistory() {

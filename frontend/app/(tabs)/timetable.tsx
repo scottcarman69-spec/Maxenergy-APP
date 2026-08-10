@@ -46,11 +46,19 @@ type Cls = {
 
 const CATEGORIES = ["All", "Adults", "Kids"];
 
+// Class times are stored as Australia/Queensland (GMT+10) wall-clock values
+// tagged UTC by the backend, so we read them back via UTC components.
 function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return new Date(iso).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", timeZone: "UTC" });
 }
 function sameDay(a: Date, b: Date) {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  return a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth() && a.getUTCDate() === b.getUTCDate();
+}
+// Current calendar date in Queensland as a UTC-midnight Date (schedule space).
+function qldTodayUTC(): Date {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Australia/Brisbane", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+  const g = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  return new Date(Date.UTC(g("year"), g("month") - 1, g("day")));
 }
 
 export default function Timetable() {
@@ -60,13 +68,13 @@ export default function Timetable() {
   const [refreshing, setRefreshing] = useState(false);
   const [dayOffset, setDayOffset] = useState(0);
   const [category, setCategory] = useState("All");
-  const [today, setToday] = useState(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; });
+  const [today, setToday] = useState(() => qldTodayUTC());
 
   const load = useCallback(async () => {
     try {
       const r = await api.classes(undefined, true);
       setClasses(r.classes || []);
-      const d = new Date(); d.setHours(0, 0, 0, 0);
+      const d = qldTodayUTC();
       setToday((prev) => (prev.getTime() === d.getTime() ? prev : d));
     } catch {}
     setLoading(false);
@@ -93,11 +101,9 @@ export default function Timetable() {
   }, [load]);
 
   const days = useMemo(() => {
-    return Array.from({ length: 21 }, (_, i) => {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
-      return d;
-    });
+    return Array.from({ length: 21 }, (_, i) =>
+      new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + i))
+    );
   }, [today]);
 
   const filtered = useMemo(() => {
@@ -132,8 +138,9 @@ export default function Timetable() {
   }, [classes, category]);
 
   const goToClassDay = useCallback((iso: string) => {
-    const d = new Date(iso); d.setHours(0, 0, 0, 0);
-    const idx = Math.round((d.getTime() - today.getTime()) / 86400000);
+    const c = new Date(iso);
+    const dUTC = Date.UTC(c.getUTCFullYear(), c.getUTCMonth(), c.getUTCDate());
+    const idx = Math.round((dUTC - today.getTime()) / 86400000);
     if (idx >= 0 && idx < days.length) setDayOffset(idx);
   }, [today, days]);
 
@@ -184,9 +191,9 @@ export default function Timetable() {
                 style={[styles.dayChip, active && styles.dayChipActive]}
               >
                 <Text style={[styles.dayLabel, active && styles.dayLabelActive]}>
-                  {d.toLocaleDateString([], { weekday: "short" }).toUpperCase()}
+                  {d.toLocaleDateString("en-AU", { weekday: "short", timeZone: "UTC" }).toUpperCase()}
                 </Text>
-                <Text style={[styles.dayNum, active && styles.dayNumActive]}>{d.getDate()}</Text>
+                <Text style={[styles.dayNum, active && styles.dayNumActive]}>{d.getUTCDate()}</Text>
               </Pressable>
             );
           })}
@@ -271,7 +278,7 @@ export default function Timetable() {
                     <View style={{ flex: 1 }}>
                       <Text style={styles.peekName} numberOfLines={1}>{nextClass.name}</Text>
                       <Text style={styles.peekWhen}>
-                        {new Date(nextClass.start_at).toLocaleDateString([], { weekday: "long" })} · {fmtTime(nextClass.start_at)}
+                        {new Date(nextClass.start_at).toLocaleDateString("en-AU", { weekday: "long", timeZone: "UTC" })} · {fmtTime(nextClass.start_at)}
                         {nextClass.trainer ? ` · ${nextClass.trainer}` : ""}
                       </Text>
                     </View>

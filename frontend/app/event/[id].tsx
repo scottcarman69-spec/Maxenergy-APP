@@ -19,7 +19,7 @@ type Evt = {
 
 function fmt(iso: string) {
   const d = new Date(iso);
-  return `${d.toLocaleDateString([], { weekday: "long", day: "2-digit", month: "long" })} · ${d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+  return `${d.toLocaleDateString("en-AU", { weekday: "long", day: "2-digit", month: "long", timeZone: "UTC" })} · ${d.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", timeZone: "UTC" })}`;
 }
 
 export default function EventDetail() {

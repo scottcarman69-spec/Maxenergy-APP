@@ -367,7 +367,7 @@ export default function Membership() {
                 <Text style={styles.helpText}>Add a photo for your member profile / ID.</Text>
                 <PhotoCapture testID="member-photo" value={photo} onChange={setPhoto} />
 
-                <Text style={[styles.helpText, { marginTop: spacing.md }]}>Date: {new Date().toLocaleDateString()}</Text>
+                <Text style={[styles.helpText, { marginTop: spacing.md }]}>Date: {new Date().toLocaleDateString("en-AU", { timeZone: "Australia/Brisbane" })}</Text>
 
                 <View style={styles.summary}>
                   <Text style={styles.summaryTitle}>SUMMARY</Text>

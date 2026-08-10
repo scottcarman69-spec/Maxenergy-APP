@@ -28,11 +28,11 @@ type Booking = {
 function fmtDate(iso?: string) {
   if (!iso) return null;
   const d = new Date(iso);
-  return d.toLocaleDateString([], { weekday: "long", day: "2-digit", month: "long" });
+  return d.toLocaleDateString("en-AU", { weekday: "long", day: "2-digit", month: "long", timeZone: "UTC" });
 }
 function fmtTime(iso?: string) {
   if (!iso) return null;
-  return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return new Date(iso).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", timeZone: "UTC" });
 }
 
 export default function CheckIn() {

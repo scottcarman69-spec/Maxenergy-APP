@@ -20,11 +20,12 @@ function fmtWhen(iso?: string) {
   if (!iso) return "";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "";
-  const now = new Date();
-  const sameDay = d.toDateString() === now.toDateString();
+  const opt = { timeZone: "Australia/Brisbane" } as const;
+  const qldDay = (x: Date) => x.toLocaleDateString("en-CA", opt);
+  const sameDay = qldDay(d) === qldDay(new Date());
   return sameDay
-    ? d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
-    : d.toLocaleDateString([], { day: "2-digit", month: "short" });
+    ? d.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", ...opt })
+    : d.toLocaleDateString("en-AU", { day: "2-digit", month: "short", ...opt });
 }
 
 export default function AdminInbox() {

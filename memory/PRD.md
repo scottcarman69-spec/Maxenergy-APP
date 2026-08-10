@@ -313,3 +313,11 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 ## Session update 55 (Jun 2026 fork) — Admin Inbox CTA on Profile + Book From Peek (DONE)
 - Admin Inbox: Profile tab now shows an admin-only "CUSTOMER INBOX" card (below Admin Dashboard) routing to /admin/inbox, with a live unread-count badge summed from api.adminThreads() thread.unread. Added missing styles (inboxCta/inboxCtaText/inboxBadge/inboxBadgeText). Verified via screenshot as admin: card renders with badge "1".
 - Book From Peek: timetable "UP NEXT" peek card (shown when today's classes have ended) now has a dedicated "BOOK THIS CLASS" / "BOOK SESSION" (appointment) button routing straight to /class/[id] for the next class. Card body still taps through to jump to that class's day. Added peekBookBtn/peekBookText styles.
+
+## Session update 56 (Jun 2026 fork) — Force Australia/Queensland (GMT+10) times everywhere (DONE)
+- Root cause: all date/time displays used the device's local timezone (`toLocale*` with no timeZone). On a Brisbane phone, class `start_at` (stored as QLD wall-clock tagged UTC by backend) was shifted +10h (e.g. 6pm → 4am next day) and appeared on the wrong day.
+- Two categories fixed:
+  - Schedule wall-clock (class/event `start_at`, receipt "When", check-in): now read via UTC components (timeZone:"UTC") so the stored QLD wall-clock shows as-entered on any device. Files: timetable.tsx (fmtTime, sameDay→getUTC*, today=qldTodayUTC(), days built via Date.UTC, day chips getUTCDate + timeZone UTC labels, goToClassDay, peek), home.tsx (fmtTime/fmtDay/fmtDate + greetingText via Brisbane hour), class/[id].tsx, events.tsx, event/[id].tsx, check-in.tsx, admin/classes.tsx (toDateStr/toTimeStr/fmtLabel), receipt.tsx (new fmtClassWhen).
+  - Real UTC instants (created_at/paid_at/message times): now converted to timeZone:"Australia/Brisbane". Files: alerts.tsx, notification-history.tsx, booking-history.tsx, admin/membership-log.tsx, admin/inbox.tsx (sameDay via QLD date), admin/members.tsx, receipt.tsx (fmtDateTime for paid_at), membership.tsx.
+- Backend unchanged: reminder scheduler already uses now_local = now_utc()+10h and treats start_at as naive Brisbane, so reminder timing stays correct.
+- Verified: tsc clean on all touched files; schedule screenshot shows "6:00 pm", MON 10/TUE 11 day chips, and "UP NEXT · Tuesday · 6:00 pm".
