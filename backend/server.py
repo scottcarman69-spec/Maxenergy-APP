@@ -2919,9 +2919,11 @@ async def _startup():
 
 
 async def send_due_reminders() -> int:
-    """Send a one-time reminder for scheduled classes starting within the next 24h."""
+    """Send a one-time reminder ~a few hours before a booked class starts."""
+    REMINDER_HOURS = 3
+    QLD = timedelta(hours=10)  # class start_at is stored as QLD local wall-clock (no DST)
     now = now_utc()
-    window_end = now + timedelta(hours=24)
+    window_end = now + timedelta(hours=REMINDER_HOURS)
     bookings = await db.bookings.find(
         {"status": {"$in": ["paid", "confirmed"]}, "reminder_sent": {"$ne": True}},
         {"_id": 0},
@@ -2929,24 +2931,27 @@ async def send_due_reminders() -> int:
     sent = 0
     for b in bookings:
         cls = await db.classes.find_one({"class_id": b["class_id"]}, {"_id": 0})
-        if not cls:
+        if not cls or cls.get("by_appointment"):
             continue
         start = cls.get("start_at")
         if not isinstance(start, datetime):
             continue
-        if start.tzinfo is None:
-            start = start.replace(tzinfo=timezone.utc)
-        if not (now <= start <= window_end):
+        # Interpret the stored naive wall-clock time as QLD local, then convert to UTC.
+        s_local = start.replace(tzinfo=None) if start.tzinfo else start
+        start_utc = (s_local - QLD).replace(tzinfo=timezone.utc)
+        if not (now <= start_utc <= window_end):
             continue
         member = await db.users.find_one({"user_id": b["user_id"]}, {"_id": 0})
-        when = start.strftime("%A %d %B at %-I:%M %p")
+        when = s_local.strftime("%A %d %B at %-I:%M %p")
+        mins = int((start_utc - now).total_seconds() // 60)
+        soon = "in about an hour" if mins <= 75 else f"in about {round(mins / 60)} hours"
         await notify_user(
             b["user_id"], (member or {}).get("email"),
-            "Class reminder",
-            f"Reminder: your {b['class_name']} class is tomorrow — {when}. See you there!",
+            "Class starting soon ⏰",
+            f"Your {b['class_name']} class starts {soon} — {when}. See you there!",
             "reminder",
             email_lines=[
-                f"This is a friendly reminder that your <b>{b['class_name']}</b> class is coming up:",
+                f"Heads up! Your <b>{b['class_name']}</b> class starts <b>{soon}</b>:",
                 f"<b>{when}</b>",
                 "See you on the mats! 🥊",
             ],
@@ -2966,7 +2971,7 @@ async def reminder_loop():
             await send_due_reminders()
         except Exception as e:
             log.error(f"reminder loop error: {e}")
-        await asyncio.sleep(3600)  # hourly
+        await asyncio.sleep(900)  # every 15 minutes for timely reminders
 
 
 @app.on_event("shutdown")

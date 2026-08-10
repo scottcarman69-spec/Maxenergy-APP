@@ -245,3 +245,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - timetable.tsx: added AppState listener (background/inactive -> active => load()); "today" moved to state and rolled forward inside load() so the day tabs update across midnight; added pull-to-refresh (RefreshControl). Still refreshes on tab focus (useFocusEffect).
 - home.tsx: added the same AppState foreground -> load() listener (already had focus refresh + pull-to-refresh).
 - Verified via screenshot: timetable renders current classes (ended 5 PM class gone, 6 PM remains).
+
+## Session update 44 (Jun 2026 fork) — Class reminders a few hours before start (DONE)
+- Reworked existing reminder system to fire ~a few hours before a booked class (was ~24h) and fixed timezone handling.
+- send_due_reminders(): REMINDER_HOURS=3; class start_at is QLD local wall-clock -> converted to UTC (s_local - 10h) before comparing to now; window now<=start_utc<=now+3h. Skips by_appointment. One-time per booking via reminder_sent flag. Message: "Class starting soon ⏰ — Your X class starts in about N hours — <when>." Sends in-app notification + email (Resend) via notify_user. Loop interval tightened 3600s -> 900s (15 min).
+- Verified: seeded a paid booking for a class ~2h out -> /admin/reminders/run sent 1, member got "starts in about 2 hours — Monday 10 August at 8:41 PM"; re-run returned 0 (idempotent). Test data cleaned up. Runs automatically every 15 min; also manually triggerable via POST /admin/reminders/run.
