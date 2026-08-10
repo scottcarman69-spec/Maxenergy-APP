@@ -993,27 +993,27 @@ async def reviews():
 
 # -------------------- classes --------------------
 @api.get("/classes")
-async def classes_list(category: Optional[str] = None):
+async def classes_list(category: Optional[str] = None, include_ended: bool = False):
     q = {}
     if category and category.lower() != "all":
         q["category"] = category
     rows = await db.classes.find(q, {"_id": 0}).sort("start_at", 1).to_list(1000)
-    # Hide classes that have already ended (start + duration in the past).
-    # start_at is stored as local wall-clock (QLD), so compare against QLD-local now.
     now_local = (now_utc() + timedelta(hours=10)).replace(tzinfo=None)
-    live = []
+    out = []
     for r in rows:
-        if r.get("by_appointment"):
-            live.append(r)
+        ended = False
+        if not r.get("by_appointment"):
+            start = r.get("start_at")
+            if isinstance(start, datetime):
+                s = start.replace(tzinfo=None) if start.tzinfo else start
+                if s + timedelta(minutes=r.get("duration_min") or 0) < now_local:
+                    ended = True
+        # Home/upcoming (default) hides ended classes; timetable requests include_ended to show status.
+        if ended and not include_ended:
             continue
-        start = r.get("start_at")
-        if isinstance(start, datetime):
-            s = start.replace(tzinfo=None) if start.tzinfo else start
-            end = s + timedelta(minutes=r.get("duration_min") or 0)
-            if end < now_local:
-                continue
-        live.append(r)
-    return {"classes": [with_coach(r) for r in live]}
+        r["ended"] = ended
+        out.append(r)
+    return {"classes": [with_coach(r) for r in out]}
 
 
 @api.get("/classes/{class_id}")

@@ -34,6 +34,7 @@ type Cls = {
   name: string;
   trainer: string;
   trainer_photo?: string;
+  ended?: boolean;
   duration_min: number;
   price_cents: number;
   level: string;
@@ -63,9 +64,8 @@ export default function Timetable() {
 
   const load = useCallback(async () => {
     try {
-      const r = await api.classes();
+      const r = await api.classes(undefined, true);
       setClasses(r.classes || []);
-      // Roll the day tabs forward if the date changed while the app was backgrounded.
       const d = new Date(); d.setHours(0, 0, 0, 0);
       setToday((prev) => (prev.getTime() === d.getTime() ? prev : d));
     } catch {}
@@ -107,7 +107,19 @@ export default function Timetable() {
       .filter((c) => !c.by_appointment)
       .filter((c) => sameDay(new Date(c.start_at), target))
       .filter((c) => category === "All" || c.category === category)
+      .filter((c) => !c.ended)
       .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
+  }, [classes, dayOffset, days, category]);
+
+  // For the empty state: did the selected (today's) day have classes that have all ended?
+  const allEndedToday = useMemo(() => {
+    const target = days[dayOffset];
+    if (!target || dayOffset !== 0) return false;
+    const todays = classes
+      .filter((c) => !c.by_appointment)
+      .filter((c) => sameDay(new Date(c.start_at), target))
+      .filter((c) => category === "All" || c.category === category);
+    return todays.length > 0 && todays.every((c) => c.ended);
   }, [classes, dayOffset, days, category]);
 
   const appointmentClasses = useMemo(
@@ -219,8 +231,12 @@ export default function Timetable() {
           }
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Ionicons name="calendar-outline" size={40} color={colors.onSurfaceSecondary} />
-              <Text style={styles.emptyText}>No {category !== "All" ? category.toLowerCase() + " " : ""}classes this day.</Text>
+              <Ionicons name={allEndedToday ? "checkmark-done-outline" : "calendar-outline"} size={40} color={colors.onSurfaceSecondary} />
+              <Text style={styles.emptyText}>
+                {allEndedToday
+                  ? `${category !== "All" ? category + " classes" : "Classes"} have ended today.`
+                  : `No ${category !== "All" ? category.toLowerCase() + " " : ""}classes this day.`}
+              </Text>
             </View>
           }
           renderItem={({ item }) => (

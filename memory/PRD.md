@@ -283,3 +283,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Links: Profile links list new "Privacy Policy" row (shield-checkmark, testID profile-link-privacy) -> /privacy. Register screen now shows "By signing up you agree to our Privacy Policy" with tappable link -> /privacy (consent for store review).
 - Verified: tsc exit 0; /privacy renders via screenshot.
 - NOTE for store submission: also provide a PUBLIC privacy URL in store metadata — the deployed app route (…/privacy) can serve as it, or host the same text on the gym website.
+
+## Session update 50 (Jun 2026 fork) — Smart empty state "Classes have ended today" (DONE)
+- Timetable's empty state now distinguishes ended-vs-none: if the selected day is TODAY and today's classes have all ended, shows "Classes have ended today." (checkmark-done icon); otherwise "No classes this day."
+- Backend GET /classes gained `include_ended` param: default (home/upcoming) still hides ended classes; include_ended=true returns all with an `ended` boolean per class (start+duration < QLD-now). 
+- Frontend: api.classes(category, includeEnded). timetable loads with include_ended=true, still hides ended from the visible list (filter !c.ended), and computes allEndedToday (dayOffset===0 && todays.length>0 && every ended) for the message. Cls type +ended.
+- Verified: tsc exit 0; curl shows 2 ended today; screenshot shows "Classes have ended today." on Mon 10 (all ended).

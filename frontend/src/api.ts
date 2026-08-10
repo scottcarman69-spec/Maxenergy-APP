@@ -72,8 +72,13 @@ export const api = {
   resetPassword: (email: string, code: string, new_password: string) =>
     req("/api/auth/reset-password", { method: "POST", body: JSON.stringify({ email, code, new_password }) }),
 
-  classes: (category?: string) =>
-    req(`/api/classes${category && category !== "All" ? `?category=${encodeURIComponent(category)}` : ""}`),
+  classes: (category?: string, includeEnded?: boolean) => {
+    const params = new URLSearchParams();
+    if (category && category !== "All") params.set("category", category);
+    if (includeEnded) params.set("include_ended", "true");
+    const qs = params.toString();
+    return req(`/api/classes${qs ? `?${qs}` : ""}`);
+  },
   classDetail: (id: string) => req(`/api/classes/${id}`),
   createBooking: (class_id: string) =>
     req("/api/bookings", { method: "POST", body: JSON.stringify({ class_id }) }),
