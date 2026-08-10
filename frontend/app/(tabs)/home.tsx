@@ -265,7 +265,7 @@ export default function Home() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.surface },
+  root: { flex: 1, backgroundColor: "transparent" },
   headerRow: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Tabs, useSegments } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "@/src/theme";
-import { Platform, AppState } from "react-native";
+import { Platform, AppState, ImageBackground } from "react-native";
 import { api } from "@/src/api";
 import { useAuth } from "@/src/AuthContext";
 
@@ -35,7 +35,13 @@ export default function TabsLayout() {
   useEffect(() => { refresh(); }, [segments, refresh]);
 
   return (
+    <ImageBackground
+      source={require("../../assets/images/app-bg.webp")}
+      style={{ flex: 1 }}
+      resizeMode="cover"
+    >
     <Tabs
+      sceneContainerStyle={{ backgroundColor: "transparent" }}
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
@@ -102,5 +108,6 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
+    </ImageBackground>
   );
 }

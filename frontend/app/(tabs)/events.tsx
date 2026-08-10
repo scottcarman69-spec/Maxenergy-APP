@@ -110,7 +110,7 @@ export default function Notices() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.surface },
+  root: { flex: 1, backgroundColor: "transparent" },
   header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.md },
   title: { ...type.h1 },
   subtitle: { ...type.small, marginTop: 2 },
