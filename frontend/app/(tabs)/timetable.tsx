@@ -11,11 +11,19 @@ import {
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius, type, font } from "@/src/theme";
 import ScreenBg from "@/src/components/ScreenBg";
-import { teamPhotos, academyLogo } from "@/src/gymPhotos";
+import { teamPhotos } from "@/src/gymPhotos";
+
+function catStyle(category: string, name = ""): { color: string; icon: any } {
+  const c = (category || "").toLowerCase();
+  const nm = (name || "").toLowerCase();
+  if (c.includes("kid") || nm.includes("kid")) return { color: "#22C55E", icon: "karate" };
+  if (nm.includes("box") || nm.includes("kick")) return { color: "#3B82F6", icon: "boxing-glove" };
+  return { color: "#FF7A00", icon: "karate" };
+}
 
 type Cls = {
   class_id: string;
@@ -191,30 +199,28 @@ export default function Timetable() {
                 <Text style={styles.dur}>{item.duration_min}m</Text>
               </View>
               <View style={styles.card}>
+                <View style={[styles.leftBar, { backgroundColor: catStyle(item.category, item.name).color }]} />
                 <View style={styles.cardBody}>
                   <View style={styles.logoBadge}>
-                    <Image source={academyLogo} style={styles.logoImg} contentFit="cover" />
+                    <MaterialCommunityIcons name={catStyle(item.category, item.name).icon} size={26} color={catStyle(item.category, item.name).color} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <View style={styles.cardTop}>
                       <Text style={styles.className}>{item.name}</Text>
-                      <View style={[styles.catTag, { backgroundColor: item.category === "Kids" ? "rgba(34,197,94,0.15)" : colors.brandTertiary }]}>
-                        <Text style={[styles.catTagText, { color: item.category === "Kids" ? "#22C55E" : colors.brand }]}>{item.category}</Text>
+                      <View style={[styles.catTag, { backgroundColor: catStyle(item.category, item.name).color + "26" }]}>
+                        <Text style={[styles.catTagText, { color: catStyle(item.category, item.name).color }]}>{item.category}</Text>
                       </View>
                     </View>
                     <Text style={styles.trainer}>with {item.trainer}</Text>
-                    {!!item.program && (
-                      <View style={styles.programTag}>
-                        <Ionicons name="school" size={11} color={colors.brand} />
-                        <Text style={styles.programText}>{item.program}</Text>
-                      </View>
-                    )}
                     <View style={styles.metaRow}>
                       <View style={styles.pill}>
                         <Text style={styles.pillText}>{item.level}</Text>
                       </View>
                       <Text style={styles.duration}>{item.duration_min} min</Text>
                     </View>
+                  </View>
+                  <View style={styles.bookOutline}>
+                    <Text style={styles.bookOutlineText}>Book</Text>
                   </View>
                 </View>
               </View>
@@ -272,13 +278,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceSecondary,
     borderRadius: radius.md,
     padding: spacing.lg,
+    paddingLeft: spacing.lg + 4,
     borderWidth: 1,
     borderColor: colors.border,
+    overflow: "hidden",
   },
+  leftBar: { position: "absolute", left: 0, top: 0, bottom: 0, width: 5 },
   cardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   cardBody: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  logoBadge: { width: 52, height: 52, borderRadius: 26, backgroundColor: "#000", alignItems: "center", justifyContent: "center", overflow: "hidden", borderWidth: 1, borderColor: colors.border },
+  logoBadge: { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center", overflow: "hidden" },
   logoImg: { width: 52, height: 52 },
+  bookOutline: { borderWidth: 1.5, borderColor: colors.brand, borderRadius: radius.sm, paddingHorizontal: 14, paddingVertical: 8 },
+  bookOutlineText: { color: colors.brand, fontWeight: "800", fontSize: 13 },
   className: { color: colors.onSurface, fontSize: 17, fontWeight: "800", flex: 1 },
   catTag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },
   catTagText: { fontSize: 10, fontWeight: "900", letterSpacing: 0.5 },

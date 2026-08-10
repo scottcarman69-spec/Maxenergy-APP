@@ -82,6 +82,7 @@ export default function Home() {
 
   const upcoming = classes.filter((c) => new Date(c.start_at).getTime() > Date.now()).slice(0, 6);
   const nextClass = upcoming[0];
+  const todayCount = classes.filter((c) => new Date(c.start_at).toDateString() === new Date().toDateString()).length;
 
   const quickActions = [
     { key: "schedule", label: "View Schedule", icon: "calendar", grad: ["#FF7A00", "#FFB259"], onPress: () => router.push("/(tabs)/timetable") },
@@ -119,6 +120,12 @@ export default function Home() {
           <Text style={styles.greetSmall}>{greetingText()}</Text>
           <Text style={styles.greetName}>{user?.name?.split(" ")[0] || "Champ"} 👋</Text>
           <Text style={styles.greetSub}>Ready for your next session?</Text>
+          <View style={styles.todayPill}>
+            <Ionicons name="calendar" size={13} color={colors.brand} />
+            <Text style={styles.todayPillText}>
+              {todayCount > 0 ? `${todayCount} ${todayCount === 1 ? "class" : "classes"} today` : "No classes today"}
+            </Text>
+          </View>
         </View>
 
         {loading ? (
@@ -300,6 +307,8 @@ const styles = StyleSheet.create({
   greetSmall: { color: colors.onSurfaceSecondary, fontSize: 16 },
   greetName: { color: colors.onSurface, fontSize: 40, fontFamily: font.display, letterSpacing: -0.5, marginTop: 2 },
   greetSub: { color: colors.onSurfaceSecondary, fontSize: 15, marginTop: 6 },
+  todayPill: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", marginTop: 12, backgroundColor: colors.brandTertiary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.brand },
+  todayPillText: { color: colors.brand, fontWeight: "800", fontSize: 12.5 },
   sectionTitle: {
     color: colors.onSurfaceSecondary,
     fontSize: 12,
