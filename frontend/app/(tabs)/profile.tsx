@@ -363,6 +363,16 @@ export default function Profile() {
                     </View>
                   )}
                   {(b.status === "paid" || b.status === "confirmed") && (
+                    <Pressable
+                      testID={`booking-receipt-${b.booking_id}`}
+                      style={styles.receiptBtn}
+                      onPress={() => router.push({ pathname: "/receipt", params: { booking_id: b.booking_id } })}
+                    >
+                      <Ionicons name="receipt-outline" size={15} color={colors.brand} />
+                      <Text style={styles.receiptBtnText}>View receipt</Text>
+                    </Pressable>
+                  )}
+                  {(b.status === "paid" || b.status === "confirmed") && (
                     b.attended ? (
                       <View style={styles.checkedInBar}>
                         <Ionicons name="checkmark-circle" size={16} color="#fff" />
@@ -543,6 +553,8 @@ const styles = StyleSheet.create({
   bookingCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, overflow: "hidden" },
   bookingActions: { flexDirection: "row", borderTopWidth: 1, borderTopColor: colors.border },
   checkinBar: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.brand },
+  receiptBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 11, borderTopWidth: 1, borderTopColor: colors.border },
+  receiptBtnText: { color: colors.brand, fontSize: 13, fontWeight: "800" },
   checkinText: { color: colors.onBrand, fontWeight: "900", fontSize: 13, letterSpacing: 0.3 },
   checkedInBar: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: "#16A34A" },
   checkedInText: { color: "#fff", fontWeight: "800", fontSize: 13 },

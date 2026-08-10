@@ -1,9 +1,11 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Platform, Alert } from "react-native";
 import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
 import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
 
@@ -36,6 +38,7 @@ export default function ReceiptScreen() {
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   const load = useCallback(async () => {
     if (!booking_id) { setLoading(false); setError(true); return; }
@@ -56,6 +59,62 @@ export default function ReceiptScreen() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const amount = receipt ? (receipt.amount_cents / 100).toFixed(2) : "0.00";
+
+  const receiptHtml = (r: Receipt) => {
+    const amt = (r.amount_cents / 100).toFixed(2);
+    const when = r.by_appointment ? "By appointment" : fmtDateTime(r.class_start);
+    const rows = [
+      ["Class", r.class_name],
+      ["Coach", r.trainer || "—"],
+      ["When", when],
+      ["Paid on", fmtDateTime(r.paid_at)],
+      ["Payment method", r.payment_method],
+      ["Receipt #", r.receipt_number],
+      ["Account", r.member_email || "—"],
+      ["Booking ref", r.booking_id],
+    ].map(([l, v]) => `<tr><td class="l">${l}</td><td class="v">${v}</td></tr>`).join("");
+    return `<!doctype html><html><head><meta charset="utf-8"/>
+      <meta name="viewport" content="width=device-width, initial-scale=1"/>
+      <style>
+        *{box-sizing:border-box;font-family:-apple-system,Helvetica,Arial,sans-serif}
+        body{margin:0;padding:32px;color:#141416;background:#fff}
+        .head{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #FF7A00;padding-bottom:16px}
+        .brand{font-size:24px;font-weight:800}.brand span{color:#FF7A00}
+        .paid{background:#DCFCE7;color:#16A34A;font-weight:800;padding:6px 12px;border-radius:20px;font-size:12px;letter-spacing:.5px}
+        h1{font-size:15px;letter-spacing:2px;color:#888;margin:28px 0 4px;font-weight:700}
+        .amt{font-size:42px;font-weight:800;margin:2px 0}.cur{color:#888;font-size:13px;font-weight:700;margin-bottom:20px}
+        table{width:100%;border-collapse:collapse;margin-top:8px}
+        td{padding:11px 0;border-bottom:1px solid #eee;font-size:14px}
+        td.l{color:#888;font-weight:600}td.v{text-align:right;font-weight:700}
+        .foot{margin-top:26px;color:#888;font-size:12px;line-height:1.5}
+      </style></head><body>
+      <div class="head"><div class="brand">max<span>energy</span> fitness</div><div class="paid">PAID</div></div>
+      <h1>AMOUNT PAID</h1><div class="amt">$${amt}</div><div class="cur">${r.currency}</div>
+      <table>${rows}</table>
+      <div class="foot">${r.location || ""}<br/>Thank you for training with Maxenergy Fitness 🥊<br/>ABN 81 213 163 833</div>
+      </body></html>`;
+  };
+
+  const onShare = async () => {
+    if (!receipt) return;
+    setSharing(true);
+    try {
+      const html = receiptHtml(receipt);
+      if (Platform.OS === "web") {
+        await Print.printAsync({ html });
+      } else {
+        const { uri } = await Print.printToFileAsync({ html });
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(uri, { mimeType: "application/pdf", UTI: "com.adobe.pdf", dialogTitle: "Share your receipt" });
+        } else {
+          Alert.alert("Saved", "Your receipt PDF was created.");
+        }
+      }
+    } catch (e: any) {
+      Alert.alert("Couldn't share", e?.message || "Please try again.");
+    }
+    setSharing(false);
+  };
 
   return (
     <SafeAreaView style={styles.root} edges={["top", "bottom"]}>
@@ -109,6 +168,17 @@ export default function ReceiptScreen() {
               </View>
             </View>
 
+            <Pressable testID="receipt-share" style={styles.shareBtn} onPress={onShare} disabled={sharing}>
+              {sharing ? (
+                <ActivityIndicator color={colors.brand} />
+              ) : (
+                <>
+                  <Ionicons name="share-outline" size={18} color={colors.brand} />
+                  <Text style={styles.shareBtnText}>{Platform.OS === "web" ? "SAVE / PRINT PDF" : "SHARE / SAVE PDF"}</Text>
+                </>
+              )}
+            </Pressable>
+
             <Pressable testID="receipt-done" style={styles.primaryBtn} onPress={() => router.replace("/(tabs)/profile")}>
               <Text style={styles.primaryBtnText}>DONE</Text>
             </Pressable>
@@ -153,7 +223,9 @@ const styles = StyleSheet.create({
   dashed: { borderBottomWidth: 1, borderStyle: "dashed", borderColor: colors.border, marginVertical: spacing.md },
   footerRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   footerText: { color: colors.onSurfaceSecondary, fontSize: 12, flex: 1, lineHeight: 17 },
-  primaryBtn: { backgroundColor: colors.brand, paddingVertical: 16, borderRadius: radius.md, alignItems: "center", marginTop: spacing.xl },
+  primaryBtn: { backgroundColor: colors.brand, paddingVertical: 16, borderRadius: radius.md, alignItems: "center", marginTop: spacing.md },
+  shareBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 15, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.brand, marginTop: spacing.xl },
+  shareBtnText: { color: colors.brand, fontFamily: font.display, fontSize: 15, letterSpacing: 1 },
   primaryBtnText: { color: colors.onBrand, fontFamily: font.display, fontSize: 16, letterSpacing: 1 },
   secondaryBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 14, marginTop: spacing.xs },
   secondaryBtnText: { color: colors.brand, fontSize: 14, fontWeight: "700" },

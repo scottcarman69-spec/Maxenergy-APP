@@ -211,3 +211,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Frontend: NEW /app/frontend/app/receipt.tsx — success header + branded receipt card (logo, PAID pill, big amount, Class/Coach/When/Paid on/Method/Receipt #/Account rows, dashed footer w/ location) + DONE (->Profile) + "Book another class" (->Timetable). Retries the fetch a few times for eventual consistency.
 - Wiring: class/[id].tsx native flow now router.replace -> /receipt?booking_id on paid (was profile). payment-return.tsx (web redirect) now forwards to /receipt?booking_id when status=success (Square redirect_url carries booking_id).
 - Verified: receipt endpoint returns full data for a paid booking; /receipt screen renders (screenshot).
+
+## Session update 38 (Jun 2026 fork) — Share/Save receipt PDF + Receipt history (DONE)
+- Share/Save PDF: added expo-print + expo-sharing. receipt.tsx now builds a branded HTML receipt (logo, PAID badge, amount, Class/Coach/When/Paid on/Method/Receipt #/Account/Booking ref rows, address + ABN) and a "SHARE / SAVE PDF" button (label "SAVE / PRINT PDF" on web). Native: Print.printToFileAsync -> Sharing.shareAsync (system share sheet: save to Files, email, etc.). Web: Print.printAsync (browser print/save-as-PDF dialog). NOTE: native share sheet is device/Expo Go only (not web preview).
+- Receipt history: Profile "MY BOOKINGS" — every paid/confirmed booking now has a "View receipt" button (testID booking-receipt-{id}) -> /receipt?booking_id. Members can reopen any past receipt anytime. (booking-history log screen unchanged; receipts reachable from active bookings list.)
+- Verified via screenshots: receipt Share button renders; Profile shows the receipt button on the paid booking.
