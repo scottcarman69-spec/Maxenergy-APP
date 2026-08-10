@@ -102,3 +102,10 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Session update 18 (Jun 2026 fork) — Notices Polish (DONE)
 - Redesigned Notices tab (app/(tabs)/events.tsx) to match Home/Timetable modern card style: eyebrow header, colored left accent bar per card, gradient circular icon chips (pin=orange/PINNED, megaphone=blue/NOTICE), section headers with count pills, and richer event cards (calendar badge, location meta, "View & RSVP" CTA). Added empty state. Data/logic unchanged. Verified via screenshot.
+
+## Session update 19 (Jun 2026 fork) — Login screen redesign (DONE)
+- Rebuilt app/(auth)/login.tsx to match supplied hero mock: darker hero with logo + orange "24/7 GYM & FITNESS" eyebrow + "IN SMITHFIELD CAIRNS" headline + a 4-chip feature row (24/7 Access, Muay Thai/Kickboxing, Boot Camp/PT, Adults & Kids) with vertical dividers overlaid on the hero.
+- Big slam headline TRAIN. / GET STRONGER. (orange) / FEEL YOUR BEST. with an orange skewed brush underline.
+- 4-column outline-icon features (All Levels Welcome, Adults & Kids Classes, More Than Just a Gym, Train Your Way) with dividers; chevron accents (>> ... <<) around centered welcome copy.
+- Form: "LOG IN TO GET STARTED" heading, light input fields with leading mail/lock icons + password eye toggle, right-aligned orange "Forgot password?", orange LOG IN button w/ arrow, OR divider, dark CONTINUE WITH GOOGLE button (colored G), "New here? Create an account". All auth logic + testIDs unchanged. Verified via screenshots.
+- NOTE: hero still uses bundled gym3.jpg (no dramatic solo-boxer asset available); swap in if user provides that image.
