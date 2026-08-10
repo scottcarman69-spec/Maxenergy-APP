@@ -33,8 +33,13 @@ export default function AboutScreen() {
         <View style={styles.hero}>
           <Image source={HERO} style={StyleSheet.absoluteFill} contentFit="cover" />
           <LinearGradient colors={["rgba(18,18,20,0.5)", "transparent", "rgba(18,18,20,0.98)"]} locations={[0, 0.4, 1]} style={StyleSheet.absoluteFill} />
-          <SafeAreaView edges={["top"]}>
-            <Pressable testID="about-back" onPress={() => router.back()} style={styles.backBtn}>
+          <SafeAreaView edges={["top"]} style={styles.backSafe} pointerEvents="box-none">
+            <Pressable
+              testID="about-back"
+              onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/home"))}
+              hitSlop={12}
+              style={styles.backBtn}
+            >
               <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
             </Pressable>
           </SafeAreaView>
@@ -94,7 +99,8 @@ export default function AboutScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   hero: { height: 260, justifyContent: "flex-end" },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(18,18,20,0.7)", alignItems: "center", justifyContent: "center", marginLeft: spacing.lg, marginTop: spacing.md, position: "absolute" },
+  backSafe: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 30 },
+  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(18,18,20,0.7)", alignItems: "center", justifyContent: "center", marginLeft: spacing.lg, marginTop: spacing.md, zIndex: 20 },
   heroBottom: { padding: spacing.xl },
   eyebrow: { color: colors.brand, fontSize: 11, fontWeight: "800", letterSpacing: 2, marginBottom: 4 },
   title: { color: colors.onSurface, fontSize: 32, fontWeight: "900", letterSpacing: -0.5 },

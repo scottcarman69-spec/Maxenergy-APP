@@ -579,15 +579,8 @@ ABOUT = {
             "name": "Jamie Blackman",
             "role": "Muay Thai Coach",
             "image": "https://images.unsplash.com/photo-1591117207239-788bf8de6c3b?w=1200&q=80",
-            "bio": "Over 40 years in Muay Thai, competing worldwide including world titles in Bangkok and Dubai. Trained and certified in Thailand, Jamie has taught kids and adults for over 27 years across Australia, the Middle East and Thailand.",
-            "quals": ["World-level competitor", "Certified in Thailand", "Kids & Adults (Blue Card)", "Boxing / Kickboxing / Muay Thai"],
-        },
-        {
-            "name": "Andrew Roussety",
-            "role": "Personal Trainer",
-            "image": "https://irp.cdn-website.com/3ca70639/dms3rep/multi/opt/Andrew+Profile-1920w.jpg",
-            "bio": "Passionate about healthy eating and combining nutrition with training for optimal results. Andrew specialises in circuit and weight training, building muscle and trimming excess weight.",
-            "quals": ["Cert 3 & 4 in Fitness", "Strength & Conditioning", "Bulking / Cutting / Nutrition", "Boxing Fitness / Muay Thai"],
+            "bio": "With over 20 years of Muay Thai experience, Jamie has competed around the world, including at world-title events in Bangkok and Dubai. Trained and certified in Thailand, he brings a wealth of international experience to every class, having coached both kids and adults across Australia, the Middle East and Thailand.\n\nJamie is passionate about helping students of all ages and experience levels build confidence, improve their skills and enjoy the journey of Muay Thai.",
+            "quals": ["Personal trainer", "Certified in Thailand", "Kids & Adults (Blue Card)", "Boxing / Kickboxing / Muay Thai"],
         },
         {
             "name": "Scott Carman",

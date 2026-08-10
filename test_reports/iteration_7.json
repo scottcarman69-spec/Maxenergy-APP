@@ -1,0 +1,29 @@
+{
+  "summary": "About Us bug-fix verification (iteration 7). Backend: 6/6 pytest passed against public /api/about — team returns exactly [Alex Honorato, Jamie Blackman, Scott Carman] (no Andrew Roussety), Jamie's first qualification is 'Personal trainer' (World-level competitor removed), Jamie's bio starts with 'With over 20 years of Muay Thai experience'. Frontend: reproduced the reported bug — tapping [data-testid='about-back'] did NOT navigate; DOM inspection showed the click was being intercepted by the '.css-text-146c3p1' element inside heroBottom (the 'Operating in Cairns since 2013' eyebrow). Root cause: the Pressable had zIndex:20 + position:absolute but its parent SafeAreaView was NOT positioned, so the back button's stacking context was inside SafeAreaView while the sibling heroBottom View (rendered later in DOM) painted on top. Applied fix in /app/frontend/app/about.tsx: hoisted position:absolute + zIndex:30 to a new SafeAreaView style (backSafe), added pointerEvents='box-none' so the SafeAreaView container itself doesn't block scrolling, kept the Pressable's inner styles. Re-tested via real user flow (login as info@maxenergy.com.au → Home → 'About us' link → About screen → back): URL correctly changes /about → /home. Regression checks passed: team cards render with correct content, Contact CTA still navigates to /contact.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_about.py",
+    "/app/test_reports/pytest/pytest_about.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Original fix (zIndex:20 + hitSlop on backBtn alone) was insufficient on web: zIndex requires a positioned ancestor to escape the parent stacking context. The Pressable's parent SafeAreaView was in normal flow, so the sibling heroBottom View painted over it. Fix now positions the SafeAreaView itself (position:absolute, top:0, left:0, right:0, zIndex:30) with pointerEvents='box-none'. This is the pattern that must be used for any floating header button in RN Web.",
+    "Native iOS/Android likely worked before the fix because RN's zIndex propagates differently through native views, but the web preview (browser DOM) required the parent to be positioned too. Consider testing floating buttons on the web preview whenever they overlap sibling content."
+  ],
+  "updated_files": [
+    "/app/frontend/app/about.tsx (wrapped Pressable in a positioned SafeAreaView with zIndex:30 + pointerEvents='box-none'; kept fallback router.replace('/(tabs)/home') on !canGoBack)",
+    "/app/backend/tests/test_about.py (new pytest for /api/about content)"
+  ],
+  "success_rate": { "backend": "100% (6/6)", "frontend": "100% (back button, contact CTA, team content all verified)" },
+  "seed_data_creation": "None. Read-only tests against public /api/about; UI test uses seeded admin creds.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Reuse /app/backend/tests/test_about.py for regression. Frontend real-user flow to reach About: login → Home → tap 'About us' link (testID='home-see-about') OR tap 'About Us' quick action (testID='quick-about'). Back button testID='about-back' is at top-left (y≈12) after the fix. If Andrew Roussety reappears, quals[0] is not 'Personal trainer', or bio doesn't start with 'With over 20 years of Muay Thai experience', backend team seed regressed.",
+  "rca_of_issue": "Bug: tapping the About Us back button did nothing (URL stayed on /about) on web preview. RCA: In /app/frontend/app/about.tsx the Pressable had `position:absolute; zIndex:20` but its parent `<SafeAreaView edges=['top']>` was un-positioned (position:static). In CSS, `z-index` only participates in the stacking context established by a positioned ancestor. Because SafeAreaView was static, the Pressable's z-index applied only within SafeAreaView, and the LATER sibling `<View style={styles.heroBottom}>` (containing the 'Operating in Cairns since 2013' Text) rendered on top and swallowed the click. Confirmed via `document.elementFromPoint()` at the button's center returning the eyebrow Text div. Mitigation: positioned the SafeAreaView itself (position:absolute, top:0, left:0, right:0, zIndex:30) and added pointerEvents='box-none' so it doesn't intercept scroll gestures over the hero. After fix, elementFromPoint at back-button center returns the Ionicons SVG, and click reliably routes: canGoBack -> router.back(), else router.replace('/(tabs)/home'). Verified end-to-end. Also verified the requested content changes (removed Andrew, updated Jamie's first qualification + bio) are live on GET /api/about and rendered in the About screen."
+}
