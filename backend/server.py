@@ -185,6 +185,60 @@ def _download_button(url: str, label: str) -> str:
     )
 
 
+# -------------------- Membership Terms & Conditions (emailed with the form) --------------------
+MEMBERSHIP_TERMS_TC = [
+    ("Acknowledgment of Risks, Injury & Obligations",
+     "I acknowledge that the activity I am to undertake is a dangerous activity and that by participating in it I am exposed to certain risks, including that I may be injured, physically or mentally, or may die; my personal property may be lost or damaged; other participants may cause me injury or damage; I may cause injury to others or their property; conditions may vary without warning; I may be injured, die or suffer property loss as a result of negligence or breach of contract of Maxenergy Fitness; and there may be no or inadequate facilities for treatment or transport if I am injured. I assume the risk of and responsibility for any injury, death or property damage resulting from my participation."),
+    ("Release and Indemnity",
+     "I participate in the activity at my sole risk and responsibility. I release, indemnify, and hold harmless Maxenergy Fitness, its servants and agents, from and against all and any actions or claims which may be made by me or on my behalf or by other parties in respect of or arising out of injury, loss, damage or death caused to me or my property whether by negligence, breach of contract or in any way."),
+    ("Administration",
+     "Appropriate covered footwear & shirt must be worn, and towels must always be used whilst in the gymnasium. Memberships / 10 visit passes are not refundable or transferable after the 48-hour cooling off period. All weights and equipment must be put back after use. Members are responsible for their membership card. Shared gym access with a non-member will result in forfeiture of membership effective immediately. Members must respect other users and behave appropriately at all times. Staff reserve the right to rescind the rights of members not complying with the terms and conditions. No one under the age of sixteen (16) will be permitted to enter the gymnasium under any circumstances."),
+    ("Personal Training / Massage",
+     "24 hours is required to cancel or change appointments otherwise charges will apply."),
+    ("Term Memberships",
+     "Term memberships are available for 1, 3, 6, or 12 months and have specified start and end dates."),
+    ("Direct Debit Memberships",
+     "Direct debit is an automatic weekly, fortnightly or monthly deduction from a debit or credit card through Debit First Australia Pty Ltd. This is an ongoing membership and deductions continue unless the member authorises cancellation. To cancel/amend, the member must complete an amendment request form and lodge it within 48 hours of the debit date; later requests are processed the following period. Cancellation fees equal to the remaining value of the membership apply, unless due to permanent sickness or physical incapacity, or if within the 48-hour cooling off period. An administration fee applies to any cancellation — the lesser of $75.00 or 10% of the total membership fee. A late fee of $33 applies to accounts not paid on time. Continual non-payment of contracted term accounts may result in legal action to recover the balance plus legal costs, duties and collection/dishonour fees."),
+    ("Cooling-Off Period",
+     "You can cancel the agreement within 48 hours of entering it. Cancellation must be in writing prior to the end of the cooling off period. Maxenergy Fitness will refund any fees paid within 21 days of receiving the notice, less payment for any fitness service already provided and an administration fee (the lesser of $75.00 or 10% of the total membership fee)."),
+    ("Suspension or Cancellation",
+     "A member may suspend or cancel subject to approval by authorised staff. Suspension is for a minimum of one week and a maximum of 2 months, with specified start and finish dates; early reactivation is permissible and a weekly suspension fee applies. A suspension form must be lodged prior to the commencement of the suspension. Cancellation fees equal to the value of the remaining membership fee apply and are non-refundable except for permanent sickness or physical incapacity (a medical certificate is required). Refunds, where applicable, are provided within 21 days, less any service used and an administration fee (the lesser of $75.00 or 10% of the total membership fee)."),
+    ("Membership Cards",
+     "Members must bring their membership card on each visit and register attendance by scanning prior to the session. Replacement cards for lost/stolen cards are available at a cost determined by Maxenergy Fitness. On cancellation, the membership card must be returned."),
+    ("Privacy Act",
+     "Maxenergy members are protected under the Privacy Act. Maxenergy cannot release any information unless prior written consent is given by the person(s) involved."),
+    ("Media Consent",
+     "Photographs, videos and other media may be captured during classes or events. By agreeing, the member consents to themselves, or their child (if under 18), being included in these recordings and authorises their use for promotional, educational or marketing purposes related to Maxenergy Fitness. For a child under 18, the parent/guardian provides this consent on their behalf as part of the membership agreement."),
+    ("Activity Waiver Form",
+     "In consideration of being allowed to participate in Boxing, Muay Thai, Kickboxing and Brazilian Jiu Jitsu provided by Maxenergy Fitness (Shop 38 Campus Village Shopping Centre, Smithfield QLD 4878), the Participant releases and forever discharges the Activity Provider, its owners, directors, officers, employees, agents, assigns, legal representatives and successors from all actions, claims and demands for any injury to person or property, including death, sustained as a consequence of participation, notwithstanding that such loss or injury may have been caused solely or partly by the negligence of the Activity Provider. The Participant understands they would not be permitted to participate unless this Waiver is signed; confirms they have no physical limitations, medical ailments or disabilities that would prevent participation (and will obtain medical clearance if required); acknowledges sufficient time to read and the opportunity to seek independent legal advice; freely executes this Waiver; and is forever prevented from suing or claiming against Maxenergy Fitness for any property loss or personal injury sustained while participating in or preparing for the activity. This Waiver is governed by the laws of the State of Queensland and binds the Participant's spouse, heirs, executors, administrators, legal representatives and assigns."),
+]
+
+TERMS_DECLARATION_TC = (
+    "By agreeing to the online membership form, I declare that I have read, understood, and agree "
+    "to the terms and conditions of this membership, knowing that it affects my legal rights."
+)
+
+
+def _membership_terms_html() -> str:
+    parts = [
+        "<hr style='border:none;border-top:1px solid #3F3F46;margin:24px 0'/>",
+        "<h2 style='color:#FF7A00;margin:0 0 4px'>Membership Terms &amp; Conditions</h2>",
+        "<p style='color:#A1A1AA;margin:0 0 12px;font-size:13px'>Your copy of the Maxenergy Fitness Policies &amp; Terms Agreement you accepted.</p>",
+    ]
+    for title, body in MEMBERSHIP_TERMS_TC:
+        safe = body.replace("\n", "<br/>")
+        parts.append(
+            f"<h3 style='color:#F9FAFB;margin:16px 0 4px;font-size:15px'>{title}</h3>"
+            f"<p style='color:#D4D4D8;margin:0;font-size:13px;line-height:1.5'>{safe}</p>"
+        )
+    parts.append(
+        f"<p style='color:#F9FAFB;margin:20px 0 0;font-size:13px;font-style:italic'>{TERMS_DECLARATION_TC}</p>"
+    )
+    return "".join(parts)
+
+
+
+
 # -------------------- OTP (email verification + password reset) --------------------
 OTP_TTL_MIN = 10          # code valid for 10 minutes
 OTP_MAX_ATTEMPTS = 5      # wrong tries before the code is locked
@@ -1605,10 +1659,11 @@ async def membership_apply(body: MembershipApplyReq, request: Request, u: dict =
         <p>You can download a PDF copy of your completed membership form using the button below. Our team will review your application and get in touch shortly.</p>
         {_download_button(pdf_link, "Download my membership form (PDF)") if pdf_link else ""}
         {"" if pdf_link else "<p>Your completed form is saved to your account.</p>"}
+        {_membership_terms_html()}
       </td></tr>
     </table>
     """
-    await send_email(u["email"], "Your Max Energy membership form (copy)", conf_html)
+    await send_email(u["email"], "Your Max Energy membership form & terms (copy)", conf_html)
     doc.pop("_id", None)
     return {"application": doc}
 

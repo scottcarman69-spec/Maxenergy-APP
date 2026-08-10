@@ -139,3 +139,7 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Session update 25 (Jun 2026 fork) — FB feed width fix CONFIRMED
 - Root cause of half-width feed: raw plugin URL rendered at device physical-pixel viewport. Fixed by rendering the plugin inside a controlled HTML wrapper (source={{html, baseUrl:'https://www.facebook.com'}}) with viewport width=device-width + data-adapt-container-width=true + CSS width:100% on .fb-page/span/iframe. data-height=900; WebView height = measured scrollHeight (clamped 260..1600), scrollEnabled=false. Web branch unchanged (iframe + scale). User CONFIRMED fixed on Expo Go device.
+
+## Session update 26 (Jun 2026 fork) — Email T&C copy on membership submit (DONE)
+- Membership confirmation email to the applicant now includes a full copy of the Membership Terms & Conditions (12 sections + declaration) alongside the PDF form download link. Subject changed to "Your Max Energy membership form & terms (copy)".
+- Backend: added MEMBERSHIP_TERMS_TC list + TERMS_DECLARATION_TC + _membership_terms_html() helper (server.py, after _download_button); appended to conf_html in /membership/apply. Verified: helper renders 12 sections, release/waiver/declaration present; backend boots clean.
