@@ -12,10 +12,11 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAuth } from "@/src/AuthContext";
 import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
+import ScreenBg from "@/src/components/ScreenBg";
 import { gymPhotos } from "@/src/gymPhotos";
 import FacebookFeed from "@/src/components/FacebookFeed";
 
@@ -46,11 +47,11 @@ function greetingText() {
   if (h < 17) return "Good afternoon,";
   return "Good evening,";
 }
-function catStyle(category: string): { color: string; icon: any } {
+function catStyle(category: string): { color: string; icon: any; set: "ion" | "mci" } {
   const c = (category || "").toLowerCase();
-  if (c.includes("kid")) return { color: "#22C55E", icon: "body" };
-  if (c.includes("box") || c.includes("kick")) return { color: "#3B82F6", icon: "fitness" };
-  return { color: colors.brand, icon: "barbell" };
+  if (c.includes("kid")) return { color: "#22C55E", icon: "karate", set: "mci" };
+  if (c.includes("box") || c.includes("kick")) return { color: "#3B82F6", icon: "fitness", set: "ion" };
+  return { color: colors.brand, icon: "barbell", set: "ion" };
 }
 
 export default function Home() {
@@ -94,6 +95,7 @@ export default function Home() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
+      <ScreenBg />
       <ScrollView
         contentContainerStyle={{ paddingBottom: 40 }}
         refreshControl={<RefreshControl tintColor={colors.brand} refreshing={refreshing} onRefresh={onRefresh} />}
@@ -213,7 +215,11 @@ export default function Home() {
                   >
                     <View style={[styles.leftBar, { backgroundColor: cs.color }]} />
                     <View style={styles.classIcon}>
-                      <Ionicons name={cs.icon} size={22} color={cs.color} />
+                      {cs.set === "mci" ? (
+                        <MaterialCommunityIcons name={cs.icon} size={24} color={cs.color} />
+                      ) : (
+                        <Ionicons name={cs.icon} size={22} color={cs.color} />
+                      )}
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.catLabel, { color: cs.color }]}>{c.category.toUpperCase()}</Text>

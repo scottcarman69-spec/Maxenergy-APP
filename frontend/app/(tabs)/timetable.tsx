@@ -14,6 +14,7 @@ import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius, type, font } from "@/src/theme";
+import ScreenBg from "@/src/components/ScreenBg";
 import { teamPhotos, academyLogo } from "@/src/gymPhotos";
 
 type Cls = {
@@ -82,6 +83,7 @@ export default function Timetable() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
+      <ScreenBg />
       <View style={styles.header}>
         <Text style={styles.title}>Schedule</Text>
         <Text style={styles.subtitle}>Cairns · Smithfield</Text>

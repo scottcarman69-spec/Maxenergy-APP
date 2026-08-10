@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
+import ScreenBg from "@/src/components/ScreenBg";
 
 type Msg = { message_id: string; body: string; sender_is_admin: boolean; sender_name: string; created_at: string };
 
@@ -42,6 +43,7 @@ export default function InboxTab() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
+      <ScreenBg />
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Inbox</Text>
         <Text style={styles.headerSub}>Message Maxenergy Team</Text>

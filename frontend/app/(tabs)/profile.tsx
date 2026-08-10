@@ -7,6 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/src/AuthContext";
 import { api, BACKEND_URL } from "@/src/api";
 import { colors, spacing, radius, type, font } from "@/src/theme";
+import ScreenBg from "@/src/components/ScreenBg";
 
 type Notif = { notification_id: string; title: string; body: string; read: boolean; created_at: string; type: string };
 type Booking = { booking_id: string; class_name: string; status: string; amount: number; by_appointment?: boolean; requested_time?: string; scheduled_time?: string; attended?: boolean };
@@ -126,6 +127,7 @@ export default function Profile() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
+      <ScreenBg />
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         <View style={styles.header}>
           <View style={styles.avatar}>

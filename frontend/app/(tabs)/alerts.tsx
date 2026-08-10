@@ -7,6 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { useAuth } from "@/src/AuthContext";
 import { colors, spacing, radius } from "@/src/theme";
+import ScreenBg from "@/src/components/ScreenBg";
 
 type Notif = { notification_id: string; title: string; body: string; read: boolean; created_at: string; type: string; data?: { nav?: string; user_id?: string; name?: string } };
 
@@ -101,6 +102,7 @@ export default function AlertsTab() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
+      <ScreenBg />
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>Notifications</Text>

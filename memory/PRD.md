@@ -82,3 +82,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Session update 14 (Jun 2026 fork)
 - Facebook feed made shorter & cleaner: FEED_HEIGHT 640->460; plugin params small_header=true, hide_cover=true, show_facepile=false for a compact look. Verified iframe now 460px tall. (Since app web frame is capped at 480px, no upscaling occurs.)
+
+## Session update 15 (Jun 2026 fork)
+- Home screen redesigned to match supplied mock: time-based greeting (Good morning/afternoon/evening + first name + wave), avatar with unread dot, UP NEXT hero card (badge + icon meta + Book Class), 4-col Quick Actions with circular gradient icons, rich Upcoming Classes rows (colored left bar + circular sport icon + colored category + Book outline btn + chevron).
+- Kids class icon changed to MaterialCommunityIcons "karate" (kicking figure, green); Adults barbell, Boxing fitness (Ionicons) kept.
+- App background: reverted ImageBackground/app-bg approach (rendered white on RN web due to navigator theme bg). New shared ScreenBg component (src/components/ScreenBg.tsx): opaque black base + faint kickbox1.webp (opacity 0.13) + rgba dark overlay, added as first child inside each tab screen's SafeAreaView (home/timetable/events/inbox/alerts/profile). Reliable black-with-transparent-gym-image look. Verified via screenshot.

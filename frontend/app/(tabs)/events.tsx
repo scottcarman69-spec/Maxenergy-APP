@@ -7,6 +7,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius, type } from "@/src/theme";
+import ScreenBg from "@/src/components/ScreenBg";
 
 type Ann = { announcement_id: string; title: string; body: string; pinned: boolean; author: string; created_at: string };
 type Evt = { event_id: string; title: string; start_at: string; image: string; location: string };
@@ -49,6 +50,7 @@ export default function Notices() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
+      <ScreenBg />
       <View style={styles.header}>
         <Text style={styles.title}>Gym Notices</Text>
         <Text style={styles.subtitle}>Announcements & events</Text>
