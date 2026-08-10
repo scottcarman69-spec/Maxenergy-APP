@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Platform, Modal } from "react-native";
 import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -8,7 +8,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { api, BACKEND_URL } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
-import { classTime, classDate } from "@/src/datetime";
+import { classTime, classDate, qldTodayUTC } from "@/src/datetime";
 import { coachSource } from "@/src/coaches";
 
 type Cls = {
@@ -38,6 +38,9 @@ export default function ClassDetail() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [isMember, setIsMember] = useState<boolean | null>(null);
+  const [apptOpen, setApptOpen] = useState(false);
+  const [apptDay, setApptDay] = useState(0);
+  const [apptHour, setApptHour] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -58,12 +61,12 @@ export default function ClassDetail() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const bookAndPay = async () => {
+  const proceedBooking = async (requestedTime?: string, requestedAt?: string) => {
     if (!cls) return;
     setBusy(true);
     setMsg(null);
     try {
-      const { booking } = await api.createBooking(cls.class_id);
+      const { booking } = await api.createBooking(cls.class_id, requestedTime, requestedAt);
 
       if (booking.status === "paid") {
         setMsg("Already booked. See you there!");
@@ -113,6 +116,40 @@ export default function ClassDetail() {
       setMsg(e?.message || "Booking failed");
     }
     setBusy(false);
+  };
+
+  const onBookPress = () => {
+    if (cls?.by_appointment) {
+      setApptDay(0);
+      setApptHour(null);
+      setMsg(null);
+      setApptOpen(true);
+    } else {
+      proceedBooking();
+    }
+  };
+
+  // Preferred-time picker (appointment classes): next 14 Queensland days + hourly slots.
+  const MIN_LEAD_MS = 24 * 60 * 60 * 1000;
+  const apptDays = React.useMemo(() => {
+    const base = qldTodayUTC();
+    return Array.from({ length: 14 }, (_, i) =>
+      new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate() + i))
+    );
+  }, []);
+  const APPT_HOURS = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+  const slotInstant = (d: Date, h: number) =>
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), h) - 10 * 3600 * 1000;
+  const slotIso = (d: Date, h: number) =>
+    `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}T${String(h).padStart(2, "0")}:00:00`;
+
+  const confirmAppt = () => {
+    if (apptHour === null) return;
+    const d = apptDays[apptDay];
+    const iso = slotIso(d, apptHour);
+    const label = `${classDate(iso, { weekday: "short", day: "2-digit", month: "short" })} · ${classTime(iso)}`;
+    setApptOpen(false);
+    proceedBooking(label, iso);
   };
 
   if (loading) {
@@ -226,7 +263,7 @@ export default function ClassDetail() {
         <Pressable
           testID="book-and-pay-button"
           style={({ pressed }) => [styles.payBtn, pressed && { opacity: 0.85 }]}
-          onPress={bookAndPay}
+          onPress={onBookPress}
           disabled={busy}
         >
           {busy ? (
@@ -239,6 +276,75 @@ export default function ClassDetail() {
           )}
         </Pressable>
       </View>
+
+      <Modal visible={apptOpen} transparent animationType="slide" onRequestClose={() => setApptOpen(false)}>
+        <View style={styles.apptOverlay}>
+          <View style={styles.apptSheet}>
+            <View style={styles.apptHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.apptTitle}>Request a time</Text>
+                <Text style={styles.apptSub}>{cls.name} · at least 24 hours ahead</Text>
+              </View>
+              <Pressable testID="appt-close" onPress={() => setApptOpen(false)} hitSlop={12}>
+                <Ionicons name="close" size={24} color={colors.onSurface} />
+              </Pressable>
+            </View>
+
+            <Text style={styles.apptLabel}>PREFERRED DAY</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm, paddingVertical: 4 }}>
+              {apptDays.map((d, i) => {
+                const active = i === apptDay;
+                return (
+                  <Pressable
+                    key={i}
+                    testID={`appt-day-${i}`}
+                    onPress={() => { setApptDay(i); setApptHour(null); }}
+                    style={[styles.apptDayChip, active && styles.apptChipActive]}
+                  >
+                    <Text style={[styles.apptDayLabel, active && styles.apptChipTextActive]}>
+                      {classDate(slotIso(d, 12), { weekday: "short" }).toUpperCase()}
+                    </Text>
+                    <Text style={[styles.apptDayNum, active && styles.apptChipTextActive]}>{d.getUTCDate()}</Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+
+            <Text style={[styles.apptLabel, { marginTop: spacing.lg }]}>PREFERRED TIME</Text>
+            <View style={styles.apptTimeWrap}>
+              {APPT_HOURS.map((h) => {
+                const d = apptDays[apptDay];
+                const disabled = slotInstant(d, h) < Date.now() + MIN_LEAD_MS;
+                const active = apptHour === h;
+                return (
+                  <Pressable
+                    key={h}
+                    testID={`appt-time-${h}`}
+                    disabled={disabled}
+                    onPress={() => setApptHour(h)}
+                    style={[styles.apptTimeChip, active && styles.apptChipActive, disabled && styles.apptTimeDisabled]}
+                  >
+                    <Text style={[styles.apptTimeText, active && styles.apptChipTextActive, disabled && styles.apptTimeTextDisabled]}>
+                      {classTime(slotIso(d, h))}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Pressable
+              testID="appt-confirm"
+              style={[styles.apptConfirm, (apptHour === null || busy) && { opacity: 0.5 }]}
+              onPress={confirmAppt}
+              disabled={apptHour === null || busy}
+            >
+              <Text style={styles.apptConfirmText}>CONTINUE TO PAYMENT</Text>
+              <Ionicons name="arrow-forward" size={18} color={colors.onBrand} />
+            </Pressable>
+            <Text style={styles.apptFoot}>We'll confirm your exact time after your request.</Text>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -329,4 +435,23 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   payBtnText: { color: colors.onBrand, fontWeight: "900", letterSpacing: 1 },
+  apptOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
+  apptSheet: { backgroundColor: colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: spacing.xl, paddingBottom: Platform.OS === "ios" ? 34 : spacing.xl, borderWidth: 1, borderColor: colors.border },
+  apptHeader: { flexDirection: "row", alignItems: "center", marginBottom: spacing.lg },
+  apptTitle: { color: colors.onSurface, fontSize: 22, fontWeight: "900" },
+  apptSub: { color: colors.onSurfaceSecondary, fontSize: 13, marginTop: 2 },
+  apptLabel: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "800", letterSpacing: 1.5, marginBottom: spacing.sm },
+  apptDayChip: { width: 56, height: 66, borderRadius: radius.md, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
+  apptDayLabel: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "800", letterSpacing: 1 },
+  apptDayNum: { color: colors.onSurface, fontSize: 18, fontWeight: "800", marginTop: 3 },
+  apptChipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
+  apptChipTextActive: { color: colors.onBrand },
+  apptTimeWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  apptTimeChip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border },
+  apptTimeText: { color: colors.onSurface, fontSize: 13, fontWeight: "800" },
+  apptTimeDisabled: { opacity: 0.35 },
+  apptTimeTextDisabled: { color: colors.onSurfaceSecondary },
+  apptConfirm: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.brand, paddingVertical: 16, borderRadius: radius.pill, marginTop: spacing.xl },
+  apptConfirmText: { color: colors.onBrand, fontWeight: "900", letterSpacing: 1 },
+  apptFoot: { color: colors.onSurfaceSecondary, fontSize: 12, textAlign: "center", marginTop: spacing.md },
 });

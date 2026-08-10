@@ -538,6 +538,8 @@ class ResetPasswordReq(BaseModel):
 
 class BookingCreate(BaseModel):
     class_id: str
+    requested_time: Optional[str] = None  # human-readable preferred time (appointment)
+    requested_at: Optional[str] = None     # ISO naive Queensland wall-clock (appointment)
 
 
 class CheckoutCreate(BaseModel):
@@ -1040,6 +1042,17 @@ async def booking_create(body: BookingCreate, u: dict = Depends(require_user)):
         return {"booking": existing}
     booking_id = new_id("bk")
     is_appt = bool(cls.get("by_appointment"))
+    if is_appt:
+        if not body.requested_at:
+            raise HTTPException(400, "Please choose a preferred time.")
+        try:
+            rt = datetime.fromisoformat(body.requested_at)
+        except Exception:
+            raise HTTPException(400, "Invalid preferred time.")
+        # requested_at is Queensland (UTC+10) wall-clock → convert to a UTC instant.
+        rt_utc = rt.replace(tzinfo=timezone.utc) - timedelta(hours=10)
+        if rt_utc < now_utc() + timedelta(hours=24):
+            raise HTTPException(400, "Sessions must be booked at least 24 hours in advance. Please pick a later time.")
     doc = {
         "booking_id": booking_id,
         "user_id": u["user_id"],
@@ -1052,23 +1065,28 @@ async def booking_create(body: BookingCreate, u: dict = Depends(require_user)):
         "status": "pending",
         "created_at": now_utc(),
     }
+    if is_appt:
+        doc["requested_time"] = body.requested_time
+        doc["requested_at"] = body.requested_at
     await db.bookings.insert_one(doc)
     doc.pop("_id", None)
     if is_appt:
         member_name = u.get("name") or u.get("email")
+        pref = body.requested_time or "a time to be confirmed"
         await notify_admins(
             "New session request",
-            f"{member_name} requested a {cls['name']} session (by appointment).",
+            f"{member_name} requested a {cls['name']} session — preferred: {pref}.",
             "booking",
             email_lines=[
                 f"<b>{member_name}</b> has requested a <b>{cls['name']}</b> session.",
+                f"Preferred time: <b>{pref}</b>",
                 "This is a by-appointment booking — open the app Admin → Bookings to accept, reschedule or cancel.",
             ],
         )
         await create_notification(
             u["user_id"],
             "Session request received",
-            f"We received your request for {cls['name']}. We'll confirm a time shortly.",
+            f"We received your request for {cls['name']} ({pref}). We'll confirm shortly.",
             "booking",
         )
     return {"booking": doc}

@@ -80,8 +80,8 @@ export const api = {
     return req(`/api/classes${qs ? `?${qs}` : ""}`);
   },
   classDetail: (id: string) => req(`/api/classes/${id}`),
-  createBooking: (class_id: string) =>
-    req("/api/bookings", { method: "POST", body: JSON.stringify({ class_id }) }),
+  createBooking: (class_id: string, requested_time?: string, requested_at?: string) =>
+    req("/api/bookings", { method: "POST", body: JSON.stringify({ class_id, requested_time, requested_at }) }),
   myBookings: () => req("/api/bookings"),
   bookingsHistory: () => req("/api/bookings/history"),
   clearAllBookings: () => req("/api/bookings/clear-all", { method: "POST" }),

@@ -341,3 +341,10 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Backend: ClassUpsert.start_at now Optional + new by_appointment flag. admin_class_create sets by_appointment (capacity forced to 1, start_at defaults to now when appt). admin_class_update sets/keeps by_appointment; only writes start_at/capacity for fixed-time classes.
 - Frontend admin/classes.tsx: added a "By appointment" toggle + a Description (multiline) field; hides Date/Time/Capacity when appointment is on; list row shows "By appointment" instead of a date; save omits start_at for appointment classes.
 - Verified: PUT updates Custom Programs price 8000→9500→reset 8000 with by_appointment staying true and description persisting; screenshot shows the edit form (toggle on, no date/time, editable description + price).
+
+## Session update 60 (Jun 2026 fork) — Appointment preferred time + 24h lead (DONE)
+- Appointment classes (Personal Training, Custom Programs) now open a "Request a time" bottom sheet on the class detail "BOOK SESSION" tap, instead of booking immediately.
+- Picker: horizontal day chips (next 14 QLD days) + hourly time chips (6am–8pm). Slots less than 24h away are disabled; earliest bookable is 24h out. On confirm → creates booking with requested_time (display) + requested_at (ISO QLD wall-clock) → continues to Square checkout.
+- Backend: BookingCreate gains requested_time/requested_at. booking_create enforces appt requires requested_at and rt_utc (= requested_at as QLD, i.e. -10h) >= now_utc()+24h, else HTTP 400. Stores both on the booking; admin "New session request" email + member notification now include the preferred time.
+- api.createBooking(class_id, requested_time?, requested_at?).
+- Verified: curl <24h → 400 "at least 24 hours in advance"; >=24h → pending booking with requested_at saved. Screenshot shows the picker (day+time chips, disabled sub-24h slots, Continue to Payment).
