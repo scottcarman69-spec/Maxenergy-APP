@@ -47,10 +47,11 @@ function greetingText() {
   if (h < 17) return "Good afternoon,";
   return "Good evening,";
 }
-function catStyle(category: string, name = ""): { color: string; icon: any; set: "ion" | "mci" } {
+const KIDS_ICON = require("../../assets/images/kids-icon.webp");
+function catStyle(category: string, name = ""): { color: string; icon: any; set: "ion" | "mci" | "img"; img?: any } {
   const c = (category || "").toLowerCase();
   const nm = (name || "").toLowerCase();
-  if (c.includes("kid") || nm.includes("kid")) return { color: "#22C55E", icon: "karate", set: "mci" };
+  if (c.includes("kid") || nm.includes("kid")) return { color: "#22C55E", icon: "karate", set: "img", img: KIDS_ICON };
   if (nm.includes("box") || nm.includes("kick")) return { color: "#3B82F6", icon: "boxing-glove", set: "mci" };
   return { color: colors.brand, icon: "barbell", set: "ion" };
 }
@@ -216,7 +217,9 @@ export default function Home() {
                   >
                     <View style={[styles.leftBar, { backgroundColor: cs.color }]} />
                     <View style={styles.classIcon}>
-                      {cs.set === "mci" ? (
+                      {cs.set === "img" ? (
+                        <Image source={cs.img} style={styles.classIconImg} contentFit="cover" />
+                      ) : cs.set === "mci" ? (
                         <MaterialCommunityIcons name={cs.icon} size={24} color={cs.color} />
                       ) : (
                         <Ionicons name={cs.icon} size={22} color={cs.color} />
@@ -411,7 +414,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceTertiary,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
+  classIconImg: { width: 46, height: 46 },
   catLabel: { fontSize: 11, fontWeight: "900", letterSpacing: 0.8, marginBottom: 2 },
   className: { color: colors.onSurface, fontWeight: "800", fontSize: 16 },
   classMeta: { color: colors.onSurfaceSecondary, fontSize: 12 },
