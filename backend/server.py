@@ -2219,7 +2219,15 @@ async def admin_application_status(application_id: str, body: ApplicationStatusR
     app_doc = await db.membership_applications.find_one({"application_id": application_id}, {"_id": 0})
     if not app_doc:
         raise HTTPException(404, "Application not found")
-    await db.membership_applications.update_one({"application_id": application_id}, {"$set": {"status": body.status}})
+    decided_at = now_utc()
+    decided_by = u.get("name") or u.get("email") or "Admin"
+    await db.membership_applications.update_one(
+        {"application_id": application_id},
+        {
+            "$set": {"status": body.status, "decided_at": decided_at, "decided_by": decided_by},
+            "$push": {"status_history": {"status": body.status, "at": decided_at, "by": decided_by}},
+        },
+    )
     member = await db.users.find_one({"user_id": app_doc["user_id"]}, {"_id": 0})
     mname = (member or {}).get("name") or app_doc.get("full_name") or "there"
     if body.status == "approved":
@@ -2258,6 +2266,21 @@ async def admin_application_status(application_id: str, body: ApplicationStatusR
             "membership",
         )
     return {"ok": True}
+
+
+@api.get("/admin/membership-log")
+async def admin_membership_log(u: dict = Depends(require_admin)):
+    # Audit log of approved/declined membership decisions.
+    rows = await db.membership_applications.find(
+        {"status": {"$in": ["approved", "declined"]}},
+        {"_id": 0, "pdf_base64": 0},
+    ).sort("decided_at", -1).to_list(1000)
+    for r in rows:
+        r["has_pdf"] = bool(r.get("pdf_filename"))
+    approved = sum(1 for r in rows if r.get("status") == "approved")
+    declined = sum(1 for r in rows if r.get("status") == "declined")
+    return {"log": rows, "approved": approved, "declined": declined}
+
 
 
 @api.get("/admin/bookings")

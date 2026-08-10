@@ -102,7 +102,10 @@ export default function AdminApplications() {
           <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
         </Pressable>
         <Text style={styles.headerTitle}>Applications</Text>
-        <View style={{ width: 26 }} />
+        <Pressable testID="adminapp-log" hitSlop={12} onPress={() => router.push("/admin/membership-log")} style={styles.logBtn}>
+          <Ionicons name="time-outline" size={15} color={colors.brand} />
+          <Text style={styles.logBtnText}>Log</Text>
+        </Pressable>
       </View>
 
       {loading ? (
@@ -181,6 +184,8 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
   headerTitle: { color: colors.onSurface, fontSize: 17, fontWeight: "800" },
+  logBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border },
+  logBtnText: { color: colors.brand, fontSize: 12.5, fontWeight: "800" },
   card: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.lg, borderWidth: 1, borderColor: colors.border },
   cardTop: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md },
   name: { color: colors.onSurface, fontWeight: "800", fontSize: 16 },

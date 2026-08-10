@@ -153,3 +153,11 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Added business ABN 81 213 163 833 to the membership PDF header line (server.py build_membership_pdf).
 - Membership PDFs are already saved (pdf_base64 in membership_applications) and served publicly at /api/membership/forms/{id}.pdf (same link emailed). 
 - Admin fix: /admin/applications now EXCLUDES pdf_base64 (lighter payload) and returns has_pdf flag. Admin applications.tsx "View membership PDF" now opens the hosted URL `${BACKEND_URL}/api/membership/forms/{id}.pdf` via WebBrowser (native) / Linking (web) instead of a giant data: URI that failed on mobile — so admins view the exact PDF emailed to the member. Verified: endpoint returns has_pdf true + no pdf_base64; hosted PDF 200 application/pdf; ABN present in generated PDF.
+
+## Session update 29 (Jun 2026 fork) — Membership decisions log (approved/declined) (DONE)
+- PDF acceptance stamp changed to "Accepted by Maxenergy Fitness on <date>" (was member name). Member name/signature still shown in Photo & Signature section.
+- Approve/decline now records decided_at + decided_by and pushes to status_history[] on the application doc.
+- NEW GET /api/admin/membership-log → approved/declined apps (excl pdf_base64, +has_pdf), sorted by decided_at desc, with approved/declined counts.
+- NEW screen /app/frontend/app/admin/membership-log.tsx: summary counts, All/Approved/Declined filter, per-decision card (badge, plan, email, decided date+admin, View PDF via hosted URL). Entry point: "Log" button in Admin Applications header. api.ts +adminMembershipLog.
+- Also earlier this session: emailed a real test membership (with T&C in body + ABN in PDF) to scottcarman69@gmail.com (Resend 202 Accepted).
+- Verified: approve returns 200 + logs decided_by "Max Energy Admin"; log endpoint 9 approved / 5 declined; screen renders with counts, filters, PDF buttons.
