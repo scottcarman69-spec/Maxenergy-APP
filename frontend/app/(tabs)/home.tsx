@@ -47,10 +47,11 @@ function greetingText() {
   if (h < 17) return "Good afternoon,";
   return "Good evening,";
 }
-function catStyle(category: string): { color: string; icon: any; set: "ion" | "mci" } {
+function catStyle(category: string, name = ""): { color: string; icon: any; set: "ion" | "mci" } {
   const c = (category || "").toLowerCase();
-  if (c.includes("kid")) return { color: "#22C55E", icon: "karate", set: "mci" };
-  if (c.includes("box") || c.includes("kick")) return { color: "#3B82F6", icon: "fitness", set: "ion" };
+  const nm = (name || "").toLowerCase();
+  if (c.includes("kid") || nm.includes("kid")) return { color: "#22C55E", icon: "karate", set: "mci" };
+  if (nm.includes("box") || nm.includes("kick")) return { color: "#3B82F6", icon: "boxing-glove", set: "mci" };
   return { color: colors.brand, icon: "barbell", set: "ion" };
 }
 
@@ -147,7 +148,7 @@ export default function Home() {
                   style={StyleSheet.absoluteFill}
                 />
                 <View style={styles.heroContent}>
-                  <View style={[styles.badge, { backgroundColor: catStyle(nextClass.category).color }]}>
+                  <View style={[styles.badge, { backgroundColor: catStyle(nextClass.category, nextClass.name).color }]}>
                     <Text style={styles.badgeText}>{nextClass.category.toUpperCase()}</Text>
                   </View>
                   <Text style={styles.heroTitle}>{nextClass.name}</Text>
@@ -205,7 +206,7 @@ export default function Home() {
             </View>
             <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md }}>
               {upcoming.map((c) => {
-                const cs = catStyle(c.category);
+                const cs = catStyle(c.category, c.name);
                 return (
                   <Pressable
                     key={c.class_id}
