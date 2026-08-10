@@ -123,6 +123,17 @@ export default function Profile() {
     try { await api.clearAllNotifications(); } catch {}
   };
 
+  const clearBooking = (id: string) => {
+    setBookings((cur) => cur.filter((x) => x.booking_id !== id));
+    api.clearBooking(id).catch(() => {});
+  };
+
+  const clearAllBookings = async () => {
+    setBookings([]);
+    setBanner("Bookings cleared. You can still view them in your log.");
+    try { await api.clearAllBookings(); } catch {}
+  };
+
   const links = [
     { key: "inbox", icon: "chatbubbles", label: "Message the Gym", onPress: () => router.push("/(tabs)/inbox") },
     { key: "membership", icon: "card", label: "Membership Application", onPress: () => router.push("/membership") },
@@ -274,7 +285,21 @@ export default function Profile() {
           </View>
         )}
 
-        <Text style={styles.section}>MY BOOKINGS</Text>
+        <View style={styles.sectionRow}>
+          <Text style={[styles.section, { marginTop: 0, marginBottom: 0, paddingHorizontal: 0 }]}>MY BOOKINGS</Text>
+          <View style={styles.sectionActions}>
+            <Pressable testID="booking-history" style={styles.sectionBtn} onPress={() => router.push("/booking-history")}>
+              <Ionicons name="time-outline" size={14} color={colors.onSurfaceSecondary} />
+              <Text style={styles.sectionBtnText}>Log</Text>
+            </Pressable>
+            {bookings.length > 0 && (
+              <Pressable testID="booking-clear-all" style={styles.sectionBtn} onPress={clearAllBookings}>
+                <Ionicons name="trash-outline" size={14} color={colors.brand} />
+                <Text style={[styles.sectionBtnText, { color: colors.brand }]}>Clear all</Text>
+              </Pressable>
+            )}
+          </View>
+        </View>
         <View style={{ paddingHorizontal: spacing.lg, gap: spacing.sm }}>
           {bookings.length === 0 ? (
             <Text style={styles.emptyInline}>No bookings yet. Head to the Schedule to book a class.</Text>
@@ -283,7 +308,19 @@ export default function Profile() {
               const meta = STATUS_META[b.status] || { label: b.status.toUpperCase(), bg: colors.surfaceTertiary, fg: colors.onSurface };
               const canManage = b.status !== "cancelled";
               return (
-                <View key={b.booking_id} style={styles.bookingCard}>
+                <Swipeable
+                  key={b.booking_id}
+                  renderRightActions={() => (
+                    <Pressable testID={`booking-clear-${b.booking_id}`} style={styles.notifDelete} onPress={() => clearBooking(b.booking_id)}>
+                      <Ionicons name="trash" size={20} color="#fff" />
+                      <Text style={styles.notifDeleteText}>Clear</Text>
+                    </Pressable>
+                  )}
+                  onSwipeableOpen={(direction) => { if (direction === "right") clearBooking(b.booking_id); }}
+                  overshootRight={false}
+                  rightThreshold={40}
+                >
+                <View style={styles.bookingCard}>
                   <View style={styles.bookingRow}>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.notifTitle}>{b.class_name}</Text>
@@ -350,6 +387,7 @@ export default function Profile() {
                     )
                   )}
                 </View>
+                </Swipeable>
               );
             })
           )}

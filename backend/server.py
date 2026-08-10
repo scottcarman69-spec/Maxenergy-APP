@@ -964,8 +964,39 @@ async def booking_create(body: BookingCreate, u: dict = Depends(require_user)):
 
 @api.get("/bookings")
 async def bookings_list(u: dict = Depends(require_user)):
-    rows = await db.bookings.find({"user_id": u["user_id"]}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    rows = await db.bookings.find(
+        {"user_id": u["user_id"], "cleared": {"$ne": True}}, {"_id": 0}
+    ).sort("created_at", -1).to_list(200)
     return {"bookings": rows}
+
+
+@api.get("/bookings/history")
+async def bookings_history(u: dict = Depends(require_user)):
+    # Full saved booking log — includes bookings the member has cleared.
+    rows = await db.bookings.find(
+        {"user_id": u["user_id"]}, {"_id": 0}
+    ).sort("created_at", -1).to_list(500)
+    return {"bookings": rows}
+
+
+@api.post("/bookings/clear-all")
+async def bookings_clear_all(u: dict = Depends(require_user)):
+    # Soft-clear: remove from the active list but keep in the saved history/log.
+    res = await db.bookings.update_many(
+        {"user_id": u["user_id"], "cleared": {"$ne": True}},
+        {"$set": {"cleared": True, "cleared_at": now_utc()}},
+    )
+    return {"ok": True, "cleared": res.modified_count}
+
+
+@api.post("/bookings/{booking_id}/clear")
+async def booking_clear(booking_id: str, u: dict = Depends(require_user)):
+    # Soft-clear so the booking stays in the member's saved history/log.
+    await db.bookings.update_one(
+        {"booking_id": booking_id, "user_id": u["user_id"]},
+        {"$set": {"cleared": True, "cleared_at": now_utc()}},
+    )
+    return {"ok": True}
 
 
 @api.post("/bookings/{booking_id}/cancel")

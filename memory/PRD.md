@@ -125,3 +125,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Backend: GET /notifications now excludes cleared; unread count excludes cleared; DELETE /notifications/{nid} soft-clears; NEW POST /notifications/clear-all (soft-clears all, returns count); NEW GET /notifications/history (returns ALL incl. cleared, limit 500). Route order: static paths declared before /{nid} routes.
 - Frontend: api.ts +clearAllNotifications +notificationsHistory. Profile NOTIFICATIONS section header now has "Log" (opens history) and "Clear all" buttons; clearAll shows a banner "cleared, still in your log". New screen /app/frontend/app/notification-history.tsx (read-only full log with CLEARED tags + timestamps). Alerts-tab swipe-to-clear also soft-clears now (stays in log).
 - Verified: backend clear-all removed 2 from active list, history retained both; UI screenshots of Profile buttons + Notification Log confirmed.
+
+## Session update 23 (Jun 2026 fork) — Clear-all bookings + saved booking log (DONE)
+- Mirrored the notifications treatment for bookings. Bookings now SOFT-CLEAR (never hard-deleted) via `cleared`/`cleared_at`.
+- Backend: GET /bookings excludes cleared; NEW GET /bookings/history (all incl cleared, limit 500); NEW POST /bookings/clear-all (soft-clear all); NEW POST /bookings/{id}/clear (soft-clear one). Static routes declared before dynamic /{booking_id}/... routes.
+- Frontend: api.ts +bookingsHistory +clearAllBookings +clearBooking. Profile MY BOOKINGS header now has "Log" (opens /booking-history) + "Clear all"; each booking card is swipe-left-to-clear. New screen /app/frontend/app/booking-history.tsx (read-only full log w/ status pills + CLEARED tags + timestamps). Clearing a booking is display-only (does NOT cancel it; gym/admin still sees it).
+- Verified: backend clear-all/history/clear endpoints 200; Profile + Booking Log screens render.
