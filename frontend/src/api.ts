@@ -97,6 +97,7 @@ export const api = {
       body: JSON.stringify({ booking_id, origin_url }),
     }),
   paymentStatus: (session_id: string) => req(`/api/payments/status/${session_id}`),
+  reconcilePayments: () => req("/api/payments/reconcile", { method: "POST" }),
   paymentReceipt: (booking_id: string) => req(`/api/payments/receipt/${booking_id}`),
   myReceipts: () => req("/api/payments/receipts"),
   checkinCode: (booking_id: string) => req(`/api/bookings/${booking_id}/checkin-code`),

@@ -112,7 +112,16 @@ export default function ClassDetail() {
             }
           } catch {}
         }
-        setMsg("Still processing. Check Profile in a moment.");
+        // Safety net: the redirect/poll window may have been missed — reconcile with Square.
+        try {
+          const r = await api.reconcilePayments();
+          if ((r.paid_booking_ids || []).includes(booking.booking_id)) {
+            setBusy(false);
+            router.replace({ pathname: "/receipt", params: { booking_id: booking.booking_id } });
+            return;
+          }
+        } catch {}
+        setMsg("Still processing. Check My Bookings in a moment.");
       }
     } catch (e: any) {
       setMsg(e?.message || "Booking failed");

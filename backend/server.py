@@ -1116,11 +1116,20 @@ async def booking_create(body: BookingCreate, u: dict = Depends(require_user)):
 
 @api.get("/bookings")
 async def bookings_list(u: dict = Depends(require_user)):
+    # Reconcile any payments that completed on Square but weren't confirmed live.
+    await reconcile_user_payments(u["user_id"])
     rows = await db.bookings.find(
         {"user_id": u["user_id"], "cleared": {"$ne": True}}, {"_id": 0}
     ).sort("created_at", -1).to_list(200)
     await _enrich_bookings(rows)
     return {"bookings": rows}
+
+
+@api.post("/payments/reconcile")
+async def payments_reconcile(u: dict = Depends(require_user)):
+    """Force-sync pending Square payments for the current user. Returns booking_ids now paid."""
+    paid = await reconcile_user_payments(u["user_id"])
+    return {"paid_booking_ids": paid}
 
 
 async def _enrich_bookings(rows: list) -> None:
@@ -1482,6 +1491,31 @@ async def sync_square_payment(tx: dict) -> tuple:
         if payment_status == "paid":
             await mark_booking_paid(tx["booking_id"])
     return payment_status, status
+
+
+async def reconcile_user_payments(user_id: str) -> list:
+    """Sync any not-yet-paid Square transactions for a user. Returns booking_ids that became paid.
+    Safety net for when the live redirect/polling was missed after checkout.
+    Only looks at recent, still-open transactions to keep this fast."""
+    newly_paid: list = []
+    cutoff = now_utc() - timedelta(hours=48)
+    txs = await db.payment_transactions.find(
+        {
+            "user_id": user_id,
+            "payment_status": {"$ne": "paid"},
+            "status": {"$ne": "expired"},
+            "square_order_id": {"$exists": True},
+            "created_at": {"$gte": cutoff},
+        }
+    ).to_list(20)
+    for tx in txs:
+        try:
+            ps, _ = await sync_square_payment(tx)
+            if ps == "paid":
+                newly_paid.append(tx["booking_id"])
+        except Exception as e:
+            log.error(f"reconcile payment error for {tx.get('booking_id')}: {e}")
+    return newly_paid
 
 
 @api.post("/payments/checkout")
