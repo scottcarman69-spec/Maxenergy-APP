@@ -1,36 +1,22 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, TextInput, Linking } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Swipeable } from "react-native-gesture-handler";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/src/AuthContext";
-import { api, BACKEND_URL } from "@/src/api";
+import { api } from "@/src/api";
 import { colors, spacing, radius, type, font } from "@/src/theme";
 import ScreenBg from "@/src/components/ScreenBg";
 
 type Notif = { notification_id: string; title: string; body: string; read: boolean; created_at: string; type: string };
 type Booking = { booking_id: string; class_name: string; status: string; amount: number; by_appointment?: boolean; requested_time?: string; scheduled_time?: string; attended?: boolean };
 
-const STATUS_META: Record<string, { label: string; bg: string; fg: string }> = {
-  paid: { label: "PAID", bg: colors.brand, fg: colors.onBrand },
-  confirmed: { label: "CONFIRMED", bg: colors.brand, fg: colors.onBrand },
-  pending: { label: "PENDING", bg: colors.surfaceTertiary, fg: colors.onSurface },
-  reschedule_requested: { label: "RESCHEDULE REQUESTED", bg: colors.surfaceTertiary, fg: colors.onSurface },
-  cancelled: { label: "CANCELLED", bg: colors.surfaceTertiary, fg: colors.onSurfaceSecondary },
-};
-
 export default function Profile() {
   const { user, logout } = useAuth();
   const router = useRouter();
   const [notifs, setNotifs] = useState<Notif[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loading, setLoading] = useState(true);
   const [isMember, setIsMember] = useState(false);
-  const [rescheduleFor, setRescheduleFor] = useState<Booking | null>(null);
-  const [rTime, setRTime] = useState("");
-  const [rNote, setRNote] = useState("");
-  const [actioning, setActioning] = useState<string | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
   const [showDelete, setShowDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -43,73 +29,18 @@ export default function Profile() {
       const apps = a.applications || [];
       setIsMember(apps.some((x: any) => x.status === "approved"));
     } catch {}
-    setLoading(false);
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const doCancel = async (b: Booking) => {
-    setActioning(b.booking_id);
-    try {
-      await api.cancelBooking(b.booking_id);
-      setBanner("Booking cancelled. We've notified the gym.");
-      await load();
-    } catch (e: any) {
-      setBanner(e?.message || "Could not cancel booking.");
-    }
-    setActioning(null);
-  };
-
-  const doCheckin = async (b: Booking) => {
-    setActioning(b.booking_id);
-    try {
-      await api.checkinBooking(b.booking_id);
-      setBanner("✅ You're checked in. Have a great session!");
-      await load();
-    } catch (e: any) {
-      setBanner(e?.message || "Could not check in.");
-    }
-    setActioning(null);
-  };
-
-  const [reminderHours, setReminderHours] = useState<number>(3);
   const [adminUnread, setAdminUnread] = useState(0);
   useFocusEffect(useCallback(() => {
-    api.me().then((r) => setReminderHours(r?.user?.reminder_hours ?? 3)).catch(() => {});
     if (user?.is_admin) {
       api.adminThreads()
         .then((r) => setAdminUnread((r.threads || []).reduce((s: number, t: any) => s + (t.unread || 0), 0)))
         .catch(() => {});
     }
   }, [user?.is_admin]));
-
-  const changeReminder = async (h: number) => {
-    const prev = reminderHours;
-    setReminderHours(h);
-    try {
-      await api.setReminderPreference(h);
-      setBanner(h === 0 ? "Class reminders turned off." : `Reminder set to ${h === 1 ? "1 hour" : h + " hours"} before class.`);
-    } catch (e: any) {
-      setReminderHours(prev);
-      setBanner(e?.message || "Could not update reminder preference.");
-    }
-  };
-
-  const submitReschedule = async () => {
-    if (!rescheduleFor || !rTime.trim()) return;
-    setActioning(rescheduleFor.booking_id);
-    try {
-      await api.rescheduleBooking(rescheduleFor.booking_id, rTime.trim(), rNote.trim() || undefined);
-      setBanner("Reschedule request sent. The gym will confirm a time.");
-      setRescheduleFor(null);
-      setRTime("");
-      setRNote("");
-      await load();
-    } catch (e: any) {
-      setBanner(e?.message || "Could not request reschedule.");
-    }
-    setActioning(null);
-  };
 
   const doLogout = async () => {
     await logout();
@@ -132,28 +63,6 @@ export default function Profile() {
 
   const paidCount = bookings.filter((b) => b.status === "paid" || b.status === "confirmed").length;
   const unread = notifs.filter((n) => !n.read).length;
-
-  const deleteNotif = (id: string) => {
-    setNotifs((cur) => cur.filter((x) => x.notification_id !== id));
-    api.deleteNotification(id).catch(() => {});
-  };
-
-  const clearAllNotifs = async () => {
-    setNotifs([]);
-    setBanner("Notifications cleared. You can still view them in your log.");
-    try { await api.clearAllNotifications(); } catch {}
-  };
-
-  const clearBooking = (id: string) => {
-    setBookings((cur) => cur.filter((x) => x.booking_id !== id));
-    api.clearBooking(id).catch(() => {});
-  };
-
-  const clearAllBookings = async () => {
-    setBookings([]);
-    setBanner("Bookings cleared. You can still view them in your log.");
-    try { await api.clearAllBookings(); } catch {}
-  };
 
   const infoLinks = [
     { key: "services", icon: "barbell", label: "Our Services", onPress: () => router.push("/services") },
@@ -224,6 +133,36 @@ export default function Profile() {
           </Pressable>
         )}
 
+        <Text style={styles.section}>ACTIVITY</Text>
+        <View style={styles.linkGroup}>
+          <Pressable testID="profile-link-bookings" style={[styles.membershipRow, styles.linkRowDivider]} onPress={() => router.push("/bookings")}>
+            <View style={styles.membershipIcon}>
+              <Ionicons name="calendar" size={20} color={colors.onBrand} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.membershipLabel}>My Bookings</Text>
+              <Text style={styles.membershipSub}>Manage classes, reschedule & receipts</Text>
+            </View>
+            {bookings.length > 0 && (
+              <View style={styles.navBadge}><Text style={styles.navBadgeText}>{bookings.length}</Text></View>
+            )}
+            <Ionicons name="chevron-forward" size={18} color={colors.brand} />
+          </Pressable>
+          <Pressable testID="profile-link-notifications" style={styles.membershipRow} onPress={() => router.push("/notifications")}>
+            <View style={styles.membershipIcon}>
+              <Ionicons name="notifications" size={20} color={colors.onBrand} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.membershipLabel}>Notifications</Text>
+              <Text style={styles.membershipSub}>Alerts, class reminders & logs</Text>
+            </View>
+            {unread > 0 && (
+              <View style={styles.navBadge}><Text style={styles.navBadgeText}>{unread}</Text></View>
+            )}
+            <Ionicons name="chevron-forward" size={18} color={colors.brand} />
+          </Pressable>
+        </View>
+
         <Text style={styles.section}>MEMBERSHIP</Text>
         <View style={styles.linkGroup}>
           <Pressable testID="profile-link-membership" style={styles.membershipRow} onPress={() => router.push("/vigyr-signon")}>
@@ -270,201 +209,6 @@ export default function Profile() {
           ))}
         </View>
 
-        <Text style={styles.section}>CLASS REMINDERS</Text>
-        <View style={styles.reminderCard}>
-          <Text style={styles.reminderLabel}>Remind me before a booked class</Text>
-          <View style={styles.reminderChips}>
-            {[0, 1, 3, 12].map((h) => {
-              const active = reminderHours === h;
-              return (
-                <Pressable
-                  key={h}
-                  testID={`reminder-${h}h`}
-                  style={[styles.reminderChip, active && styles.reminderChipActive]}
-                  onPress={() => changeReminder(h)}
-                >
-                  <Text style={[styles.reminderChipText, active && styles.reminderChipTextActive]}>
-                    {h === 0 ? "Off" : h === 1 ? "1 hr" : `${h} hrs`}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        <View style={styles.sectionRow}>
-          <Text style={[styles.section, { marginTop: 0, marginBottom: 0, paddingHorizontal: 0 }]}>NOTIFICATIONS</Text>
-          <View style={styles.sectionActions}>
-            <Pressable testID="notif-history" style={styles.sectionBtn} onPress={() => router.push("/notification-history")}>
-              <Ionicons name="time-outline" size={14} color={colors.onSurfaceSecondary} />
-              <Text style={styles.sectionBtnText}>Log</Text>
-            </Pressable>
-            {notifs.length > 0 && (
-              <Pressable testID="notif-clear-all" style={styles.sectionBtn} onPress={clearAllNotifs}>
-                <Ionicons name="trash-outline" size={14} color={colors.brand} />
-                <Text style={[styles.sectionBtnText, { color: colors.brand }]}>Clear all</Text>
-              </Pressable>
-            )}
-          </View>
-        </View>
-        {loading ? (
-          <ActivityIndicator color={colors.brand} style={{ marginTop: 20 }} />
-        ) : notifs.length === 0 ? (
-          <View style={styles.empty}>
-            <Ionicons name="notifications-off-outline" size={28} color={colors.onSurfaceSecondary} />
-            <Text style={styles.emptyText}>{"You're all caught up."}</Text>
-          </View>
-        ) : (
-          <View style={{ paddingHorizontal: spacing.lg, gap: spacing.sm }}>
-            {notifs.slice(0, 8).map((n) => (
-              <Swipeable
-                key={n.notification_id}
-                renderRightActions={() => (
-                  <Pressable
-                    testID={`notif-delete-${n.notification_id}`}
-                    style={styles.notifDelete}
-                    onPress={() => deleteNotif(n.notification_id)}
-                  >
-                    <Ionicons name="trash" size={20} color="#fff" />
-                    <Text style={styles.notifDeleteText}>Clear</Text>
-                  </Pressable>
-                )}
-                onSwipeableOpen={(direction) => {
-                  if (direction === "right") deleteNotif(n.notification_id);
-                }}
-                overshootRight={false}
-                rightThreshold={40}
-              >
-                <Pressable
-                  testID={`notif-${n.notification_id}`}
-                  style={styles.notifRow}
-                  onPress={() => {
-                    if (!n.read) {
-                      api.markRead(n.notification_id).catch(() => {});
-                      setNotifs((cur) => cur.map((x) => (x.notification_id === n.notification_id ? { ...x, read: true } : x)));
-                    }
-                  }}
-                >
-                  {!n.read && <View style={styles.unreadDot} />}
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.notifTitle}>{n.title}</Text>
-                    <Text style={styles.notifBody} numberOfLines={2}>{n.body}</Text>
-                  </View>
-                  <Ionicons name="chevron-back" size={16} color={colors.onSurfaceSecondary} style={{ opacity: 0.5 }} />
-                </Pressable>
-              </Swipeable>
-            ))}
-            <Text style={styles.swipeHint}>Swipe a notification left to clear it</Text>
-          </View>
-        )}
-
-        <View style={styles.sectionRow}>
-          <Text style={[styles.section, { marginTop: 0, marginBottom: 0, paddingHorizontal: 0 }]}>MY BOOKINGS</Text>
-          <View style={styles.sectionActions}>
-            <Pressable testID="booking-history" style={styles.sectionBtn} onPress={() => router.push("/booking-history")}>
-              <Ionicons name="time-outline" size={14} color={colors.onSurfaceSecondary} />
-              <Text style={styles.sectionBtnText}>Log</Text>
-            </Pressable>
-            {bookings.length > 0 && (
-              <Pressable testID="booking-clear-all" style={styles.sectionBtn} onPress={clearAllBookings}>
-                <Ionicons name="trash-outline" size={14} color={colors.brand} />
-                <Text style={[styles.sectionBtnText, { color: colors.brand }]}>Clear all</Text>
-              </Pressable>
-            )}
-          </View>
-        </View>
-        <View style={{ paddingHorizontal: spacing.lg, gap: spacing.sm }}>
-          {bookings.length === 0 ? (
-            <Text style={styles.emptyInline}>No bookings yet. Head to the Schedule to book a class.</Text>
-          ) : (
-            bookings.map((b) => {
-              const meta = STATUS_META[b.status] || { label: b.status.toUpperCase(), bg: colors.surfaceTertiary, fg: colors.onSurface };
-              const canManage = b.status !== "cancelled";
-              return (
-                <Swipeable
-                  key={b.booking_id}
-                  renderRightActions={() => (
-                    <Pressable testID={`booking-clear-${b.booking_id}`} style={styles.notifDelete} onPress={() => clearBooking(b.booking_id)}>
-                      <Ionicons name="trash" size={20} color="#fff" />
-                      <Text style={styles.notifDeleteText}>Clear</Text>
-                    </Pressable>
-                  )}
-                  onSwipeableOpen={(direction) => { if (direction === "right") clearBooking(b.booking_id); }}
-                  overshootRight={false}
-                  rightThreshold={40}
-                >
-                <View style={styles.bookingCard}>
-                  <View style={styles.bookingRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.notifTitle}>{b.class_name}</Text>
-                      <Text style={styles.notifBody}>
-                        {b.by_appointment ? "By appointment" : `$${(b.amount / 100).toFixed(0)}`}
-                        {b.scheduled_time ? ` · ${b.scheduled_time}` : ""}
-                        {b.status === "reschedule_requested" && b.requested_time ? ` · asked: ${b.requested_time}` : ""}
-                      </Text>
-                    </View>
-                    <View style={[styles.statusPill, { backgroundColor: meta.bg }]}>
-                      <Text style={[styles.statusText, { color: meta.fg }]}>{meta.label}</Text>
-                    </View>
-                  </View>
-                  {canManage && (
-                    <View style={styles.bookingActions}>
-                      <Pressable
-                        testID={`booking-reschedule-${b.booking_id}`}
-                        style={styles.actionBtnGhost}
-                        onPress={() => { setRescheduleFor(b); setRTime(""); setRNote(""); }}
-                        disabled={actioning === b.booking_id}
-                      >
-                        <Ionicons name="time-outline" size={15} color={colors.brand} />
-                        <Text style={styles.actionGhostText}>Reschedule</Text>
-                      </Pressable>
-                      <Pressable
-                        testID={`booking-cancel-${b.booking_id}`}
-                        style={styles.actionBtnDanger}
-                        onPress={() => doCancel(b)}
-                        disabled={actioning === b.booking_id}
-                      >
-                        {actioning === b.booking_id ? (
-                          <ActivityIndicator size="small" color={colors.error} />
-                        ) : (
-                          <>
-                            <Ionicons name="close-circle-outline" size={15} color={colors.error} />
-                            <Text style={styles.actionDangerText}>Cancel</Text>
-                          </>
-                        )}
-                      </Pressable>
-                    </View>
-                  )}
-                  {(b.status === "paid" || b.status === "confirmed") && (
-                    <Pressable
-                      testID={`booking-receipt-${b.booking_id}`}
-                      style={styles.receiptBtn}
-                      onPress={() => router.push({ pathname: "/receipt", params: { booking_id: b.booking_id } })}
-                    >
-                      <Ionicons name="receipt-outline" size={15} color={colors.brand} />
-                      <Text style={styles.receiptBtnText}>View receipt</Text>
-                    </Pressable>
-                  )}
-                  {(b.status === "paid" || b.status === "confirmed") && (
-                    b.attended ? (
-                      <View style={styles.checkedInBar}>
-                        <Ionicons name="checkmark-circle" size={16} color="#fff" />
-                        <Text style={styles.checkedInText}>Checked in — see you on the mats!</Text>
-                      </View>
-                    ) : (
-                      <View style={styles.qrInfoBar}>
-                        <Ionicons name="qr-code-outline" size={15} color={colors.brand} />
-                        <Text style={styles.qrInfoText}>Show your entry QR at the door to check in</Text>
-                      </View>
-                    )
-                  )}
-                </View>
-                </Swipeable>
-              );
-            })
-          )}
-        </View>
-
         {banner && (
           <Pressable onPress={() => setBanner(null)} style={styles.banner}>
             <Ionicons name="checkmark-circle" size={16} color={colors.brand} />
@@ -484,47 +228,6 @@ export default function Profile() {
           </Pressable>
         )}
       </ScrollView>
-
-      <Modal visible={!!rescheduleFor} transparent animationType="fade" onRequestClose={() => setRescheduleFor(null)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Request a reschedule</Text>
-            <Text style={styles.modalSub}>{rescheduleFor?.class_name}</Text>
-            <Text style={styles.modalLabel}>Preferred day & time</Text>
-            <TextInput
-              testID="reschedule-time"
-              value={rTime}
-              onChangeText={setRTime}
-              placeholder="e.g. Tuesday 6:00pm"
-              placeholderTextColor={colors.onSurfaceSecondary}
-              style={styles.modalInput}
-            />
-            <Text style={styles.modalLabel}>Note (optional)</Text>
-            <TextInput
-              testID="reschedule-note"
-              value={rNote}
-              onChangeText={setRNote}
-              placeholder="Anything the gym should know"
-              placeholderTextColor={colors.onSurfaceSecondary}
-              multiline
-              style={[styles.modalInput, { minHeight: 70, textAlignVertical: "top" }]}
-            />
-            <View style={styles.modalActions}>
-              <Pressable style={styles.modalCancel} onPress={() => setRescheduleFor(null)}>
-                <Text style={styles.modalCancelText}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                testID="reschedule-submit"
-                style={[styles.modalSubmit, (!rTime.trim() || !!actioning) && { opacity: 0.5 }]}
-                onPress={submitReschedule}
-                disabled={!rTime.trim() || !!actioning}
-              >
-                {actioning ? <ActivityIndicator color={colors.onBrand} /> : <Text style={styles.modalSubmitText}>SEND REQUEST</Text>}
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
 
       <Modal visible={showDelete} transparent animationType="fade" onRequestClose={() => setShowDelete(false)}>
         <View style={styles.modalOverlay}>
@@ -614,6 +317,8 @@ const styles = StyleSheet.create({
   membershipIcon: { width: 40, height: 40, borderRadius: radius.sm, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
   membershipLabel: { color: colors.onSurface, fontFamily: font.heading, fontSize: 15 },
   membershipSub: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 2 },
+  navBadge: { minWidth: 22, height: 22, paddingHorizontal: 7, borderRadius: 11, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center", marginRight: spacing.sm },
+  navBadgeText: { color: colors.onBrand, fontSize: 12, fontWeight: "900" },
   linkIcon: { width: 36, height: 36, borderRadius: radius.sm, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center" },
   linkLabel: { color: colors.onSurface, fontFamily: font.heading, fontSize: 15, flex: 1 },
   downloadRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.brand },
