@@ -36,8 +36,15 @@ export default function ForgotPassword() {
     }
     setLoading(true);
     try {
-      await api.forgotPassword(email.trim().toLowerCase());
-      setInfo("If an account exists, a reset code is on its way.");
+      const r = await api.forgotPassword(email.trim().toLowerCase());
+      if (r && r.google) {
+        setErr(null);
+        setInfo(
+          "This email is registered with Google sign-in, so there's no password to reset. Go back and tap \"Continue with Google\" to log in."
+        );
+        return;
+      }
+      setInfo("If an account exists, a reset code is on its way. Check your inbox (and spam).");
       setStep(2);
     } catch (e: any) {
       setErr(e?.message || "Something went wrong");

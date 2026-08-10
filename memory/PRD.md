@@ -99,3 +99,6 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - User choices honoured: SOFT GATE (new member logged in, sees orange "Verify your email" banner on Home; can verify later); 10-min expiry; existing members grandfathered.
 - Frontend: new /(auth)/verify.tsx and /(auth)/forgot-password.tsx (2-step: email -> code+new password -> auto-login). Register routes to /verify; Login has "Forgot password?" link; Home shows verify banner when user.verified===false.
 - Verified by testing_agent iteration_8: backend 7/7 pytest, all frontend auth flows pass.
+
+## Session update 18 (Jun 2026 fork) — Notices Polish (DONE)
+- Redesigned Notices tab (app/(tabs)/events.tsx) to match Home/Timetable modern card style: eyebrow header, colored left accent bar per card, gradient circular icon chips (pin=orange/PINNED, megaphone=blue/NOTICE), section headers with count pills, and richer event cards (calendar badge, location meta, "View & RSVP" CTA). Added empty state. Data/logic unchanged. Verified via screenshot.

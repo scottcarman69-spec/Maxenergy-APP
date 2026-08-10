@@ -668,6 +668,10 @@ async def auth_resend_otp(body: ResendOtpReq):
 async def auth_forgot_password(body: ForgotPasswordReq):
     email = body.email.lower()
     u = await db.users.find_one({"email": email})
+    # Google-login accounts have no password to reset — tell the app to guide
+    # the user to "Continue with Google" instead of leaving them stuck.
+    if u and u.get("provider") == "google":
+        return {"ok": True, "google": True}
     # Only password accounts can reset; always return ok to avoid account enumeration.
     if u and u.get("provider") == "password":
         if await can_resend_otp(email, "reset"):
@@ -675,7 +679,7 @@ async def auth_forgot_password(body: ForgotPasswordReq):
                 await send_otp_email(email, "reset")
             except Exception as e:
                 log.error(f"failed to send reset code to {email}: {e}")
-    return {"ok": True}
+    return {"ok": True, "google": False}
 
 
 @api.post("/auth/reset-password")
