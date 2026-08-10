@@ -362,3 +362,11 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Booking date anchor: fixed classes use class_start; appointments use requested_at (both Queensland wall-clock via datetime util scheduleDay/classTime/classDate). Bookings without an anchor are skipped.
 - Linked from Admin dashboard as a new "Bookings Calendar" card (calendar-number icon) right under Bookings. Route auto-registered by admin Stack layout.
 - Verified via screenshot (Aug 2026, dots + today highlight + legend + day agenda). tsc clean. Demo bookings used for the screenshot were removed afterward.
+
+## Session update 63 (Jun 2026 fork) — Calendar icon on Home for members + admins (DONE)
+- Added a calendar icon button in the Home header (next to the avatar) → routes to new /app/frontend/app/calendar.tsx ("My Bookings").
+- Member calendar: month grid (Monday-first) using api.myBookings(), status dots (green=booked/confirmed, amber=pending, dark-amber=reschedule, grey=cancelled), today highlighted, tap day → agenda (time + class + amount/appt + status pill); tapping a booking opens /booking-history.
+- Admins see an extra top banner "View ALL gym bookings (Admin)" linking to /admin/calendar.
+- Reused datetime util (scheduleDay/classTime/classDate/qldTodayUTC); anchor = class_start (fixed) or requested_at (appointment).
+- Home header refactored: logo centered, headerActions row (calendar icon + avatar) absolutely positioned right; avatarWrap no longer absolute.
+- Verified via screenshots: home shows calendar icon; My Bookings renders grid + legend + agenda. tsc clean.

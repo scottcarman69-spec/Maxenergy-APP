@@ -149,12 +149,17 @@ export default function Home() {
             style={styles.headerLogo}
             contentFit="contain"
           />
-          <Pressable testID="home-profile-btn" onPress={() => router.push("/(tabs)/profile")} style={styles.avatarWrap}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{(user?.name || user?.email || "?").slice(0, 1).toUpperCase()}</Text>
-            </View>
-            {hasAlerts && <View style={styles.avatarDot} />}
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable testID="home-calendar-btn" onPress={() => router.push("/calendar")} style={styles.iconBtn} hitSlop={8}>
+              <Ionicons name="calendar-number-outline" size={22} color={colors.onSurface} />
+            </Pressable>
+            <Pressable testID="home-profile-btn" onPress={() => router.push("/(tabs)/profile")} style={styles.avatarWrap}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{(user?.name || user?.email || "?").slice(0, 1).toUpperCase()}</Text>
+              </View>
+              {hasAlerts && <View style={styles.avatarDot} />}
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.greetBlock}>
@@ -387,7 +392,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   headerLogo: { width: 150, height: 84 },
-  avatarWrap: { position: "absolute", right: spacing.lg, top: spacing.md, width: 48, height: 48, alignItems: "center", justifyContent: "center" },
+  headerActions: { position: "absolute", right: spacing.lg, top: spacing.md, flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  iconBtn: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border },
+  avatarWrap: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
   avatar: {
     width: 44,
     height: 44,
