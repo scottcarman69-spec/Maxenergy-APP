@@ -48,7 +48,7 @@ const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
 const FILTERS = ["All", "Classes", "Confirmed", "Pending", "Cancelled"] as const;
 type Filter = (typeof FILTERS)[number];
 function matchesFilter(status: string, f: Filter): boolean {
-  if (f === "All") return true;
+  if (f === "All") return status !== "cancelled";
   if (f === "Classes") return false;
   if (f === "Confirmed") return status === "confirmed" || status === "paid";
   if (f === "Pending") return status === "pending" || status === "reschedule_requested";
