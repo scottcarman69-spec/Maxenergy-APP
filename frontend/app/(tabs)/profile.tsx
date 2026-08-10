@@ -74,6 +74,23 @@ export default function Profile() {
     setActioning(null);
   };
 
+  const [reminderHours, setReminderHours] = useState<number>(3);
+  useFocusEffect(useCallback(() => {
+    api.me().then((r) => setReminderHours(r?.user?.reminder_hours ?? 3)).catch(() => {});
+  }, []));
+
+  const changeReminder = async (h: number) => {
+    const prev = reminderHours;
+    setReminderHours(h);
+    try {
+      await api.setReminderPreference(h);
+      setBanner(`Reminder set to ${h === 1 ? "1 hour" : h + " hours"} before class.`);
+    } catch (e: any) {
+      setReminderHours(prev);
+      setBanner(e?.message || "Could not update reminder preference.");
+    }
+  };
+
   const submitReschedule = async () => {
     if (!rescheduleFor || !rTime.trim()) return;
     setActioning(rescheduleFor.booking_id);
@@ -217,6 +234,28 @@ export default function Profile() {
               <Ionicons name="download-outline" size={20} color={colors.brand} />
             </Pressable>
           )}
+        </View>
+
+        <Text style={styles.section}>CLASS REMINDERS</Text>
+        <View style={styles.reminderCard}>
+          <Text style={styles.reminderLabel}>Remind me before a booked class</Text>
+          <View style={styles.reminderChips}>
+            {[1, 3, 12].map((h) => {
+              const active = reminderHours === h;
+              return (
+                <Pressable
+                  key={h}
+                  testID={`reminder-${h}h`}
+                  style={[styles.reminderChip, active && styles.reminderChipActive]}
+                  onPress={() => changeReminder(h)}
+                >
+                  <Text style={[styles.reminderChipText, active && styles.reminderChipTextActive]}>
+                    {h === 1 ? "1 hour" : `${h} hours`}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
 
         <View style={styles.sectionRow}>
@@ -379,21 +418,10 @@ export default function Profile() {
                         <Text style={styles.checkedInText}>Checked in — see you on the mats!</Text>
                       </View>
                     ) : (
-                      <Pressable
-                        testID={`booking-checkin-${b.booking_id}`}
-                        style={styles.checkinBar}
-                        onPress={() => doCheckin(b)}
-                        disabled={actioning === b.booking_id}
-                      >
-                        {actioning === b.booking_id ? (
-                          <ActivityIndicator size="small" color={colors.onBrand} />
-                        ) : (
-                          <>
-                            <Ionicons name="log-in-outline" size={16} color={colors.onBrand} />
-                            <Text style={styles.checkinText}>Check in to this class</Text>
-                          </>
-                        )}
-                      </Pressable>
+                      <View style={styles.qrInfoBar}>
+                        <Ionicons name="qr-code-outline" size={15} color={colors.brand} />
+                        <Text style={styles.qrInfoText}>Show your entry QR at the door to check in</Text>
+                      </View>
                     )
                   )}
                 </View>
@@ -535,6 +563,13 @@ const styles = StyleSheet.create({
   downloadLabel: { color: colors.onSurface, fontFamily: font.heading, fontSize: 15 },
   downloadSub: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 1 },
   section: { color: colors.onSurfaceSecondary, fontSize: 12, fontFamily: font.heading, letterSpacing: 1.5, paddingHorizontal: spacing.lg, marginTop: spacing.xl, marginBottom: spacing.md },
+  reminderCard: { marginHorizontal: spacing.lg, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, gap: spacing.md },
+  reminderLabel: { color: colors.onSurface, fontSize: 14, fontWeight: "700" },
+  reminderChips: { flexDirection: "row", gap: spacing.sm },
+  reminderChip: { flex: 1, alignItems: "center", paddingVertical: 11, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surfaceTertiary },
+  reminderChipActive: { borderColor: colors.brand, backgroundColor: colors.brandTertiary },
+  reminderChipText: { color: colors.onSurfaceSecondary, fontWeight: "800", fontSize: 13 },
+  reminderChipTextActive: { color: colors.brand },
   sectionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, marginTop: spacing.xl, marginBottom: spacing.md },
   sectionActions: { flexDirection: "row", gap: spacing.sm },
   sectionBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 6, paddingHorizontal: 10, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border },
@@ -553,6 +588,8 @@ const styles = StyleSheet.create({
   bookingCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, overflow: "hidden" },
   bookingActions: { flexDirection: "row", borderTopWidth: 1, borderTopColor: colors.border },
   checkinBar: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.brand },
+  qrInfoBar: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, borderTopWidth: 1, borderTopColor: colors.border },
+  qrInfoText: { color: colors.onSurfaceSecondary, fontSize: 12.5, fontWeight: "600" },
   receiptBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 11, borderTopWidth: 1, borderTopColor: colors.border },
   receiptBtnText: { color: colors.brand, fontSize: 13, fontWeight: "800" },
   checkinText: { color: colors.onBrand, fontWeight: "900", fontSize: 13, letterSpacing: 0.3 },

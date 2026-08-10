@@ -256,3 +256,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Backend: POST /bookings/{id}/checkin now returns 403 "Check-in is done by gym staff scanning your entry QR code." (was self check-in). Verified 403.
 - Frontend (check-in.tsx): removed the "Check in" button + checkin()/busy state; not-attended cards now show a non-actionable "Booked" pill; "Show my entry QR" is the member's only action; intro reworded to "Show your entry QR code to gym staff — they'll scan it to check you in." Attended -> "Checked in" chip as before.
 - Verified via screenshot: card shows Booked pill + Show my entry QR, no Check in button; self-checkin endpoint 403.
+
+## Session update 46 (Jun 2026 fork) — Member-chosen reminder lead time (1/3/12h) (DONE)
+- Members can now pick how early they're reminded before a booked class: 1, 3 or 12 hours.
+- Backend: user field `reminder_hours` (default 3) added to user_public. NEW PUT /api/me/reminder-preference {hours in 1|3|12} (require_user, validates). send_due_reminders now reads each member's reminder_hours and only sends once start is within that lead time (query window widened to 12h; per-booking gate start_utc <= now+lead). Verified: set 12 -> me shows 12; invalid 5 -> 400.
+- Frontend: profile.tsx new "CLASS REMINDERS" section with 1h/3h/12h chips (testID reminder-{h}h), loads current via api.me(), saves via api.setReminderPreference with optimistic update + banner. Also removed the self "Check in to this class" button from Profile bookings (QR-only) -> replaced with "Show your entry QR at the door to check in" info bar. api.ts +setReminderPreference.
+- Verified via screenshot: chips render, 12h selectable/highlighted.

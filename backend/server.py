@@ -107,6 +107,7 @@ def user_public(u: dict) -> dict:
         "picture": u.get("picture"),
         "is_admin": bool(u.get("is_admin", False)),
         "verified": bool(u.get("verified", False)),
+        "reminder_hours": int(u.get("reminder_hours", 3)),
     }
 
 
@@ -764,6 +765,18 @@ async def auth_reset_password(body: ResetPasswordReq):
 @api.get("/auth/me")
 async def auth_me(u: dict = Depends(require_user)):
     return {"user": user_public(u)}
+
+
+class ReminderPrefReq(BaseModel):
+    hours: int
+
+
+@api.put("/me/reminder-preference")
+async def set_reminder_preference(body: ReminderPrefReq, u: dict = Depends(require_user)):
+    if body.hours not in (1, 3, 12):
+        raise HTTPException(400, "Choose 1, 3 or 12 hours.")
+    await db.users.update_one({"user_id": u["user_id"]}, {"$set": {"reminder_hours": body.hours}})
+    return {"ok": True, "reminder_hours": body.hours}
 
 
 @api.post("/auth/logout")
@@ -2902,11 +2915,11 @@ async def _startup():
 
 
 async def send_due_reminders() -> int:
-    """Send a one-time reminder ~a few hours before a booked class starts."""
-    REMINDER_HOURS = 3
+    """Send a one-time reminder based on each member's chosen lead time (1, 3 or 12h)."""
+    MAX_HOURS = 12
     QLD = timedelta(hours=10)  # class start_at is stored as QLD local wall-clock (no DST)
     now = now_utc()
-    window_end = now + timedelta(hours=REMINDER_HOURS)
+    window_end = now + timedelta(hours=MAX_HOURS)
     bookings = await db.bookings.find(
         {"status": {"$in": ["paid", "confirmed"]}, "reminder_sent": {"$ne": True}},
         {"_id": 0},
@@ -2925,6 +2938,12 @@ async def send_due_reminders() -> int:
         if not (now <= start_utc <= window_end):
             continue
         member = await db.users.find_one({"user_id": b["user_id"]}, {"_id": 0})
+        lead = int((member or {}).get("reminder_hours", 3))
+        if lead not in (1, 3, 12):
+            lead = 3
+        # Only send once the class is within the member's chosen lead time.
+        if start_utc > now + timedelta(hours=lead):
+            continue
         when = s_local.strftime("%A %d %B at %-I:%M %p")
         mins = int((start_utc - now).total_seconds() // 60)
         soon = "in about an hour" if mins <= 75 else f"in about {round(mins / 60)} hours"

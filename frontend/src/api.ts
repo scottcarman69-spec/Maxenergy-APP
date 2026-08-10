@@ -59,6 +59,8 @@ export const api = {
   googleSession: (session_id: string) =>
     req("/api/auth/session", { method: "POST", body: JSON.stringify({ session_id }) }),
   me: () => req("/api/auth/me"),
+  setReminderPreference: (hours: number) =>
+    req("/api/me/reminder-preference", { method: "PUT", body: JSON.stringify({ hours }) }),
   logout: () => req("/api/auth/logout", { method: "POST" }),
   deleteAccount: () => req("/api/auth/account", { method: "DELETE" }),
   verifyOtp: (email: string, code: string) =>
