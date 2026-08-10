@@ -1180,25 +1180,8 @@ async def booking_reschedule(booking_id: str, body: RescheduleReq, u: dict = Dep
 
 @api.post("/bookings/{booking_id}/checkin")
 async def booking_checkin(booking_id: str, u: dict = Depends(require_user)):
-    b = await db.bookings.find_one({"booking_id": booking_id, "user_id": u["user_id"]}, {"_id": 0})
-    if not b:
-        raise HTTPException(404, "Booking not found")
-    if b.get("status") not in ("paid", "confirmed"):
-        raise HTTPException(400, "You can only check in to a confirmed or paid booking.")
-    if b.get("attended"):
-        return {"booking": b}
-    await db.bookings.update_one(
-        {"booking_id": booking_id},
-        {"$set": {"attended": True, "checked_in_at": now_utc(), "checked_in_by": "member"}},
-    )
-    await create_notification(
-        u["user_id"],
-        "Checked in ✅",
-        f"You're checked in for {b['class_name']}. Have a great session!",
-        "booking",
-    )
-    b = await db.bookings.find_one({"booking_id": booking_id}, {"_id": 0})
-    return {"booking": b}
+    # Self check-in is disabled — members are checked in only when gym staff scan their entry QR.
+    raise HTTPException(403, "Check-in is done by gym staff scanning your entry QR code.")
 
 
 @api.get("/bookings/{booking_id}/checkin-code")

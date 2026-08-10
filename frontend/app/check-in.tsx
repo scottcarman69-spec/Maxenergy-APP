@@ -39,7 +39,6 @@ export default function CheckIn() {
   const router = useRouter();
   const [rows, setRows] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState<string | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
   const [qr, setQr] = useState<{ code: string; title: string } | null>(null);
   const [qrLoading, setQrLoading] = useState(false);
@@ -52,18 +51,6 @@ export default function CheckIn() {
     setLoading(false);
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
-
-  const checkin = async (b: Booking) => {
-    setBusy(b.booking_id);
-    try {
-      await api.checkinBooking(b.booking_id);
-      setBanner(`✅ Checked in to ${b.class_name}. Have a great session!`);
-      await load();
-    } catch (e: any) {
-      setBanner(e?.message || "Could not check in.");
-    }
-    setBusy(null);
-  };
 
   const showQr = async (b: Booking) => {
     setQrLoading(true);
@@ -97,7 +84,7 @@ export default function CheckIn() {
         <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />
       ) : (
         <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: 40 }}>
-          <Text style={styles.intro}>Arriving for a class? Tap check in below so we can mark your attendance.</Text>
+          <Text style={styles.intro}>Arriving for a class? Show your entry QR code to gym staff — they'll scan it to check you in.</Text>
           {rows.length === 0 ? (
             <View style={styles.empty}>
               <Ionicons name="calendar-outline" size={40} color={colors.onSurfaceSecondary} />
@@ -131,21 +118,10 @@ export default function CheckIn() {
                       <Text style={styles.doneText}>Checked in</Text>
                     </View>
                   ) : (
-                    <Pressable
-                      testID={`checkin-btn-${b.booking_id}`}
-                      style={styles.btn}
-                      onPress={() => checkin(b)}
-                      disabled={busy === b.booking_id}
-                    >
-                      {busy === b.booking_id ? (
-                        <ActivityIndicator size="small" color={colors.onBrand} />
-                      ) : (
-                        <>
-                          <Ionicons name="log-in-outline" size={16} color={colors.onBrand} />
-                          <Text style={styles.btnText}>Check in</Text>
-                        </>
-                      )}
-                    </Pressable>
+                    <View style={styles.pending}>
+                      <Ionicons name="qr-code-outline" size={13} color={colors.brand} />
+                      <Text style={styles.pendingText}>Booked</Text>
+                    </View>
                   )}
                 </View>
 
@@ -237,6 +213,8 @@ const styles = StyleSheet.create({
   detailText: { color: colors.onSurface, fontSize: 13.5, fontWeight: "600", flex: 1 },
   btn: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.brand, paddingHorizontal: spacing.lg, paddingVertical: 11, borderRadius: radius.md },
   btnText: { color: colors.onBrand, fontWeight: "900", fontSize: 13 },
+  pending: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: colors.brandTertiary, paddingHorizontal: spacing.md, paddingVertical: 7, borderRadius: radius.pill },
+  pendingText: { color: colors.brand, fontWeight: "800", fontSize: 12 },
   done: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#16A34A", paddingHorizontal: spacing.md, paddingVertical: 9, borderRadius: radius.md },
   doneText: { color: "#fff", fontWeight: "800", fontSize: 12 },
   qrBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 11, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.brand },

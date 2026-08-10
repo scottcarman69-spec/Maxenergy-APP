@@ -250,3 +250,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Reworked existing reminder system to fire ~a few hours before a booked class (was ~24h) and fixed timezone handling.
 - send_due_reminders(): REMINDER_HOURS=3; class start_at is QLD local wall-clock -> converted to UTC (s_local - 10h) before comparing to now; window now<=start_utc<=now+3h. Skips by_appointment. One-time per booking via reminder_sent flag. Message: "Class starting soon ⏰ — Your X class starts in about N hours — <when>." Sends in-app notification + email (Resend) via notify_user. Loop interval tightened 3600s -> 900s (15 min).
 - Verified: seeded a paid booking for a class ~2h out -> /admin/reminders/run sent 1, member got "starts in about 2 hours — Monday 10 August at 8:41 PM"; re-run returned 0 (idempotent). Test data cleaned up. Runs automatically every 15 min; also manually triggerable via POST /admin/reminders/run.
+
+## Session update 45 (Jun 2026 fork) — Check-in only via admin QR scan (DONE)
+- Removed member self check-in; attendance is set only when admin scans the member's entry QR (admin manual toggle in admin/bookings still available as staff override).
+- Backend: POST /bookings/{id}/checkin now returns 403 "Check-in is done by gym staff scanning your entry QR code." (was self check-in). Verified 403.
+- Frontend (check-in.tsx): removed the "Check in" button + checkin()/busy state; not-attended cards now show a non-actionable "Booked" pill; "Show my entry QR" is the member's only action; intro reworded to "Show your entry QR code to gym staff — they'll scan it to check you in." Attended -> "Checked in" chip as before.
+- Verified via screenshot: card shows Booked pill + Show my entry QR, no Check in button; self-checkin endpoint 403.
