@@ -156,7 +156,6 @@ export default function Profile() {
   };
 
   const links = [
-    { key: "inbox", icon: "chatbubbles", label: "Message the Gym", onPress: () => router.push("/(tabs)/inbox") },
     { key: "membership", icon: "card", label: "Membership Application", onPress: () => router.push("/vigyr-signon") },
     { key: "services", icon: "barbell", label: "Our Services", onPress: () => router.push("/services") },
     { key: "about", icon: "people", label: "About Us & Team", onPress: () => router.push("/about") },
