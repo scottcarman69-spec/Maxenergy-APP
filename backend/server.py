@@ -2591,14 +2591,23 @@ async def _admin_get_booking(booking_id: str) -> dict:
 @api.post("/admin/bookings/{booking_id}/accept")
 async def admin_booking_accept(booking_id: str, u: dict = Depends(require_admin)):
     b = await _admin_get_booking(booking_id)
-    await db.bookings.update_one({"booking_id": booking_id}, {"$set": {"status": "confirmed", "confirmed_at": now_utc()}})
+    when = b.get("requested_time")
+    upd = {"status": "confirmed", "confirmed_at": now_utc()}
+    if b.get("by_appointment") and when:
+        upd["scheduled_time"] = when
+    await db.bookings.update_one({"booking_id": booking_id}, {"$set": upd})
     member = await db.users.find_one({"user_id": b["user_id"]}, {"_id": 0})
+    when_line = f" Your session is confirmed for {when}." if (b.get("by_appointment") and when) else ""
+    email_lines = [f"Great news — your booking for <b>{b['class_name']}</b> has been <b>accepted</b>!"]
+    if b.get("by_appointment") and when:
+        email_lines.append(f"Your session is confirmed for <b>{when}</b>.")
+    email_lines.append("See you at the gym. 🥊")
     await notify_user(
         b["user_id"], (member or {}).get("email"),
         "Booking accepted",
-        f"Great news! Your booking for {b['class_name']} has been accepted.",
+        f"Great news! Your booking for {b['class_name']} has been accepted.{when_line}",
         "booking",
-        email_lines=[f"Great news — your booking for <b>{b['class_name']}</b> has been <b>accepted</b>!", "See you at the gym. 🥊"],
+        email_lines=email_lines,
     )
     return {"ok": True}
 

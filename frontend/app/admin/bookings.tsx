@@ -134,7 +134,7 @@ export default function AdminBookings() {
                       <Text style={styles.meta}>
                         {b.by_appointment ? "By appointment" : `$${(b.amount / 100).toFixed(0)}`}
                         {b.scheduled_time ? ` · confirmed: ${b.scheduled_time}` : ""}
-                        {b.status === "reschedule_requested" && b.requested_time ? ` · asked: ${b.requested_time}` : ""}
+                        {!b.scheduled_time && b.requested_time ? ` · preferred: ${b.requested_time}` : ""}
                       </Text>
                     </View>
                     <View style={[styles.statusPill, { backgroundColor: meta.bg }]}>
@@ -161,7 +161,7 @@ export default function AdminBookings() {
                         onPress={() => { setRescheduleFor(b); setNewTime(b.requested_time || ""); setNote(""); }}
                       >
                         <Ionicons name="time-outline" size={15} color={colors.brand} />
-                        <Text style={styles.actGhostText}>Reschedule</Text>
+                        <Text style={styles.actGhostText}>Suggest time</Text>
                       </Pressable>
                       <Pressable
                         testID={`adminbk-cancel-${b.booking_id}`}
@@ -197,10 +197,10 @@ export default function AdminBookings() {
       <Modal visible={!!rescheduleFor} transparent animationType="fade" onRequestClose={() => setRescheduleFor(null)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Confirm new time</Text>
+            <Text style={styles.modalTitle}>Suggest a new time</Text>
             <Text style={styles.modalSub}>{rescheduleFor?.class_name} · {rescheduleFor?.member_name}</Text>
             {!!rescheduleFor?.requested_time && (
-              <Text style={styles.modalHint}>Member asked for: {rescheduleFor?.requested_time}</Text>
+              <Text style={styles.modalHint}>Member's preferred time: {rescheduleFor?.requested_time}</Text>
             )}
             <Text style={styles.modalLabel}>Confirmed day & time</Text>
             <TextInput

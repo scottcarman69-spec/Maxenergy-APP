@@ -348,3 +348,10 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Backend: BookingCreate gains requested_time/requested_at. booking_create enforces appt requires requested_at and rt_utc (= requested_at as QLD, i.e. -10h) >= now_utc()+24h, else HTTP 400. Stores both on the booking; admin "New session request" email + member notification now include the preferred time.
 - api.createBooking(class_id, requested_time?, requested_at?).
 - Verified: curl <24h → 400 "at least 24 hours in advance"; >=24h → pending booking with requested_at saved. Screenshot shows the picker (day+time chips, disabled sub-24h slots, Continue to Payment).
+
+## Session update 61 (Jun 2026 fork) — Admin Approve / Suggest-new-time on session requests (DONE)
+- Admin → Bookings already had one-tap Accept / Suggest time (reschedule) / Cancel with member notify (in-app + email via notify_user). Filled the gaps:
+  - Request cards now show the customer's "preferred: <time>" for pending by-appointment requests (previously only shown for reschedule asks).
+  - Accept now records the preferred time as scheduled_time for appointment bookings and the acceptance notification/email says "Your session is confirmed for <time>".
+  - Relabelled the ghost action "Reschedule"→"Suggest time"; modal title "Confirm new time"→"Suggest a new time"; hint "Member's preferred time: …". Reschedule modal prefills with the member's requested time.
+- Verified E2E via API: member request (>=24h) → admin list shows requested_time → accept → status confirmed + scheduled_time set → member notifications: "Booking accepted — Your session is confirmed for Wed 12 Aug · 6:00 pm" (in-app + email). Cleaned up test data.
