@@ -773,8 +773,8 @@ class ReminderPrefReq(BaseModel):
 
 @api.put("/me/reminder-preference")
 async def set_reminder_preference(body: ReminderPrefReq, u: dict = Depends(require_user)):
-    if body.hours not in (1, 3, 12):
-        raise HTTPException(400, "Choose 1, 3 or 12 hours.")
+    if body.hours not in (0, 1, 3, 12):
+        raise HTTPException(400, "Choose Off, 1, 3 or 12 hours.")
     await db.users.update_one({"user_id": u["user_id"]}, {"$set": {"reminder_hours": body.hours}})
     return {"ok": True, "reminder_hours": body.hours}
 
@@ -2939,6 +2939,8 @@ async def send_due_reminders() -> int:
             continue
         member = await db.users.find_one({"user_id": b["user_id"]}, {"_id": 0})
         lead = int((member or {}).get("reminder_hours", 3))
+        if lead == 0:
+            continue  # member turned reminders off
         if lead not in (1, 3, 12):
             lead = 3
         # Only send once the class is within the member's chosen lead time.

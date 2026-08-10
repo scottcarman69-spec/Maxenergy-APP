@@ -262,3 +262,10 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Backend: user field `reminder_hours` (default 3) added to user_public. NEW PUT /api/me/reminder-preference {hours in 1|3|12} (require_user, validates). send_due_reminders now reads each member's reminder_hours and only sends once start is within that lead time (query window widened to 12h; per-booking gate start_utc <= now+lead). Verified: set 12 -> me shows 12; invalid 5 -> 400.
 - Frontend: profile.tsx new "CLASS REMINDERS" section with 1h/3h/12h chips (testID reminder-{h}h), loads current via api.me(), saves via api.setReminderPreference with optimistic update + banner. Also removed the self "Check in to this class" button from Profile bookings (QR-only) -> replaced with "Show your entry QR at the door to check in" info bar. api.ts +setReminderPreference.
 - Verified via screenshot: chips render, 12h selectable/highlighted.
+
+## Session update 47 (Jun 2026 fork) — "No reminders" (Off) option (DONE)
+- Added an Off choice to class reminders. Backend PUT /me/reminder-preference now accepts hours in (0,1,3,12); reminder_hours=0 means off and send_due_reminders skips those members (lead==0 -> continue). Verified: set 0 -> me shows 0 -> /admin/reminders/run sent 0.
+- Frontend profile.tsx: reminder chips now [Off, 1 hr, 3 hrs, 12 hrs] (testID reminder-0h..reminder-12h); banner "Class reminders turned off." on Off. Verified via screenshot (Off highlighted).
+
+## CLARIFICATION (Jun 2026) — QR class check-in STAYS
+- User said "we cannot use a QR to scan into the door" — this referred to the PHYSICAL door/gate (handled by Vigyr, separate). For in-app CLASS check-in they confirmed: members MUST show their booking QR to staff who scan it. So the QR check-in (member "Show my entry QR" + admin "Scan Check-In") is CORRECT and unchanged. Self check-in stays disabled. Attendance history unchanged. NO code changes made for this clarification.

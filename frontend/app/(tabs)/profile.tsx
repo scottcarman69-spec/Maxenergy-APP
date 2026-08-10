@@ -84,7 +84,7 @@ export default function Profile() {
     setReminderHours(h);
     try {
       await api.setReminderPreference(h);
-      setBanner(`Reminder set to ${h === 1 ? "1 hour" : h + " hours"} before class.`);
+      setBanner(h === 0 ? "Class reminders turned off." : `Reminder set to ${h === 1 ? "1 hour" : h + " hours"} before class.`);
     } catch (e: any) {
       setReminderHours(prev);
       setBanner(e?.message || "Could not update reminder preference.");
@@ -240,7 +240,7 @@ export default function Profile() {
         <View style={styles.reminderCard}>
           <Text style={styles.reminderLabel}>Remind me before a booked class</Text>
           <View style={styles.reminderChips}>
-            {[1, 3, 12].map((h) => {
+            {[0, 1, 3, 12].map((h) => {
               const active = reminderHours === h;
               return (
                 <Pressable
@@ -250,7 +250,7 @@ export default function Profile() {
                   onPress={() => changeReminder(h)}
                 >
                   <Text style={[styles.reminderChipText, active && styles.reminderChipTextActive]}>
-                    {h === 1 ? "1 hour" : `${h} hours`}
+                    {h === 0 ? "Off" : h === 1 ? "1 hr" : `${h} hrs`}
                   </Text>
                 </Pressable>
               );
