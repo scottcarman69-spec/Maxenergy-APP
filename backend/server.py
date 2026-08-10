@@ -1050,7 +1050,28 @@ async def bookings_list(u: dict = Depends(require_user)):
     rows = await db.bookings.find(
         {"user_id": u["user_id"], "cleared": {"$ne": True}}, {"_id": 0}
     ).sort("created_at", -1).to_list(200)
+    await _enrich_bookings(rows)
     return {"bookings": rows}
+
+
+async def _enrich_bookings(rows: list) -> None:
+    """Attach current class details (time, coach, duration) to each booking row."""
+    class_ids = list({r.get("class_id") for r in rows if r.get("class_id")})
+    if not class_ids:
+        return
+    classes = {
+        c["class_id"]: c
+        for c in await db.classes.find({"class_id": {"$in": class_ids}}, {"_id": 0}).to_list(1000)
+    }
+    for r in rows:
+        c = classes.get(r.get("class_id")) or {}
+        if c.get("start_at") is not None:
+            r["class_start"] = c["start_at"]
+        r["trainer"] = c.get("trainer")
+        r["trainer_photo"] = coach_photo(c.get("trainer"))
+        r["duration_min"] = c.get("duration_min")
+        r["level"] = c.get("level")
+        r["category"] = c.get("category")
 
 
 @api.get("/bookings/history")

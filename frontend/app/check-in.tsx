@@ -2,18 +2,37 @@ import React, { useCallback, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
+import { coachSource } from "@/src/coaches";
 
 type Booking = {
   booking_id: string;
   class_name: string;
   status: string;
+  amount?: number;
+  currency?: string;
   by_appointment?: boolean;
   scheduled_time?: string;
   attended?: boolean;
+  class_start?: string;
+  trainer?: string;
+  trainer_photo?: string;
+  duration_min?: number;
+  level?: string;
 };
+
+function fmtDate(iso?: string) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return d.toLocaleDateString([], { weekday: "long", day: "2-digit", month: "long" });
+}
+function fmtTime(iso?: string) {
+  if (!iso) return null;
+  return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
 
 export default function CheckIn() {
   const router = useRouter();
@@ -74,39 +93,80 @@ export default function CheckIn() {
               </Pressable>
             </View>
           ) : (
-            rows.map((b) => (
+            rows.map((b) => {
+              const dateStr = b.by_appointment ? (b.scheduled_time || "Time to be confirmed") : (fmtDate(b.class_start) || "Date to be confirmed");
+              const timeStr = b.by_appointment ? null : fmtTime(b.class_start);
+              const avatar = coachSource(b.trainer, b.trainer_photo);
+              return (
               <View key={b.booking_id} style={styles.card}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.className}>{b.class_name}</Text>
-                  <Text style={styles.meta}>
-                    {b.by_appointment ? "By appointment" : "Booked class"}
-                    {b.scheduled_time ? ` · ${b.scheduled_time}` : ""}
-                  </Text>
-                </View>
-                {b.attended ? (
-                  <View style={styles.done}>
-                    <Ionicons name="checkmark-circle" size={18} color="#fff" />
-                    <Text style={styles.doneText}>Checked in</Text>
+                <View style={styles.cardTop}>
+                  {avatar ? (
+                    <Image source={avatar} style={styles.avatar} contentFit="cover" />
+                  ) : (
+                    <View style={styles.avatarFallback}>
+                      <Ionicons name="barbell" size={22} color={colors.brand} />
+                    </View>
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.className}>{b.class_name}</Text>
+                    {!!b.trainer && <Text style={styles.coach}>with {b.trainer}</Text>}
                   </View>
-                ) : (
-                  <Pressable
-                    testID={`checkin-btn-${b.booking_id}`}
-                    style={styles.btn}
-                    onPress={() => checkin(b)}
-                    disabled={busy === b.booking_id}
-                  >
-                    {busy === b.booking_id ? (
-                      <ActivityIndicator size="small" color={colors.onBrand} />
-                    ) : (
-                      <>
-                        <Ionicons name="log-in-outline" size={16} color={colors.onBrand} />
-                        <Text style={styles.btnText}>Check in</Text>
-                      </>
-                    )}
-                  </Pressable>
-                )}
+                  {b.attended ? (
+                    <View style={styles.done}>
+                      <Ionicons name="checkmark-circle" size={16} color="#fff" />
+                      <Text style={styles.doneText}>Checked in</Text>
+                    </View>
+                  ) : (
+                    <Pressable
+                      testID={`checkin-btn-${b.booking_id}`}
+                      style={styles.btn}
+                      onPress={() => checkin(b)}
+                      disabled={busy === b.booking_id}
+                    >
+                      {busy === b.booking_id ? (
+                        <ActivityIndicator size="small" color={colors.onBrand} />
+                      ) : (
+                        <>
+                          <Ionicons name="log-in-outline" size={16} color={colors.onBrand} />
+                          <Text style={styles.btnText}>Check in</Text>
+                        </>
+                      )}
+                    </Pressable>
+                  )}
+                </View>
+
+                <View style={styles.detailGrid}>
+                  <View style={styles.detailRow}>
+                    <Ionicons name="calendar-outline" size={15} color={colors.brand} />
+                    <Text style={styles.detailText}>{dateStr}</Text>
+                  </View>
+                  {!!timeStr && (
+                    <View style={styles.detailRow}>
+                      <Ionicons name="time-outline" size={15} color={colors.brand} />
+                      <Text style={styles.detailText}>
+                        {timeStr}{b.duration_min ? ` · ${b.duration_min} min` : ""}
+                      </Text>
+                    </View>
+                  )}
+                  {!!b.level && (
+                    <View style={styles.detailRow}>
+                      <Ionicons name="ribbon-outline" size={15} color={colors.brand} />
+                      <Text style={styles.detailText}>{b.level}</Text>
+                    </View>
+                  )}
+                  <View style={styles.detailRow}>
+                    <Ionicons name="pricetag-outline" size={15} color={colors.brand} />
+                    <Text style={styles.detailText}>
+                      {b.by_appointment ? "By appointment" : `$${((b.amount || 0) / 100).toFixed(0)} ${(b.currency || "AUD").toUpperCase()} · Paid`}
+                    </Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Ionicons name="bookmark-outline" size={15} color={colors.brand} />
+                    <Text style={styles.detailText}>Ref: {b.booking_id.replace("bk_", "").toUpperCase().slice(0, 8)}</Text>
+                  </View>
+                </View>
               </View>
-            ))
+            );})
           )}
         </ScrollView>
       )}
@@ -121,12 +181,18 @@ const styles = StyleSheet.create({
   banner: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginHorizontal: spacing.lg, marginTop: spacing.md, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.brandTertiary },
   bannerText: { color: colors.brand, fontSize: 13, fontWeight: "700", flex: 1 },
   intro: { color: colors.onSurfaceSecondary, fontSize: 14, lineHeight: 21 },
-  card: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, padding: spacing.lg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
-  className: { color: colors.onSurface, fontWeight: "800", fontSize: 15 },
-  meta: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 3 },
-  btn: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.brand, paddingHorizontal: spacing.lg, paddingVertical: 12, borderRadius: radius.md },
+  card: { backgroundColor: colors.surfaceSecondary, padding: spacing.lg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, gap: spacing.md },
+  cardTop: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  avatar: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.surfaceTertiary },
+  avatarFallback: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center" },
+  className: { color: colors.onSurface, fontWeight: "800", fontSize: 16 },
+  coach: { color: colors.onSurfaceSecondary, fontSize: 12.5, marginTop: 2 },
+  detailGrid: { gap: 9, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.md },
+  detailRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  detailText: { color: colors.onSurface, fontSize: 13.5, fontWeight: "600", flex: 1 },
+  btn: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.brand, paddingHorizontal: spacing.lg, paddingVertical: 11, borderRadius: radius.md },
   btnText: { color: colors.onBrand, fontWeight: "900", fontSize: 13 },
-  done: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#16A34A", paddingHorizontal: spacing.md, paddingVertical: 10, borderRadius: radius.md },
+  done: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#16A34A", paddingHorizontal: spacing.md, paddingVertical: 9, borderRadius: radius.md },
   doneText: { color: "#fff", fontWeight: "800", fontSize: 12 },
   empty: { alignItems: "center", padding: 40, gap: spacing.md },
   emptyText: { color: colors.onSurfaceSecondary, textAlign: "center" },
