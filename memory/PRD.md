@@ -289,3 +289,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Backend GET /classes gained `include_ended` param: default (home/upcoming) still hides ended classes; include_ended=true returns all with an `ended` boolean per class (start+duration < QLD-now). 
 - Frontend: api.classes(category, includeEnded). timetable loads with include_ended=true, still hides ended from the visible list (filter !c.ended), and computes allEndedToday (dayOffset===0 && todays.length>0 && every ended) for the message. Cls type +ended.
 - Verified: tsc exit 0; curl shows 2 ended today; screenshot shows "Classes have ended today." on Mon 10 (all ended).
+
+## Session update 51 (Jun 2026 fork) — Tomorrow Peek on "ended today" (DONE)
+- When today's classes have all ended, the empty state now also shows an "UP NEXT" card with the very next upcoming class (name, weekday · time · coach, coach photo) and a chevron. Tapping it jumps the day selector to that class's day (goToClassDay computes day index from today).
+- timetable.tsx: nextClass useMemo (earliest non-appointment, non-ended, category-matched class); peek card rendered inside ListEmptyComponent only when allEndedToday && nextClass. Uses coachSource for avatar.
+- Verified via screenshot: Mon 10 all-ended -> UP NEXT = Kickboxing · Tuesday · 6:00 PM · Coach Alex.

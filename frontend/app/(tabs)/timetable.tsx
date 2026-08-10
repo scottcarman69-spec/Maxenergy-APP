@@ -122,6 +122,21 @@ export default function Timetable() {
     return todays.length > 0 && todays.every((c) => c.ended);
   }, [classes, dayOffset, days, category]);
 
+  // The very next upcoming class (for the "ended today" peek).
+  const nextClass = useMemo(() => {
+    const upcoming = classes
+      .filter((c) => !c.by_appointment && !c.ended)
+      .filter((c) => category === "All" || c.category === category)
+      .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
+    return upcoming[0] || null;
+  }, [classes, category]);
+
+  const goToClassDay = useCallback((iso: string) => {
+    const d = new Date(iso); d.setHours(0, 0, 0, 0);
+    const idx = Math.round((d.getTime() - today.getTime()) / 86400000);
+    if (idx >= 0 && idx < days.length) setDayOffset(idx);
+  }, [today, days]);
+
   const appointmentClasses = useMemo(
     () => classes.filter((c) => c.by_appointment && (category === "All" || c.category === category)),
     [classes, category]
@@ -237,6 +252,33 @@ export default function Timetable() {
                   ? `${category !== "All" ? category + " classes" : "Classes"} have ended today.`
                   : `No ${category !== "All" ? category.toLowerCase() + " " : ""}classes this day.`}
               </Text>
+
+              {allEndedToday && nextClass && (
+                <Pressable
+                  testID="next-class-peek"
+                  style={styles.peekCard}
+                  onPress={() => goToClassDay(nextClass.start_at)}
+                >
+                  <Text style={styles.peekLabel}>UP NEXT</Text>
+                  <View style={styles.peekRow}>
+                    {coachSource(nextClass.trainer, nextClass.trainer_photo) ? (
+                      <Image source={coachSource(nextClass.trainer, nextClass.trainer_photo)} style={styles.peekAvatar} contentFit="cover" />
+                    ) : (
+                      <View style={styles.peekAvatarFallback}>
+                        <MaterialCommunityIcons name={catStyle(nextClass.category, nextClass.name).icon} size={20} color={catStyle(nextClass.category, nextClass.name).color} />
+                      </View>
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.peekName} numberOfLines={1}>{nextClass.name}</Text>
+                      <Text style={styles.peekWhen}>
+                        {new Date(nextClass.start_at).toLocaleDateString([], { weekday: "long" })} · {fmtTime(nextClass.start_at)}
+                        {nextClass.trainer ? ` · ${nextClass.trainer}` : ""}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color={colors.brand} />
+                  </View>
+                </Pressable>
+              )}
             </View>
           }
           renderItem={({ item }) => (
@@ -368,6 +410,13 @@ const styles = StyleSheet.create({
   duration: { color: colors.onSurfaceSecondary, fontSize: 12, fontFamily: font.medium },
   empty: { alignItems: "center", padding: 40, gap: spacing.md },
   emptyText: { color: colors.onSurfaceSecondary, fontSize: 14 },
+  peekCard: { alignSelf: "stretch", backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, borderWidth: 1, borderColor: colors.brand, padding: spacing.lg, marginTop: spacing.md, gap: spacing.sm },
+  peekLabel: { color: colors.brand, fontSize: 11, fontWeight: "900", letterSpacing: 1.5 },
+  peekRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  peekAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surfaceTertiary },
+  peekAvatarFallback: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center" },
+  peekName: { color: colors.onSurface, fontSize: 15, fontWeight: "800" },
+  peekWhen: { color: colors.onSurfaceSecondary, fontSize: 12.5, marginTop: 2 },
   apptHeading: { color: colors.onSurfaceSecondary, fontSize: 12, fontFamily: font.heading, letterSpacing: 1.5 },
   apptCard: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.lg, borderWidth: 1, borderColor: colors.brand },
   apptIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center", overflow: "hidden" },
