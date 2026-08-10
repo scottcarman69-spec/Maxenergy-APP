@@ -190,14 +190,20 @@ export default function AdminCalendar() {
         <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />
       ) : (
         <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: 48 }}>
-          <View style={styles.filterRow}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterRow}
+            style={{ marginBottom: spacing.lg }}
+          >
             {FILTERS.map((f) => (
               <Pressable key={f} testID={`admincal-filter-${f}`} onPress={() => setFilter(f)} style={[styles.filterChip, filter === f && styles.filterChipOn]}>
                 <Text style={[styles.filterText, filter === f && styles.filterTextOn]}>{f}</Text>
               </Pressable>
             ))}
-          </View>
+          </ScrollView>
 
+          <View style={styles.calCard}>
           <View style={styles.monthBar}>
             <Pressable testID="admincal-prev" onPress={() => shiftMonth(-1)} hitSlop={12} style={styles.navBtn}>
               <Ionicons name="chevron-back" size={20} color={colors.onSurface} />
@@ -233,7 +239,7 @@ export default function AdminCalendar() {
                   style={[styles.cell, styles.cellDay, isSel && styles.cellSel, isToday && !isSel && styles.cellToday]}
                   onPress={() => setSelected(key)}
                 >
-                  <Text style={[styles.cellNum, isSel && styles.cellNumSel, isToday && !isSel && { color: colors.brand }]}>{d}</Text>
+                  <Text style={[styles.cellNum, isSel && styles.cellNumSel, isToday && !isSel && styles.cellNumToday]}>{d}</Text>
                   <View style={styles.dots}>
                     {[...(classesByDay[key]?.length ? [CLASS_COLOR] : []), ...dotColors(dayBookings)].slice(0, 3).map((c, di) => (
                       <View key={di} style={[styles.dot, { backgroundColor: c }]} />
@@ -251,6 +257,7 @@ export default function AdminCalendar() {
                 <Text style={styles.legendText}>{l}</Text>
               </View>
             ))}
+          </View>
           </View>
 
           <Text style={styles.agendaTitle}>{selectedLabel}</Text>
@@ -435,13 +442,14 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
   headerTitle: { color: colors.onSurface, fontSize: 17, fontWeight: "800" },
-  filterRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.lg },
-  filterChip: { flex: 1, alignItems: "center", paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSecondary },
+  filterRow: { flexDirection: "row", gap: spacing.sm, paddingRight: spacing.lg },
+  filterChip: { paddingHorizontal: 18, paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSecondary },
   filterChipOn: { backgroundColor: colors.brand, borderColor: colors.brand },
-  filterText: { color: colors.onSurfaceSecondary, fontWeight: "800", fontSize: 12 },
+  filterText: { color: colors.onSurfaceSecondary, fontWeight: "800", fontSize: 13 },
   filterTextOn: { color: colors.onBrand },
+  calCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.lg },
   monthBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.md },
-  navBtn: { width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
+  navBtn: { width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.surfaceTertiary, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
   monthTitle: { color: colors.onSurface, fontSize: 18, fontWeight: "900" },
   monthSub: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 2 },
   weekRow: { flexDirection: "row", marginBottom: 6 },
@@ -453,9 +461,10 @@ const styles = StyleSheet.create({
   cellToday: { },
   cellNum: { color: colors.onSurface, fontSize: 15, fontWeight: "700", width: 30, height: 30, borderRadius: 15, textAlign: "center", textAlignVertical: "center", lineHeight: 30 },
   cellNumSel: { backgroundColor: colors.brand, color: colors.onBrand, overflow: "hidden" },
+  cellNumToday: { color: colors.brand, borderWidth: 1.5, borderColor: colors.brand, overflow: "hidden" },
   dots: { flexDirection: "row", gap: 3, height: 6, marginTop: 3 },
   dot: { width: 6, height: 6, borderRadius: 3 },
-  legend: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md, marginTop: spacing.md, marginBottom: spacing.lg, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border },
+  legend: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md, marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   legendText: { color: colors.onSurfaceSecondary, fontSize: 12 },
   agendaTitle: { color: colors.onSurface, fontSize: 16, fontFamily: font.heading, marginBottom: spacing.md },
