@@ -11,39 +11,49 @@ const PAGES = [
 ];
 
 const FEED_HEIGHT = 460;
-// We ask FB for a tall plugin so it renders several posts, then we shrink the
-// WebView down to the ACTUAL rendered content height (measured via injected JS)
-// so there's no big white gap underneath.
-const PLUGIN_HEIGHT = 1300;
+// We render the plugin inside our own HTML (mobile) so we control the viewport
+// and let FB adapt to the container width — otherwise the raw plugin URL renders
+// at the device's physical-pixel width and looks half-size. We ask for a tall-ish
+// plugin so a few posts load, then shrink the WebView to the measured content.
+const PLUGIN_HEIGHT = 900;
 const MIN_H = 260;
 const MAX_H = 1600;
-
-const MEASURE_JS = `
-(function(){
-  function report(){
-    try{
-      var h = Math.max(
-        document.body ? document.body.scrollHeight : 0,
-        document.documentElement ? document.documentElement.scrollHeight : 0
-      );
-      if(h && window.ReactNativeWebView){ window.ReactNativeWebView.postMessage(String(h)); }
-    }catch(e){}
-  }
-  report();
-  [300,700,1200,2000,3200,5000].forEach(function(t){ setTimeout(report,t); });
-  window.addEventListener('load', report);
-  try{ if(window.ResizeObserver){ new ResizeObserver(report).observe(document.body); } }catch(e){}
-})(); true;
-`;
 
 function pluginUri(pageUrl: string, width: number) {
   const w = Math.max(180, Math.min(500, Math.round(width))); // FB plugin supports 180-500
   const href = encodeURIComponent(pageUrl);
   return (
     `https://www.facebook.com/plugins/page.php?href=${href}` +
-    `&tabs=timeline&width=${w}&height=${PLUGIN_HEIGHT}` +
+    `&tabs=timeline&width=${w}&height=${FEED_HEIGHT}` +
     `&small_header=true&adapt_container_width=true&hide_cover=true&show_facepile=false`
   );
+}
+
+function pluginHtml(pageUrl: string) {
+  return `<!DOCTYPE html><html><head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+<style>
+  html,body{margin:0;padding:0;background:#fff;overflow:hidden;}
+  .fb-page,.fb-page > span,.fb-page iframe{width:100% !important;}
+</style></head><body>
+<div id="fb-root"></div>
+<div class="fb-page"
+  data-href="${pageUrl}"
+  data-tabs="timeline"
+  data-width="500"
+  data-height="${PLUGIN_HEIGHT}"
+  data-small-header="true"
+  data-adapt-container-width="true"
+  data-hide-cover="true"
+  data-show-facepile="false"></div>
+<script>
+  function rep(){try{var h=Math.max(document.body.scrollHeight,document.documentElement.scrollHeight);if(h&&window.ReactNativeWebView){window.ReactNativeWebView.postMessage(String(h));}}catch(e){}}
+  window.fbAsyncInit=function(){try{FB.init({xfbml:true,version:'v19.0'});FB.Event.subscribe('xfbml.render',function(){setTimeout(rep,300);setTimeout(rep,1400);});}catch(e){}};
+  (function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(d.getElementById(id))return;js=d.createElement(s);js.id=id;js.src="https://connect.facebook.net/en_US/sdk.js";fjs.parentNode.insertBefore(js,fjs);}(document,'script','facebook-jssdk'));
+  [1500,3000,5000,7500].forEach(function(t){setTimeout(rep,t);});
+  window.addEventListener('load',rep);
+</script></body></html>`;
 }
 
 export default function FacebookFeed() {
@@ -99,8 +109,8 @@ export default function FacebookFeed() {
       </View>
 
       <View style={styles.feedCard} onLayout={onLayout}>
-        {uri ? (
-          Platform.OS === "web" ? (
+        {Platform.OS === "web" ? (
+          uri ? (
             // @ts-ignore - div/iframe are valid on web
             <div style={{ width: "100%", height: scaledHeight, overflow: "hidden" }}>
               {/* @ts-ignore - iframe is valid on web */}
@@ -122,23 +132,23 @@ export default function FacebookFeed() {
               />
             </div>
           ) : (
-            <WebView
-              key={active.key + plugW}
-              testID="fb-webview"
-              source={{ uri }}
-              style={{ width: "100%", height: mobileHeight, backgroundColor: "#fff" }}
-              injectedJavaScript={MEASURE_JS}
-              onMessage={onWebMessage}
-              javaScriptEnabled
-              domStorageEnabled
-              startInLoadingState
-              scrollEnabled={false}
-              nestedScrollEnabled
-              setSupportMultipleWindows={false}
-            />
+            <View style={{ height: FEED_HEIGHT }} />
           )
         ) : (
-          <View style={{ height: FEED_HEIGHT }} />
+          <WebView
+            key={active.key}
+            testID="fb-webview"
+            source={{ html: pluginHtml(active.url), baseUrl: "https://www.facebook.com" }}
+            originWhitelist={["*"]}
+            style={{ width: "100%", height: mobileHeight, backgroundColor: "#fff" }}
+            onMessage={onWebMessage}
+            javaScriptEnabled
+            domStorageEnabled
+            startInLoadingState
+            scrollEnabled={false}
+            nestedScrollEnabled
+            setSupportMultipleWindows={false}
+          />
         )}
       </View>
 
