@@ -275,7 +275,7 @@ export default function Home() {
               </Pressable>
             </View>
             <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md }}>
-              {upcoming.map((c) => {
+              {upcoming.slice(0, 4).map((c) => {
                 const cs = catStyle(c.category, c.name);
                 return (
                   <Pressable
