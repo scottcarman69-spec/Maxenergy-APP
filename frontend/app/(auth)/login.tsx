@@ -312,9 +312,9 @@ const styles = StyleSheet.create({
 
   hero: { minHeight: 470, justifyContent: "flex-end" },
   heroInner: { paddingHorizontal: spacing.xl, paddingBottom: spacing.lg, paddingTop: 60 },
-  logo: { width: 230, height: 152, marginLeft: -8, marginBottom: spacing.md },
-  heroEyebrow: { color: colors.brand, fontFamily: font.display, fontSize: 22, letterSpacing: 0.5 },
-  heroHeadline: { color: colors.onSurface, fontFamily: font.display, fontSize: 26, letterSpacing: 0.5, marginTop: 2 },
+  logo: { width: 230, height: 152, alignSelf: "center", marginBottom: spacing.md },
+  heroEyebrow: { color: colors.brand, fontFamily: font.display, fontSize: 22, letterSpacing: 0.5, textAlign: "center" },
+  heroHeadline: { color: colors.onSurface, fontFamily: font.display, fontSize: 26, letterSpacing: 0.5, marginTop: 2, textAlign: "center" },
 
   chipRow: {
     flexDirection: "row",
@@ -329,14 +329,15 @@ const styles = StyleSheet.create({
   chipL2: { color: colors.onSurfaceSecondary, fontFamily: font.heading, fontSize: 9.5, letterSpacing: 0.4, textAlign: "center", marginTop: -3 },
 
   pitch: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl },
-  slamWhite: { color: colors.onSurface, fontFamily: font.display, fontSize: 40, lineHeight: 42, letterSpacing: 0.5 },
-  slamOrange: { color: colors.brand, fontFamily: font.display, fontSize: 40, lineHeight: 42, letterSpacing: 0.5 },
+  slamWhite: { color: colors.onSurface, fontFamily: font.display, fontSize: 40, lineHeight: 42, letterSpacing: 0.5, textAlign: "center" },
+  slamOrange: { color: colors.brand, fontFamily: font.display, fontSize: 40, lineHeight: 42, letterSpacing: 0.5, textAlign: "center" },
   brush: {
     width: 150,
     height: 6,
     backgroundColor: colors.brand,
     borderRadius: 3,
     marginTop: spacing.md,
+    alignSelf: "center",
     transform: [{ skewX: "-24deg" }],
   },
 
