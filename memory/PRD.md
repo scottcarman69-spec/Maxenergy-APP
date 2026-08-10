@@ -131,3 +131,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Backend: GET /bookings excludes cleared; NEW GET /bookings/history (all incl cleared, limit 500); NEW POST /bookings/clear-all (soft-clear all); NEW POST /bookings/{id}/clear (soft-clear one). Static routes declared before dynamic /{booking_id}/... routes.
 - Frontend: api.ts +bookingsHistory +clearAllBookings +clearBooking. Profile MY BOOKINGS header now has "Log" (opens /booking-history) + "Clear all"; each booking card is swipe-left-to-clear. New screen /app/frontend/app/booking-history.tsx (read-only full log w/ status pills + CLEARED tags + timestamps). Clearing a booking is display-only (does NOT cancel it; gym/admin still sees it).
 - Verified: backend clear-all/history/clear endpoints 200; Profile + Booking Log screens render.
+
+## Session update 24 (Jun 2026 fork) — Facebook feed fits white box on mobile (DONE)
+- Fixed FB Page Plugin leaving a large white gap + narrow content inside the white card on Expo Go (native WebView). The plugin reserved a fixed tall height regardless of content.
+- FacebookFeed.tsx: request a tall plugin (PLUGIN_HEIGHT=1300) so FB renders several posts, then inject MEASURE_JS that posts document scrollHeight back via onMessage; WebView height = measured content height (clamped MIN_H 260 .. MAX_H 1600), width 100%, scrollEnabled=false, bg #fff. Reset measured height on tab switch. feedCard no longer centers (stretch + top-align). Web branch (iframe + scale) unchanged.
+- NOTE: native-WebView-only behaviour — cannot be validated in the web preview; must be checked in Expo Go on device.
