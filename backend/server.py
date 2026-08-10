@@ -2679,7 +2679,34 @@ async def admin_attendance_report(u: dict = Depends(require_admin)):
             "by": r.get("checked_in_by") or "member",
         })
 
-    return {"totals": totals, "daily": series, "by_class": by_class_list, "top_members": top_members, "recent": recent}
+    # Per-session roster: who attended each class (grouped by class + day), newest first.
+    sessions_map: dict = {}
+    for r in rows:
+        ld = local_dt(r["checked_in_at"])
+        day_iso = local_date(r["checked_in_at"]).isoformat()
+        key = (r.get("class_name", "Class"), day_iso)
+        m = umap.get(r["user_id"], {})
+        sessions_map.setdefault(key, {"date_label": ld.strftime("%a %d %b %Y"), "attendees": []})
+        sessions_map[key]["attendees"].append({
+            "name": m.get("name") or m.get("email") or "Member",
+            "email": m.get("email"),
+            "time": ld.strftime("%-I:%M %p"),
+            "by": r.get("checked_in_by") or "member",
+        })
+    sessions = []
+    for (class_name, day_iso), v in sessions_map.items():
+        att = sorted(v["attendees"], key=lambda a: a["time"])
+        sessions.append({
+            "class_name": class_name,
+            "iso": day_iso,
+            "date": v["date_label"],
+            "count": len(att),
+            "attendees": att,
+        })
+    sessions.sort(key=lambda s: (s["iso"], s["count"]), reverse=True)
+    sessions = sessions[:80]
+
+    return {"totals": totals, "daily": series, "by_class": by_class_list, "top_members": top_members, "recent": recent, "sessions": sessions}
 
 
 @api.post("/admin/reminders/run")

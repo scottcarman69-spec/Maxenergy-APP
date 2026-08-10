@@ -229,3 +229,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Packages: expo-camera + react-native-qrcode-svg (react-native-svg already present). app.json: iOS NSCameraUsageDescription + expo-camera plugin cameraPermission + android CAMERA permission.
 - Frontend: check-in.tsx card now has "Show my entry QR" (only when not attended) -> modal with QRCode(code) + "valid on class day" hint. NEW /app/frontend/app/admin/scan.tsx — CameraView qr scanner w/ frame overlay, success/already/error result overlay (green/red) + "Scan another", full permission handling (granted/denied/canAskAgain->Open Settings), web shows "use a phone" fallback. Entry points: admin/index.tsx new "Scan Check-In" card; admin/attendance.tsx header QR icon. api.ts +checkinCode +scanCheckin.
 - Verified via screenshots: member QR modal, admin Scan card, scanner web-fallback. NOTE: actual camera scanning is native-only — must be tested on a real device after Publish + build (not Expo Go dev preview / web).
+
+## Session update 41 (Jun 2026 fork) — Attendance names / per-class roster (DONE)
+- Added "WHO ATTENDED EACH CLASS" to the Attendance Report — a per-session roster so staff see exactly who attended each class.
+- Backend: admin_attendance_report now also returns `sessions` — grouped by (class_name, local day, QLD), each {class_name, date, iso, count, attendees:[{name,email,time,by}]}, sorted newest first, limit 80. (Report already returned recent + top_members with names.)
+- Frontend (admin/attendance.tsx): new expandable card — each session row shows class name + date + a headcount pill; tapping expands to list attendee names, check-in time, and a tag (QR / staff / member) based on checked_in_by (admin_qr shows "· QR"). Only one open at a time (openKey).
+- Verified via screenshot: Muay Thai Mon 10 Aug expands to Max Energy Admin 6:06 PM + Vigyr Tester 6:23 PM · QR.

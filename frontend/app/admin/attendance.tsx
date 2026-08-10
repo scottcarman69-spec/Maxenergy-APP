@@ -12,12 +12,14 @@ type Report = {
   by_class: { name: string; count: number }[];
   top_members: { name: string; email?: string; count: number }[];
   recent: { name: string; email?: string; class_name: string; date: string; time: string; by: string }[];
+  sessions: { class_name: string; iso: string; date: string; count: number; attendees: { name: string; email?: string; time: string; by: string }[] }[];
 };
 
 export default function AdminAttendance() {
   const router = useRouter();
   const [data, setData] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
+  const [openKey, setOpenKey] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -73,6 +75,48 @@ export default function AdminAttendance() {
                 </View>
               ))}
             </View>
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>WHO ATTENDED EACH CLASS</Text>
+            {(!data.sessions || data.sessions.length === 0) ? (
+              <Text style={styles.muted}>No check-ins yet.</Text>
+            ) : (
+              data.sessions.map((s) => {
+                const key = s.class_name + s.iso;
+                const open = openKey === key;
+                return (
+                  <View key={key} style={styles.session}>
+                    <Pressable
+                      testID={`session-${key}`}
+                      style={styles.sessionHead}
+                      onPress={() => setOpenKey(open ? null : key)}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.rowName} numberOfLines={1}>{s.class_name}</Text>
+                        <Text style={styles.rowEmail}>{s.date}</Text>
+                      </View>
+                      <View style={styles.countPill}>
+                        <Ionicons name="people" size={13} color={colors.brand} />
+                        <Text style={styles.countPillText}>{s.count}</Text>
+                      </View>
+                      <Ionicons name={open ? "chevron-up" : "chevron-down"} size={18} color={colors.onSurfaceSecondary} />
+                    </Pressable>
+                    {open && (
+                      <View style={styles.attendeeList}>
+                        {s.attendees.map((a, i) => (
+                          <View key={i} style={styles.attendeeRow}>
+                            <Ionicons name="person-circle-outline" size={18} color={colors.brand} />
+                            <Text style={styles.attendeeName} numberOfLines={1}>{a.name}</Text>
+                            <Text style={styles.attendeeTime}>{a.time}{a.by === "admin_qr" ? " · QR" : a.by === "admin" ? " · staff" : ""}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                );
+              })
+            )}
           </View>
 
           <View style={styles.card}>
@@ -161,4 +205,12 @@ const styles = StyleSheet.create({
   checkinDot: { width: 22, height: 22, borderRadius: 11, backgroundColor: "#16A34A", alignItems: "center", justifyContent: "center" },
   ciDate: { color: colors.onSurface, fontSize: 12, fontWeight: "700" },
   ciTime: { color: colors.onSurfaceSecondary, fontSize: 11, marginTop: 1 },
+  session: { borderTopWidth: 1, borderTopColor: colors.border },
+  sessionHead: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: 12 },
+  countPill: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.brandTertiary, paddingHorizontal: 9, paddingVertical: 4, borderRadius: radius.pill },
+  countPillText: { color: colors.brand, fontWeight: "900", fontSize: 13 },
+  attendeeList: { paddingBottom: spacing.md, paddingLeft: spacing.sm, gap: 8 },
+  attendeeRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  attendeeName: { color: colors.onSurface, fontSize: 13.5, fontWeight: "600", flex: 1 },
+  attendeeTime: { color: colors.onSurfaceSecondary, fontSize: 11.5 },
 });
