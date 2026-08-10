@@ -341,6 +341,11 @@ export default function Timetable() {
                         <Text style={styles.pillText}>{item.level}</Text>
                       </View>
                       <Text style={styles.duration} numberOfLines={1}>{item.duration_min} min</Text>
+                      {typeof item.price_cents === "number" && item.price_cents > 0 && (
+                        <View style={styles.pricePill}>
+                          <Text style={styles.pricePillText}>${(item.price_cents / 100).toFixed(0)}</Text>
+                        </View>
+                      )}
                     </View>
                     {typeof item.spots_left === "number" && (item.capacity || 0) > 0 && (
                       <View style={styles.capWrap}>
@@ -451,6 +456,8 @@ const styles = StyleSheet.create({
   pillText: { color: colors.onSurfaceTertiary, fontSize: 11, fontWeight: "700" },
   price: { color: colors.brand, fontSize: 18, fontWeight: "900" },
   duration: { color: colors.onSurfaceSecondary, fontSize: 12, fontFamily: font.medium, flexShrink: 0 },
+  pricePill: { backgroundColor: colors.brandTertiary, paddingHorizontal: 9, paddingVertical: 4, borderRadius: radius.pill },
+  pricePillText: { color: colors.brand, fontSize: 12, fontWeight: "900" },
   empty: { alignItems: "center", padding: 40, gap: spacing.md },
   emptyText: { color: colors.onSurfaceSecondary, fontSize: 14 },
   peekCard: { alignSelf: "stretch", backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, borderWidth: 1, borderColor: colors.brand, padding: spacing.lg, marginTop: spacing.md, gap: spacing.sm },
