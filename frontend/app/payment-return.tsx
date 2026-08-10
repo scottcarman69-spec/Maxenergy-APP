@@ -5,14 +5,20 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing } from "@/src/theme";
 
 export default function PaymentReturn() {
-  const params = useLocalSearchParams<{ status?: string; session_id?: string }>();
+  const params = useLocalSearchParams<{ status?: string; booking_id?: string }>();
   const router = useRouter();
   const success = params.status === "success";
 
   useEffect(() => {
-    const t = setTimeout(() => router.replace("/(tabs)/profile"), 2200);
+    const t = setTimeout(() => {
+      if (success && params.booking_id) {
+        router.replace({ pathname: "/receipt", params: { booking_id: String(params.booking_id) } });
+      } else {
+        router.replace("/(tabs)/profile");
+      }
+    }, 1400);
     return () => clearTimeout(t);
-  }, [router]);
+  }, [router, success, params.booking_id]);
 
   return (
     <View style={styles.root}>
@@ -22,7 +28,7 @@ export default function PaymentReturn() {
         color={success ? colors.brand : colors.error}
       />
       <Text style={styles.title}>{success ? "Payment successful" : "Payment cancelled"}</Text>
-      <Text style={styles.sub}>Redirecting…</Text>
+      <Text style={styles.sub}>{success ? "Preparing your receipt…" : "Redirecting…"}</Text>
       <ActivityIndicator color={colors.brand} style={{ marginTop: spacing.md }} />
     </View>
   );

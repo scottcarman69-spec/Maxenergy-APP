@@ -96,9 +96,8 @@ export default function ClassDetail() {
           try {
             const s = await api.paymentStatus(session_id);
             if (s.payment_status === "paid") {
-              setMsg("Payment successful. Class booked!");
               setBusy(false);
-              setTimeout(() => router.replace("/(tabs)/profile"), 1200);
+              router.replace({ pathname: "/receipt", params: { booking_id: booking.booking_id } });
               return;
             }
             if (s.status === "expired") {

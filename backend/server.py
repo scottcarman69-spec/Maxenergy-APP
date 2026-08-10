@@ -1288,7 +1288,45 @@ async def admin_thread_reply(user_id: str, body: MessageReq, request: Request, u
     return {"message": msg}
 
 
-# -------------------- payments (Stripe) --------------------
+# -------------------- payments (Square) --------------------
+def _square_headers():
+    return {"Authorization": f"Bearer {SQUARE_ACCESS_TOKEN}", "Square-Version": SQUARE_VERSION}
+
+
+async def sync_square_payment(tx: dict) -> tuple:
+    """Retrieve the Square order for a transaction, sync paid state, return (payment_status, status)."""
+    order_id = tx.get("square_order_id")
+    if not order_id:
+        return tx.get("payment_status", "initiated"), tx.get("status", "open")
+    async with httpx.AsyncClient(timeout=20) as client:
+        resp = await client.get(f"{SQUARE_BASE}/orders/{order_id}", headers=_square_headers())
+    if resp.status_code >= 400:
+        log.error(f"square order status error {resp.status_code}: {resp.text[:200]}")
+        return tx.get("payment_status", "initiated"), tx.get("status", "open")
+    order = resp.json().get("order", {})
+    state = order.get("state", "")  # DRAFT, OPEN, COMPLETED, CANCELED
+    total = order.get("total_money", {}) or {}
+    total_amt = total.get("amount", 0) or 0
+    net_due = (order.get("net_amount_due_money") or {}).get("amount")
+    tenders = order.get("tenders") or []
+    # A Square payment-link order stays OPEN after payment; detect paid via net amount due == 0.
+    fully_paid = (total_amt > 0 and net_due == 0 and len(tenders) > 0) or state == "COMPLETED"
+    if fully_paid:
+        payment_status, status = "paid", "complete"
+    elif state == "CANCELED":
+        payment_status, status = "unpaid", "expired"
+    else:
+        payment_status, status = "initiated", "open"
+    if tx.get("payment_status") != payment_status:
+        await db.payment_transactions.update_one(
+            {"session_id": tx["session_id"]},
+            {"$set": {"payment_status": payment_status, "status": status, "updated_at": now_utc()}},
+        )
+        if payment_status == "paid":
+            await mark_booking_paid(tx["booking_id"])
+    return payment_status, status
+
+
 @api.post("/payments/checkout")
 async def payments_checkout(body: CheckoutCreate, request: Request, u: dict = Depends(require_user)):
     booking = await db.bookings.find_one({"booking_id": body.booking_id, "user_id": u["user_id"]}, {"_id": 0})
@@ -1351,42 +1389,47 @@ async def payments_status(session_id: str, request: Request, u: dict = Depends(r
     tx = await db.payment_transactions.find_one({"session_id": session_id, "user_id": u["user_id"]}, {"_id": 0})
     if not tx:
         raise HTTPException(404, "Session not found")
-    headers = {
-        "Authorization": f"Bearer {SQUARE_ACCESS_TOKEN}",
-        "Square-Version": SQUARE_VERSION,
-    }
-    async with httpx.AsyncClient(timeout=20) as client:
-        resp = await client.get(f"{SQUARE_BASE}/orders/{tx['square_order_id']}", headers=headers)
-    if resp.status_code >= 400:
-        log.error(f"square order status error {resp.status_code}: {resp.text[:200]}")
-        return {"payment_status": tx.get("payment_status", "initiated"), "status": tx.get("status", "open")}
-    order = resp.json().get("order", {})
-    state = order.get("state", "")  # DRAFT, OPEN, COMPLETED, CANCELED
-    total = order.get("total_money", {}) or {}
-    total_amt = total.get("amount", 0) or 0
-    net_due = (order.get("net_amount_due_money") or {}).get("amount")
-    tenders = order.get("tenders") or []
-    # A Square payment-link order stays OPEN after payment; detect paid via net amount due == 0.
-    fully_paid = (total_amt > 0 and net_due == 0 and len(tenders) > 0) or state == "COMPLETED"
-    if fully_paid:
-        payment_status, status = "paid", "complete"
-    elif state == "CANCELED":
-        payment_status, status = "unpaid", "expired"
-    else:
-        payment_status, status = "initiated", "open"
-
-    if tx.get("payment_status") != payment_status:
-        await db.payment_transactions.update_one(
-            {"session_id": session_id},
-            {"$set": {"payment_status": payment_status, "status": status, "updated_at": now_utc()}},
-        )
-        if payment_status == "paid":
-            await mark_booking_paid(tx["booking_id"])
+    payment_status, status = await sync_square_payment(tx)
     return {
         "payment_status": payment_status,
         "status": status,
-        "amount_total": total.get("amount"),
-        "currency": (total.get("currency") or tx.get("currency", "aud")).lower(),
+        "amount_total": tx.get("amount"),
+        "currency": (tx.get("currency", "aud")).lower(),
+    }
+
+
+@api.get("/payments/receipt/{booking_id}")
+async def payment_receipt(booking_id: str, u: dict = Depends(require_user)):
+    b = await db.bookings.find_one({"booking_id": booking_id, "user_id": u["user_id"]}, {"_id": 0})
+    if not b:
+        raise HTTPException(404, "Booking not found")
+    if b.get("status") != "paid":
+        # The web redirect can arrive before any status poll ran — sync with Square now.
+        tx = await db.payment_transactions.find_one({"booking_id": booking_id}, {"_id": 0})
+        if tx:
+            await sync_square_payment(tx)
+            b = await db.bookings.find_one({"booking_id": booking_id, "user_id": u["user_id"]}, {"_id": 0})
+    if b.get("status") != "paid":
+        raise HTTPException(409, "Booking not paid")
+    cls = await db.classes.find_one({"class_id": b["class_id"]}, {"_id": 0}) or {}
+    tx = await db.payment_transactions.find_one({"booking_id": booking_id}, {"_id": 0}) or {}
+    start = cls.get("start_at") or b.get("class_start")
+    paid_at = b.get("paid_at")
+    return {
+        "booking_id": booking_id,
+        "receipt_number": booking_id.replace("bk_", "").upper()[:10],
+        "class_name": b.get("class_name"),
+        "trainer": cls.get("trainer"),
+        "class_start": start.isoformat() if isinstance(start, datetime) else start,
+        "by_appointment": bool(b.get("by_appointment")),
+        "amount_cents": b.get("amount", 0),
+        "currency": (b.get("currency") or "aud").upper(),
+        "paid_at": paid_at.isoformat() if isinstance(paid_at, datetime) else paid_at,
+        "payment_method": "Square",
+        "order_id": tx.get("square_order_id"),
+        "member_name": u.get("name") or u.get("email"),
+        "member_email": u.get("email"),
+        "location": GYM_INFO["address"],
     }
 
 

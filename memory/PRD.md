@@ -204,3 +204,10 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - KEY LEARNING: paid payment-link orders stay `state=OPEN` (not COMPLETED); detect paid via total>0 AND net_amount_due_money.amount==0 AND tenders present (or state COMPLETED). Sandbox tender type = OTHER.
 - Env: backend/.env SQUARE_ENV=sandbox, token, SQUARE_LOCATION_ID=LMXQ7GTSCT370 (AUD). Old Stripe /webhook/stripe route left in place (unused/harmless).
 - Verified end-to-end: created booking -> checkout returns sandbox.square.link URL -> completed via Square Sandbox Testing Panel -> /payments/status returned paid -> booking marked paid (mark_booking_paid fired). To go live: SQUARE_ENV=production + production token + production location id.
+
+## Session update 37 (Jun 2026 fork) — In-app Payment Receipt (DONE)
+- After a successful class payment, members now see a tidy in-app receipt.
+- Backend: refactored Square order-status into shared helper sync_square_payment(tx) (used by /payments/status). NEW GET /api/payments/receipt/{booking_id} (require_user, ownership-checked) — if booking not yet paid it syncs with Square first (covers web redirect arriving before any poll), returns receipt_number, class_name, trainer, class_start, amount_cents, currency, paid_at, payment_method "Square", order_id, member name/email, location. api.ts +paymentReceipt.
+- Frontend: NEW /app/frontend/app/receipt.tsx — success header + branded receipt card (logo, PAID pill, big amount, Class/Coach/When/Paid on/Method/Receipt #/Account rows, dashed footer w/ location) + DONE (->Profile) + "Book another class" (->Timetable). Retries the fetch a few times for eventual consistency.
+- Wiring: class/[id].tsx native flow now router.replace -> /receipt?booking_id on paid (was profile). payment-return.tsx (web redirect) now forwards to /receipt?booking_id when status=success (Square redirect_url carries booking_id).
+- Verified: receipt endpoint returns full data for a paid booking; /receipt screen renders (screenshot).

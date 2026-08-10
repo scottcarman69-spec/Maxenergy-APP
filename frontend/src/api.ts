@@ -90,6 +90,7 @@ export const api = {
       body: JSON.stringify({ booking_id, origin_url }),
     }),
   paymentStatus: (session_id: string) => req(`/api/payments/status/${session_id}`),
+  paymentReceipt: (booking_id: string) => req(`/api/payments/receipt/${booking_id}`),
 
   events: () => req("/api/events"),
   eventDetail: (id: string) => req(`/api/events/${id}`),
