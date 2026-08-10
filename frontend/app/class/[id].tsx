@@ -23,6 +23,8 @@ type Cls = {
   description: string;
   level: string;
   capacity: number;
+  booked?: number;
+  spots_left?: number;
   by_appointment?: boolean;
 };
 
@@ -206,7 +208,13 @@ export default function ClassDetail() {
             <View style={styles.metaCol}>
               <Ionicons name="people-outline" size={16} color={colors.brand} />
               <Text style={styles.metaLabel}>SPOTS</Text>
-              <Text style={styles.metaVal}>{cls.by_appointment ? "1-on-1" : `${cls.capacity} max`}</Text>
+              <Text style={styles.metaVal}>
+                {cls.by_appointment
+                  ? "1-on-1"
+                  : typeof cls.spots_left === "number"
+                    ? cls.spots_left === 0 ? "Class full" : `${cls.spots_left} of ${cls.capacity} left`
+                    : `${cls.capacity} max`}
+              </Text>
             </View>
           </View>
 

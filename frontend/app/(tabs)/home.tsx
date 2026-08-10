@@ -155,7 +155,7 @@ export default function Home() {
             contentFit="contain"
           />
           <View style={styles.headerActions}>
-            <Pressable testID="home-calendar-btn" onPress={() => router.push("/calendar")} style={styles.calChip} hitSlop={8}>
+            <Pressable testID="home-calendar-btn" onPress={() => router.push(user?.is_admin ? "/admin/calendar" : "/calendar")} style={styles.calChip} hitSlop={8}>
               <Text style={styles.calChipMonth}>{qldTodayUTC().toLocaleDateString("en-AU", { month: "short", timeZone: "UTC" }).toUpperCase()}</Text>
               <Text style={styles.calChipDay}>{qldTodayUTC().getUTCDate()}</Text>
             </Pressable>

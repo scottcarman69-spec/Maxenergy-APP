@@ -4,7 +4,6 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
-import { useAuth } from "@/src/AuthContext";
 import { colors, spacing, radius, font } from "@/src/theme";
 import { classTime, classDate, scheduleDay, qldTodayUTC } from "@/src/datetime";
 
@@ -55,7 +54,6 @@ function anchorMinutes(b: Booking): number {
 
 export default function MyCalendar() {
   const router = useRouter();
-  const { user } = useAuth();
   const [rows, setRows] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [cursor, setCursor] = useState<Date>(() => {
@@ -130,14 +128,6 @@ export default function MyCalendar() {
         <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />
       ) : (
         <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: 48 }}>
-          {user?.is_admin && (
-            <Pressable testID="mycal-admin-all" style={styles.adminLink} onPress={() => router.push("/admin/calendar")}>
-              <Ionicons name="calendar-number" size={18} color={colors.brand} />
-              <Text style={styles.adminLinkText}>View ALL gym bookings (Admin)</Text>
-              <Ionicons name="chevron-forward" size={18} color={colors.brand} />
-            </Pressable>
-          )}
-
           <View style={styles.filterRow}>
             {FILTERS.map((f) => (
               <Pressable key={f} testID={`mycal-filter-${f}`} onPress={() => setFilter(f)} style={[styles.filterChip, filter === f && styles.filterChipOn]}>

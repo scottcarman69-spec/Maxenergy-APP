@@ -399,3 +399,7 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Home "N class today" bug: by-appointment classes (Personal Training/Custom Programs) have start_at=creation time and never end, so one created today was miscounted. Fixed home to use scheduled = classes.filter(!by_appointment && !ended); todayCount now compares scheduleDay vs qldTodayUTC; upcoming/UP NEXT also excludes appointment+ended. Verified "No classes today" now correct.
 - Home calendar button redesigned: replaced generic icon with a tear-off calendar chip showing today's month (AUG) + day (10) in QLD, orange header, clearly tappable → /calendar. Verified via screenshot.
 - Test/demo data cleaned.
+
+## Session update 69 (Jun 2026 fork) — Class capacity bar + admin direct-to-all-bookings calendar (DONE)
+- Capacity bar: backend classes_list now aggregates active bookings (paid/confirmed) per class and adds booked + spots_left (fixed-time classes only); class_detail adds the same via count_documents. Frontend timetable class cards show a coloured progress bar (green >3 left, amber <=3, red full) + "N spots left"/"Class full". Class detail SPOTS stat now shows "X of Y left" / "Class full". Verified: Kickboxing shows "20 spots left" with green bar; API returns booked/spots_left.
+- Admin calendar routing: Home calendar tear-off chip now routes admins straight to /admin/calendar (all bookings + class schedule) and members to /calendar. Removed the "View ALL gym bookings (Admin)" banner from the member /calendar and its now-unused useAuth import.

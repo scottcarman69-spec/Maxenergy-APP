@@ -43,6 +43,9 @@ type Cls = {
   start_at: string;
   program?: string;
   by_appointment?: boolean;
+  capacity?: number;
+  booked?: number;
+  spots_left?: number;
 };
 
 const CATEGORIES = ["All", "Adults", "Kids"];
@@ -331,6 +334,24 @@ export default function Timetable() {
                       </View>
                       <Text style={styles.duration} numberOfLines={1}>{item.duration_min} min</Text>
                     </View>
+                    {typeof item.spots_left === "number" && (item.capacity || 0) > 0 && (
+                      <View style={styles.capWrap}>
+                        <View style={styles.capTrack}>
+                          <View
+                            style={[
+                              styles.capFill,
+                              {
+                                width: `${Math.min(100, Math.round(((item.booked || 0) / (item.capacity || 1)) * 100))}%`,
+                                backgroundColor: item.spots_left === 0 ? colors.error : item.spots_left <= 3 ? colors.warning : colors.success,
+                              },
+                            ]}
+                          />
+                        </View>
+                        <Text style={[styles.capText, item.spots_left === 0 && { color: colors.error }]}>
+                          {item.spots_left === 0 ? "Class full" : `${item.spots_left} spot${item.spots_left === 1 ? "" : "s"} left`}
+                        </Text>
+                      </View>
+                    )}
                   </View>
                   <View style={styles.bookOutline}>
                     <Text style={styles.bookOutlineText}>Book</Text>
@@ -347,6 +368,10 @@ export default function Timetable() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "transparent" },
+  capWrap: { marginTop: spacing.sm, gap: 4 },
+  capTrack: { height: 6, borderRadius: 3, backgroundColor: colors.surfaceTertiary, overflow: "hidden" },
+  capFill: { height: 6, borderRadius: 3 },
+  capText: { fontSize: 11, fontWeight: "700", color: colors.onSurfaceSecondary },
   header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
   title: { ...type.h1 },
   subtitle: { ...type.small, marginTop: 2 },

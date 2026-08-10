@@ -1002,6 +1002,12 @@ async def classes_list(category: Optional[str] = None, include_ended: bool = Fal
         q["category"] = category
     rows = await db.classes.find(q, {"_id": 0}).sort("start_at", 1).to_list(1000)
     now_local = (now_utc() + timedelta(hours=10)).replace(tzinfo=None)
+    # count active bookings (paid/confirmed) per class for capacity display
+    agg = await db.bookings.aggregate([
+        {"$match": {"status": {"$in": ["paid", "confirmed"]}}},
+        {"$group": {"_id": "$class_id", "n": {"$sum": 1}}},
+    ]).to_list(5000)
+    booked_map = {a["_id"]: a["n"] for a in agg}
     out = []
     for r in rows:
         ended = False
@@ -1015,6 +1021,11 @@ async def classes_list(category: Optional[str] = None, include_ended: bool = Fal
         if ended and not include_ended:
             continue
         r["ended"] = ended
+        if not r.get("by_appointment"):
+            cap = r.get("capacity") or 0
+            booked = booked_map.get(r["class_id"], 0)
+            r["booked"] = booked
+            r["spots_left"] = max(cap - booked, 0)
         out.append(r)
     return {"classes": [with_coach(r) for r in out]}
 
@@ -1024,6 +1035,11 @@ async def class_detail(class_id: str):
     c = await db.classes.find_one({"class_id": class_id}, {"_id": 0})
     if not c:
         raise HTTPException(404, "Class not found")
+    if not c.get("by_appointment"):
+        cap = c.get("capacity") or 0
+        booked = await db.bookings.count_documents({"class_id": class_id, "status": {"$in": ["paid", "confirmed"]}})
+        c["booked"] = booked
+        c["spots_left"] = max(cap - booked, 0)
     return with_coach(c)
 
 
