@@ -230,6 +230,7 @@ export default function AdminCalendar() {
               if (!d) return <View key={i} style={styles.cell} />;
               const key = keyFor(d);
               const dayBookings = grouped[key] || [];
+              const dayCount = dayBookings.length + (classesByDay[key]?.length || 0);
               const isToday = key === todayKey;
               const isSel = key === selected;
               return (
@@ -239,6 +240,11 @@ export default function AdminCalendar() {
                   style={[styles.cell, styles.cellDay, isSel && styles.cellSel, isToday && !isSel && styles.cellToday]}
                   onPress={() => setSelected(key)}
                 >
+                  {dayCount > 0 && (
+                    <View style={styles.countBadge} testID={`admincal-count-${d}`}>
+                      <Text style={styles.countBadgeText}>{dayCount > 9 ? "9+" : dayCount}</Text>
+                    </View>
+                  )}
                   <Text style={[styles.cellNum, isSel && styles.cellNumSel, isToday && !isSel && styles.cellNumToday]}>{d}</Text>
                   <View style={styles.dots}>
                     {[...(classesByDay[key]?.length ? [CLASS_COLOR] : []), ...dotColors(dayBookings)].slice(0, 3).map((c, di) => (
@@ -457,6 +463,8 @@ const styles = StyleSheet.create({
   grid: { flexDirection: "row", flexWrap: "wrap" },
   cell: { width: `${100 / 7}%`, aspectRatio: 1, padding: 3 },
   cellDay: { alignItems: "center", justifyContent: "center" },
+  countBadge: { position: "absolute", top: 0, right: 4, minWidth: 16, height: 16, paddingHorizontal: 4, borderRadius: 8, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center", zIndex: 2 },
+  countBadgeText: { color: colors.onBrand, fontSize: 9, fontWeight: "900" },
   cellSel: { },
   cellToday: { },
   cellNum: { color: colors.onSurface, fontSize: 15, fontWeight: "700", width: 30, height: 30, borderRadius: 15, textAlign: "center", textAlignVertical: "center", lineHeight: 30 },
