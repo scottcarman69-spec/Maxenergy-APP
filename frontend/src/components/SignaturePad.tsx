@@ -4,6 +4,10 @@ import Svg, { Path } from "react-native-svg";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, radius } from "@/src/theme";
 
+// Dark ink so the signature is clearly visible on the white pad.
+const INK = "#0F172A";
+const INK_WIDTH = 3;
+
 /**
  * Cross-platform draw-to-sign pad.
  * Captures strokes as SVG path strings. onChange returns a single combined
@@ -77,16 +81,16 @@ export function SignaturePad({
       <View style={[styles.pad, { height }]} {...responder.panHandlers} collapsable={false}>
         <Svg width="100%" height="100%" pointerEvents="none">
           {paths.map((d, i) => (
-            <Path key={i} d={d} stroke={colors.onSurface} strokeWidth={2.5} fill="none" strokeLinejoin="round" strokeLinecap="round" />
+            <Path key={i} d={d} stroke={INK} strokeWidth={INK_WIDTH} fill="none" strokeLinejoin="round" strokeLinecap="round" />
           ))}
           {!!active && (
-            <Path d={active} stroke={colors.onSurface} strokeWidth={2.5} fill="none" strokeLinejoin="round" strokeLinecap="round" />
+            <Path d={active} stroke={INK} strokeWidth={INK_WIDTH} fill="none" strokeLinejoin="round" strokeLinecap="round" />
           )}
         </Svg>
         {!hasContent && (
           <View style={styles.placeholder} pointerEvents="none">
             <Ionicons name="pencil" size={18} color={colors.onSurfaceSecondary} />
-            <Text style={styles.placeholderText}>Sign here with your finger</Text>
+            <Text style={styles.placeholderText}>Sign here with your finger or mouse</Text>
           </View>
         )}
       </View>
@@ -104,7 +108,7 @@ export function SignatureView({ d, height = 120 }: { d: string; height?: number 
   return (
     <View style={[styles.viewPad, { height }]}>
       <Svg width="100%" height="100%">
-        <Path d={d} stroke={colors.onSurface} strokeWidth={2.5} fill="none" strokeLinejoin="round" strokeLinecap="round" />
+        <Path d={d} stroke={INK} strokeWidth={INK_WIDTH} fill="none" strokeLinejoin="round" strokeLinecap="round" />
       </Svg>
     </View>
   );

@@ -106,7 +106,7 @@ export default function Membership() {
     if (s === 3) {
       if (mediaConsent === null) return "Please choose Yes or No for media consent.";
       if (!waiverAgreed) return "Please tick the box to agree to the Membership Terms & Conditions.";
-      if (!signaturePath) return "Please sign in the signature box with your finger.";
+      if (!signaturePath) return "Please sign in the signature box with your finger or mouse.";
       if (!signature.trim()) return "Please type your full name as your signature.";
       if (!photo) return "Please add a photo for your member profile / ID.";
       return null;
@@ -353,7 +353,7 @@ export default function Membership() {
                 )}
 
                 <SectionTitle>SIGNATURE</SectionTitle>
-                <Text style={styles.helpText}>Draw your signature below with your finger to confirm your declaration.</Text>
+                <Text style={styles.helpText}>Draw your signature below with your finger or mouse to confirm your declaration.</Text>
                 <SignaturePad
                   testID="signature-pad"
                   onChange={setSignaturePath}
