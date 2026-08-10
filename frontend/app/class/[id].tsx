@@ -193,13 +193,13 @@ export default function ClassDetail() {
           <Text style={styles.desc}>{cls.description}</Text>
 
           {isMember === false && (
-            <Pressable testID="join-notice" style={styles.joinNotice} onPress={() => router.push("/membership")}>
+            <Pressable testID="join-notice" style={styles.joinNotice} onPress={() => router.push("/vigyr-signon")}>
               <View style={styles.joinIcon}>
                 <Ionicons name="card" size={18} color={colors.brand} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.joinTitle}>Not a member yet?</Text>
-                <Text style={styles.joinBody}>Please fill out a membership form to join Max Energy. Tap here to get started.</Text>
+                <Text style={styles.joinBody}>Join Maxenergy Fitness to book classes. Tap here to sign up.</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color={colors.brand} />
             </Pressable>

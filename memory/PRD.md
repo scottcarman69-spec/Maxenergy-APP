@@ -303,3 +303,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Removed the separate left time column; the start time now sits inside the class card as a pill (clock icon + "6:00 PM", tinted to the category colour) in the meta row alongside the level pill and "N min" (duration pushed right via marginLeft auto, numberOfLines=1 so nothing wraps).
 - timetable.tsx: dropped timeCol/time/dur styles; added timePill/timePillText; metaRow gap-based. fmtTime still used (pill + peek card).
 - Verified via screenshot: Kickboxing card shows "🕐 6:00 PM · All levels · 60 min" on one line.
+
+## Session update 54 (Jun 2026 fork) — Remove internal membership-form UI (external signup) (DONE)
+- Removed Profile "Download my membership form" card + its pdfApp state/fetch (setPdfApp, download* usage) — members now sign up externally via Vigyr, no internal PDF.
+- Class detail "Not a member yet?" card now routes to /vigyr-signon (was the orphaned internal /membership form) and reworded "Join Maxenergy Fitness to book classes. Tap here to sign up." (kept as a useful join CTA per best judgment rather than deleting).
+- Verified: tsc exit 0; Profile screenshot no longer shows the download card.

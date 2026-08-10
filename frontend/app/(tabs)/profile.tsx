@@ -27,7 +27,6 @@ export default function Profile() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [isMember, setIsMember] = useState(false);
-  const [pdfApp, setPdfApp] = useState<{ application_id: string; plan_name?: string } | null>(null);
   const [rescheduleFor, setRescheduleFor] = useState<Booking | null>(null);
   const [rTime, setRTime] = useState("");
   const [rNote, setRNote] = useState("");
@@ -43,7 +42,6 @@ export default function Profile() {
       setBookings(b.bookings || []);
       const apps = a.applications || [];
       setIsMember(apps.some((x: any) => x.status === "approved"));
-      setPdfApp(apps.find((x: any) => x.pdf_filename) || null);
     } catch {}
     setLoading(false);
   }, []);
@@ -219,22 +217,6 @@ export default function Profile() {
               <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceSecondary} />
             </Pressable>
           ))}
-          {pdfApp && (
-            <Pressable
-              testID="profile-download-form"
-              style={styles.downloadRow}
-              onPress={() => Linking.openURL(`${BACKEND_URL}/api/membership/forms/${pdfApp.application_id}.pdf`)}
-            >
-              <View style={styles.downloadIcon}>
-                <Ionicons name="document-text" size={18} color={colors.onBrand} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.downloadLabel}>Download my membership form</Text>
-                <Text style={styles.downloadSub}>PDF copy of your completed form</Text>
-              </View>
-              <Ionicons name="download-outline" size={20} color={colors.brand} />
-            </Pressable>
-          )}
         </View>
 
         <Text style={styles.section}>CLASS REMINDERS</Text>
