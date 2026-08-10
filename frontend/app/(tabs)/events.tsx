@@ -30,6 +30,15 @@ export default function Notices() {
   const [events, setEvents] = useState<Evt[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const toggle = (id: string) =>
+    setExpanded((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const load = useCallback(async () => {
     try {
@@ -87,8 +96,14 @@ export default function Notices() {
           {anns.map((a) => {
             const grad: [string, string] = a.pinned ? ["#FF9A3D", "#FF7A00"] : ["#3B82F6", "#2563EB"];
             const accent = a.pinned ? colors.brand : "#3B82F6";
+            const isOpen = expanded.has(a.announcement_id);
             return (
-              <View key={a.announcement_id} testID={`ann-${a.announcement_id}`} style={styles.annCard}>
+              <Pressable
+                key={a.announcement_id}
+                testID={`ann-${a.announcement_id}`}
+                onPress={() => toggle(a.announcement_id)}
+                style={({ pressed }) => [styles.annCard, pressed && { opacity: 0.9 }]}
+              >
                 <View style={[styles.leftBar, { backgroundColor: accent }]} />
                 <LinearGradient colors={grad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.annIcon}>
                   <Ionicons name={a.pinned ? "pin" : "megaphone"} size={20} color="#fff" />
@@ -102,11 +117,22 @@ export default function Notices() {
                     )}
                     <Text style={styles.annTime}>{timeAgo(a.created_at)}</Text>
                   </View>
-                  <Text style={styles.annTitle}>{a.title}</Text>
-                  <Text style={styles.annBody}>{a.body}</Text>
-                  <Text style={styles.annAuthor}>— {a.author}</Text>
+                  <View style={styles.annTitleRow}>
+                    <Text style={styles.annTitle} numberOfLines={isOpen ? undefined : 1}>{a.title}</Text>
+                    <View style={styles.chevronCircle}>
+                      <Ionicons name={isOpen ? "chevron-up" : "chevron-down"} size={16} color={colors.brand} />
+                    </View>
+                  </View>
+                  {isOpen ? (
+                    <>
+                      <Text style={styles.annBody}>{a.body}</Text>
+                      <Text style={styles.annAuthor}>— {a.author}</Text>
+                    </>
+                  ) : (
+                    <Text style={styles.annPreview} numberOfLines={1}>{a.body}</Text>
+                  )}
                 </View>
-              </View>
+              </Pressable>
             );
           })}
 
@@ -199,7 +225,10 @@ const styles = StyleSheet.create({
   annTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   tag: { fontSize: 10, fontFamily: font.heading, letterSpacing: 1.5 },
   annTime: { color: colors.onSurfaceSecondary, fontSize: 11 },
-  annTitle: { color: colors.onSurface, fontSize: 17, fontFamily: font.heading },
+  annTitle: { color: colors.onSurface, fontSize: 17, fontFamily: font.heading, flex: 1 },
+  annTitleRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  chevronCircle: { width: 26, height: 26, borderRadius: 13, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center" },
+  annPreview: { color: colors.onSurfaceSecondary, fontSize: 13, opacity: 0.7 },
   annBody: { color: colors.onSurfaceSecondary, fontSize: 14, lineHeight: 20 },
   annAuthor: { color: colors.brand, fontSize: 12, fontFamily: font.semibold, marginTop: 2 },
 

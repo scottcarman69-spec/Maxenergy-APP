@@ -113,24 +113,34 @@ export default function Profile() {
         </View>
 
         {user?.is_admin && (
-          <Pressable testID="open-admin-dashboard" style={styles.adminCta} onPress={() => router.push("/admin")}>
-            <Ionicons name="construct" size={18} color={colors.onBrand} />
-            <Text style={styles.adminCtaText}>ADMIN DASHBOARD</Text>
-            <Ionicons name="arrow-forward" size={16} color={colors.onBrand} style={{ marginLeft: "auto" }} />
-          </Pressable>
-        )}
-
-        {user?.is_admin && (
-          <Pressable testID="open-admin-inbox" style={styles.inboxCta} onPress={() => router.push("/admin/inbox")}>
-            <Ionicons name="chatbubbles" size={18} color={colors.brand} />
-            <Text style={styles.inboxCtaText}>CUSTOMER INBOX</Text>
-            {adminUnread > 0 && (
-              <View style={styles.inboxBadge}>
-                <Text style={styles.inboxBadgeText}>{adminUnread}</Text>
-              </View>
-            )}
-            <Ionicons name="arrow-forward" size={16} color={colors.brand} style={{ marginLeft: adminUnread > 0 ? spacing.sm : "auto" }} />
-          </Pressable>
+          <>
+            <Text style={styles.section}>ADMIN</Text>
+            <View style={styles.linkGroup}>
+              <Pressable testID="open-admin-dashboard" style={[styles.membershipRow, styles.linkRowDivider]} onPress={() => router.push("/admin")}>
+                <View style={styles.membershipIcon}>
+                  <Ionicons name="construct" size={20} color={colors.onBrand} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.membershipLabel}>Admin Dashboard</Text>
+                  <Text style={styles.membershipSub}>Classes, notices, attendance & more</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.brand} />
+              </Pressable>
+              <Pressable testID="open-admin-inbox" style={styles.membershipRow} onPress={() => router.push("/admin/inbox")}>
+                <View style={styles.membershipIcon}>
+                  <Ionicons name="chatbubbles" size={20} color={colors.onBrand} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.membershipLabel}>Customer Support</Text>
+                  <Text style={styles.membershipSub}>Read & reply to member messages</Text>
+                </View>
+                {adminUnread > 0 && (
+                  <View style={styles.navBadge}><Text style={styles.navBadgeText}>{adminUnread}</Text></View>
+                )}
+                <Ionicons name="chevron-forward" size={18} color={colors.brand} />
+              </Pressable>
+            </View>
+          </>
         )}
 
         <Text style={styles.section}>ACTIVITY</Text>
@@ -272,32 +282,6 @@ const styles = StyleSheet.create({
   statBox: { flex: 1, backgroundColor: colors.surfaceSecondary, padding: spacing.md, borderRadius: radius.md, alignItems: "center", borderWidth: 1, borderColor: colors.border },
   statNum: { color: colors.brand, fontSize: 22, fontWeight: "900" },
   statLabel: { color: colors.onSurfaceSecondary, fontSize: 10, letterSpacing: 1, fontWeight: "700", marginTop: 2 },
-  adminCta: {
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.lg,
-    backgroundColor: colors.brand,
-    borderRadius: radius.md,
-    padding: spacing.lg,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  adminCtaText: { color: colors.onBrand, fontWeight: "900", letterSpacing: 1 },
-  inboxCta: {
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.sm,
-    backgroundColor: colors.surfaceSecondary,
-    borderRadius: radius.md,
-    padding: spacing.lg,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.brand,
-  },
-  inboxCtaText: { color: colors.brand, fontWeight: "900", letterSpacing: 1 },
-  inboxBadge: { marginLeft: "auto", minWidth: 22, height: 22, paddingHorizontal: 6, borderRadius: 11, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
-  inboxBadgeText: { color: colors.onBrand, fontSize: 12, fontWeight: "900" },
   linkGroup: { marginHorizontal: spacing.lg, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, overflow: "hidden" },
   linkRow: {
     flexDirection: "row",
