@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Linking } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Linking, Modal } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -9,6 +9,7 @@ import { classTime, classDate, scheduleDay, qldTodayUTC } from "@/src/datetime";
 
 type Booking = {
   booking_id: string;
+  class_id?: string;
   class_name: string;
   status: string;
   amount: number;
@@ -87,6 +88,7 @@ export default function AdminCalendar() {
   const [selected, setSelected] = useState<string>(() => qldTodayUTC().toISOString().slice(0, 10));
   const [filter, setFilter] = useState<Filter>("All");
   const [actioning, setActioning] = useState<string | null>(null);
+  const [classModal, setClassModal] = useState<ClassSession | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -264,7 +266,7 @@ export default function AdminCalendar() {
                   key={c.class_id}
                   testID={`admincal-class-${c.class_id}`}
                   style={styles.classItem}
-                  onPress={() => router.push({ pathname: "/class/[id]", params: { id: c.class_id } })}
+                  onPress={() => setClassModal(c)}
                 >
                   <View style={[styles.itemBar, { backgroundColor: CLASS_COLOR }]} />
                   <View style={styles.itemTime}>
@@ -349,6 +351,82 @@ export default function AdminCalendar() {
           )}
         </ScrollView>
       )}
+
+      <Modal visible={!!classModal} transparent animationType="slide" onRequestClose={() => setClassModal(null)}>
+        <View style={styles.mOverlay}>
+          <View style={styles.mSheet}>
+            <View style={styles.mHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.mTitle}>{classModal?.name}</Text>
+                <Text style={styles.mSub}>
+                  {classModal?.start_at ? `${classDate(classModal.start_at, { weekday: "short", day: "2-digit", month: "short" })} · ${classTime(classModal.start_at)}` : ""}
+                  {classModal?.trainer ? ` · ${classModal.trainer}` : ""}
+                </Text>
+              </View>
+              <Pressable testID="admincal-class-close" onPress={() => setClassModal(null)} hitSlop={12}>
+                <Ionicons name="close" size={24} color={colors.onSurface} />
+              </Pressable>
+            </View>
+
+            {(() => {
+              const attendees = classModal
+                ? rows.filter((r) => r.class_id === classModal.class_id && r.status !== "cancelled")
+                : [];
+              const attCount = attendees.filter((a) => a.attended).length;
+              if (attendees.length === 0) {
+                return (
+                  <View style={styles.empty}>
+                    <Ionicons name="people-outline" size={34} color={colors.onSurfaceSecondary} />
+                    <Text style={styles.emptyText}>No one has booked this class yet.</Text>
+                  </View>
+                );
+              }
+              return (
+                <>
+                  <Text style={styles.mCount}>{attendees.length} booked · {attCount} attended</Text>
+                  <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ paddingBottom: spacing.sm }}>
+                    {attendees.map((b) => {
+                      const busy = actioning === b.booking_id;
+                      const num = (b.member_phone || "").replace(/[^\d+]/g, "");
+                      return (
+                        <View key={b.booking_id} style={styles.rosterRow}>
+                          <Pressable
+                            testID={`roster-attend-${b.booking_id}`}
+                            style={[styles.checkbox, b.attended && styles.checkboxOn]}
+                            disabled={busy}
+                            onPress={() => toggleAttend(b)}
+                          >
+                            {busy ? (
+                              <ActivityIndicator size="small" color={b.attended ? "#fff" : colors.brand} />
+                            ) : (
+                              <Ionicons name={b.attended ? "checkmark" : "ellipse-outline"} size={18} color={b.attended ? "#fff" : colors.onSurfaceSecondary} />
+                            )}
+                          </Pressable>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.rosterName} numberOfLines={1}>{b.member_name || "Member"}</Text>
+                            {!!b.member_phone && <Text style={styles.rosterPhone} numberOfLines={1}>{b.member_phone}</Text>}
+                          </View>
+                          {!!num && (
+                            <>
+                              <Pressable testID={`roster-call-${b.booking_id}`} style={styles.rosterIcon} onPress={() => Linking.openURL(`tel:${num}`)}>
+                                <Ionicons name="call" size={16} color={colors.brand} />
+                              </Pressable>
+                              <Pressable testID={`roster-text-${b.booking_id}`} style={styles.rosterIcon} onPress={() => Linking.openURL(`sms:${num}`)}>
+                                <Ionicons name="chatbubble-ellipses" size={16} color={colors.brand} />
+                              </Pressable>
+                            </>
+                          )}
+                        </View>
+                      );
+                    })}
+                  </ScrollView>
+                  <Text style={styles.mHint}>Tap the circle to mark a member attended.</Text>
+                </>
+              );
+            })()}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -403,4 +481,17 @@ const styles = StyleSheet.create({
   attendText: { color: colors.onSurface, fontWeight: "800", fontSize: 13 },
   pill: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: radius.pill },
   pillText: { color: "#fff", fontSize: 9, fontWeight: "900", letterSpacing: 0.5 },
+  mOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
+  mSheet: { backgroundColor: colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: spacing.xl, paddingBottom: spacing.xl + 12, borderWidth: 1, borderColor: colors.border },
+  mHeader: { flexDirection: "row", alignItems: "center", marginBottom: spacing.md },
+  mTitle: { color: colors.onSurface, fontSize: 20, fontWeight: "900" },
+  mSub: { color: colors.onSurfaceSecondary, fontSize: 13, marginTop: 2 },
+  mCount: { color: colors.brand, fontSize: 12, fontWeight: "800", letterSpacing: 0.5, marginBottom: spacing.sm },
+  mHint: { color: colors.onSurfaceSecondary, fontSize: 12, textAlign: "center", marginTop: spacing.sm },
+  rosterRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
+  checkbox: { width: 34, height: 34, borderRadius: 17, borderWidth: 2, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
+  checkboxOn: { backgroundColor: "#16A34A", borderColor: "#16A34A" },
+  rosterName: { color: colors.onSurface, fontSize: 15, fontWeight: "800" },
+  rosterPhone: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 2 },
+  rosterIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
 });

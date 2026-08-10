@@ -393,3 +393,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - New "Classes" filter chip shows only the schedule; Confirmed/Pending/Cancelled show only matching bookings; All shows classes + all bookings.
 - Member /calendar unchanged (they use the Timetable tab for the schedule).
 - Verified via screenshot: Classes filter, blue dots across class days, Monday agenda shows Muay Thai Kids 5pm + Adults 6pm with CLASS tags. tsc clean.
+
+## Session update 68 (Jun 2026 fork) — Class attendance roster + home fixes (DONE)
+- Attendance on classes: tapping a class in the admin calendar now opens a roster bottom-sheet (class name + date/time/coach) listing everyone booked (non-cancelled) for that class instance (filtered from adminBookings by class_id). Each row has a tap-to-mark attendance circle (green tick), member name + mobile, and call/text buttons. Header shows "N booked · M attended". Live-updates after toggling.
+- Home "N class today" bug: by-appointment classes (Personal Training/Custom Programs) have start_at=creation time and never end, so one created today was miscounted. Fixed home to use scheduled = classes.filter(!by_appointment && !ended); todayCount now compares scheduleDay vs qldTodayUTC; upcoming/UP NEXT also excludes appointment+ended. Verified "No classes today" now correct.
+- Home calendar button redesigned: replaced generic icon with a tear-off calendar chip showing today's month (AUG) + day (10) in QLD, orange header, clearly tappable → /calendar. Verified via screenshot.
+- Test/demo data cleaned.

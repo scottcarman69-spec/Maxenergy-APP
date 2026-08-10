@@ -20,7 +20,7 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAuth } from "@/src/AuthContext";
 import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
-import { classTime, classDate, qldHour } from "@/src/datetime";
+import { classTime, classDate, qldHour, scheduleDay, qldTodayUTC } from "@/src/datetime";
 import ScreenBg from "@/src/components/ScreenBg";
 import { gymPhotos } from "@/src/gymPhotos";
 import { coachSource } from "@/src/coaches";
@@ -38,6 +38,8 @@ type Cls = {
   image: string;
   start_at: string;
   category: string;
+  by_appointment?: boolean;
+  ended?: boolean;
 };
 
 // Class/event times are stored as Queensland (GMT+10) wall-clock, shown as-is.
@@ -104,8 +106,11 @@ export default function Home() {
     setRefreshing(false);
   };
 
-  const upcoming = classes.filter((c) => new Date(c.start_at).getTime() > Date.now()).slice(0, 6);
-  const todayCount = classes.filter((c) => new Date(c.start_at).toDateString() === new Date().toDateString()).length;
+  // Scheduled (fixed-time) classes only — exclude by-appointment options and ended ones.
+  const scheduled = classes.filter((c) => !c.by_appointment && !c.ended);
+  const upcoming = scheduled.slice(0, 6);
+  const todayKey = qldTodayUTC().toISOString().slice(0, 10);
+  const todayCount = scheduled.filter((c) => scheduleDay(c.start_at).toISOString().slice(0, 10) === todayKey).length;
 
   // Auto-advance the UP NEXT slideshow.
   useEffect(() => {
@@ -150,8 +155,9 @@ export default function Home() {
             contentFit="contain"
           />
           <View style={styles.headerActions}>
-            <Pressable testID="home-calendar-btn" onPress={() => router.push("/calendar")} style={styles.iconBtn} hitSlop={8}>
-              <Ionicons name="calendar-number-outline" size={22} color={colors.onSurface} />
+            <Pressable testID="home-calendar-btn" onPress={() => router.push("/calendar")} style={styles.calChip} hitSlop={8}>
+              <Text style={styles.calChipMonth}>{qldTodayUTC().toLocaleDateString("en-AU", { month: "short", timeZone: "UTC" }).toUpperCase()}</Text>
+              <Text style={styles.calChipDay}>{qldTodayUTC().getUTCDate()}</Text>
             </Pressable>
             <Pressable testID="home-profile-btn" onPress={() => router.push("/(tabs)/profile")} style={styles.avatarWrap}>
               <View style={styles.avatar}>
@@ -394,6 +400,9 @@ const styles = StyleSheet.create({
   headerLogo: { width: 150, height: 84 },
   headerActions: { position: "absolute", right: spacing.lg, top: spacing.md, flexDirection: "row", alignItems: "center", gap: spacing.sm },
   iconBtn: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border },
+  calChip: { width: 46, height: 48, borderRadius: 10, overflow: "hidden", backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.brand, alignItems: "stretch" },
+  calChipMonth: { backgroundColor: colors.brand, color: colors.onBrand, fontSize: 10, fontWeight: "900", letterSpacing: 1, textAlign: "center", paddingVertical: 2 },
+  calChipDay: { flex: 1, color: colors.onSurface, fontSize: 20, fontWeight: "900", textAlign: "center", textAlignVertical: "center", lineHeight: 26 },
   avatarWrap: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
   avatar: {
     width: 44,
