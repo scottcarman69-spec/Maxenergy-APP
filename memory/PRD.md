@@ -161,3 +161,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - NEW screen /app/frontend/app/admin/membership-log.tsx: summary counts, All/Approved/Declined filter, per-decision card (badge, plan, email, decided date+admin, View PDF via hosted URL). Entry point: "Log" button in Admin Applications header. api.ts +adminMembershipLog.
 - Also earlier this session: emailed a real test membership (with T&C in body + ABN in PDF) to scottcarman69@gmail.com (Resend 202 Accepted).
 - Verified: approve returns 200 + logs decided_by "Max Energy Admin"; log endpoint 9 approved / 5 declined; screen renders with counts, filters, PDF buttons.
+
+## Session update 30 (Jun 2026 fork) — Embed real Vigyr sign-on form (DONE)
+- User chose Option 2: embed the real Vigyr online sign-on so members register directly in Vigyr's DB (drives keytags/door access).
+- NEW screen /app/frontend/app/vigyr-signon.tsx: WebView (native) / iframe (web) loading https://signon.vigyr.com/online-sign-on/form/CUSTOMER/75-MaxenergyFitness with header (back + "Browser" external-open via WebBrowser/Linking), loading + error overlays. JS + DOM storage + inline media enabled for the 7-step form (detail/health/membership/agreement/signature/comments/submit).
+- Repointed all member-facing membership CTAs to /vigyr-signon: home quick action "Join Membership", services-membership-cta, profile "Membership Application", alerts member_membership tap. Old /app/frontend/app/membership.tsx kept in code but unlinked.
+- Verified: form loads in-app (Step 1 of 7 fields visible) via screenshot. NOTE: signature step + final submit should be validated in Expo Go on device. Vigyr sign-ups do NOT feed our PDF/email/admin log (expected).

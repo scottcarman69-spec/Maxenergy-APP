@@ -54,7 +54,7 @@ export default function Services() {
             </View>
           ))}
 
-          <Pressable testID="services-membership-cta" style={styles.cta} onPress={() => router.push("/membership")}>
+          <Pressable testID="services-membership-cta" style={styles.cta} onPress={() => router.push("/vigyr-signon")}>
             <Ionicons name="card" size={18} color={colors.onBrand} />
             <Text style={styles.ctaText}>JOIN NOW</Text>
           </Pressable>

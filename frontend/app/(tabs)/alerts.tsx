@@ -74,7 +74,7 @@ export default function AlertsTab() {
         router.push("/(tabs)/profile");
         break;
       case "member_membership":
-        router.push("/membership");
+        router.push("/vigyr-signon");
         break;
       case "admin_bookings":
         router.push("/admin/bookings" as any);
