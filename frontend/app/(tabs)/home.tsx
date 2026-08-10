@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,9 @@ import {
   Pressable,
   ActivityIndicator,
   RefreshControl,
+  Dimensions,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -19,6 +22,8 @@ import { colors, spacing, radius, font } from "@/src/theme";
 import ScreenBg from "@/src/components/ScreenBg";
 import { gymPhotos } from "@/src/gymPhotos";
 import FacebookFeed from "@/src/components/FacebookFeed";
+
+const CARD_W = Math.min(Dimensions.get("window").width, 480);
 
 type Cls = {
   class_id: string;
@@ -62,6 +67,8 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [hasAlerts, setHasAlerts] = useState(false);
+  const carouselRef = useRef<ScrollView>(null);
+  const [slide, setSlide] = useState(0);
 
   const load = useCallback(async () => {
     try {
@@ -81,8 +88,25 @@ export default function Home() {
   };
 
   const upcoming = classes.filter((c) => new Date(c.start_at).getTime() > Date.now()).slice(0, 6);
-  const nextClass = upcoming[0];
   const todayCount = classes.filter((c) => new Date(c.start_at).toDateString() === new Date().toDateString()).length;
+
+  // Auto-advance the UP NEXT slideshow.
+  useEffect(() => {
+    if (upcoming.length <= 1) return;
+    const id = setInterval(() => {
+      setSlide((prev) => {
+        const next = (prev + 1) % upcoming.length;
+        carouselRef.current?.scrollTo({ x: next * CARD_W, animated: true });
+        return next;
+      });
+    }, 4500);
+    return () => clearInterval(id);
+  }, [upcoming.length]);
+
+  const onSlideScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const i = Math.round(e.nativeEvent.contentOffset.x / CARD_W);
+    if (i !== slide) setSlide(i);
+  };
 
   const quickActions = [
     { key: "schedule", label: "View Schedule", icon: "calendar", grad: ["#FF7A00", "#FFB259"], onPress: () => router.push("/(tabs)/timetable") },
@@ -143,7 +167,7 @@ export default function Home() {
           </Pressable>
         )}
 
-
+        {loading ? (
           <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />
         ) : (
           <>
@@ -155,39 +179,63 @@ export default function Home() {
               </Pressable>
             </View>
 
-            {nextClass ? (
-              <Pressable
-                testID="home-next-class-card"
-                onPress={() => router.push({ pathname: "/class/[id]", params: { id: nextClass.class_id } })}
-                style={styles.heroCard}
-              >
-                <Image source={nextClass.image} style={StyleSheet.absoluteFill} contentFit="cover" />
-                <LinearGradient
-                  colors={["rgba(18,18,20,0.35)", "rgba(18,18,20,0.6)", "rgba(18,18,20,0.96)"]}
-                  locations={[0, 0.45, 1]}
-                  start={{ x: 1, y: 0 }}
-                  end={{ x: 0, y: 1 }}
-                  style={StyleSheet.absoluteFill}
-                />
-                <View style={styles.heroContent}>
-                  <View style={[styles.badge, { backgroundColor: catStyle(nextClass.category, nextClass.name).color }]}>
-                    <Text style={styles.badgeText}>{nextClass.category.toUpperCase()}</Text>
+            {upcoming.length > 0 ? (
+              <>
+                <ScrollView
+                  ref={carouselRef}
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  onMomentumScrollEnd={onSlideScroll}
+                  scrollEventThrottle={16}
+                  decelerationRate="fast"
+                >
+                  {upcoming.map((cls, idx) => (
+                    <View key={cls.class_id} style={styles.slide}>
+                      <Pressable
+                        testID={idx === 0 ? "home-next-class-card" : `home-upcoming-${cls.class_id}`}
+                        onPress={() => router.push({ pathname: "/class/[id]", params: { id: cls.class_id } })}
+                        style={styles.heroCard}
+                      >
+                        <Image source={cls.image} style={StyleSheet.absoluteFill} contentFit="cover" />
+                        <LinearGradient
+                          colors={["rgba(18,18,20,0.35)", "rgba(18,18,20,0.6)", "rgba(18,18,20,0.96)"]}
+                          locations={[0, 0.45, 1]}
+                          start={{ x: 1, y: 0 }}
+                          end={{ x: 0, y: 1 }}
+                          style={StyleSheet.absoluteFill}
+                        />
+                        <View style={styles.heroContent}>
+                          <View style={[styles.badge, { backgroundColor: catStyle(cls.category, cls.name).color }]}>
+                            <Text style={styles.badgeText}>{cls.category.toUpperCase()}</Text>
+                          </View>
+                          <Text style={styles.heroTitle}>{cls.name}</Text>
+                          <View style={styles.metaRow}>
+                            <Ionicons name="calendar-outline" size={14} color={colors.onSurfaceSecondary} />
+                            <Text style={styles.metaText}>{fmtDay(cls.start_at)}</Text>
+                            <Ionicons name="time-outline" size={14} color={colors.onSurfaceSecondary} style={{ marginLeft: 12 }} />
+                            <Text style={styles.metaText}>{fmtTime(cls.start_at)}</Text>
+                            <Ionicons name="timer-outline" size={14} color={colors.onSurfaceSecondary} style={{ marginLeft: 12 }} />
+                            <Text style={styles.metaText}>{cls.duration_min} min</Text>
+                          </View>
+                          <View style={styles.ctaRow}>
+                            <Text style={styles.ctaText}>Book Class</Text>
+                            <Ionicons name="arrow-forward" size={16} color={colors.onBrand} />
+                          </View>
+                        </View>
+                      </Pressable>
+                    </View>
+                  ))}
+                </ScrollView>
+
+                {upcoming.length > 1 && (
+                  <View style={styles.dots}>
+                    {upcoming.map((_, i) => (
+                      <View key={i} style={[styles.dot, i === slide && styles.dotOn]} />
+                    ))}
                   </View>
-                  <Text style={styles.heroTitle}>{nextClass.name}</Text>
-                  <View style={styles.metaRow}>
-                    <Ionicons name="calendar-outline" size={14} color={colors.onSurfaceSecondary} />
-                    <Text style={styles.metaText}>{fmtDay(nextClass.start_at)}</Text>
-                    <Ionicons name="time-outline" size={14} color={colors.onSurfaceSecondary} style={{ marginLeft: 12 }} />
-                    <Text style={styles.metaText}>{fmtTime(nextClass.start_at)}</Text>
-                    <Ionicons name="timer-outline" size={14} color={colors.onSurfaceSecondary} style={{ marginLeft: 12 }} />
-                    <Text style={styles.metaText}>{nextClass.duration_min} min</Text>
-                  </View>
-                  <View style={styles.ctaRow}>
-                    <Text style={styles.ctaText}>Book Class</Text>
-                    <Ionicons name="arrow-forward" size={16} color={colors.onBrand} />
-                  </View>
-                </View>
-              </Pressable>
+                )}
+              </>
             ) : (
               <View style={styles.emptyHero}>
                 <Text style={styles.emptyText}>No upcoming classes right now.</Text>
@@ -355,7 +403,6 @@ const styles = StyleSheet.create({
   linkRow: { flexDirection: "row", alignItems: "center", gap: 5, paddingRight: spacing.lg, marginBottom: spacing.md },
   linkText: { color: colors.brand, fontSize: 12, fontWeight: "800", letterSpacing: 0.5 },
   heroCard: {
-    marginHorizontal: spacing.lg,
     height: 300,
     borderRadius: radius.lg,
     overflow: "hidden",
@@ -363,6 +410,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
+  slide: { width: CARD_W, paddingHorizontal: spacing.lg },
+  dots: { flexDirection: "row", justifyContent: "center", gap: 6, marginTop: spacing.md },
+  dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.borderStrong },
+  dotOn: { backgroundColor: colors.brand, width: 20 },
   heroContent: { padding: spacing.lg },
   badge: {
     flexDirection: "row",

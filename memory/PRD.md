@@ -109,3 +109,7 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - 4-column outline-icon features (All Levels Welcome, Adults & Kids Classes, More Than Just a Gym, Train Your Way) with dividers; chevron accents (>> ... <<) around centered welcome copy.
 - Form: "LOG IN TO GET STARTED" heading, light input fields with leading mail/lock icons + password eye toggle, right-aligned orange "Forgot password?", orange LOG IN button w/ arrow, OR divider, dark CONTINUE WITH GOOGLE button (colored G), "New here? Create an account". All auth logic + testIDs unchanged. Verified via screenshots.
 - NOTE: hero still uses bundled gym3.jpg (no dramatic solo-boxer asset available); swap in if user provides that image.
+
+## Session update 20 (Jun 2026 fork) — Home UP NEXT slideshow + spinner fix (DONE)
+- BUG FIX: a persistent orange ActivityIndicator was stuck above UP NEXT on Home. Root cause: the earlier "verify email" banner insert (session 17) corrupted the JSX ternary — the `{loading ? (` opener was lost, leaving the spinner rendered unconditionally + a dangling `) : (`. Restored the loading gate.
+- FEATURE: UP NEXT is now an auto-advancing swipeable carousel of up to 6 upcoming classes (horizontal paging ScrollView, ref+CARD_W scrollTo, 4.5s auto-advance, pagination dots, per-card image/category/time/Book Class, tap opens class detail). Kept testID home-next-class-card on the first slide. Verified via screenshots (auto-advance cycles Kids->Adults->Kickboxing, dots update).
