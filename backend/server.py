@@ -1379,6 +1379,16 @@ async def membership_apply(body: MembershipApplyReq, request: Request, u: dict =
     )
     gym_html = gym_html.replace("</td></tr>", f"{gym_pdf_html}</td></tr>", 1)
     await send_email(GYM_ADMIN_EMAIL, f"New membership application – {body.full_name}", gym_html)
+    # in-app alert to every admin (tappable -> Admin Applications). Email already sent above.
+    admins = await db.users.find({"is_admin": True}, {"_id": 0, "user_id": 1}).to_list(100)
+    for a in admins:
+        await create_notification(
+            a["user_id"],
+            "New membership application",
+            f"{body.full_name} applied for {plan_name}. Tap to review.",
+            "application",
+            data={"nav": "admin_applications"},
+        )
     # confirmation to applicant (with a link to download a copy of their completed form)
     conf_html = f"""
     <table width="100%" style="font-family:Arial,sans-serif;background:#121214;color:#F9FAFB;padding:24px">

@@ -10,7 +10,7 @@ const PAGES = [
   { key: "combat", label: "Combat Club", url: "https://www.facebook.com/profile.php?id=61561343624470" },
 ];
 
-const FEED_HEIGHT = 640;
+const FEED_HEIGHT = 460;
 
 function pluginUri(pageUrl: string, width: number) {
   const w = Math.max(180, Math.min(500, Math.round(width))); // FB plugin supports 180-500
@@ -18,7 +18,7 @@ function pluginUri(pageUrl: string, width: number) {
   return (
     `https://www.facebook.com/plugins/page.php?href=${href}` +
     `&tabs=timeline&width=${w}&height=${FEED_HEIGHT}` +
-    `&small_header=false&adapt_container_width=true&hide_cover=false&show_facepile=true`
+    `&small_header=true&adapt_container_width=true&hide_cover=true&show_facepile=false`
   );
 }
 

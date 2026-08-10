@@ -76,3 +76,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Session update 12 (Jun 2026 fork)
 - Booking/application/trial alerts now tappable & deep-link. Added default nav routing in notification helpers: ADMIN_NAV {booking->admin_bookings, application->admin_applications, trial->admin_members}; MEMBER_NAV {booking->member_bookings(Profile), application/membership->member_membership(/membership)}. notify_admins/create_notification set data.nav by type when not explicitly provided. Alerts screen openNotif routes on data.nav (admin_thread/member_inbox/member_bookings/member_membership/admin_bookings/admin_applications/admin_members) and shows "Tap to view details ›" hint on any actionable alert. Verified: member membership-approved alert opens /membership; message alert opens thread. Note: only notifications created after this change carry data.
+
+## Session update 13 (Jun 2026 fork)
+- New membership application now also creates an in-app admin alert (previously email-only). membership_apply loops all admins with create_notification(type="application", data={nav:"admin_applications"}) after the gym email. Tappable -> Admin Applications; increments Alerts badge. Verified via curl (admin notif carries data.nav=admin_applications).
+
+## Session update 14 (Jun 2026 fork)
+- Facebook feed made shorter & cleaner: FEED_HEIGHT 640->460; plugin params small_header=true, hide_cover=true, show_facepile=false for a compact look. Verified iframe now 460px tall. (Since app web frame is capped at 480px, no upscaling occurs.)
