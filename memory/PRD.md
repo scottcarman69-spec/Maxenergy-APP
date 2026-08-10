@@ -143,3 +143,13 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 ## Session update 26 (Jun 2026 fork) — Email T&C copy on membership submit (DONE)
 - Membership confirmation email to the applicant now includes a full copy of the Membership Terms & Conditions (12 sections + declaration) alongside the PDF form download link. Subject changed to "Your Max Energy membership form & terms (copy)".
 - Backend: added MEMBERSHIP_TERMS_TC list + TERMS_DECLARATION_TC + _membership_terms_html() helper (server.py, after _download_button); appended to conf_html in /membership/apply. Verified: helper renders 12 sections, release/waiver/declaration present; backend boots clean.
+
+## Session update 27 (Jun 2026 fork) — Membership PDF redesign + T&C in PDF (DONE)
+- Redesigned build_membership_pdf (server.py) for a neat, professional layout: orange header band (MAXENERGY FITNESS + form title + address/phone), section bars (light-grey pill + orange left accent), aligned two-column label/value rows with word-wrap for long values, signature rendered in a bordered box. Added ensure()/section()/field() helpers replacing old `line()`.
+- Appended full Membership Terms & Conditions to the PDF (12 sections + declaration + "Accepted by <name> on <date>" stamp), with word-wrap + page breaks. Kept "Photo & Signature" header from orphaning via ensure(210).
+- Verified by rendering the generated PDF to images (pymupdf): 4 pages, header/sections/fields/signature/terms all render cleanly.
+
+## Session update 28 (Jun 2026 fork) — ABN on PDF + admin views saved membership PDF (DONE)
+- Added business ABN 81 213 163 833 to the membership PDF header line (server.py build_membership_pdf).
+- Membership PDFs are already saved (pdf_base64 in membership_applications) and served publicly at /api/membership/forms/{id}.pdf (same link emailed). 
+- Admin fix: /admin/applications now EXCLUDES pdf_base64 (lighter payload) and returns has_pdf flag. Admin applications.tsx "View membership PDF" now opens the hosted URL `${BACKEND_URL}/api/membership/forms/{id}.pdf` via WebBrowser (native) / Linking (web) instead of a giant data: URI that failed on mobile — so admins view the exact PDF emailed to the member. Verified: endpoint returns has_pdf true + no pdf_base64; hosted PDF 200 application/pdf; ABN present in generated PDF.

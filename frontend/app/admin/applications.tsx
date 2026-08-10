@@ -4,7 +4,8 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { api } from "@/src/api";
+import * as WebBrowser from "expo-web-browser";
+import { api, BACKEND_URL } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
 import { SignatureView } from "@/src/components/SignaturePad";
 
@@ -18,7 +19,7 @@ type App = {
   status: string;
   created_at: string;
   details?: any;
-  pdf_base64?: string;
+  has_pdf?: boolean;
   pdf_filename?: string;
 };
 
@@ -131,13 +132,17 @@ export default function AdminApplications() {
 
                 {open && renderDetails(a.details)}
 
-                {open && !!a.pdf_base64 && (
+                {open && !!a.has_pdf && (
                   <Pressable
                     testID={`adminapp-pdf-${a.application_id}`}
                     style={styles.pdfBtn}
                     onPress={() => {
-                      const uri = `data:application/pdf;base64,${a.pdf_base64}`;
-                      Linking.openURL(uri).catch(() => {});
+                      const url = `${BACKEND_URL}/api/membership/forms/${a.application_id}.pdf`;
+                      if (Platform.OS === "web") {
+                        Linking.openURL(url).catch(() => {});
+                      } else {
+                        WebBrowser.openBrowserAsync(url).catch(() => Linking.openURL(url).catch(() => {}));
+                      }
                     }}
                   >
                     <Ionicons name="document-text" size={16} color={colors.brand} />

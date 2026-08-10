@@ -1427,84 +1427,122 @@ def build_membership_pdf(doc: dict, plan: dict) -> bytes:
     W, H = A4
     y = H - 50
     ORANGE = (1, 0.478, 0)
+    DARK = (0.10, 0.10, 0.12)
+    GREY = (0.42, 0.42, 0.46)
+    LABEL_X = 55
+    VALUE_X = 205
+    RIGHT = W - 45
 
-    def line(label, value, bold=False):
+    def ensure(space):
         nonlocal y
-        if y < 70:
+        if y < space:
             c.showPage()
-            y = H - 50
-        c.setFont("Helvetica-Bold" if bold else "Helvetica", 10)
-        c.setFillColorRGB(0.1, 0.1, 0.1)
-        if value is None:
-            c.setFont("Helvetica-Bold", 12)
-            c.setFillColorRGB(*ORANGE)
-            c.drawString(45, y, label)
-        else:
-            c.drawString(45, y, f"{label}: ")
-            c.setFont("Helvetica", 10)
-            c.setFillColorRGB(0.25, 0.25, 0.25)
-            c.drawString(45 + c.stringWidth(f"{label}: ", "Helvetica-Bold" if bold else "Helvetica", 10), y, str(value))
-        y -= 16
+            y = H - 55
 
-    # Header
+    def section(title):
+        nonlocal y
+        ensure(96)
+        y -= 8
+        c.setFillColorRGB(0.955, 0.955, 0.965)
+        c.roundRect(45, y - 7, RIGHT - 45, 23, 4, fill=1, stroke=0)
+        c.setFillColorRGB(*ORANGE)
+        c.rect(45, y - 7, 4, 23, fill=1, stroke=0)
+        c.setFillColorRGB(*DARK)
+        c.setFont("Helvetica-Bold", 11)
+        c.drawString(60, y, title.upper())
+        y -= 30
+
+    def field(label, value):
+        nonlocal y
+        value = "-" if value in (None, "") else str(value)
+        max_w = RIGHT - VALUE_X
+        words, linesv, cur = value.split(), [], ""
+        for w in words:
+            t = (cur + " " + w).strip()
+            if c.stringWidth(t, "Helvetica", 10) <= max_w:
+                cur = t
+            else:
+                if cur:
+                    linesv.append(cur)
+                cur = w
+        if cur:
+            linesv.append(cur)
+        if not linesv:
+            linesv = ["-"]
+        ensure(22 + (len(linesv) - 1) * 13)
+        c.setFont("Helvetica-Bold", 10)
+        c.setFillColorRGB(*GREY)
+        c.drawString(LABEL_X, y, label)
+        c.setFont("Helvetica", 10)
+        c.setFillColorRGB(*DARK)
+        for i, lv in enumerate(linesv):
+            c.drawString(VALUE_X, y, lv)
+            if i < len(linesv) - 1:
+                y -= 13
+        y -= 19
+
+    # Header band
     c.setFillColorRGB(*ORANGE)
-    c.setFont("Helvetica-Bold", 20)
-    c.drawString(45, y, "Maxenergy Fitness")
-    y -= 22
-    c.setFillColorRGB(0.3, 0.3, 0.3)
+    c.rect(0, H - 92, W, 92, fill=1, stroke=0)
+    c.setFillColorRGB(1, 1, 1)
+    c.setFont("Helvetica-Bold", 22)
+    c.drawString(45, H - 48, "MAXENERGY FITNESS")
     c.setFont("Helvetica", 11)
-    c.drawString(45, y, "Membership Registration Form")
-    y -= 12
-    c.drawString(45, y, "Shop 38 Campus Village Shopping Centre, Smithfield QLD 4878 · Ph 07 4057 9005")
-    y -= 24
+    c.drawString(45, H - 66, "Membership Registration Form")
+    c.setFont("Helvetica", 8.5)
+    c.drawString(45, H - 81, "Shop 38 Campus Village Shopping Centre, Smithfield QLD 4878   ·   Ph 07 4057 9005   ·   ABN 81 213 163 833")
+    y = H - 118
 
-    line("MEMBERSHIP", None)
-    line("Type", d.get("membership_type", "-"))
-    _pd = plan.get('price_display')
-    line("Plan", f"{plan.get('name')}" + (f" (${_pd})" if _pd else ""))
-    line("Category", doc.get("category", "-"))
-    line("Term", d.get("term", "-"))
-    line("Submitted", d.get("submitted_date", ""))
+    section("Membership")
+    field("Type", d.get("membership_type", "-"))
+    _pd = plan.get("price_display")
+    field("Plan", f"{plan.get('name')}" + (f" (${_pd})" if _pd else ""))
+    field("Category", doc.get("category", "-"))
+    field("Term", d.get("term", "-"))
+    field("Submitted", d.get("submitted_date", ""))
 
-    line("MEMBER DETAILS", None)
-    line("Name", doc.get("full_name"))
-    line("Title / Sex", f"{d.get('title','-')} / {d.get('sex','-')}")
-    line("Date of birth", d.get("dob", "-"))
-    line("Email", doc.get("email"))
-    line("Mobile", doc.get("phone"))
-    line("Address", ", ".join([x for x in [d.get("address"), d.get("suburb"), d.get("postcode")] if x]) or "-")
-    line("Emergency contact", f"{d.get('emergency_name','-')} · {d.get('emergency_phone','-')}")
-    line("Marketing consent", "Yes" if d.get("consent_marketing") else "No")
-    line("How found", d.get("how_found", "-"))
+    section("Member Details")
+    field("Name", doc.get("full_name"))
+    field("Title / Sex", f"{d.get('title','-')} / {d.get('sex','-')}")
+    field("Date of birth", d.get("dob", "-"))
+    field("Email", doc.get("email"))
+    field("Mobile", doc.get("phone"))
+    field("Address", ", ".join([x for x in [d.get("address"), d.get("suburb"), d.get("postcode")] if x]) or "-")
+    field("Emergency contact", f"{d.get('emergency_name','-')}  ·  {d.get('emergency_phone','-')}")
+    field("Marketing consent", "Yes" if d.get("consent_marketing") else "No")
+    field("How found", d.get("how_found", "-"))
 
-    line("MEDICAL", None)
+    section("Medical")
     flags = []
     for g in ("medications", "conditions"):
         obj = med.get(g) or {}
         flags += [k for k, v in obj.items() if v]
-    line("Declared flags", ", ".join(flags) if flags else "None")
-    line("Smoker", "Yes" if med.get("smoke") else "No")
-    line("Major operations/fractures", "Yes" if med.get("operations") else "No")
-    line("Pregnant / recent baby", "Yes" if med.get("pregnant") else "No")
-    line("Exercises regularly", "Yes" if med.get("regular_exercise") else "No")
+    field("Declared flags", ", ".join(flags) if flags else "None")
+    field("Smoker", "Yes" if med.get("smoke") else "No")
+    field("Major operations/fractures", "Yes" if med.get("operations") else "No")
+    field("Pregnant / recent baby", "Yes" if med.get("pregnant") else "No")
+    field("Exercises regularly", "Yes" if med.get("regular_exercise") else "No")
     if med.get("notes"):
-        line("Notes", med.get("notes"))
+        field("Notes", med.get("notes"))
 
-    line("CONSENT & WAIVER", None)
-    line("Media consent", "Yes" if d.get("media_consent") else "No")
-    line("Waiver agreed", "Yes" if d.get("waiver_agreed") else "No")
-    line("Signed (name)", d.get("signature", "-"))
+    section("Consent & Waiver")
+    field("Media consent", "Yes" if d.get("media_consent") else "No")
+    field("Terms & Conditions agreed", "Yes" if d.get("waiver_agreed") else "No")
+    field("Signed (name)", d.get("signature", "-"))
 
+    ensure(210)
+    section("Photo & Signature")
     # Photo
     photo = d.get("photo_base64")
     if photo and "," in photo:
         try:
             img = base64.b64decode(photo.split(",", 1)[1])
             if y < 180:
-                c.showPage(); y = H - 50
-            c.setFont("Helvetica-Bold", 10); c.setFillColorRGB(0.1, 0.1, 0.1)
-            c.drawString(45, y, "Photo:")
-            c.drawImage(ImageReader(io.BytesIO(img)), 45, y - 120, width=110, height=110, preserveAspectRatio=True, mask="auto")
+                c.showPage(); y = H - 55
+            c.setFont("Helvetica-Bold", 10); c.setFillColorRGB(0.42, 0.42, 0.46)
+            c.drawString(55, y, "Photo")
+            y -= 6
+            c.drawImage(ImageReader(io.BytesIO(img)), 55, y - 120, width=110, height=110, preserveAspectRatio=True, mask="auto")
             y -= 130
         except Exception as e:
             log.error(f"pdf photo: {e}")
@@ -1524,12 +1562,16 @@ def build_membership_pdf(doc: dict, plan: dict) -> bytes:
                 sw = max(maxx - minx, 1); sh = max(maxy - miny, 1)
                 box_w, box_h = 220, 80
                 scale = min(box_w / sw, box_h / sh)
-                if y < 120:
-                    c.showPage(); y = H - 50
-                bx, by = 45, y - 90
-                c.setFont("Helvetica-Bold", 10); c.setFillColorRGB(0.1, 0.1, 0.1)
-                c.drawString(45, y, "Signature:")
-                c.setStrokeColorRGB(0, 0, 0); c.setLineWidth(1.5)
+                if y < 130:
+                    c.showPage(); y = H - 55
+                c.setFont("Helvetica-Bold", 10); c.setFillColorRGB(0.42, 0.42, 0.46)
+                c.drawString(55, y, "Signature")
+                y -= 6
+                bx, by = 55, y - 90
+                # signature box
+                c.setStrokeColorRGB(0.85, 0.85, 0.87); c.setLineWidth(1)
+                c.roundRect(bx - 5, by - 4, box_w + 20, box_h + 16, 4, fill=0, stroke=1)
+                c.setStrokeColorRGB(0.08, 0.08, 0.10); c.setLineWidth(1.6)
                 prev = None
                 for (px, py, cmd) in pts:
                     X = bx + (px - minx) * scale
@@ -1539,9 +1581,67 @@ def build_membership_pdf(doc: dict, plan: dict) -> bytes:
                     else:
                         c.line(prev[0], prev[1], X, Y)
                         prev = (X, Y)
-                y -= 100
+                y -= 106
         except Exception as e:
             log.error(f"pdf sig: {e}")
+
+    # ---- Terms & Conditions (full copy appended to the signed form) ----
+    def _wrap(text, font, size, max_w):
+        words = text.split()
+        out, cur = [], ""
+        for w in words:
+            trial = (cur + " " + w).strip()
+            if c.stringWidth(trial, font, size) <= max_w:
+                cur = trial
+            else:
+                if cur:
+                    out.append(cur)
+                cur = w
+        if cur:
+            out.append(cur)
+        return out or [""]
+
+    c.showPage()  # finalize the form page; terms start on a fresh page
+    y = H - 50
+    c.setFillColorRGB(*ORANGE); c.setFont("Helvetica-Bold", 16)
+    c.drawString(45, y, "Membership Terms & Conditions"); y -= 20
+    c.setFillColorRGB(0.4, 0.4, 0.4); c.setFont("Helvetica", 9)
+    c.drawString(45, y, "Maxenergy Fitness Policies & Terms Agreement"); y -= 18
+
+    def _para(title, body):
+        nonlocal y
+        if y < 90:
+            c.showPage(); y = H - 50
+        c.setFont("Helvetica-Bold", 11); c.setFillColorRGB(0.1, 0.1, 0.1)
+        for tl in _wrap(title, "Helvetica-Bold", 11, W - 90):
+            if y < 70:
+                c.showPage(); y = H - 50
+                c.setFont("Helvetica-Bold", 11); c.setFillColorRGB(0.1, 0.1, 0.1)
+            c.drawString(45, y, tl); y -= 14
+        c.setFont("Helvetica", 9); c.setFillColorRGB(0.25, 0.25, 0.25)
+        for seg in body.split("\n"):
+            for bl in _wrap(seg, "Helvetica", 9, W - 90):
+                if y < 55:
+                    c.showPage(); y = H - 50
+                    c.setFont("Helvetica", 9); c.setFillColorRGB(0.25, 0.25, 0.25)
+                c.drawString(45, y, bl); y -= 12
+        y -= 8
+
+    for _t, _b in MEMBERSHIP_TERMS_TC:
+        _para(_t, _b)
+
+    if y < 90:
+        c.showPage(); y = H - 50
+    c.setFont("Helvetica-Oblique", 9); c.setFillColorRGB(0.1, 0.1, 0.1)
+    for bl in _wrap(TERMS_DECLARATION_TC, "Helvetica-Oblique", 9, W - 90):
+        if y < 55:
+            c.showPage(); y = H - 50
+            c.setFont("Helvetica-Oblique", 9); c.setFillColorRGB(0.1, 0.1, 0.1)
+        c.drawString(45, y, bl); y -= 12
+    y -= 6
+    c.setFont("Helvetica-Bold", 9); c.setFillColorRGB(*ORANGE)
+    _acc = f"Accepted by {doc.get('full_name','')} on {d.get('submitted_date','')}".strip()
+    c.drawString(45, y, _acc)
 
     c.showPage()
     c.save()
@@ -1989,7 +2089,13 @@ async def admin_announcement_update(announcement_id: str, body: AnnouncementUpda
 
 @api.get("/admin/applications")
 async def admin_applications(u: dict = Depends(require_admin)):
-    rows = await db.membership_applications.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    # Exclude the heavy pdf_base64 blob from the list; expose a has_pdf flag instead.
+    # Admins view the exact same PDF via /api/membership/forms/{id}.pdf (same link emailed).
+    rows = await db.membership_applications.find(
+        {}, {"_id": 0, "pdf_base64": 0}
+    ).sort("created_at", -1).to_list(500)
+    for r in rows:
+        r["has_pdf"] = bool(r.get("pdf_filename"))
     return {"applications": rows}
 
 
