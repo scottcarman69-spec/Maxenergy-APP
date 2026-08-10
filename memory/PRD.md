@@ -330,3 +330,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
   - qldTodayUTC/qldHour for current QLD date/clock (timetable day grouping + greeting).
 - All time helpers across timetable, home, class/[id], events, event/[id], check-in, receipt, admin/classes, alerts, notification-history, booking-history, admin/membership-log, admin/inbox, admin/members now delegate to this util.
 - Verified device-independence via Node TZ simulation (Brisbane, UTC, America/Los_Angeles): class 17:00→"5:00 pm", 18:00→"6:00 pm"; paid 05:11 UTC→"3:11 pm" QLD. Screenshot confirms Wed shows Kids Muay Thai 5:00 pm + Adults Muay Thai 6:00 pm.
+
+## Session update 58 (Jun 2026 fork) — Add "Custom Programs" by-appointment option (DONE)
+- Added a second by-appointment class "Custom Programs" (Adults, Coach Alex, $80, by_appointment=true) alongside Personal Training. Appears in the timetable "BOOK A SESSION" section and books via the same appointment flow.
+- Added to seed_data() (after Personal Training) for fresh DBs, and inserted idempotently into the current DB (class_id cls_6c8d46a7128c).
+- Verified: /api/classes returns both appointment classes; screenshot shows Custom Programs card under Personal Training with a Book button.

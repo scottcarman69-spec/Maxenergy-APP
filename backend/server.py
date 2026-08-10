@@ -2872,6 +2872,28 @@ async def seed_data():
             }
         )
 
+        # Custom Programs — bookable by appointment (no fixed time)
+        await db.classes.insert_one(
+            {
+                "class_id": new_id("cls"),
+                "name": "Custom Programs",
+                "category": "Adults",
+                "trainer": "Coach Alex",
+                "level": "Any level",
+                "duration_min": 60,
+                "price_cents": 8000,
+                "currency": "aud",
+                "image": "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200&q=80",
+                "description": "A training program built around your goals — strength, conditioning, weight loss or fight prep. Booked by appointment; we'll reach out to design your plan and arrange times that suit you.",
+                "program": "",
+                "color": "#FF7A00",
+                "start_at": now_utc(),
+                "capacity": 1,
+                "by_appointment": True,
+                "created_at": now_utc(),
+            }
+        )
+
         # Membership plans
         plans = [
             {"plan_id": new_id("plan"), "sort": 1, "name": "Kids Muay Thai Casual Visit", "category": "Kids", "price_display": "15/class", "price_cents": 1500, "interval": "class", "features": ["Pay as you go", "Mon & Wed 5:00–5:45pm", "Muay Thai - Kids", "No lock-in"]},
