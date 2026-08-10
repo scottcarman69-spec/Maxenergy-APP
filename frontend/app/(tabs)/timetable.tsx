@@ -361,8 +361,10 @@ export default function Timetable() {
                       </View>
                     )}
                   </View>
-                  <View style={styles.bookOutline}>
-                    <Text style={styles.bookOutlineText}>Book</Text>
+                  <View style={[styles.bookPill, item.spots_left === 0 && styles.bookPillFull]}>
+                    <Text style={[styles.bookPillText, item.spots_left === 0 && styles.bookPillTextFull]}>
+                      {item.spots_left === 0 ? "Full" : "Book"}
+                    </Text>
                   </View>
                 </View>
               </View>
@@ -442,13 +444,13 @@ const styles = StyleSheet.create({
   trainer: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 3 },
   programTag: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6, alignSelf: "flex-start", backgroundColor: colors.brandTertiary, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },
   programText: { color: colors.brand, fontSize: 10, fontWeight: "800", letterSpacing: 0.5 },
-  metaRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: spacing.md },
+  metaRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8, marginTop: spacing.md },
   timePill: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.surfaceTertiary, paddingHorizontal: 9, paddingVertical: 4, borderRadius: radius.pill },
   timePillText: { fontSize: 12, fontWeight: "800" },
   pill: { backgroundColor: colors.surfaceTertiary, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
   pillText: { color: colors.onSurfaceTertiary, fontSize: 11, fontWeight: "700" },
   price: { color: colors.brand, fontSize: 18, fontWeight: "900" },
-  duration: { color: colors.onSurfaceSecondary, fontSize: 12, fontFamily: font.medium, marginLeft: "auto", flexShrink: 0 },
+  duration: { color: colors.onSurfaceSecondary, fontSize: 12, fontFamily: font.medium, flexShrink: 0 },
   empty: { alignItems: "center", padding: 40, gap: spacing.md },
   emptyText: { color: colors.onSurfaceSecondary, fontSize: 14 },
   peekCard: { alignSelf: "stretch", backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, borderWidth: 1, borderColor: colors.brand, padding: spacing.lg, marginTop: spacing.md, gap: spacing.sm },
@@ -466,7 +468,7 @@ const styles = StyleSheet.create({
   apptAvatar: { width: 44, height: 44, borderRadius: 22 },
   apptTag: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6, alignSelf: "flex-start", backgroundColor: colors.brandTertiary, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },
   apptTagText: { color: colors.brand, fontSize: 11, fontFamily: font.semibold },
-  bookPill: { backgroundColor: colors.brand, paddingHorizontal: spacing.lg, paddingVertical: 10, borderRadius: radius.pill },
+  bookPill: { backgroundColor: colors.brand, paddingHorizontal: spacing.lg, paddingVertical: 10, borderRadius: radius.pill, flexShrink: 0 },
   bookPillText: { color: colors.onBrand, fontFamily: font.heading, fontSize: 13 },
   bookPillFull: { backgroundColor: colors.surfaceTertiary },
   bookPillTextFull: { color: colors.onSurfaceSecondary },
