@@ -23,6 +23,17 @@ type Booking = {
   attended?: boolean;
 };
 
+type ClassSession = {
+  class_id: string;
+  name: string;
+  trainer?: string;
+  category?: string;
+  start_at?: string;
+  by_appointment?: boolean;
+};
+
+const CLASS_COLOR = "#3B82F6";
+
 const STATUS: Record<string, { label: string; color: string }> = {
   paid: { label: "Paid", color: colors.success },
   confirmed: { label: "Confirmed", color: colors.success },
@@ -33,13 +44,18 @@ const STATUS: Record<string, { label: string; color: string }> = {
 
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
-const FILTERS = ["All", "Confirmed", "Pending", "Cancelled"] as const;
+const FILTERS = ["All", "Classes", "Confirmed", "Pending", "Cancelled"] as const;
 type Filter = (typeof FILTERS)[number];
 function matchesFilter(status: string, f: Filter): boolean {
   if (f === "All") return true;
+  if (f === "Classes") return false;
   if (f === "Confirmed") return status === "confirmed" || status === "paid";
   if (f === "Pending") return status === "pending" || status === "reschedule_requested";
   return status === "cancelled";
+}
+function timeOf(iso: string): number {
+  const parsed = new Date(iso.match(/[zZ]|[+-]\d{2}:?\d{2}$/) ? iso : iso + "Z");
+  return parsed.getUTCHours() * 60 + parsed.getUTCMinutes();
 }
 
 // The date a booking sits on: fixed classes use class_start; appointments use
@@ -62,6 +78,7 @@ function anchorHour(b: Booking): number {
 export default function AdminCalendar() {
   const router = useRouter();
   const [rows, setRows] = useState<Booking[]>([]);
+  const [classes, setClasses] = useState<ClassSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [cursor, setCursor] = useState<Date>(() => {
     const t = qldTodayUTC();
@@ -73,12 +90,26 @@ export default function AdminCalendar() {
 
   const load = useCallback(async () => {
     try {
-      const r = await api.adminBookings();
-      setRows(r.bookings || []);
+      const [b, c] = await Promise.all([api.adminBookings(), api.classes(undefined, true)]);
+      setRows(b.bookings || []);
+      setClasses((c.classes || []).filter((x: ClassSession) => !x.by_appointment && x.start_at));
     } catch {}
     setLoading(false);
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const showClasses = filter === "All" || filter === "Classes";
+
+  const classesByDay = useMemo(() => {
+    const m: Record<string, ClassSession[]> = {};
+    if (!showClasses) return m;
+    for (const c of classes) {
+      if (!c.start_at) continue;
+      (m[dayKeyOf(c.start_at)] ||= []).push(c);
+    }
+    for (const k of Object.keys(m)) m[k].sort((a, b) => timeOf(a.start_at!) - timeOf(b.start_at!));
+    return m;
+  }, [classes, showClasses]);
 
   const toggleAttend = async (b: Booking) => {
     setActioning(b.booking_id);
@@ -120,12 +151,17 @@ export default function AdminCalendar() {
   const keyFor = (d: number) =>
     new Date(Date.UTC(year, month, d)).toISOString().slice(0, 10);
 
-  const monthBookings = useMemo(
-    () => cells.reduce<number>((n, d) => n + (d ? (grouped[keyFor(d)]?.length || 0) : 0), 0),
-    [cells, grouped, year, month]
+  const monthEntries = useMemo(
+    () => cells.reduce<number>((n, d) => {
+      if (!d) return n;
+      const k = keyFor(d);
+      return n + (grouped[k]?.length || 0) + (classesByDay[k]?.length || 0);
+    }, 0),
+    [cells, grouped, classesByDay, year, month]
   );
 
   const dayList = grouped[selected] || [];
+  const dayClasses = classesByDay[selected] || [];
   const selectedLabel = classDate(selected + "T00:00:00", { weekday: "long", day: "numeric", month: "long" });
 
   const shiftMonth = (delta: number) => {
@@ -168,7 +204,7 @@ export default function AdminCalendar() {
               <Text style={styles.monthTitle}>
                 {cursor.toLocaleDateString("en-AU", { month: "long", year: "numeric", timeZone: "UTC" })}
               </Text>
-              <Text style={styles.monthSub}>{monthBookings} booking{monthBookings === 1 ? "" : "s"}</Text>
+              <Text style={styles.monthSub}>{monthEntries} item{monthEntries === 1 ? "" : "s"}</Text>
             </View>
             <Pressable testID="admincal-next" onPress={() => shiftMonth(1)} hitSlop={12} style={styles.navBtn}>
               <Ionicons name="chevron-forward" size={20} color={colors.onSurface} />
@@ -197,7 +233,7 @@ export default function AdminCalendar() {
                 >
                   <Text style={[styles.cellNum, isSel && styles.cellNumSel, isToday && !isSel && { color: colors.brand }]}>{d}</Text>
                   <View style={styles.dots}>
-                    {dotColors(dayBookings).map((c, di) => (
+                    {[...(classesByDay[key]?.length ? [CLASS_COLOR] : []), ...dotColors(dayBookings)].slice(0, 3).map((c, di) => (
                       <View key={di} style={[styles.dot, { backgroundColor: c }]} />
                     ))}
                   </View>
@@ -207,7 +243,7 @@ export default function AdminCalendar() {
           </View>
 
           <View style={styles.legend}>
-            {[["Confirmed / Paid", colors.success], ["Pending / Reschedule", colors.warning], ["Cancelled", colors.info]].map(([l, c]) => (
+            {[["Class", CLASS_COLOR], ["Confirmed / Paid", colors.success], ["Pending / Reschedule", colors.warning], ["Cancelled", colors.info]].map(([l, c]) => (
               <View key={l as string} style={styles.legendItem}>
                 <View style={[styles.dot, { backgroundColor: c as string }]} />
                 <Text style={styles.legendText}>{l}</Text>
@@ -216,13 +252,36 @@ export default function AdminCalendar() {
           </View>
 
           <Text style={styles.agendaTitle}>{selectedLabel}</Text>
-          {dayList.length === 0 ? (
+          {dayList.length === 0 && dayClasses.length === 0 ? (
             <View style={styles.empty}>
               <Ionicons name="calendar-clear-outline" size={34} color={colors.onSurfaceSecondary} />
-              <Text style={styles.emptyText}>No bookings on this day.</Text>
+              <Text style={styles.emptyText}>Nothing on this day.</Text>
             </View>
           ) : (
-            dayList.map((b) => {
+            <>
+              {dayClasses.map((c) => (
+                <Pressable
+                  key={c.class_id}
+                  testID={`admincal-class-${c.class_id}`}
+                  style={styles.classItem}
+                  onPress={() => router.push({ pathname: "/class/[id]", params: { id: c.class_id } })}
+                >
+                  <View style={[styles.itemBar, { backgroundColor: CLASS_COLOR }]} />
+                  <View style={styles.itemTime}>
+                    <Text style={styles.itemTimeText}>{c.start_at ? classTime(c.start_at) : ""}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.itemName} numberOfLines={1}>{c.name}</Text>
+                    <Text style={styles.itemMember} numberOfLines={1}>
+                      {c.category || "Class"}{c.trainer ? ` · ${c.trainer}` : ""}
+                    </Text>
+                  </View>
+                  <View style={[styles.pill, { backgroundColor: CLASS_COLOR }]}>
+                    <Text style={styles.pillText}>CLASS</Text>
+                  </View>
+                </Pressable>
+              ))}
+              {dayList.map((b) => {
               const meta = STATUS[b.status] || { label: b.status, color: colors.info };
               const iso = anchorIso(b);
               const timeLabel = iso ? classTime(iso) : (b.scheduled_time || "Time TBC");
@@ -285,7 +344,8 @@ export default function AdminCalendar() {
                   )}
                 </View>
               );
-            })
+            })}
+            </>
           )}
         </ScrollView>
       )}
@@ -324,6 +384,7 @@ const styles = StyleSheet.create({
   empty: { alignItems: "center", padding: 40, gap: spacing.sm },
   emptyText: { color: colors.onSurfaceSecondary },
   item: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, padding: spacing.md, overflow: "hidden" },
+  classItem: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm, overflow: "hidden" },
   itemCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, overflow: "hidden", marginBottom: spacing.sm },
   itemBar: { position: "absolute", left: 0, top: 0, bottom: 0, width: 4 },
   itemTime: { width: 62 },

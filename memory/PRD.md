@@ -385,3 +385,11 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 ## Session update 66 (Jun 2026 fork) — Tap-to-call / text member from calendar (DONE)
 - Admin Bookings Calendar agenda item phone line replaced with two tappable pills: "Call" (Linking tel:) and "Text" (Linking sms:), plus the number shown. Number sanitized to digits/+. Nested Pressables so they don't trigger the row's navigation.
 - Verified via screenshot: Custom Programs confirmed booking shows Sarah Tester, Call + Text buttons, 0412 345 678, and Confirm attended. tsc clean; test data cleaned.
+
+## Session update 67 (Jun 2026 fork) — Class schedule on admin calendar (DONE)
+- Admin Bookings Calendar now overlays the gym class schedule (Muay Thai Kids/Adults, Kickboxing, Boot Camp — i.e. non-appointment classes) alongside bookings.
+- load() fetches api.classes(undefined, true) in parallel with adminBookings; filters out by_appointment classes. classesByDay groups by start_at (QLD wall-clock).
+- Blue (#3B82F6) dot marks days with classes; each day's agenda lists class sessions with a "CLASS" tag (time · category · trainer), tap → class detail. Legend adds "Class". Month counter now "N items" (classes + bookings).
+- New "Classes" filter chip shows only the schedule; Confirmed/Pending/Cancelled show only matching bookings; All shows classes + all bookings.
+- Member /calendar unchanged (they use the Timetable tab for the schedule).
+- Verified via screenshot: Classes filter, blue dots across class days, Monday agenda shows Muay Thai Kids 5pm + Adults 6pm with CLASS tags. tsc clean.
