@@ -180,3 +180,14 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - NEW screen /app/frontend/app/coach.tsx: takes `name` param (the class trainer string e.g. "Coach Alex"), fetches /api/about, matches the About team member by first-name (strips "Coach "), and shows a hero photo + role + ABOUT bio + QUALIFICATIONS checklist + Get in touch CTA. Uses bundled teamPhotos override, falls back to About image URL.
 - Wired taps: timetable class-card avatar (testID coach-avatar-{id}) + appointment-card avatar + home upcoming-row avatar (testID home-coach-{id}) are nested Pressables -> /coach?name=<trainer>. Class detail "YOUR COACH" card is now a Pressable with a "Tap to view bio & qualifications" hint + chevron.
 - Route auto-registered (root Stack has no explicit screens). Verified via screenshot: tapping Alex's photo opens his profile (bio + 5 quals).
+
+## Session update 33 (Jun 2026 fork) — Vigyr embedded form + browser link (DONE)
+- User asked to bring back the in-app embedded Vigyr form AND keep a browser link.
+- Rebuilt /app/frontend/app/vigyr-signon.tsx: WebView (native) / iframe (web) loading the Vigyr sign-on URL with loading + error overlays. Header has a "Browser" pill (open-outline) + a bottom footer link "Trouble entering card details? Open in your browser" — both call WebBrowser.openBrowserAsync (native) / Linking (web). Error overlay also offers "Open in browser instead".
+- WebView flags: javaScriptEnabled, domStorageEnabled, thirdPartyCookiesEnabled, sharedCookiesEnabled, allowsInlineMediaPlayback, originWhitelist ["*"].
+- Verified: embedded form loads Step 1 of 7 (Member Details) in web preview; Browser button + footer link render.
+- KNOWN LIMITATION (told user): the card/direct-debit step is Vigyr's secure payment iframe — embedding inside an in-app WebView can block it (the prior error). The "Open in browser" link is the reliable path for card entry. Did NOT auto-submit (would create a fake member in the gym's live Vigyr DB). Card step must be validated by user in Expo Go.
+
+## Session update 34 (Jun 2026 fork) — Vigyr browser-first (FINAL, user chose C)
+- Confirmed root cause via user screenshot: the card step is a nested "Debit First" PCI-secure payment iframe (2 layers deep inside our WebView) which renders as a broken image — bank-grade iframe resists app embedding. Also, switching to browser mid-flow would drop the member's entries (fresh Vigyr form = double entry).
+- User chose to open the WHOLE sign-up in the secure browser from the start. Reverted vigyr-signon.tsx to the in-app intro screen ("Become a Member" + 4-step preview + START SIGN-UP) that opens VIGYR_URL via WebBrowser.openBrowserAsync (native) / Linking (web). No embedded WebView. This is the reliable path — card entry works in the full browser.

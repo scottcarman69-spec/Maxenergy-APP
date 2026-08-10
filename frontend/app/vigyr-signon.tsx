@@ -86,7 +86,7 @@ export default function VigyrSignOn() {
 
         <View style={styles.noteRow}>
           <Ionicons name="lock-closed" size={13} color={colors.onSurfaceSecondary} />
-          <Text style={styles.note}>Opens a secure form where you can safely enter your bank / card details for direct debit.</Text>
+          <Text style={styles.note}>Opens a secure browser where you can safely enter your bank / card details for direct debit.</Text>
         </View>
       </View>
     </SafeAreaView>
