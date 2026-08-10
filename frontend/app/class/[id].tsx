@@ -8,11 +8,13 @@ import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { api, BACKEND_URL } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
+import { coachSource } from "@/src/coaches";
 
 type Cls = {
   class_id: string;
   name: string;
   trainer: string;
+  trainer_photo?: string;
   duration_min: number;
   price_cents: number;
   image: string;
@@ -172,6 +174,17 @@ export default function ClassDetail() {
             </View>
           </View>
 
+          {coachSource(cls.trainer, cls.trainer_photo) ? (
+            <View style={styles.coachCard}>
+              <Image source={coachSource(cls.trainer, cls.trainer_photo)} style={styles.coachAvatar} contentFit="cover" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.coachLabel}>YOUR COACH</Text>
+                <Text style={styles.coachName}>{cls.trainer}</Text>
+              </View>
+              <Ionicons name="ribbon-outline" size={20} color={colors.brand} />
+            </View>
+          ) : null}
+
           <Text style={styles.sectionTitle}>ABOUT</Text>
           <Text style={styles.desc}>{cls.description}</Text>
 
@@ -265,6 +278,10 @@ const styles = StyleSheet.create({
   },
   metaLabel: { color: colors.onSurfaceSecondary, fontSize: 10, letterSpacing: 1, fontWeight: "800" },
   metaVal: { color: colors.onSurface, fontSize: 13, fontWeight: "700" },
+  coachCard: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.md, borderWidth: 1, borderColor: colors.border },
+  coachAvatar: { width: 54, height: 54, borderRadius: 27, backgroundColor: colors.surfaceTertiary },
+  coachLabel: { color: colors.onSurfaceSecondary, fontSize: 10, letterSpacing: 1.5, fontWeight: "800" },
+  coachName: { color: colors.onSurface, fontSize: 17, fontWeight: "800", marginTop: 2 },
   sectionTitle: {
     color: colors.onSurfaceSecondary,
     fontSize: 11,

@@ -21,6 +21,7 @@ import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
 import ScreenBg from "@/src/components/ScreenBg";
 import { gymPhotos } from "@/src/gymPhotos";
+import { coachSource } from "@/src/coaches";
 import FacebookFeed from "@/src/components/FacebookFeed";
 
 const CARD_W = Math.min(Dimensions.get("window").width, 480);
@@ -29,6 +30,7 @@ type Cls = {
   class_id: string;
   name: string;
   trainer: string;
+  trainer_photo?: string;
   duration_min: number;
   price_cents: number;
   image: string;
@@ -287,7 +289,14 @@ export default function Home() {
                   >
                     <View style={[styles.leftBar, { backgroundColor: cs.color }]} />
                     <View style={styles.classIcon}>
-                      {cs.set === "img" ? (
+                      {coachSource(c.trainer, c.trainer_photo) ? (
+                        <>
+                          <Image source={coachSource(c.trainer, c.trainer_photo)} style={styles.classIconImg} contentFit="cover" />
+                          <View style={[styles.classCatChip, { backgroundColor: cs.color }]}>
+                            <MaterialCommunityIcons name={cs.set === "mci" ? cs.icon : "karate"} size={10} color="#fff" />
+                          </View>
+                        </>
+                      ) : cs.set === "img" ? (
                         <Image source={cs.img} style={styles.classIconImg} contentFit="cover" />
                       ) : cs.set === "mci" ? (
                         <MaterialCommunityIcons name={cs.icon} size={24} color={cs.color} />
@@ -298,6 +307,10 @@ export default function Home() {
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.catLabel, { color: cs.color }]}>{c.category.toUpperCase()}</Text>
                       <Text style={styles.className}>{c.name}</Text>
+                      <View style={styles.metaRow}>
+                        <Ionicons name="person-outline" size={13} color={colors.onSurfaceSecondary} />
+                        <Text style={styles.classMeta}>{c.trainer}</Text>
+                      </View>
                       <View style={styles.metaRow}>
                         <Ionicons name="calendar-outline" size={13} color={colors.onSurfaceSecondary} />
                         <Text style={styles.classMeta}>{fmtDate(c.start_at)}</Text>
@@ -506,6 +519,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   classIconImg: { width: 46, height: 46 },
+  classCatChip: { position: "absolute", right: 0, bottom: 0, width: 18, height: 18, borderRadius: 9, alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: colors.surfaceSecondary },
   catLabel: { fontSize: 11, fontWeight: "900", letterSpacing: 0.8, marginBottom: 2 },
   className: { color: colors.onSurface, fontWeight: "800", fontSize: 16 },
   classMeta: { color: colors.onSurfaceSecondary, fontSize: 12 },

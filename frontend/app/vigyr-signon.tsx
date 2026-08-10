@@ -1,23 +1,43 @@
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, Platform, Linking } from "react-native";
-import { WebView } from "react-native-webview";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { colors, spacing, radius, font } from "@/src/theme";
 
 const VIGYR_URL = "https://signon.vigyr.com/online-sign-on/form/CUSTOMER/75-MaxenergyFitness";
 
+const STEPS = [
+  { icon: "person", label: "Your details" },
+  { icon: "heart", label: "Health check" },
+  { icon: "card", label: "Membership & payment" },
+  { icon: "document-text", label: "Terms & signature" },
+];
+
 export default function VigyrSignOn() {
   const router = useRouter();
-  const webRef = useRef<WebView>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [opening, setOpening] = useState(false);
 
-  const openExternal = () => {
-    if (Platform.OS === "web") Linking.openURL(VIGYR_URL).catch(() => {});
-    else WebBrowser.openBrowserAsync(VIGYR_URL).catch(() => Linking.openURL(VIGYR_URL).catch(() => {}));
+  const startSignUp = async () => {
+    setOpening(true);
+    try {
+      if (Platform.OS === "web") {
+        Linking.openURL(VIGYR_URL);
+      } else {
+        await WebBrowser.openBrowserAsync(VIGYR_URL, {
+          presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+          toolbarColor: "#121214",
+          controlsColor: "#FF7A00",
+          showTitle: true,
+        });
+      }
+    } catch {
+      Linking.openURL(VIGYR_URL).catch(() => {});
+    } finally {
+      setOpening(false);
+    }
   };
 
   return (
@@ -26,62 +46,48 @@ export default function VigyrSignOn() {
         <Pressable testID="vigyr-back" hitSlop={12} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
         </Pressable>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>Membership Sign-Up</Text>
-          <Text style={styles.headerSub}>Official Maxenergy Fitness registration</Text>
-        </View>
-        <Pressable testID="vigyr-open-external" hitSlop={12} onPress={openExternal} style={styles.openBtn}>
-          <Ionicons name="open-outline" size={16} color={colors.brand} />
-          <Text style={styles.openText}>Browser</Text>
-        </Pressable>
+        <Text style={styles.headerTitle}>Membership Sign-Up</Text>
+        <View style={{ width: 26 }} />
       </View>
 
-      <View style={styles.webWrap}>
-        {Platform.OS === "web" ? (
-          // @ts-ignore iframe is valid on web
-          <iframe
-            title="Maxenergy Fitness Sign-On"
-            src={VIGYR_URL}
-            style={{ width: "100%", height: "100%", border: "none" }}
-            onLoad={() => setLoading(false)}
-          />
-        ) : (
-          <WebView
-            ref={webRef}
-            testID="vigyr-webview"
-            source={{ uri: VIGYR_URL }}
-            style={{ flex: 1, backgroundColor: "#fff" }}
-            originWhitelist={["*"]}
-            javaScriptEnabled
-            domStorageEnabled
-            startInLoadingState
-            allowsInlineMediaPlayback
-            mediaPlaybackRequiresUserAction={false}
-            setSupportMultipleWindows={false}
-            onLoadEnd={() => setLoading(false)}
-            onError={() => { setError(true); setLoading(false); }}
-            onHttpError={() => setLoading(false)}
-          />
-        )}
+      <View style={styles.body}>
+        <Image
+          source={require("../assets/images/maxenergy-logo.webp")}
+          style={styles.logo}
+          contentFit="contain"
+        />
+        <Text style={styles.title}>Become a Member</Text>
+        <Text style={styles.subtitle}>
+          Complete your official Maxenergy Fitness registration. Your details and payment go straight into our gym system — including your 24/7 door access.
+        </Text>
 
-        {loading && (
-          <View style={styles.loadingOverlay} pointerEvents="none">
-            <ActivityIndicator color={colors.brand} size="large" />
-            <Text style={styles.loadingText}>Loading sign-up form…</Text>
-          </View>
-        )}
+        <View style={styles.stepsCard}>
+          {STEPS.map((s, i) => (
+            <View key={s.label} style={[styles.stepRow, i < STEPS.length - 1 && styles.stepDivider]}>
+              <View style={styles.stepIcon}>
+                <Ionicons name={s.icon as any} size={18} color={colors.brand} />
+              </View>
+              <Text style={styles.stepLabel}>{s.label}</Text>
+              <Ionicons name="checkmark-circle-outline" size={18} color={colors.onSurfaceSecondary} />
+            </View>
+          ))}
+        </View>
 
-        {error && (
-          <View style={styles.errorOverlay}>
-            <Ionicons name="cloud-offline-outline" size={40} color={colors.onSurfaceSecondary} />
-            <Text style={styles.errorTitle}>Couldn't load the form</Text>
-            <Text style={styles.errorText}>Please check your connection and try again.</Text>
-            <Pressable style={styles.retryBtn} onPress={openExternal}>
-              <Ionicons name="open-outline" size={16} color={colors.onBrand} />
-              <Text style={styles.retryText}>Open in browser</Text>
-            </Pressable>
-          </View>
-        )}
+        <Pressable testID="vigyr-start" style={({ pressed }) => [styles.primaryBtn, pressed && { opacity: 0.9 }]} onPress={startSignUp} disabled={opening}>
+          {opening ? (
+            <ActivityIndicator color={colors.onBrand} />
+          ) : (
+            <>
+              <Text style={styles.primaryBtnText}>START SIGN-UP</Text>
+              <Ionicons name="arrow-forward" size={18} color={colors.onBrand} />
+            </>
+          )}
+        </Pressable>
+
+        <View style={styles.noteRow}>
+          <Ionicons name="lock-closed" size={13} color={colors.onSurfaceSecondary} />
+          <Text style={styles.note}>Opens a secure form where you can safely enter your bank / card details for direct debit.</Text>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -89,17 +95,19 @@ export default function VigyrSignOn() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
-  header: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
   headerTitle: { color: colors.onSurface, fontSize: 18, fontFamily: font.heading },
-  headerSub: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 2 },
-  openBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border },
-  openText: { color: colors.brand, fontSize: 12.5, fontWeight: "800" },
-  webWrap: { flex: 1, backgroundColor: "#fff" },
-  loadingOverlay: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface, gap: spacing.md },
-  loadingText: { color: colors.onSurfaceSecondary, fontSize: 13 },
-  errorOverlay: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface, gap: spacing.sm, padding: spacing.xl },
-  errorTitle: { color: colors.onSurface, fontSize: 17, fontFamily: font.heading, marginTop: spacing.sm },
-  errorText: { color: colors.onSurfaceSecondary, fontSize: 13.5, textAlign: "center" },
-  retryBtn: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: spacing.md, backgroundColor: colors.brand, paddingHorizontal: 18, paddingVertical: 12, borderRadius: radius.md },
-  retryText: { color: colors.onBrand, fontWeight: "800" },
+  body: { flex: 1, paddingHorizontal: spacing.xl, paddingTop: spacing.xl, alignItems: "center" },
+  logo: { width: 180, height: 100, marginBottom: spacing.md },
+  title: { color: colors.onSurface, fontSize: 26, fontFamily: font.display, textAlign: "center" },
+  subtitle: { color: colors.onSurfaceSecondary, fontSize: 14.5, lineHeight: 21, textAlign: "center", marginTop: spacing.sm },
+  stepsCard: { alignSelf: "stretch", backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.lg, marginTop: spacing.xl },
+  stepRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: 14 },
+  stepDivider: { borderBottomWidth: 1, borderBottomColor: colors.border },
+  stepIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center" },
+  stepLabel: { flex: 1, color: colors.onSurface, fontSize: 15, fontFamily: font.medium },
+  primaryBtn: { alignSelf: "stretch", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.md, backgroundColor: colors.brand, paddingVertical: 17, borderRadius: radius.md, marginTop: spacing.xl },
+  primaryBtnText: { color: colors.onBrand, fontFamily: font.display, fontSize: 17, letterSpacing: 1 },
+  noteRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: spacing.lg, paddingHorizontal: spacing.md },
+  note: { color: colors.onSurfaceSecondary, fontSize: 12, textAlign: "center", flexShrink: 1, lineHeight: 17 },
 });

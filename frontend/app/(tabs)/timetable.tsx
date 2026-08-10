@@ -16,6 +16,7 @@ import { api } from "@/src/api";
 import { colors, spacing, radius, type, font } from "@/src/theme";
 import ScreenBg from "@/src/components/ScreenBg";
 import { teamPhotos } from "@/src/gymPhotos";
+import { coachSource } from "@/src/coaches";
 
 function catStyle(category: string, name = ""): { color: string; icon: any } {
   const c = (category || "").toLowerCase();
@@ -30,6 +31,7 @@ type Cls = {
   class_id: string;
   name: string;
   trainer: string;
+  trainer_photo?: string;
   duration_min: number;
   price_cents: number;
   level: string;
@@ -160,8 +162,8 @@ export default function Timetable() {
                     style={styles.apptCard}
                   >
                     <View style={styles.apptIcon}>
-                      {teamPhotos[item.trainer] || (item.trainer && item.trainer.includes("Alex")) ? (
-                        <Image source={teamPhotos["Alex Honorato"]} style={styles.apptAvatar} contentFit="cover" />
+                      {coachSource(item.trainer, item.trainer_photo) ? (
+                        <Image source={coachSource(item.trainer, item.trainer_photo)} style={styles.apptAvatar} contentFit="cover" />
                       ) : (
                         <Ionicons name="person" size={20} color={colors.brand} />
                       )}
@@ -203,7 +205,16 @@ export default function Timetable() {
                 <View style={[styles.leftBar, { backgroundColor: catStyle(item.category, item.name).color }]} />
                 <View style={styles.cardBody}>
                   <View style={styles.logoBadge}>
-                    <MaterialCommunityIcons name={catStyle(item.category, item.name).icon} size={26} color={catStyle(item.category, item.name).color} />
+                    {coachSource(item.trainer, item.trainer_photo) ? (
+                      <>
+                        <Image source={coachSource(item.trainer, item.trainer_photo)} style={styles.logoImg} contentFit="cover" />
+                        <View style={[styles.catChip, { backgroundColor: catStyle(item.category, item.name).color }]}>
+                          <MaterialCommunityIcons name={catStyle(item.category, item.name).icon} size={11} color="#fff" />
+                        </View>
+                      </>
+                    ) : (
+                      <MaterialCommunityIcons name={catStyle(item.category, item.name).icon} size={26} color={catStyle(item.category, item.name).color} />
+                    )}
                   </View>
                   <View style={{ flex: 1 }}>
                     <View style={styles.cardTop}>
@@ -289,6 +300,7 @@ const styles = StyleSheet.create({
   cardBody: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   logoBadge: { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center", overflow: "hidden" },
   logoImg: { width: 52, height: 52 },
+  catChip: { position: "absolute", right: 0, bottom: 0, width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: colors.surfaceSecondary },
   bookOutline: { borderWidth: 1.5, borderColor: colors.brand, borderRadius: radius.sm, paddingHorizontal: 14, paddingVertical: 8 },
   bookOutlineText: { color: colors.brand, fontWeight: "800", fontSize: 13 },
   className: { color: colors.onSurface, fontSize: 17, fontWeight: "800", flex: 1 },

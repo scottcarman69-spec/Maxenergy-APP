@@ -835,6 +835,30 @@ async def about():
     return ABOUT
 
 
+# Map a class's trainer name -> a real coach headshot (from the About team).
+COACH_PHOTOS = {
+    "alex": "https://irp.cdn-website.com/3ca70639/dms3rep/multi/opt/709-800h_enhanced-1920w.jpg",
+    "jamie": "https://images.unsplash.com/photo-1591117207239-788bf8de6c3b?w=1200&q=80",
+    "scott": "https://irp.cdn-website.com/3ca70639/dms3rep/multi/opt/Scott+Profile+HD-a7ab5007-1920w.png",
+}
+
+
+def coach_photo(trainer: Optional[str]) -> Optional[str]:
+    if not trainer:
+        return None
+    t = trainer.lower()
+    for key, url in COACH_PHOTOS.items():
+        if key in t:
+            return url
+    return None
+
+
+def with_coach(row: dict) -> dict:
+    if isinstance(row, dict):
+        row["trainer_photo"] = coach_photo(row.get("trainer"))
+    return row
+
+
 SERVICES = [
     {"key": "gym", "title": "24/7 Gym", "icon": "barbell", "image": "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1000&q=80", "desc": "Take charge of your schedule with 24/7 access to our fully refurbished gym. Train whenever it suits your lifestyle."},
     {"key": "muaythai", "title": "Muay Thai", "icon": "flame", "image": "https://images.unsplash.com/photo-1591117207239-788bf8de6c3b?w=1000&q=80", "desc": "Learn discipline and build strength through our Muay Thai classes for all skill levels, kids and adults."},
@@ -956,7 +980,7 @@ async def classes_list(category: Optional[str] = None):
     if category and category.lower() != "all":
         q["category"] = category
     rows = await db.classes.find(q, {"_id": 0}).sort("start_at", 1).to_list(1000)
-    return {"classes": rows}
+    return {"classes": [with_coach(r) for r in rows]}
 
 
 @api.get("/classes/{class_id}")
@@ -964,7 +988,7 @@ async def class_detail(class_id: str):
     c = await db.classes.find_one({"class_id": class_id}, {"_id": 0})
     if not c:
         raise HTTPException(404, "Class not found")
-    return c
+    return with_coach(c)
 
 
 # -------------------- bookings --------------------
