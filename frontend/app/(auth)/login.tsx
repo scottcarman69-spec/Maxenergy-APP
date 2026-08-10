@@ -329,8 +329,8 @@ const styles = StyleSheet.create({
   chipL2: { color: colors.onSurfaceSecondary, fontFamily: font.heading, fontSize: 9.5, letterSpacing: 0.4, textAlign: "center", marginTop: -3 },
 
   pitch: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl },
-  slamWhite: { color: colors.onSurface, fontFamily: font.display, fontSize: 40, lineHeight: 42, letterSpacing: 0.5, textAlign: "center" },
-  slamOrange: { color: colors.brand, fontFamily: font.display, fontSize: 40, lineHeight: 42, letterSpacing: 0.5, textAlign: "center" },
+  slamWhite: { color: colors.onSurface, fontFamily: font.display, fontSize: 38, lineHeight: 50, letterSpacing: 0.5, textAlign: "center" },
+  slamOrange: { color: colors.brand, fontFamily: font.display, fontSize: 38, lineHeight: 50, letterSpacing: 0.5, textAlign: "center" },
   brush: {
     width: 150,
     height: 6,
