@@ -38,6 +38,7 @@ export default function AdminHome() {
   const cards = [
     { key: "classes", icon: "calendar", label: "Manage Classes", desc: "Add, edit, rename & remove classes", route: "/admin/classes", count: stats?.classes },
     { key: "bookings", icon: "clipboard", label: "Bookings", desc: "Accept, reschedule or cancel bookings", route: "/admin/bookings", count: stats?.pending_bookings, badge: true },
+    { key: "calendar", icon: "calendar-number", label: "Bookings Calendar", desc: "See all bookings by day & their status", route: "/admin/calendar" },
     { key: "members", icon: "people", label: "Members & Trials", desc: "Browse members and free trial claims", route: "/admin/members", count: stats?.members },
     { key: "inbox", icon: "chatbubbles", label: "Inbox", desc: "Read & reply to member messages", route: "/admin/inbox", count: stats?.unread_messages, badge: true },
     { key: "scan", icon: "qr-code", label: "Scan Check-In", desc: "Scan a member's QR to check them in", route: "/admin/scan" },

@@ -355,3 +355,10 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
   - Accept now records the preferred time as scheduled_time for appointment bookings and the acceptance notification/email says "Your session is confirmed for <time>".
   - Relabelled the ghost action "Reschedule"→"Suggest time"; modal title "Confirm new time"→"Suggest a new time"; hint "Member's preferred time: …". Reschedule modal prefills with the member's requested time.
 - Verified E2E via API: member request (>=24h) → admin list shows requested_time → accept → status confirmed + scheduled_time set → member notifications: "Booking accepted — Your session is confirmed for Wed 12 Aug · 6:00 pm" (in-app + email). Cleaned up test data.
+
+## Session update 62 (Jun 2026 fork) — Admin Bookings Calendar (DONE)
+- New screen /app/frontend/app/admin/calendar.tsx: month grid (Monday-first) with prev/next month nav and a "N bookings" count. Each day shows up to 3 status dots (green=confirmed/paid, amber=pending, dark-amber=reschedule, grey=cancelled). Today highlighted; tap a day to see its agenda below.
+- Agenda list per selected day: time + class name + member + status pill; tapping a row opens Admin → Bookings. Legend included.
+- Booking date anchor: fixed classes use class_start; appointments use requested_at (both Queensland wall-clock via datetime util scheduleDay/classTime/classDate). Bookings without an anchor are skipped.
+- Linked from Admin dashboard as a new "Bookings Calendar" card (calendar-number icon) right under Bookings. Route auto-registered by admin Stack layout.
+- Verified via screenshot (Aug 2026, dots + today highlight + legend + day agenda). tsc clean. Demo bookings used for the screenshot were removed afterward.
