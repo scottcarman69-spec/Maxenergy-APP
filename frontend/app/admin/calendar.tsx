@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Linking, Modal } from "react-native";
+import React, { useCallback, useMemo, useState, useRef, useEffect } from "react";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Linking, Modal, NativeSyntheticEvent, NativeScrollEvent } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -76,6 +76,20 @@ function anchorHour(b: Booking): number {
   return parsed.getUTCHours() * 60 + parsed.getUTCMinutes();
 }
 
+const WEEKDAY_FULL = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+function addDaysUTC(d: Date, n: number): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + n));
+}
+// Monday (UTC) of the week containing the given YYYY-MM-DD key.
+function mondayOfKey(key: string): Date {
+  const d = new Date(key + "T00:00:00Z");
+  const wd = (d.getUTCDay() + 6) % 7; // 0 = Monday
+  return addDaysUTC(d, -wd);
+}
+function keyOfDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
 export default function AdminCalendar() {
   const router = useRouter();
   const [rows, setRows] = useState<Booking[]>([]);
@@ -89,6 +103,10 @@ export default function AdminCalendar() {
   const [filter, setFilter] = useState<Filter>("All");
   const [actioning, setActioning] = useState<string | null>(null);
   const [classModal, setClassModal] = useState<ClassSession | null>(null);
+  const [viewMode, setViewMode] = useState<"month" | "week">("month");
+  const [weekAnchor, setWeekAnchor] = useState<Date>(() => mondayOfKey(qldTodayUTC().toISOString().slice(0, 10)));
+  const [pagerW, setPagerW] = useState(0);
+  const pagerRef = useRef<ScrollView>(null);
 
   const load = useCallback(async () => {
     try {
@@ -170,10 +188,77 @@ export default function AdminCalendar() {
     setCursor(new Date(Date.UTC(year, month + delta, 1)));
   };
 
+  // ---- Week view helpers ----
+  const weekDays = useMemo(() => [0, 1, 2, 3, 4, 5, 6].map((i) => addDaysUTC(weekAnchor, i)), [weekAnchor]);
+  const weekEntries = useMemo(
+    () => weekDays.reduce<number>((n, d) => {
+      const k = keyOfDate(d);
+      return n + (grouped[k]?.length || 0) + (classesByDay[k]?.length || 0);
+    }, 0),
+    [weekDays, grouped, classesByDay]
+  );
+  const weekRangeLabel = useMemo(() => {
+    const start = weekAnchor;
+    const end = addDaysUTC(weekAnchor, 6);
+    const sameMonth = start.getUTCMonth() === end.getUTCMonth();
+    const startStr = start.toLocaleDateString("en-AU", { day: "numeric", month: sameMonth ? undefined : "short", timeZone: "UTC" });
+    const endStr = end.toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+    return `${startStr} – ${endStr}`;
+  }, [weekAnchor]);
+
+  const shiftWeek = (delta: number) => setWeekAnchor((a) => addDaysUTC(a, delta * 7));
+
+  // keep the swipe pager centred on the current week
+  useEffect(() => {
+    if (viewMode === "week" && pagerW > 0) {
+      pagerRef.current?.scrollTo({ x: pagerW, animated: false });
+    }
+  }, [weekAnchor, viewMode, pagerW]);
+
+  const onWeekScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (pagerW <= 0) return;
+    const page = Math.round(e.nativeEvent.contentOffset.x / pagerW);
+    if (page === 0) shiftWeek(-1);
+    else if (page === 2) shiftWeek(1);
+  };
+
+  const shiftPeriod = (delta: number) => (viewMode === "month" ? shiftMonth(delta) : shiftWeek(delta));
+
   const dotColors = (dayBookings: Booking[]): string[] => {
     const order = [colors.success, colors.warning, "#B45309", colors.info];
     const present = new Set(dayBookings.map((b) => (STATUS[b.status] || STATUS.pending).color));
     return order.filter((c) => present.has(c)).slice(0, 3);
+  };
+
+  const renderWeekDay = (d: Date) => {
+    const key = keyOfDate(d);
+    const dayBookings = grouped[key] || [];
+    const dayCount = dayBookings.length + (classesByDay[key]?.length || 0);
+    const isToday = key === todayKey;
+    const isSel = key === selected;
+    return (
+      <Pressable
+        key={key}
+        testID={`admincal-weekday-${d.getUTCDate()}`}
+        style={[styles.weekCell, isSel && styles.weekCellSel, isToday && !isSel && styles.weekCellToday]}
+        onPress={() => setSelected(key)}
+      >
+        <Text style={[styles.weekCellLabel, isSel && styles.weekCellTextSel]}>{WEEKDAY_FULL[(d.getUTCDay() + 6) % 7]}</Text>
+        <Text style={[styles.weekCellNum, isSel && styles.weekCellTextSel, isToday && !isSel && { color: colors.brand }]}>{d.getUTCDate()}</Text>
+        <View style={styles.dots}>
+          {[...(classesByDay[key]?.length ? [CLASS_COLOR] : []), ...dotColors(dayBookings)].slice(0, 3).map((c, di) => (
+            <View key={di} style={[styles.dot, { backgroundColor: c }]} />
+          ))}
+        </View>
+        {dayCount > 0 ? (
+          <View style={[styles.weekCountPill, isSel && styles.weekCountPillSel]}>
+            <Text style={[styles.weekCountText, isSel && styles.weekCellTextSel]}>{dayCount > 9 ? "9+" : dayCount}</Text>
+          </View>
+        ) : (
+          <View style={{ height: 18 }} />
+        )}
+      </Pressable>
+    );
   };
 
   return (
@@ -204,57 +289,96 @@ export default function AdminCalendar() {
           </ScrollView>
 
           <View style={styles.calCard}>
+          <View style={styles.toggleRow}>
+            <Pressable testID="admincal-view-month" onPress={() => setViewMode("month")} style={[styles.toggleBtn, viewMode === "month" && styles.toggleBtnOn]}>
+              <Ionicons name="calendar-outline" size={15} color={viewMode === "month" ? colors.onBrand : colors.onSurfaceSecondary} />
+              <Text style={[styles.toggleText, viewMode === "month" && styles.toggleTextOn]}>Month</Text>
+            </Pressable>
+            <Pressable testID="admincal-view-week" onPress={() => setViewMode("week")} style={[styles.toggleBtn, viewMode === "week" && styles.toggleBtnOn]}>
+              <Ionicons name="reorder-four-outline" size={16} color={viewMode === "week" ? colors.onBrand : colors.onSurfaceSecondary} />
+              <Text style={[styles.toggleText, viewMode === "week" && styles.toggleTextOn]}>Week</Text>
+            </Pressable>
+          </View>
+
           <View style={styles.monthBar}>
-            <Pressable testID="admincal-prev" onPress={() => shiftMonth(-1)} hitSlop={12} style={styles.navBtn}>
+            <Pressable testID="admincal-prev" onPress={() => shiftPeriod(-1)} hitSlop={12} style={styles.navBtn}>
               <Ionicons name="chevron-back" size={20} color={colors.onSurface} />
             </Pressable>
             <View style={{ alignItems: "center" }}>
               <Text style={styles.monthTitle}>
-                {cursor.toLocaleDateString("en-AU", { month: "long", year: "numeric", timeZone: "UTC" })}
+                {viewMode === "month"
+                  ? cursor.toLocaleDateString("en-AU", { month: "long", year: "numeric", timeZone: "UTC" })
+                  : weekRangeLabel}
               </Text>
-              <Text style={styles.monthSub}>{monthEntries} item{monthEntries === 1 ? "" : "s"}</Text>
+              <Text style={styles.monthSub}>
+                {viewMode === "month" ? monthEntries : weekEntries} item{(viewMode === "month" ? monthEntries : weekEntries) === 1 ? "" : "s"}
+              </Text>
             </View>
-            <Pressable testID="admincal-next" onPress={() => shiftMonth(1)} hitSlop={12} style={styles.navBtn}>
+            <Pressable testID="admincal-next" onPress={() => shiftPeriod(1)} hitSlop={12} style={styles.navBtn}>
               <Ionicons name="chevron-forward" size={20} color={colors.onSurface} />
             </Pressable>
           </View>
 
-          <View style={styles.weekRow}>
-            {WEEKDAYS.map((w, i) => (
-              <Text key={i} style={styles.weekLabel}>{w}</Text>
-            ))}
-          </View>
+          {viewMode === "month" ? (
+            <>
+              <View style={styles.weekRow}>
+                {WEEKDAYS.map((w, i) => (
+                  <Text key={i} style={styles.weekLabel}>{w}</Text>
+                ))}
+              </View>
 
-          <View style={styles.grid}>
-            {cells.map((d, i) => {
-              if (!d) return <View key={i} style={styles.cell} />;
-              const key = keyFor(d);
-              const dayBookings = grouped[key] || [];
-              const dayCount = dayBookings.length + (classesByDay[key]?.length || 0);
-              const isToday = key === todayKey;
-              const isSel = key === selected;
-              return (
-                <Pressable
-                  key={i}
-                  testID={`admincal-day-${d}`}
-                  style={[styles.cell, styles.cellDay, isSel && styles.cellSel, isToday && !isSel && styles.cellToday]}
-                  onPress={() => setSelected(key)}
+              <View style={styles.grid}>
+                {cells.map((d, i) => {
+                  if (!d) return <View key={i} style={styles.cell} />;
+                  const key = keyFor(d);
+                  const dayBookings = grouped[key] || [];
+                  const dayCount = dayBookings.length + (classesByDay[key]?.length || 0);
+                  const isToday = key === todayKey;
+                  const isSel = key === selected;
+                  return (
+                    <Pressable
+                      key={i}
+                      testID={`admincal-day-${d}`}
+                      style={[styles.cell, styles.cellDay, isSel && styles.cellSel, isToday && !isSel && styles.cellToday]}
+                      onPress={() => setSelected(key)}
+                    >
+                      {dayCount > 0 && (
+                        <View style={styles.countBadge} testID={`admincal-count-${d}`}>
+                          <Text style={styles.countBadgeText}>{dayCount > 9 ? "9+" : dayCount}</Text>
+                        </View>
+                      )}
+                      <Text style={[styles.cellNum, isSel && styles.cellNumSel, isToday && !isSel && styles.cellNumToday]}>{d}</Text>
+                      <View style={styles.dots}>
+                        {[...(classesByDay[key]?.length ? [CLASS_COLOR] : []), ...dotColors(dayBookings)].slice(0, 3).map((c, di) => (
+                          <View key={di} style={[styles.dot, { backgroundColor: c }]} />
+                        ))}
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </>
+          ) : (
+            <View style={styles.weekPagerWrap} onLayout={(e) => setPagerW(e.nativeEvent.layout.width)}>
+              {pagerW > 0 && (
+                <ScrollView
+                  ref={pagerRef}
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  onMomentumScrollEnd={onWeekScrollEnd}
+                  contentOffset={{ x: pagerW, y: 0 }}
                 >
-                  {dayCount > 0 && (
-                    <View style={styles.countBadge} testID={`admincal-count-${d}`}>
-                      <Text style={styles.countBadgeText}>{dayCount > 9 ? "9+" : dayCount}</Text>
+                  {[-1, 0, 1].map((off) => (
+                    <View key={off} style={{ width: pagerW, flexDirection: "row" }}>
+                      {[0, 1, 2, 3, 4, 5, 6].map((i) => renderWeekDay(addDaysUTC(weekAnchor, off * 7 + i)))}
                     </View>
-                  )}
-                  <Text style={[styles.cellNum, isSel && styles.cellNumSel, isToday && !isSel && styles.cellNumToday]}>{d}</Text>
-                  <View style={styles.dots}>
-                    {[...(classesByDay[key]?.length ? [CLASS_COLOR] : []), ...dotColors(dayBookings)].slice(0, 3).map((c, di) => (
-                      <View key={di} style={[styles.dot, { backgroundColor: c }]} />
-                    ))}
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
+                  ))}
+                </ScrollView>
+              )}
+              <Text style={styles.swipeHint}>‹ Swipe to change week ›</Text>
+            </View>
+          )}
 
           <View style={styles.legend}>
             {[["Class", CLASS_COLOR], ["Confirmed / Paid", colors.success], ["Pending / Reschedule", colors.warning], ["Cancelled", colors.info]].map(([l, c]) => (
@@ -454,6 +578,22 @@ const styles = StyleSheet.create({
   filterText: { color: colors.onSurfaceSecondary, fontWeight: "800", fontSize: 13 },
   filterTextOn: { color: colors.onBrand },
   calCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.lg },
+  toggleRow: { flexDirection: "row", backgroundColor: colors.surfaceTertiary, borderRadius: radius.pill, padding: 3, marginBottom: spacing.md },
+  toggleBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 8, borderRadius: radius.pill },
+  toggleBtnOn: { backgroundColor: colors.brand },
+  toggleText: { color: colors.onSurfaceSecondary, fontWeight: "800", fontSize: 13 },
+  toggleTextOn: { color: colors.onBrand },
+  weekPagerWrap: { marginTop: 2 },
+  weekCell: { width: `${100 / 7}%`, alignItems: "center", paddingVertical: 8, borderRadius: radius.md },
+  weekCellSel: { backgroundColor: colors.brand },
+  weekCellToday: { borderWidth: 1.5, borderColor: colors.brand },
+  weekCellLabel: { color: colors.onSurfaceSecondary, fontSize: 10, fontWeight: "800", letterSpacing: 0.5 },
+  weekCellNum: { color: colors.onSurface, fontSize: 18, fontWeight: "900", marginTop: 3 },
+  weekCellTextSel: { color: colors.onBrand },
+  weekCountPill: { minWidth: 18, height: 18, paddingHorizontal: 5, borderRadius: 9, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center", marginTop: 5 },
+  weekCountPillSel: { backgroundColor: "rgba(255,255,255,0.25)" },
+  weekCountText: { color: colors.brand, fontSize: 10, fontWeight: "900" },
+  swipeHint: { color: colors.onSurfaceSecondary, fontSize: 11, textAlign: "center", marginTop: spacing.sm, letterSpacing: 0.5 },
   monthBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.md },
   navBtn: { width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.surfaceTertiary, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
   monthTitle: { color: colors.onSurface, fontSize: 18, fontWeight: "900" },
