@@ -136,3 +136,6 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Fixed FB Page Plugin leaving a large white gap + narrow content inside the white card on Expo Go (native WebView). The plugin reserved a fixed tall height regardless of content.
 - FacebookFeed.tsx: request a tall plugin (PLUGIN_HEIGHT=1300) so FB renders several posts, then inject MEASURE_JS that posts document scrollHeight back via onMessage; WebView height = measured content height (clamped MIN_H 260 .. MAX_H 1600), width 100%, scrollEnabled=false, bg #fff. Reset measured height on tab switch. feedCard no longer centers (stretch + top-align). Web branch (iframe + scale) unchanged.
 - NOTE: native-WebView-only behaviour — cannot be validated in the web preview; must be checked in Expo Go on device.
+
+## Session update 25 (Jun 2026 fork) — FB feed width fix CONFIRMED
+- Root cause of half-width feed: raw plugin URL rendered at device physical-pixel viewport. Fixed by rendering the plugin inside a controlled HTML wrapper (source={{html, baseUrl:'https://www.facebook.com'}}) with viewport width=device-width + data-adapt-container-width=true + CSS width:100% on .fb-page/span/iframe. data-height=900; WebView height = measured scrollHeight (clamped 260..1600), scrollEnabled=false. Web branch unchanged (iframe + scale). User CONFIRMED fixed on Expo Go device.
