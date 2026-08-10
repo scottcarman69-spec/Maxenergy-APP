@@ -34,6 +34,11 @@ JWT_ALGO = os.environ["JWT_ALGO"]
 EMERGENT_EMAIL_KEY = os.environ["EMERGENT_EMAIL_KEY"]
 EMAIL_FROM_NAME = os.environ["EMAIL_FROM_NAME"]
 STRIPE_API_KEY = os.environ["STRIPE_API_KEY"]
+SQUARE_ENV = os.environ.get("SQUARE_ENV", "sandbox")
+SQUARE_ACCESS_TOKEN = os.environ.get("SQUARE_ACCESS_TOKEN", "")
+SQUARE_LOCATION_ID = os.environ.get("SQUARE_LOCATION_ID", "")
+SQUARE_BASE = "https://connect.squareupsandbox.com/v2" if SQUARE_ENV == "sandbox" else "https://connect.squareup.com/v2"
+SQUARE_VERSION = "2026-01-22"
 GYM_ADMIN_EMAIL = os.environ["GYM_ADMIN_EMAIL"]
 ADMIN_EMAIL = os.environ["ADMIN_EMAIL"]
 ADMIN_PASSWORD = os.environ["ADMIN_PASSWORD"]
@@ -1291,34 +1296,54 @@ async def payments_checkout(body: CheckoutCreate, request: Request, u: dict = De
         raise HTTPException(404, "Booking not found")
     if booking["status"] == "paid":
         raise HTTPException(409, "Already paid")
-    host_url = str(request.base_url).rstrip("/")
-    webhook_url = f"{host_url}/api/webhook/stripe"
-    stripe = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=webhook_url)
-    success_url = f"{body.origin_url.rstrip('/')}/payment-return?status=success&session_id={{CHECKOUT_SESSION_ID}}"
-    cancel_url = f"{body.origin_url.rstrip('/')}/payment-return?status=cancel"
-    amount = float(booking["amount"]) / 100.0
-    req = CheckoutSessionRequest(
-        amount=amount,
-        currency=booking.get("currency", "aud"),
-        success_url=success_url,
-        cancel_url=cancel_url,
-        metadata={"booking_id": booking["booking_id"], "user_id": u["user_id"], "class_id": booking["class_id"]},
-    )
-    session = await stripe.create_checkout_session(req)
+
+    amount_cents = int(booking["amount"])
+    currency = (booking.get("currency") or "AUD").upper()
+    redirect_url = f"{body.origin_url.rstrip('/')}/payment-return?status=success&booking_id={booking['booking_id']}"
+    payload = {
+        "idempotency_key": str(uuid.uuid4()),
+        "quick_pay": {
+            "name": booking["class_name"],
+            "price_money": {"amount": amount_cents, "currency": currency},
+            "location_id": SQUARE_LOCATION_ID,
+        },
+        "payment_note": f"class_booking:{booking['booking_id']}",
+        "pre_populated_data": {"buyer_email": u.get("email", "")},
+        "checkout_options": {"redirect_url": redirect_url},
+    }
+    headers = {
+        "Authorization": f"Bearer {SQUARE_ACCESS_TOKEN}",
+        "Content-Type": "application/json",
+        "Square-Version": SQUARE_VERSION,
+    }
+    async with httpx.AsyncClient(timeout=20) as client:
+        resp = await client.post(f"{SQUARE_BASE}/online-checkout/payment-links", headers=headers, json=payload)
+    if resp.status_code >= 400:
+        log.error(f"square checkout error {resp.status_code}: {resp.text[:300]}")
+        raise HTTPException(502, "Unable to create Square checkout")
+    link = resp.json().get("payment_link", {})
+    order_id = link.get("order_id")
+    checkout_url = link.get("url")
+    if not order_id or not checkout_url:
+        raise HTTPException(502, "Invalid Square response")
+
     await db.payment_transactions.insert_one(
         {
-            "session_id": session.session_id,
+            "session_id": order_id,  # Square order id used as our session identifier
+            "square_order_id": order_id,
+            "square_payment_link_id": link.get("id"),
+            "provider": "square",
             "booking_id": booking["booking_id"],
             "user_id": u["user_id"],
             "amount": booking["amount"],
-            "currency": booking.get("currency", "aud"),
+            "currency": currency.lower(),
             "payment_status": "initiated",
             "status": "open",
             "created_at": now_utc(),
         }
     )
-    await db.bookings.update_one({"booking_id": booking["booking_id"]}, {"$set": {"stripe_session_id": session.session_id}})
-    return {"url": session.url, "session_id": session.session_id}
+    await db.bookings.update_one({"booking_id": booking["booking_id"]}, {"$set": {"square_order_id": order_id}})
+    return {"url": checkout_url, "session_id": order_id}
 
 
 @api.get("/payments/status/{session_id}")
@@ -1326,22 +1351,42 @@ async def payments_status(session_id: str, request: Request, u: dict = Depends(r
     tx = await db.payment_transactions.find_one({"session_id": session_id, "user_id": u["user_id"]}, {"_id": 0})
     if not tx:
         raise HTTPException(404, "Session not found")
-    host_url = str(request.base_url).rstrip("/")
-    webhook_url = f"{host_url}/api/webhook/stripe"
-    stripe = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=webhook_url)
-    status: CheckoutStatusResponse = await stripe.get_checkout_status(session_id)
-    if tx.get("payment_status") != status.payment_status:
+    headers = {
+        "Authorization": f"Bearer {SQUARE_ACCESS_TOKEN}",
+        "Square-Version": SQUARE_VERSION,
+    }
+    async with httpx.AsyncClient(timeout=20) as client:
+        resp = await client.get(f"{SQUARE_BASE}/orders/{tx['square_order_id']}", headers=headers)
+    if resp.status_code >= 400:
+        log.error(f"square order status error {resp.status_code}: {resp.text[:200]}")
+        return {"payment_status": tx.get("payment_status", "initiated"), "status": tx.get("status", "open")}
+    order = resp.json().get("order", {})
+    state = order.get("state", "")  # DRAFT, OPEN, COMPLETED, CANCELED
+    total = order.get("total_money", {}) or {}
+    total_amt = total.get("amount", 0) or 0
+    net_due = (order.get("net_amount_due_money") or {}).get("amount")
+    tenders = order.get("tenders") or []
+    # A Square payment-link order stays OPEN after payment; detect paid via net amount due == 0.
+    fully_paid = (total_amt > 0 and net_due == 0 and len(tenders) > 0) or state == "COMPLETED"
+    if fully_paid:
+        payment_status, status = "paid", "complete"
+    elif state == "CANCELED":
+        payment_status, status = "unpaid", "expired"
+    else:
+        payment_status, status = "initiated", "open"
+
+    if tx.get("payment_status") != payment_status:
         await db.payment_transactions.update_one(
             {"session_id": session_id},
-            {"$set": {"payment_status": status.payment_status, "status": status.status, "updated_at": now_utc()}},
+            {"$set": {"payment_status": payment_status, "status": status, "updated_at": now_utc()}},
         )
-        if status.payment_status == "paid" and tx.get("payment_status") != "paid":
+        if payment_status == "paid":
             await mark_booking_paid(tx["booking_id"])
     return {
-        "payment_status": status.payment_status,
-        "status": status.status,
-        "amount_total": status.amount_total,
-        "currency": status.currency,
+        "payment_status": payment_status,
+        "status": status,
+        "amount_total": total.get("amount"),
+        "currency": (total.get("currency") or tx.get("currency", "aud")).lower(),
     }
 
 
