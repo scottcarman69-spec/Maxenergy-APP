@@ -22,6 +22,7 @@ function catStyle(category: string, name = ""): { color: string; icon: any } {
   const nm = (name || "").toLowerCase();
   if (c.includes("kid") || nm.includes("kid")) return { color: "#22C55E", icon: "karate" };
   if (nm.includes("box") || nm.includes("kick")) return { color: "#3B82F6", icon: "boxing-glove" };
+  if (c.includes("boot") || nm.includes("boot")) return { color: "#F59E0B", icon: "weight-lifter" };
   return { color: "#FF7A00", icon: "karate" };
 }
 

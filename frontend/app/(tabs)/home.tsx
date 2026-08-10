@@ -57,6 +57,7 @@ function catStyle(category: string, name = ""): { color: string; icon: any; set:
   const nm = (name || "").toLowerCase();
   if (c.includes("kid") || nm.includes("kid")) return { color: "#22C55E", icon: "karate", set: "mci" };
   if (nm.includes("box") || nm.includes("kick")) return { color: "#3B82F6", icon: "boxing-glove", set: "mci" };
+  if (c.includes("boot") || nm.includes("boot")) return { color: "#F59E0B", icon: "weight-lifter", set: "mci" };
   return { color: colors.brand, icon: "karate", set: "mci" };
 }
 
