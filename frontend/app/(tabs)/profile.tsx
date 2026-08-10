@@ -117,6 +117,12 @@ export default function Profile() {
     api.deleteNotification(id).catch(() => {});
   };
 
+  const clearAllNotifs = async () => {
+    setNotifs([]);
+    setBanner("Notifications cleared. You can still view them in your log.");
+    try { await api.clearAllNotifications(); } catch {}
+  };
+
   const links = [
     { key: "inbox", icon: "chatbubbles", label: "Message the Gym", onPress: () => router.push("/(tabs)/inbox") },
     { key: "membership", icon: "card", label: "Membership Application", onPress: () => router.push("/membership") },
@@ -202,7 +208,21 @@ export default function Profile() {
           )}
         </View>
 
-        <Text style={styles.section}>NOTIFICATIONS</Text>
+        <View style={styles.sectionRow}>
+          <Text style={[styles.section, { marginTop: 0, marginBottom: 0, paddingHorizontal: 0 }]}>NOTIFICATIONS</Text>
+          <View style={styles.sectionActions}>
+            <Pressable testID="notif-history" style={styles.sectionBtn} onPress={() => router.push("/notification-history")}>
+              <Ionicons name="time-outline" size={14} color={colors.onSurfaceSecondary} />
+              <Text style={styles.sectionBtnText}>Log</Text>
+            </Pressable>
+            {notifs.length > 0 && (
+              <Pressable testID="notif-clear-all" style={styles.sectionBtn} onPress={clearAllNotifs}>
+                <Ionicons name="trash-outline" size={14} color={colors.brand} />
+                <Text style={[styles.sectionBtnText, { color: colors.brand }]}>Clear all</Text>
+              </Pressable>
+            )}
+          </View>
+        </View>
         {loading ? (
           <ActivityIndicator color={colors.brand} style={{ marginTop: 20 }} />
         ) : notifs.length === 0 ? (
@@ -467,6 +487,10 @@ const styles = StyleSheet.create({
   downloadLabel: { color: colors.onSurface, fontFamily: font.heading, fontSize: 15 },
   downloadSub: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 1 },
   section: { color: colors.onSurfaceSecondary, fontSize: 12, fontFamily: font.heading, letterSpacing: 1.5, paddingHorizontal: spacing.lg, marginTop: spacing.xl, marginBottom: spacing.md },
+  sectionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, marginTop: spacing.xl, marginBottom: spacing.md },
+  sectionActions: { flexDirection: "row", gap: spacing.sm },
+  sectionBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 6, paddingHorizontal: 10, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border },
+  sectionBtnText: { color: colors.onSurfaceSecondary, fontSize: 11.5, fontWeight: "800" },
   notifRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md, backgroundColor: colors.surfaceSecondary, padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
   notifDelete: { backgroundColor: colors.error, justifyContent: "center", alignItems: "center", width: 84, borderRadius: radius.md, marginLeft: spacing.sm, gap: 2 },
   notifDeleteText: { color: "#fff", fontWeight: "800", fontSize: 12 },

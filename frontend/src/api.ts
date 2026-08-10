@@ -116,10 +116,12 @@ export const api = {
   myApplications: () => req("/api/membership/applications/me"),
 
   notifications: () => req("/api/notifications"),
+  notificationsHistory: () => req("/api/notifications/history"),
   markRead: (id: string) => req(`/api/notifications/${id}/read`, { method: "POST" }),
   deleteNotification: (id: string) => req(`/api/notifications/${id}`, { method: "DELETE" }),
   unreadNotifications: () => req("/api/notifications/unread"),
   markAllNotificationsRead: () => req("/api/notifications/read-all", { method: "POST" }),
+  clearAllNotifications: () => req("/api/notifications/clear-all", { method: "POST" }),
 
   // admin
   adminOverview: () => req("/api/admin/overview"),
