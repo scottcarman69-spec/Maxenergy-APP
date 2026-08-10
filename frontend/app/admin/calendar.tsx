@@ -19,6 +19,8 @@ type Booking = {
   class_start?: string;
   member_name?: string;
   member_email?: string;
+  member_phone?: string;
+  attended?: boolean;
 };
 
 const STATUS: Record<string, { label: string; color: string }> = {
@@ -67,6 +69,7 @@ export default function AdminCalendar() {
   });
   const [selected, setSelected] = useState<string>(() => qldTodayUTC().toISOString().slice(0, 10));
   const [filter, setFilter] = useState<Filter>("All");
+  const [actioning, setActioning] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -76,6 +79,15 @@ export default function AdminCalendar() {
     setLoading(false);
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const toggleAttend = async (b: Booking) => {
+    setActioning(b.booking_id);
+    try {
+      await api.adminSetAttendance(b.booking_id, !b.attended);
+      await load();
+    } catch {}
+    setActioning(null);
+  };
 
   const grouped = useMemo(() => {
     const m: Record<string, Booking[]> = {};
@@ -214,27 +226,48 @@ export default function AdminCalendar() {
               const meta = STATUS[b.status] || { label: b.status, color: colors.info };
               const iso = anchorIso(b);
               const timeLabel = iso ? classTime(iso) : (b.scheduled_time || "Time TBC");
+              const busy = actioning === b.booking_id;
+              const canAttend = b.status !== "cancelled";
               return (
-                <Pressable
-                  key={b.booking_id}
-                  testID={`admincal-booking-${b.booking_id}`}
-                  style={styles.item}
-                  onPress={() => router.push("/admin/bookings")}
-                >
-                  <View style={[styles.itemBar, { backgroundColor: meta.color }]} />
-                  <View style={styles.itemTime}>
-                    <Text style={styles.itemTimeText}>{timeLabel}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.itemName} numberOfLines={1}>{b.class_name}</Text>
-                    <Text style={styles.itemMember} numberOfLines={1}>
-                      {b.member_name || "Member"}{b.by_appointment ? " · by appointment" : ""}
-                    </Text>
-                  </View>
-                  <View style={[styles.pill, { backgroundColor: meta.color }]}>
-                    <Text style={styles.pillText}>{meta.label.toUpperCase()}</Text>
-                  </View>
-                </Pressable>
+                <View key={b.booking_id} testID={`admincal-booking-${b.booking_id}`} style={styles.itemCard}>
+                  <Pressable style={styles.item} onPress={() => router.push("/admin/bookings")}>
+                    <View style={[styles.itemBar, { backgroundColor: meta.color }]} />
+                    <View style={styles.itemTime}>
+                      <Text style={styles.itemTimeText}>{timeLabel}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.itemName} numberOfLines={1}>{b.class_name}</Text>
+                      <Text style={styles.itemMember} numberOfLines={1}>{b.member_name || "Member"}</Text>
+                      {!!b.member_phone && (
+                        <Text style={styles.itemPhone} numberOfLines={1}>
+                          <Ionicons name="call" size={11} color={colors.brand} /> {b.member_phone}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={[styles.pill, { backgroundColor: meta.color }]}>
+                      <Text style={styles.pillText}>{meta.label.toUpperCase()}</Text>
+                    </View>
+                  </Pressable>
+                  {canAttend && (
+                    <Pressable
+                      testID={`admincal-attend-${b.booking_id}`}
+                      style={[styles.attendBar, b.attended && styles.attendBarOn]}
+                      disabled={busy}
+                      onPress={() => toggleAttend(b)}
+                    >
+                      {busy ? (
+                        <ActivityIndicator size="small" color={b.attended ? "#fff" : colors.onSurface} />
+                      ) : (
+                        <>
+                          <Ionicons name={b.attended ? "checkmark-circle" : "person-add-outline"} size={16} color={b.attended ? "#fff" : colors.onSurface} />
+                          <Text style={[styles.attendText, b.attended && { color: "#fff" }]}>
+                            {b.attended ? "Attended ✓  (tap to undo)" : "Confirm attended"}
+                          </Text>
+                        </>
+                      )}
+                    </Pressable>
+                  )}
+                </View>
               );
             })
           )}
@@ -274,12 +307,17 @@ const styles = StyleSheet.create({
   agendaTitle: { color: colors.onSurface, fontSize: 16, fontFamily: font.heading, marginBottom: spacing.md },
   empty: { alignItems: "center", padding: 40, gap: spacing.sm },
   emptyText: { color: colors.onSurfaceSecondary },
-  item: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm, overflow: "hidden" },
+  item: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, padding: spacing.md, overflow: "hidden" },
+  itemCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, overflow: "hidden", marginBottom: spacing.sm },
   itemBar: { position: "absolute", left: 0, top: 0, bottom: 0, width: 4 },
   itemTime: { width: 62 },
   itemTimeText: { color: colors.onSurface, fontSize: 13, fontWeight: "800" },
   itemName: { color: colors.onSurface, fontSize: 14, fontWeight: "800" },
-  itemMember: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 2 },
+  itemMember: { color: colors.onSurface, fontSize: 12, marginTop: 2 },
+  itemPhone: { color: colors.brand, fontSize: 12, marginTop: 2, fontWeight: "700" },
+  attendBar: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 11, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surface },
+  attendBarOn: { backgroundColor: "#16A34A" },
+  attendText: { color: colors.onSurface, fontWeight: "800", fontSize: 13 },
   pill: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: radius.pill },
   pillText: { color: "#fff", fontSize: 9, fontWeight: "900", letterSpacing: 0.5 },
 });

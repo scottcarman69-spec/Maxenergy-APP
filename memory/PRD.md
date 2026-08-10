@@ -375,3 +375,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Requests badge: admin_overview now returns session_requests = count of by_appointment bookings with status pending/reschedule_requested. Admin dashboard shows a prominent orange banner "N new session request(s) waiting → tap to review" (routes to /admin/bookings) when >0.
 - Filter By Status: both /admin/calendar and /calendar (member) gained quick filter chips [All, Confirmed(=confirmed/paid), Pending(=pending/reschedule), Cancelled]. Filter applies to grouping (dots + month count) and the day agenda.
 - Verified: overview session_requests=1 → dashboard banner renders; calendar Pending filter shows only the pending dot and "1 booking". tsc clean. Test data cleaned afterwards.
+
+## Session update 65 (Jun 2026 fork) — Calendar shows member name+mobile & attendance confirm (DONE)
+- admin_bookings now enriches each row with member_phone (from users.phone, falling back to the member's membership_application phone). member_name/email already present.
+- Admin Bookings Calendar agenda items now show member name + a highlighted mobile line (call icon) for each booking, plus a "Confirm attended" toggle (green "Attended ✓" when set) that calls api.adminSetAttendance and reloads. Items wrapped in a card with the attend bar; tapping the row still opens Admin → Bookings.
+- Confirmed Q (user): paid/confirmed bookings auto-appear on BOTH calendars (member GET /bookings + admin /admin/bookings) grouped by class_start (fixed) or requested_at (appointment); calendars refresh on focus.
+- Verified via screenshot: Custom Programs · 4:00 pm · CONFIRMED with "Sarah Tester", "📞 0412 345 678", and "Confirm attended" button. tsc clean. Test data cleaned.

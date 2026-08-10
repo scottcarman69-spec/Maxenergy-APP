@@ -2573,12 +2573,19 @@ async def admin_bookings(u: dict = Depends(require_admin)):
     rows = await db.bookings.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
     # enrich with member info
     uids = list({r["user_id"] for r in rows})
-    users = await db.users.find({"user_id": {"$in": uids}}, {"_id": 0, "user_id": 1, "name": 1, "email": 1}).to_list(500)
+    users = await db.users.find({"user_id": {"$in": uids}}, {"_id": 0, "user_id": 1, "name": 1, "email": 1, "phone": 1}).to_list(500)
     umap = {x["user_id"]: x for x in users}
+    # phone often lives on the member's membership application
+    phone_by_user: dict = {}
+    apps = await db.membership_applications.find({"user_id": {"$in": uids}}, {"_id": 0, "user_id": 1, "phone": 1}).to_list(2000)
+    for a in apps:
+        if a.get("phone") and a["user_id"] not in phone_by_user:
+            phone_by_user[a["user_id"]] = a.get("phone")
     for r in rows:
         m = umap.get(r["user_id"], {})
         r["member_name"] = m.get("name") or m.get("email") or "Member"
         r["member_email"] = m.get("email")
+        r["member_phone"] = m.get("phone") or phone_by_user.get(r["user_id"])
     return {"bookings": rows}
 
 
