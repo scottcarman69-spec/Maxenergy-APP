@@ -985,7 +985,22 @@ async def classes_list(category: Optional[str] = None):
     if category and category.lower() != "all":
         q["category"] = category
     rows = await db.classes.find(q, {"_id": 0}).sort("start_at", 1).to_list(1000)
-    return {"classes": [with_coach(r) for r in rows]}
+    # Hide classes that have already ended (start + duration in the past).
+    # start_at is stored as local wall-clock (QLD), so compare against QLD-local now.
+    now_local = (now_utc() + timedelta(hours=10)).replace(tzinfo=None)
+    live = []
+    for r in rows:
+        if r.get("by_appointment"):
+            live.append(r)
+            continue
+        start = r.get("start_at")
+        if isinstance(start, datetime):
+            s = start.replace(tzinfo=None) if start.tzinfo else start
+            end = s + timedelta(minutes=r.get("duration_min") or 0)
+            if end < now_local:
+                continue
+        live.append(r)
+    return {"classes": [with_coach(r) for r in live]}
 
 
 @api.get("/classes/{class_id}")

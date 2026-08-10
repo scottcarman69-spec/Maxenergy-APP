@@ -235,3 +235,7 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Backend: admin_attendance_report now also returns `sessions` — grouped by (class_name, local day, QLD), each {class_name, date, iso, count, attendees:[{name,email,time,by}]}, sorted newest first, limit 80. (Report already returned recent + top_members with names.)
 - Frontend (admin/attendance.tsx): new expandable card — each session row shows class name + date + a headcount pill; tapping expands to list attendee names, check-in time, and a tag (QR / staff / member) based on checked_in_by (admin_qr shows "· QR"). Only one open at a time (openKey).
 - Verified via screenshot: Muay Thai Mon 10 Aug expands to Max Energy Admin 6:06 PM + Vigyr Tester 6:23 PM · QR.
+
+## Session update 42 (Jun 2026 fork) — Hide ended classes from schedule (DONE)
+- GET /classes now filters out sessions whose end time (start_at + duration_min) is in the past, so the schedule only shows current/upcoming classes. start_at is stored as QLD local wall-clock, so compared against QLD-local now ((now_utc+10h) naive). by_appointment classes (Personal Training) are always kept. Benefits timetable + home upcoming list.
+- Verified via curl at QLD 18:31 Aug 10: the 17:00 (ended 17:45) Muay Thai is hidden, the 18:00 one remains, Personal Training (appt) kept, ended-but-shown count = 0.
