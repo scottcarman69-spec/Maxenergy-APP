@@ -192,6 +192,15 @@ export default function Login() {
           {err && <Text style={styles.error}>{err}</Text>}
 
           <Pressable
+            testID="forgot-password-link"
+            hitSlop={8}
+            onPress={() => router.push("/(auth)/forgot-password")}
+            style={styles.forgotWrap}
+          >
+            <Text style={styles.forgotText}>Forgot password?</Text>
+          </Pressable>
+
+          <Pressable
             testID="login-submit-button"
             style={({ pressed }) => [styles.primaryBtn, pressed && { opacity: 0.85 }]}
             onPress={submit}
@@ -276,6 +285,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   error: { color: colors.error, fontSize: 13 },
+  forgotWrap: { alignSelf: "flex-end", marginTop: 2 },
+  forgotText: { color: colors.brand, fontWeight: "700", fontSize: 13 },
   primaryBtn: {
     backgroundColor: colors.brand,
     paddingVertical: 16,

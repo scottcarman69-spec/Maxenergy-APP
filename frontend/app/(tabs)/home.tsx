@@ -128,7 +128,22 @@ export default function Home() {
           </View>
         </View>
 
-        {loading ? (
+        {user && user.verified === false && (
+          <Pressable
+            testID="home-verify-banner"
+            onPress={() => router.push({ pathname: "/(auth)/verify", params: { email: user.email } })}
+            style={styles.verifyBanner}
+          >
+            <Ionicons name="mail-unread-outline" size={20} color={colors.brand} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.verifyTitle}>Verify your email</Text>
+              <Text style={styles.verifySub}>Confirm {user.email} to secure your account</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.brand} />
+          </Pressable>
+        )}
+
+
           <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />
         ) : (
           <>
@@ -307,6 +322,20 @@ const styles = StyleSheet.create({
   greetSmall: { color: colors.onSurfaceSecondary, fontSize: 16 },
   greetName: { color: colors.onSurface, fontSize: 40, fontFamily: font.display, letterSpacing: -0.5, marginTop: 2 },
   greetSub: { color: colors.onSurfaceSecondary, fontSize: 15, marginTop: 6 },
+  verifyBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginHorizontal: spacing.xl,
+    marginBottom: spacing.md,
+    padding: spacing.lg,
+    backgroundColor: colors.brandTertiary,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.brand,
+  },
+  verifyTitle: { color: colors.onSurface, fontFamily: font.heading, fontSize: 14.5 },
+  verifySub: { color: colors.onSurfaceSecondary, fontSize: 12.5, marginTop: 2 },
   todayPill: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", marginTop: 12, backgroundColor: colors.brandTertiary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.brand },
   todayPillText: { color: colors.brand, fontWeight: "800", fontSize: 12.5 },
   sectionTitle: {

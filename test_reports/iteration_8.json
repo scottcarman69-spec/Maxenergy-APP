@@ -1,0 +1,44 @@
+{
+  "summary": "Iteration 8: Full validation of Email Verification (6-digit OTP) + Password Recovery. Backend: 7/7 pytest passed (register returns verified=false + JWT + code logged; verify-otp accepts correct code and rejects wrong ones; 5-wrong-attempts lockout works; resend cooldown 30s returns 429 within window and 200 after; forgot-password returns {ok:true} for both known and unknown emails (no enumeration); reset-password succeeds, invalidates the old password, allows login with the new password, and marks verified=true; admin info@maxenergy.com.au / maxenergy12@ logs in with is_admin=true & verified=true). Frontend: Full happy paths executed against public preview URL — Login shows [data-testid=forgot-password-link]; Register -> auto-routes to Verify screen; 'I'll verify later' lands on Home which shows the orange [data-testid=home-verify-banner]; tapping the banner reopens Verify; entering the log-scraped 6-digit code verifies the account and the banner disappears; Forgot Password 2-step flow (email -> code+new password) logs the user straight into Home. OTP codes were retrieved via `tail /var/log/supervisor/backend.out.log` matching the regex 'OTP issued for <email> (verify|reset): <code>' as documented in the request.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {
+        "component": "auth screens (login/register/verify/forgot-password)",
+        "issue": "React Native Web console warning: 'Unexpected text node: ) : (. A text node cannot be a child of a <View>.' Very likely caused by a stray whitespace/newline between a ternary and its JSX branches inside a <View> (or inside a <Pressable> whose child is treated as a View on web). Non-blocking (flows still work) but should be cleaned up — inspect ternaries around ActivityIndicator / Ionicons inside login.tsx, register.tsx, verify.tsx and forgot-password.tsx and ensure the `{loading ? (<ActivityIndicator/>) : (<Text>…</Text>)}` blocks contain no bare text nodes."
+      },
+      {
+        "component": "web preview (RN Web deprecations)",
+        "issue": "'\"shadow*\" style props are deprecated. Use \"boxShadow\".' and 'props.pointerEvents is deprecated. Use style.pointerEvents.' — repo-wide, not specific to this feature. Consider migrating to boxShadow / style.pointerEvents in a future cleanup."
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_email_otp_auth.py",
+    "/app/test_reports/pytest/pytest_email_otp_auth.xml"
+  ],
+  "action_items": [
+    "OPTIONAL cleanup: hunt the stray text node inside a <View> that produces 'Unexpected text node: ) : (' console errors on auth screens — likely a formatting quirk around a ternary (e.g. an accidental space/newline outside JSX). Doesn't break functionality but is noisy.",
+    "OPTIONAL: migrate shadow* + props.pointerEvents to RN Web recommended equivalents (repo-wide, not blocking this feature).",
+    "OPTIONAL: /api/auth/resend-otp returns 429 even when the caller is a legitimate first-time-resend, which is expected per spec (30s cooldown). Consider surfacing the cooldown seconds in the response body so the client can display a countdown without hard-coding 30."
+  ],
+  "critical_code_review_comments": [
+    "OTP verification correctly deletes the record on success and increments attempts on wrong code. Lockout kicks in on the 6th attempt (attempts>=5 check happens BEFORE bcrypt compare), so the correct code is rejected once the attempts counter reaches 5 — verified in test_verify_locks_after_5_wrong_attempts.",
+    "forgot-password never leaks account existence: both known and unknown emails return {ok:true} with 200. Reset-password additionally rejects Google-provider accounts (provider != password) with a generic 'Invalid or expired code' error — consistent no-enumeration behavior.",
+    "reset-password sets verified=true on the user in addition to changing the password, and invalidates any existing session tokens (db.user_sessions.delete_many). Good security hygiene.",
+    "AuthContext.registerEmail stores the token & user immediately after /api/auth/register so the newly-registered (unverified) user is 'soft-gated' logged in — matches product requirement (a). Verify screen calls refresh() after successful OTP so the user object updates to verified=true and the Home banner disappears (confirmed in UI test).",
+    "Frontend api.ts hardcodes API_URL = process.env.EXPO_PUBLIC_BACKEND_URL (no default) — correct pattern; will fail fast if env is missing."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_email_otp_auth.py (new pytest — 7 tests covering register→verify, wrong-code + lockout, resend cooldown, forgot-password no-enumeration, reset-password end-to-end, admin grandfathered)"
+  ],
+  "success_rate": { "backend": "100% (7/7)", "frontend": "100% (all 5 review-request flows verified)" },
+  "seed_data_creation": "Registered ephemeral gmail.com test users (test_<uuid>@gmail.com, member_<ts>@gmail.com) to exercise verify/reset flows. Resend delivery to fake inboxes 422s at Resend (expected, per request note) but OTP codes are always logged and were successfully scraped from /var/log/supervisor/backend.out.log.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Reuse /app/backend/tests/test_email_otp_auth.py for regression. To read OTP codes during any auth test, tail /var/log/supervisor/backend.out.log for lines matching 'OTP issued for <email> (verify|reset): <code>'. UI testIDs are: forgot-password-link, register-{name,email,password}-input, register-submit-button, verify-code-input, verify-submit-button, verify-resend, verify-skip, verify-later, home-verify-banner, forgot-email-input, reset-code-input, reset-password-input, forgot-submit-button, forgot-resend, forgot-back. Note that resend-otp cooldown = 30s, and TestResendOtp.test_resend_issues_fresh_code_and_cooldown sleeps 31s for that reason (so the full pytest run takes ~55s).",
+  "rca_of_issue": "N/A — this iteration is a NEW-FEATURE validation, not a bug fix. All acceptance criteria in the review request were exercised end-to-end and pass."
+}

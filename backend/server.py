@@ -6,6 +6,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 import uuid
+import secrets
 import asyncio
 import time
 import io
@@ -100,6 +101,7 @@ def user_public(u: dict) -> dict:
         "name": u.get("name"),
         "picture": u.get("picture"),
         "is_admin": bool(u.get("is_admin", False)),
+        "verified": bool(u.get("verified", False)),
     }
 
 
@@ -181,6 +183,93 @@ def _download_button(url: str, label: str) -> str:
         "padding:12px 22px;border-radius:8px;font-weight:bold;font-size:15px'>"
         f"{label}</a></p>"
     )
+
+
+# -------------------- OTP (email verification + password reset) --------------------
+OTP_TTL_MIN = 10          # code valid for 10 minutes
+OTP_MAX_ATTEMPTS = 5      # wrong tries before the code is locked
+OTP_RESEND_COOLDOWN = 30  # seconds between resend requests
+
+
+def _gen_otp() -> str:
+    return f"{secrets.randbelow(1_000_000):06d}"
+
+
+async def issue_otp(email: str, purpose: str) -> str:
+    """Create (or replace) a hashed 6-digit code for the given email + purpose."""
+    code = _gen_otp()
+    await db.otp_codes.update_one(
+        {"email": email, "purpose": purpose},
+        {"$set": {
+            "email": email,
+            "purpose": purpose,
+            "code_hash": hash_pw(code),
+            "expires_at": now_utc() + timedelta(minutes=OTP_TTL_MIN),
+            "attempts": 0,
+            "created_at": now_utc(),
+        }},
+        upsert=True,
+    )
+    return code
+
+
+async def can_resend_otp(email: str, purpose: str) -> bool:
+    rec = await db.otp_codes.find_one({"email": email, "purpose": purpose})
+    if not rec:
+        return True
+    created = rec.get("created_at")
+    if isinstance(created, datetime):
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        return (now_utc() - created).total_seconds() >= OTP_RESEND_COOLDOWN
+    return True
+
+
+async def verify_otp(email: str, purpose: str, code: str) -> bool:
+    rec = await db.otp_codes.find_one({"email": email, "purpose": purpose})
+    if not rec:
+        return False
+    exp = rec.get("expires_at")
+    if isinstance(exp, datetime):
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=timezone.utc)
+        if exp < now_utc():
+            await db.otp_codes.delete_one({"email": email, "purpose": purpose})
+            return False
+    if rec.get("attempts", 0) >= OTP_MAX_ATTEMPTS:
+        return False
+    if not check_pw(code, rec["code_hash"]):
+        await db.otp_codes.update_one({"email": email, "purpose": purpose}, {"$inc": {"attempts": 1}})
+        return False
+    await db.otp_codes.delete_one({"email": email, "purpose": purpose})
+    return True
+
+
+def _otp_email_html(code: str, purpose: str) -> str:
+    if purpose == "verify":
+        heading = "Verify your email"
+        intro = "Welcome to Maxenergy Fitness! Enter the code below in the app to confirm your email address:"
+    else:
+        heading = "Reset your password"
+        intro = "We received a request to reset your Maxenergy Fitness password. Enter the code below in the app to continue:"
+    lines = [
+        intro,
+        (
+            "<div style='font-size:34px;letter-spacing:10px;font-weight:bold;color:#FF7A00;"
+            f"text-align:center;margin:22px 0;padding:14px;background:#fff;border:1px dashed #FF7A00;border-radius:10px'>{code}</div>"
+        ),
+        f"This code expires in {OTP_TTL_MIN} minutes.",
+        "If you didn't request this, you can safely ignore this email.",
+    ]
+    return _email_shell(heading, lines)
+
+
+async def send_otp_email(email: str, purpose: str) -> str:
+    code = await issue_otp(email, purpose)
+    log.info(f"OTP issued for {email} ({purpose}): {code}")
+    subject = "Your Maxenergy Fitness verification code" if purpose == "verify" else "Your Maxenergy Fitness password reset code"
+    await send_email(email, subject, _otp_email_html(code, purpose))
+    return code
 
 
 ADMIN_NAV = {"booking": "admin_bookings", "application": "admin_applications", "trial": "admin_members"}
@@ -368,6 +457,25 @@ class GoogleSessionReq(BaseModel):
     session_id: str
 
 
+class VerifyOtpReq(BaseModel):
+    email: EmailStr
+    code: str
+
+
+class ResendOtpReq(BaseModel):
+    email: EmailStr
+
+
+class ForgotPasswordReq(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordReq(BaseModel):
+    email: EmailStr
+    code: str
+    new_password: str = Field(min_length=6)
+
+
 class BookingCreate(BaseModel):
     class_id: str
 
@@ -460,9 +568,15 @@ async def auth_register(body: RegisterReq):
         "provider": "password",
         "picture": None,
         "is_admin": False,
+        "verified": False,
         "created_at": now_utc(),
     }
     await db.users.insert_one(doc)
+    # Fire the verification code email (non-blocking of the response on failure).
+    try:
+        await send_otp_email(doc["email"], "verify")
+    except Exception as e:
+        log.error(f"failed to send verification email to {doc['email']}: {e}")
     return {"token": make_jwt(user_id), "user": user_public(doc)}
 
 
@@ -506,6 +620,7 @@ async def auth_session(body: GoogleSessionReq):
                 "picture": data.get("picture"),
                 "provider": "google",
                 "is_admin": False,
+                "verified": True,
                 "created_at": now_utc(),
             }
         )
@@ -517,6 +632,70 @@ async def auth_session(body: GoogleSessionReq):
     )
     u = await db.users.find_one({"user_id": user_id}, {"_id": 0, "password_hash": 0})
     return {"session_token": session_token, "user": user_public(u)}
+
+@api.post("/auth/verify-otp")
+async def auth_verify_otp(body: VerifyOtpReq):
+    email = body.email.lower()
+    u = await db.users.find_one({"email": email})
+    if not u:
+        raise HTTPException(status_code=404, detail="Account not found")
+    if u.get("verified"):
+        return {"verified": True, "user": user_public(u)}
+    code = (body.code or "").strip()
+    if not await verify_otp(email, "verify", code):
+        raise HTTPException(status_code=400, detail="Invalid or expired code")
+    await db.users.update_one({"user_id": u["user_id"]}, {"$set": {"verified": True}})
+    u["verified"] = True
+    return {"verified": True, "user": user_public(u)}
+
+
+@api.post("/auth/resend-otp")
+async def auth_resend_otp(body: ResendOtpReq):
+    email = body.email.lower()
+    u = await db.users.find_one({"email": email})
+    # Always respond ok (don't leak which emails exist), but only send when valid + unverified.
+    if u and not u.get("verified") and u.get("provider") == "password":
+        if not await can_resend_otp(email, "verify"):
+            raise HTTPException(status_code=429, detail="Please wait a moment before requesting another code")
+        try:
+            await send_otp_email(email, "verify")
+        except Exception as e:
+            log.error(f"failed to resend verify code to {email}: {e}")
+    return {"ok": True}
+
+
+@api.post("/auth/forgot-password")
+async def auth_forgot_password(body: ForgotPasswordReq):
+    email = body.email.lower()
+    u = await db.users.find_one({"email": email})
+    # Only password accounts can reset; always return ok to avoid account enumeration.
+    if u and u.get("provider") == "password":
+        if await can_resend_otp(email, "reset"):
+            try:
+                await send_otp_email(email, "reset")
+            except Exception as e:
+                log.error(f"failed to send reset code to {email}: {e}")
+    return {"ok": True}
+
+
+@api.post("/auth/reset-password")
+async def auth_reset_password(body: ResetPasswordReq):
+    email = body.email.lower()
+    u = await db.users.find_one({"email": email})
+    if not u or u.get("provider") != "password":
+        raise HTTPException(status_code=400, detail="Invalid or expired code")
+    code = (body.code or "").strip()
+    if not await verify_otp(email, "reset", code):
+        raise HTTPException(status_code=400, detail="Invalid or expired code")
+    await db.users.update_one(
+        {"user_id": u["user_id"]},
+        {"$set": {"password_hash": hash_pw(body.new_password), "verified": True}},
+    )
+    # Reset invalidates existing sessions for safety.
+    await db.user_sessions.delete_many({"user_id": u["user_id"]})
+    return {"ok": True, "token": make_jwt(u["user_id"]), "user": user_public({**u, "verified": True})}
+
+
 
 
 @api.get("/auth/me")
@@ -2195,6 +2374,13 @@ async def seed_data():
 @app.on_event("startup")
 async def _startup():
     await seed_data()
+    # Grandfather any pre-existing accounts (created before email verification) as verified.
+    await db.users.update_many({"verified": {"$exists": False}}, {"$set": {"verified": True}})
+    # Auto-expire OTP codes 10 min after issue.
+    try:
+        await db.otp_codes.create_index("expires_at", expireAfterSeconds=0)
+    except Exception as e:
+        log.warning(f"otp ttl index: {e}")
     app.state.reminder_task = asyncio.create_task(reminder_loop())
 
 

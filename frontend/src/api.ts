@@ -9,6 +9,7 @@ export type User = {
   name?: string | null;
   picture?: string | null;
   is_admin?: boolean;
+  verified?: boolean;
 };
 
 export async function getToken(): Promise<string | null> {
@@ -60,6 +61,14 @@ export const api = {
   me: () => req("/api/auth/me"),
   logout: () => req("/api/auth/logout", { method: "POST" }),
   deleteAccount: () => req("/api/auth/account", { method: "DELETE" }),
+  verifyOtp: (email: string, code: string) =>
+    req("/api/auth/verify-otp", { method: "POST", body: JSON.stringify({ email, code }) }),
+  resendOtp: (email: string) =>
+    req("/api/auth/resend-otp", { method: "POST", body: JSON.stringify({ email }) }),
+  forgotPassword: (email: string) =>
+    req("/api/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) }),
+  resetPassword: (email: string, code: string, new_password: string) =>
+    req("/api/auth/reset-password", { method: "POST", body: JSON.stringify({ email, code, new_password }) }),
 
   classes: (category?: string) =>
     req(`/api/classes${category && category !== "All" ? `?category=${encodeURIComponent(category)}` : ""}`),

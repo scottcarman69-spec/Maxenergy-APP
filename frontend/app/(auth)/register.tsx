@@ -34,7 +34,7 @@ export default function Register() {
     setLoading(true);
     try {
       await registerEmail(name, email.trim(), password);
-      router.replace("/(tabs)/home");
+      router.replace({ pathname: "/(auth)/verify", params: { email: email.trim().toLowerCase() } });
     } catch (e: any) {
       setErr(e?.message || "Sign up failed");
     } finally {
