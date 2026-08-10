@@ -155,8 +155,7 @@ export default function Profile() {
     try { await api.clearAllBookings(); } catch {}
   };
 
-  const links = [
-    { key: "membership", icon: "card", label: "Membership Application", onPress: () => router.push("/vigyr-signon") },
+  const infoLinks = [
     { key: "services", icon: "barbell", label: "Our Services", onPress: () => router.push("/services") },
     { key: "about", icon: "people", label: "About Us & Team", onPress: () => router.push("/about") },
     { key: "contact", icon: "call", label: "Contact & Gym Info", onPress: () => router.push("/contact") },
@@ -225,9 +224,29 @@ export default function Profile() {
           </Pressable>
         )}
 
-        <View style={{ paddingHorizontal: spacing.lg, gap: spacing.sm, marginTop: spacing.lg }}>
-          {links.map((l) => (
-            <Pressable key={l.key} testID={`profile-link-${l.key}`} style={styles.linkRow} onPress={l.onPress}>
+        <Text style={styles.section}>MEMBERSHIP</Text>
+        <View style={styles.linkGroup}>
+          <Pressable testID="profile-link-membership" style={styles.membershipRow} onPress={() => router.push("/vigyr-signon")}>
+            <View style={styles.membershipIcon}>
+              <Ionicons name="card" size={20} color={colors.onBrand} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.membershipLabel}>Membership Application</Text>
+              <Text style={styles.membershipSub}>Join or manage your membership</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.brand} />
+          </Pressable>
+        </View>
+
+        <Text style={styles.section}>GYM INFO</Text>
+        <View style={styles.linkGroup}>
+          {infoLinks.map((l, i) => (
+            <Pressable
+              key={l.key}
+              testID={`profile-link-${l.key}`}
+              style={[styles.linkRow, i < infoLinks.length - 1 && styles.linkRowDivider]}
+              onPress={l.onPress}
+            >
               <View style={styles.linkIcon}>
                 <Ionicons name={l.icon as any} size={18} color={colors.brand} />
               </View>
@@ -562,16 +581,25 @@ const styles = StyleSheet.create({
   inboxCtaText: { color: colors.brand, fontWeight: "900", letterSpacing: 1 },
   inboxBadge: { marginLeft: "auto", minWidth: 22, height: 22, paddingHorizontal: 6, borderRadius: 11, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
   inboxBadgeText: { color: colors.onBrand, fontSize: 12, fontWeight: "900" },
+  linkGroup: { marginHorizontal: spacing.lg, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, overflow: "hidden" },
   linkRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
-    backgroundColor: colors.surfaceSecondary,
-    padding: spacing.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
   },
+  linkRowDivider: { borderBottomWidth: 1, borderBottomColor: colors.border },
+  membershipRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  membershipIcon: { width: 40, height: 40, borderRadius: radius.sm, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
+  membershipLabel: { color: colors.onSurface, fontFamily: font.heading, fontSize: 15 },
+  membershipSub: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 2 },
   linkIcon: { width: 36, height: 36, borderRadius: radius.sm, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center" },
   linkLabel: { color: colors.onSurface, fontFamily: font.heading, fontSize: 15, flex: 1 },
   downloadRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.brand },
