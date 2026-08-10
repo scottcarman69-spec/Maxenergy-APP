@@ -25,6 +25,7 @@ const ICONS: Record<string, any> = {
   message: "chatbubble-ellipses",
   booking: "calendar",
   application: "document-text",
+  trial: "gift",
   system: "megaphone",
 };
 
@@ -56,13 +57,35 @@ export default function AlertsTab() {
   };
   const openNotif = (n: Notif) => {
     if (!n.read) markOne(n.notification_id);
-    if (n.type === "message") {
-      const nav = n.data?.nav;
-      if (nav === "admin_thread" && user?.is_admin && n.data?.user_id) {
-        router.push({ pathname: "/admin/thread", params: { userId: n.data.user_id, name: n.data?.name || "Member" } } as any);
-      } else {
+    const nav = n.data?.nav;
+    switch (nav) {
+      case "admin_thread":
+        if (user?.is_admin && n.data?.user_id) {
+          router.push({ pathname: "/admin/thread", params: { userId: n.data.user_id, name: n.data?.name || "Member" } } as any);
+        } else {
+          router.push("/(tabs)/inbox");
+        }
+        break;
+      case "member_inbox":
         router.push("/(tabs)/inbox");
-      }
+        break;
+      case "member_bookings":
+        router.push("/(tabs)/profile");
+        break;
+      case "member_membership":
+        router.push("/membership");
+        break;
+      case "admin_bookings":
+        router.push("/admin/bookings" as any);
+        break;
+      case "admin_applications":
+        router.push("/admin/applications" as any);
+        break;
+      case "admin_members":
+        router.push("/admin/members" as any);
+        break;
+      default:
+        break;
     }
   };
   const deleteNotif = (id: string) => {
@@ -131,7 +154,7 @@ export default function AlertsTab() {
                       <Text style={styles.when}>{fmtWhen(n.created_at)}</Text>
                     </View>
                     <Text style={styles.body} numberOfLines={2}>{n.body}</Text>
-                    {n.type === "message" && <Text style={styles.tapHint}>Tap to open conversation ›</Text>}
+                    {!!n.data?.nav && <Text style={styles.tapHint}>{n.type === "message" ? "Tap to open conversation ›" : "Tap to view details ›"}</Text>}
                   </View>
                   {!n.read && <View style={styles.dot} />}
                 </Pressable>

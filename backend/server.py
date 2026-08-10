@@ -183,7 +183,14 @@ def _download_button(url: str, label: str) -> str:
     )
 
 
+ADMIN_NAV = {"booking": "admin_bookings", "application": "admin_applications", "trial": "admin_members"}
+MEMBER_NAV = {"booking": "member_bookings", "application": "member_membership", "membership": "member_membership"}
+
+
 async def create_notification(user_id: str, title: str, body: str, ntype: str = "booking", data: Optional[dict] = None) -> None:
+    if data is None:
+        nav = MEMBER_NAV.get(ntype)
+        data = {"nav": nav} if nav else {}
     await db.notifications.insert_one(
         {
             "notification_id": new_id("ntf"),
@@ -191,7 +198,7 @@ async def create_notification(user_id: str, title: str, body: str, ntype: str = 
             "title": title,
             "body": body,
             "type": ntype,
-            "data": data or {},
+            "data": data,
             "read": False,
             "created_at": now_utc(),
         }
@@ -207,6 +214,9 @@ async def notify_user(user_id: str, email: Optional[str], title: str, body: str,
 
 async def notify_admins(title: str, body: str, ntype: str = "booking", email_lines: Optional[list] = None, data: Optional[dict] = None) -> None:
     """In-app notification to every admin user + email to the gym inbox."""
+    if data is None:
+        nav = ADMIN_NAV.get(ntype)
+        data = {"nav": nav} if nav else {}
     admins = await db.users.find({"is_admin": True}, {"_id": 0, "user_id": 1}).to_list(100)
     for a in admins:
         await create_notification(a["user_id"], title, body, ntype, data)
