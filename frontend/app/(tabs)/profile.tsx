@@ -73,9 +73,15 @@ export default function Profile() {
   };
 
   const [reminderHours, setReminderHours] = useState<number>(3);
+  const [adminUnread, setAdminUnread] = useState(0);
   useFocusEffect(useCallback(() => {
     api.me().then((r) => setReminderHours(r?.user?.reminder_hours ?? 3)).catch(() => {});
-  }, []));
+    if (user?.is_admin) {
+      api.adminThreads()
+        .then((r) => setAdminUnread((r.threads || []).reduce((s: number, t: any) => s + (t.unread || 0), 0)))
+        .catch(() => {});
+    }
+  }, [user?.is_admin]));
 
   const changeReminder = async (h: number) => {
     const prev = reminderHours;
@@ -204,6 +210,19 @@ export default function Profile() {
             <Ionicons name="construct" size={18} color={colors.onBrand} />
             <Text style={styles.adminCtaText}>ADMIN DASHBOARD</Text>
             <Ionicons name="arrow-forward" size={16} color={colors.onBrand} style={{ marginLeft: "auto" }} />
+          </Pressable>
+        )}
+
+        {user?.is_admin && (
+          <Pressable testID="open-admin-inbox" style={styles.inboxCta} onPress={() => router.push("/admin/inbox")}>
+            <Ionicons name="chatbubbles" size={18} color={colors.brand} />
+            <Text style={styles.inboxCtaText}>CUSTOMER INBOX</Text>
+            {adminUnread > 0 && (
+              <View style={styles.inboxBadge}>
+                <Text style={styles.inboxBadgeText}>{adminUnread}</Text>
+              </View>
+            )}
+            <Ionicons name="arrow-forward" size={16} color={colors.brand} style={{ marginLeft: adminUnread > 0 ? spacing.sm : "auto" }} />
           </Pressable>
         )}
 
@@ -529,6 +548,21 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   adminCtaText: { color: colors.onBrand, fontWeight: "900", letterSpacing: 1 },
+  inboxCta: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    backgroundColor: colors.surfaceSecondary,
+    borderRadius: radius.md,
+    padding: spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.brand,
+  },
+  inboxCtaText: { color: colors.brand, fontWeight: "900", letterSpacing: 1 },
+  inboxBadge: { marginLeft: "auto", minWidth: 22, height: 22, paddingHorizontal: 6, borderRadius: 11, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
+  inboxBadgeText: { color: colors.onBrand, fontSize: 12, fontWeight: "900" },
   linkRow: {
     flexDirection: "row",
     alignItems: "center",

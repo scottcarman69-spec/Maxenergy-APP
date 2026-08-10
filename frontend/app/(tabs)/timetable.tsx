@@ -254,13 +254,13 @@ export default function Timetable() {
               </Text>
 
               {allEndedToday && nextClass && (
-                <Pressable
-                  testID="next-class-peek"
-                  style={styles.peekCard}
-                  onPress={() => goToClassDay(nextClass.start_at)}
-                >
+                <View style={styles.peekCard}>
                   <Text style={styles.peekLabel}>UP NEXT</Text>
-                  <View style={styles.peekRow}>
+                  <Pressable
+                    testID="next-class-peek"
+                    style={styles.peekRow}
+                    onPress={() => goToClassDay(nextClass.start_at)}
+                  >
                     {coachSource(nextClass.trainer, nextClass.trainer_photo) ? (
                       <Image source={coachSource(nextClass.trainer, nextClass.trainer_photo)} style={styles.peekAvatar} contentFit="cover" />
                     ) : (
@@ -276,8 +276,16 @@ export default function Timetable() {
                       </Text>
                     </View>
                     <Ionicons name="chevron-forward" size={20} color={colors.brand} />
-                  </View>
-                </Pressable>
+                  </Pressable>
+                  <Pressable
+                    testID="peek-book-button"
+                    style={({ pressed }) => [styles.peekBookBtn, pressed && { opacity: 0.85 }]}
+                    onPress={() => router.push({ pathname: "/class/[id]", params: { id: nextClass.class_id } })}
+                  >
+                    <Ionicons name="flash" size={16} color={colors.onBrand} />
+                    <Text style={styles.peekBookText}>{nextClass.by_appointment ? "BOOK SESSION" : "BOOK THIS CLASS"}</Text>
+                  </Pressable>
+                </View>
               )}
             </View>
           }
@@ -416,6 +424,8 @@ const styles = StyleSheet.create({
   peekAvatarFallback: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center" },
   peekName: { color: colors.onSurface, fontSize: 15, fontWeight: "800" },
   peekWhen: { color: colors.onSurfaceSecondary, fontSize: 12.5, marginTop: 2 },
+  peekBookBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.brand, borderRadius: radius.pill, paddingVertical: 12, marginTop: spacing.xs },
+  peekBookText: { color: colors.onBrand, fontWeight: "900", letterSpacing: 0.8, fontSize: 13 },
   apptHeading: { color: colors.onSurfaceSecondary, fontSize: 12, fontFamily: font.heading, letterSpacing: 1.5 },
   apptCard: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.lg, borderWidth: 1, borderColor: colors.brand },
   apptIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center", overflow: "hidden" },

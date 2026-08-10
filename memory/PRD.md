@@ -308,3 +308,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Removed Profile "Download my membership form" card + its pdfApp state/fetch (setPdfApp, download* usage) — members now sign up externally via Vigyr, no internal PDF.
 - Class detail "Not a member yet?" card now routes to /vigyr-signon (was the orphaned internal /membership form) and reworded "Join Maxenergy Fitness to book classes. Tap here to sign up." (kept as a useful join CTA per best judgment rather than deleting).
 - Verified: tsc exit 0; Profile screenshot no longer shows the download card.
+
+
+## Session update 55 (Jun 2026 fork) — Admin Inbox CTA on Profile + Book From Peek (DONE)
+- Admin Inbox: Profile tab now shows an admin-only "CUSTOMER INBOX" card (below Admin Dashboard) routing to /admin/inbox, with a live unread-count badge summed from api.adminThreads() thread.unread. Added missing styles (inboxCta/inboxCtaText/inboxBadge/inboxBadgeText). Verified via screenshot as admin: card renders with badge "1".
+- Book From Peek: timetable "UP NEXT" peek card (shown when today's classes have ended) now has a dedicated "BOOK THIS CLASS" / "BOOK SESSION" (appointment) button routing straight to /class/[id] for the next class. Card body still taps through to jump to that class's day. Added peekBookBtn/peekBookText styles.
