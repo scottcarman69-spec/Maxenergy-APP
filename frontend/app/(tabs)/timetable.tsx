@@ -161,13 +161,19 @@ export default function Timetable() {
                     onPress={() => router.push({ pathname: "/class/[id]", params: { id: item.class_id } })}
                     style={styles.apptCard}
                   >
-                    <View style={styles.apptIcon}>
-                      {coachSource(item.trainer, item.trainer_photo) ? (
+                    {coachSource(item.trainer, item.trainer_photo) ? (
+                      <Pressable
+                        testID={`appt-coach-${item.class_id}`}
+                        style={styles.apptIcon}
+                        onPress={() => router.push({ pathname: "/coach", params: { name: item.trainer } })}
+                      >
                         <Image source={coachSource(item.trainer, item.trainer_photo)} style={styles.apptAvatar} contentFit="cover" />
-                      ) : (
+                      </Pressable>
+                    ) : (
+                      <View style={styles.apptIcon}>
                         <Ionicons name="person" size={20} color={colors.brand} />
-                      )}
-                    </View>
+                      </View>
+                    )}
                     <View style={{ flex: 1 }}>
                       <Text style={styles.className}>{item.name}</Text>
                       <Text style={styles.trainer}>with {item.trainer}</Text>
@@ -204,18 +210,22 @@ export default function Timetable() {
               <View style={styles.card}>
                 <View style={[styles.leftBar, { backgroundColor: catStyle(item.category, item.name).color }]} />
                 <View style={styles.cardBody}>
-                  <View style={styles.logoBadge}>
-                    {coachSource(item.trainer, item.trainer_photo) ? (
-                      <>
-                        <Image source={coachSource(item.trainer, item.trainer_photo)} style={styles.logoImg} contentFit="cover" />
-                        <View style={[styles.catChip, { backgroundColor: catStyle(item.category, item.name).color }]}>
-                          <MaterialCommunityIcons name={catStyle(item.category, item.name).icon} size={11} color="#fff" />
-                        </View>
-                      </>
-                    ) : (
+                  {coachSource(item.trainer, item.trainer_photo) ? (
+                    <Pressable
+                      testID={`coach-avatar-${item.class_id}`}
+                      style={styles.logoBadge}
+                      onPress={() => router.push({ pathname: "/coach", params: { name: item.trainer } })}
+                    >
+                      <Image source={coachSource(item.trainer, item.trainer_photo)} style={styles.logoImg} contentFit="cover" />
+                      <View style={[styles.catChip, { backgroundColor: catStyle(item.category, item.name).color }]}>
+                        <MaterialCommunityIcons name={catStyle(item.category, item.name).icon} size={11} color="#fff" />
+                      </View>
+                    </Pressable>
+                  ) : (
+                    <View style={styles.logoBadge}>
                       <MaterialCommunityIcons name={catStyle(item.category, item.name).icon} size={26} color={catStyle(item.category, item.name).color} />
-                    )}
-                  </View>
+                    </View>
+                  )}
                   <View style={{ flex: 1 }}>
                     <View style={styles.cardTop}>
                       <Text style={styles.className}>{item.name}</Text>

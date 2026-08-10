@@ -175,14 +175,19 @@ export default function ClassDetail() {
           </View>
 
           {coachSource(cls.trainer, cls.trainer_photo) ? (
-            <View style={styles.coachCard}>
+            <Pressable
+              testID="coach-card"
+              style={({ pressed }) => [styles.coachCard, pressed && { opacity: 0.85 }]}
+              onPress={() => router.push({ pathname: "/coach", params: { name: cls.trainer } })}
+            >
               <Image source={coachSource(cls.trainer, cls.trainer_photo)} style={styles.coachAvatar} contentFit="cover" />
               <View style={{ flex: 1 }}>
                 <Text style={styles.coachLabel}>YOUR COACH</Text>
                 <Text style={styles.coachName}>{cls.trainer}</Text>
+                <Text style={styles.coachHint}>Tap to view bio & qualifications</Text>
               </View>
-              <Ionicons name="ribbon-outline" size={20} color={colors.brand} />
-            </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.brand} />
+            </Pressable>
           ) : null}
 
           <Text style={styles.sectionTitle}>ABOUT</Text>
@@ -282,6 +287,7 @@ const styles = StyleSheet.create({
   coachAvatar: { width: 54, height: 54, borderRadius: 27, backgroundColor: colors.surfaceTertiary },
   coachLabel: { color: colors.onSurfaceSecondary, fontSize: 10, letterSpacing: 1.5, fontWeight: "800" },
   coachName: { color: colors.onSurface, fontSize: 17, fontWeight: "800", marginTop: 2 },
+  coachHint: { color: colors.brand, fontSize: 12, fontWeight: "600", marginTop: 3 },
   sectionTitle: {
     color: colors.onSurfaceSecondary,
     fontSize: 11,

@@ -288,22 +288,28 @@ export default function Home() {
                     onPress={() => router.push({ pathname: "/class/[id]", params: { id: c.class_id } })}
                   >
                     <View style={[styles.leftBar, { backgroundColor: cs.color }]} />
-                    <View style={styles.classIcon}>
-                      {coachSource(c.trainer, c.trainer_photo) ? (
-                        <>
-                          <Image source={coachSource(c.trainer, c.trainer_photo)} style={styles.classIconImg} contentFit="cover" />
-                          <View style={[styles.classCatChip, { backgroundColor: cs.color }]}>
-                            <MaterialCommunityIcons name={cs.set === "mci" ? cs.icon : "karate"} size={10} color="#fff" />
-                          </View>
-                        </>
-                      ) : cs.set === "img" ? (
-                        <Image source={cs.img} style={styles.classIconImg} contentFit="cover" />
-                      ) : cs.set === "mci" ? (
-                        <MaterialCommunityIcons name={cs.icon} size={24} color={cs.color} />
-                      ) : (
-                        <Ionicons name={cs.icon} size={22} color={cs.color} />
-                      )}
-                    </View>
+                    {coachSource(c.trainer, c.trainer_photo) ? (
+                      <Pressable
+                        testID={`home-coach-${c.class_id}`}
+                        style={styles.classIcon}
+                        onPress={() => router.push({ pathname: "/coach", params: { name: c.trainer } })}
+                      >
+                        <Image source={coachSource(c.trainer, c.trainer_photo)} style={styles.classIconImg} contentFit="cover" />
+                        <View style={[styles.classCatChip, { backgroundColor: cs.color }]}>
+                          <MaterialCommunityIcons name={cs.set === "mci" ? cs.icon : "karate"} size={10} color="#fff" />
+                        </View>
+                      </Pressable>
+                    ) : (
+                      <View style={styles.classIcon}>
+                        {cs.set === "img" ? (
+                          <Image source={cs.img} style={styles.classIconImg} contentFit="cover" />
+                        ) : cs.set === "mci" ? (
+                          <MaterialCommunityIcons name={cs.icon} size={24} color={cs.color} />
+                        ) : (
+                          <Ionicons name={cs.icon} size={22} color={cs.color} />
+                        )}
+                      </View>
+                    )}
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.catLabel, { color: cs.color }]}>{c.category.toUpperCase()}</Text>
                       <Text style={styles.className}>{c.name}</Text>

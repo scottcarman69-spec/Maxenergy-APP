@@ -174,3 +174,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Frontend: new shared src/coaches.ts `coachSource(trainer, trainerPhoto)` — bundled teamPhotos (alex.jpg/jamie.jpg) first, else backend URL. Timetable class cards + appointment card render the coach avatar in the badge with a small category-color icon chip overlay (keeps sport context). Home "Upcoming Classes" rows show the coach avatar + a "with Coach X" meta line. Class detail (`/class/[id]`) adds a "YOUR COACH" card (avatar + name) between the meta grid and About.
 - Verified via screenshots: timetable shows Alex's photo per class + green/orange category chip; class detail YOUR COACH card renders.
 - NOTE (Vigyr): user reported a credit-card error on the external Vigyr sign-on portal. We open it in the full system browser (expo-web-browser), so it behaves like a normal browser — the card step is controlled by Vigyr, not the app. Pending user detail on the exact error.
+
+## Session update 32 (Jun 2026 fork) — Tappable Coach Bios (DONE)
+- Coach photos are now tappable everywhere they appear -> open a coach profile with full bio + qualifications.
+- NEW screen /app/frontend/app/coach.tsx: takes `name` param (the class trainer string e.g. "Coach Alex"), fetches /api/about, matches the About team member by first-name (strips "Coach "), and shows a hero photo + role + ABOUT bio + QUALIFICATIONS checklist + Get in touch CTA. Uses bundled teamPhotos override, falls back to About image URL.
+- Wired taps: timetable class-card avatar (testID coach-avatar-{id}) + appointment-card avatar + home upcoming-row avatar (testID home-coach-{id}) are nested Pressables -> /coach?name=<trainer>. Class detail "YOUR COACH" card is now a Pressable with a "Tap to view bio & qualifications" hint + chevron.
+- Route auto-registered (root Stack has no explicit screens). Verified via screenshot: tapping Alex's photo opens his profile (bio + 5 quals).
