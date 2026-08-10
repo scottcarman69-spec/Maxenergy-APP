@@ -277,3 +277,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
   3. TS compile blocker: frontend/src/api.ts applyMembership payload type now includes `details?: Record<string, any>` (membership.tsx passes details). npx tsc --noEmit = exit 0.
 - Final status: PASS (no blockers/warnings). backend 0.0.0.0:8001 + /api prefix, /api/classes 200.
 - Non-blocking WARNs acknowledged (not fixed): N+1 reads in reminder job (fine at gym scale); no privacy-policy URL in README (relevant only at App Store/Play submission).
+
+## Session update 49 (Jun 2026 fork) — Privacy Policy (DONE)
+- Added in-app Privacy Policy for App Store / Play readiness. NEW /app/frontend/app/privacy.tsx — Australian Privacy Principles-aligned policy tailored to the app (data collected: account/bookings/attendance/messages; payments via Square; membership via Vigyr; camera for staff QR; emails via Resend; Google login), rights/deletion, kids consent, contact (info@maxenergy.com.au / 07 4057 9005 / address, ABN 81 213 163 833), tappable email/phone.
+- Links: Profile links list new "Privacy Policy" row (shield-checkmark, testID profile-link-privacy) -> /privacy. Register screen now shows "By signing up you agree to our Privacy Policy" with tappable link -> /privacy (consent for store review).
+- Verified: tsc exit 0; /privacy renders via screenshot.
+- NOTE for store submission: also provide a PUBLIC privacy URL in store metadata — the deployed app route (…/privacy) can serve as it, or host the same text on the gym website.

@@ -105,6 +105,11 @@ export default function Register() {
             )}
           </Pressable>
 
+          <Text style={styles.consentText}>
+            By signing up you agree to our{" "}
+            <Text style={styles.linkText} onPress={() => router.push("/privacy")}>Privacy Policy</Text>.
+          </Text>
+
           <View style={styles.footerRow}>
             <Text style={type.bodyDim}>Already a member? </Text>
             <Link href="/(auth)/login" asChild>
@@ -154,5 +159,6 @@ const styles = StyleSheet.create({
   },
   primaryBtnText: { color: colors.onBrand, fontWeight: "800", letterSpacing: 1 },
   footerRow: { flexDirection: "row", justifyContent: "center", marginTop: spacing.lg },
+  consentText: { color: colors.onSurfaceSecondary, fontSize: 12.5, textAlign: "center", marginTop: spacing.md, lineHeight: 18 },
   linkText: { color: colors.brand, fontWeight: "700" },
 });
