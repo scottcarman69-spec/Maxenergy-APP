@@ -61,6 +61,25 @@ export default function AdminHome() {
         <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />
       ) : (
         <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: 40 }}>
+          {!!stats?.session_requests && (
+            <Pressable
+              testID="admin-session-requests"
+              style={styles.requestBanner}
+              onPress={() => router.push("/admin/bookings")}
+            >
+              <View style={styles.requestIcon}>
+                <Ionicons name="notifications" size={20} color={colors.onBrand} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.requestTitle}>
+                  {stats.session_requests} new session request{stats.session_requests === 1 ? "" : "s"} waiting
+                </Text>
+                <Text style={styles.requestSub}>Tap to review, accept or suggest a time</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.onBrand} />
+            </Pressable>
+          )}
+
           <View style={styles.statsRow}>
             <View style={styles.statBox}>
               <Text style={styles.statNum}>{stats?.members ?? 0}</Text>
@@ -113,6 +132,10 @@ const styles = StyleSheet.create({
   cardDesc: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 2 },
   countBadge: { backgroundColor: colors.brand, minWidth: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center", paddingHorizontal: 6 },
   countText: { color: colors.onBrand, fontWeight: "900", fontSize: 12 },
+  requestBanner: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.brand, borderRadius: radius.md, padding: spacing.lg },
+  requestIcon: { width: 40, height: 40, borderRadius: radius.sm, backgroundColor: "rgba(255,255,255,0.2)", alignItems: "center", justifyContent: "center" },
+  requestTitle: { color: colors.onBrand, fontWeight: "900", fontSize: 15 },
+  requestSub: { color: "rgba(255,255,255,0.85)", fontSize: 12, marginTop: 2 },
   denied: { flex: 1, alignItems: "center", justifyContent: "center", gap: spacing.md },
   deniedText: { color: colors.onSurfaceSecondary },
   backBtn: { backgroundColor: colors.brand, paddingHorizontal: spacing.xl, paddingVertical: 12, borderRadius: radius.md },

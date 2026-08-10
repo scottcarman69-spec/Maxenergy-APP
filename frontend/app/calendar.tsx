@@ -30,6 +30,15 @@ const STATUS: Record<string, { label: string; color: string }> = {
 
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
+const FILTERS = ["All", "Confirmed", "Pending", "Cancelled"] as const;
+type Filter = (typeof FILTERS)[number];
+function matchesFilter(status: string, f: Filter): boolean {
+  if (f === "All") return true;
+  if (f === "Confirmed") return status === "confirmed" || status === "paid";
+  if (f === "Pending") return status === "pending" || status === "reschedule_requested";
+  return status === "cancelled";
+}
+
 function anchorIso(b: Booking): string | null {
   if (b.by_appointment) return b.requested_at || null;
   return b.class_start || null;
@@ -54,6 +63,7 @@ export default function MyCalendar() {
     return new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), 1));
   });
   const [selected, setSelected] = useState<string>(() => qldTodayUTC().toISOString().slice(0, 10));
+  const [filter, setFilter] = useState<Filter>("All");
 
   const load = useCallback(async () => {
     try {
@@ -67,13 +77,14 @@ export default function MyCalendar() {
   const grouped = useMemo(() => {
     const m: Record<string, Booking[]> = {};
     for (const b of rows) {
+      if (!matchesFilter(b.status, filter)) continue;
       const iso = anchorIso(b);
       if (!iso) continue;
       (m[dayKeyOf(iso)] ||= []).push(b);
     }
     for (const k of Object.keys(m)) m[k].sort((a, b) => anchorMinutes(a) - anchorMinutes(b));
     return m;
-  }, [rows]);
+  }, [rows, filter]);
 
   const year = cursor.getUTCFullYear();
   const month = cursor.getUTCMonth();
@@ -126,6 +137,14 @@ export default function MyCalendar() {
               <Ionicons name="chevron-forward" size={18} color={colors.brand} />
             </Pressable>
           )}
+
+          <View style={styles.filterRow}>
+            {FILTERS.map((f) => (
+              <Pressable key={f} testID={`mycal-filter-${f}`} onPress={() => setFilter(f)} style={[styles.filterChip, filter === f && styles.filterChipOn]}>
+                <Text style={[styles.filterText, filter === f && styles.filterTextOn]}>{f}</Text>
+              </Pressable>
+            ))}
+          </View>
 
           <View style={styles.monthBar}>
             <Pressable testID="mycal-prev" onPress={() => setCursor(new Date(Date.UTC(year, month - 1, 1)))} hitSlop={12} style={styles.navBtn}>
@@ -210,6 +229,11 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
   headerTitle: { color: colors.onSurface, fontSize: 17, fontWeight: "800" },
+  filterRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.lg },
+  filterChip: { flex: 1, alignItems: "center", paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSecondary },
+  filterChipOn: { backgroundColor: colors.brand, borderColor: colors.brand },
+  filterText: { color: colors.onSurfaceSecondary, fontWeight: "800", fontSize: 12 },
+  filterTextOn: { color: colors.onBrand },
   adminLink: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.brandTertiary, borderRadius: radius.md, borderWidth: 1, borderColor: colors.brand, padding: spacing.md, marginBottom: spacing.lg },
   adminLinkText: { flex: 1, color: colors.brand, fontWeight: "800", fontSize: 13, letterSpacing: 0.3 },
   monthBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.md },

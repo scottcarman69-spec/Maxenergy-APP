@@ -2256,9 +2256,10 @@ async def admin_overview(u: dict = Depends(require_admin)):
     ann = await db.announcements.count_documents({})
     members = await db.users.count_documents({})
     pending_bookings = await db.bookings.count_documents({"status": {"$in": ["pending", "reschedule_requested"]}})
+    session_requests = await db.bookings.count_documents({"by_appointment": True, "status": {"$in": ["pending", "reschedule_requested"]}})
     trials = await db.free_trials.count_documents({})
     unread_messages = await db.messages.count_documents({"sender_is_admin": False, "read_by_admin": {"$ne": True}})
-    return {"classes": classes, "applications": apps, "pending_applications": pending, "announcements": ann, "members": members, "pending_bookings": pending_bookings, "trials": trials, "unread_messages": unread_messages}
+    return {"classes": classes, "applications": apps, "pending_applications": pending, "announcements": ann, "members": members, "pending_bookings": pending_bookings, "session_requests": session_requests, "trials": trials, "unread_messages": unread_messages}
 
 
 @api.get("/admin/classes")

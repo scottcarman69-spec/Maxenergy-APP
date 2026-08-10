@@ -31,6 +31,15 @@ const STATUS: Record<string, { label: string; color: string }> = {
 
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
+const FILTERS = ["All", "Confirmed", "Pending", "Cancelled"] as const;
+type Filter = (typeof FILTERS)[number];
+function matchesFilter(status: string, f: Filter): boolean {
+  if (f === "All") return true;
+  if (f === "Confirmed") return status === "confirmed" || status === "paid";
+  if (f === "Pending") return status === "pending" || status === "reschedule_requested";
+  return status === "cancelled";
+}
+
 // The date a booking sits on: fixed classes use class_start; appointments use
 // their (preferred/confirmed) requested_at. Both are Queensland wall-clock.
 function anchorIso(b: Booking): string | null {
@@ -57,6 +66,7 @@ export default function AdminCalendar() {
     return new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), 1));
   });
   const [selected, setSelected] = useState<string>(() => qldTodayUTC().toISOString().slice(0, 10));
+  const [filter, setFilter] = useState<Filter>("All");
 
   const load = useCallback(async () => {
     try {
@@ -70,6 +80,7 @@ export default function AdminCalendar() {
   const grouped = useMemo(() => {
     const m: Record<string, Booking[]> = {};
     for (const b of rows) {
+      if (!matchesFilter(b.status, filter)) continue;
       const iso = anchorIso(b);
       if (!iso) continue;
       const k = dayKeyOf(iso);
@@ -77,7 +88,7 @@ export default function AdminCalendar() {
     }
     for (const k of Object.keys(m)) m[k].sort((a, b) => anchorHour(a) - anchorHour(b));
     return m;
-  }, [rows]);
+  }, [rows, filter]);
 
   const year = cursor.getUTCFullYear();
   const month = cursor.getUTCMonth();
@@ -129,6 +140,14 @@ export default function AdminCalendar() {
         <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />
       ) : (
         <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: 48 }}>
+          <View style={styles.filterRow}>
+            {FILTERS.map((f) => (
+              <Pressable key={f} testID={`admincal-filter-${f}`} onPress={() => setFilter(f)} style={[styles.filterChip, filter === f && styles.filterChipOn]}>
+                <Text style={[styles.filterText, filter === f && styles.filterTextOn]}>{f}</Text>
+              </Pressable>
+            ))}
+          </View>
+
           <View style={styles.monthBar}>
             <Pressable testID="admincal-prev" onPress={() => shiftMonth(-1)} hitSlop={12} style={styles.navBtn}>
               <Ionicons name="chevron-back" size={20} color={colors.onSurface} />
@@ -229,6 +248,11 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
   headerTitle: { color: colors.onSurface, fontSize: 17, fontWeight: "800" },
+  filterRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.lg },
+  filterChip: { flex: 1, alignItems: "center", paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSecondary },
+  filterChipOn: { backgroundColor: colors.brand, borderColor: colors.brand },
+  filterText: { color: colors.onSurfaceSecondary, fontWeight: "800", fontSize: 12 },
+  filterTextOn: { color: colors.onBrand },
   monthBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.md },
   navBtn: { width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
   monthTitle: { color: colors.onSurface, fontSize: 18, fontWeight: "900" },

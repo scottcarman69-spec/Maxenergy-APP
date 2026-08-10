@@ -370,3 +370,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Reused datetime util (scheduleDay/classTime/classDate/qldTodayUTC); anchor = class_start (fixed) or requested_at (appointment).
 - Home header refactored: logo centered, headerActions row (calendar icon + avatar) absolutely positioned right; avatarWrap no longer absolute.
 - Verified via screenshots: home shows calendar icon; My Bookings renders grid + legend + agenda. tsc clean.
+
+## Session update 64 (Jun 2026 fork) — Requests badge on dashboard + calendar status filters (DONE)
+- Requests badge: admin_overview now returns session_requests = count of by_appointment bookings with status pending/reschedule_requested. Admin dashboard shows a prominent orange banner "N new session request(s) waiting → tap to review" (routes to /admin/bookings) when >0.
+- Filter By Status: both /admin/calendar and /calendar (member) gained quick filter chips [All, Confirmed(=confirmed/paid), Pending(=pending/reschedule), Cancelled]. Filter applies to grouping (dots + month count) and the day agenda.
+- Verified: overview session_requests=1 → dashboard banner renders; calendar Pending filter shows only the pending dot and "1 booking". tsc clean. Test data cleaned afterwards.
