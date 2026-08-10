@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Linking } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -239,9 +239,25 @@ export default function AdminCalendar() {
                       <Text style={styles.itemName} numberOfLines={1}>{b.class_name}</Text>
                       <Text style={styles.itemMember} numberOfLines={1}>{b.member_name || "Member"}</Text>
                       {!!b.member_phone && (
-                        <Text style={styles.itemPhone} numberOfLines={1}>
-                          <Ionicons name="call" size={11} color={colors.brand} /> {b.member_phone}
-                        </Text>
+                        <View style={styles.phoneRow}>
+                          <Pressable
+                            testID={`admincal-call-${b.booking_id}`}
+                            style={styles.contactBtn}
+                            onPress={() => Linking.openURL(`tel:${(b.member_phone || "").replace(/[^\d+]/g, "")}`)}
+                          >
+                            <Ionicons name="call" size={13} color={colors.onBrand} />
+                            <Text style={styles.contactText}>Call</Text>
+                          </Pressable>
+                          <Pressable
+                            testID={`admincal-text-${b.booking_id}`}
+                            style={styles.contactBtnGhost}
+                            onPress={() => Linking.openURL(`sms:${(b.member_phone || "").replace(/[^\d+]/g, "")}`)}
+                          >
+                            <Ionicons name="chatbubble-ellipses" size={13} color={colors.brand} />
+                            <Text style={styles.contactTextGhost}>Text</Text>
+                          </Pressable>
+                          <Text style={styles.phoneNum} numberOfLines={1}>{b.member_phone}</Text>
+                        </View>
                       )}
                     </View>
                     <View style={[styles.pill, { backgroundColor: meta.color }]}>
@@ -315,6 +331,12 @@ const styles = StyleSheet.create({
   itemName: { color: colors.onSurface, fontSize: 14, fontWeight: "800" },
   itemMember: { color: colors.onSurface, fontSize: 12, marginTop: 2 },
   itemPhone: { color: colors.brand, fontSize: 12, marginTop: 2, fontWeight: "700" },
+  phoneRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6, flexWrap: "wrap" },
+  contactBtn: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.brand, paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill },
+  contactText: { color: colors.onBrand, fontSize: 11, fontWeight: "800" },
+  contactBtnGhost: { flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 1, borderColor: colors.brand, paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill },
+  contactTextGhost: { color: colors.brand, fontSize: 11, fontWeight: "800" },
+  phoneNum: { color: colors.onSurfaceSecondary, fontSize: 12, fontWeight: "600" },
   attendBar: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 11, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surface },
   attendBarOn: { backgroundColor: "#16A34A" },
   attendText: { color: colors.onSurface, fontWeight: "800", fontSize: 13 },

@@ -381,3 +381,7 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Admin Bookings Calendar agenda items now show member name + a highlighted mobile line (call icon) for each booking, plus a "Confirm attended" toggle (green "Attended ✓" when set) that calls api.adminSetAttendance and reloads. Items wrapped in a card with the attend bar; tapping the row still opens Admin → Bookings.
 - Confirmed Q (user): paid/confirmed bookings auto-appear on BOTH calendars (member GET /bookings + admin /admin/bookings) grouped by class_start (fixed) or requested_at (appointment); calendars refresh on focus.
 - Verified via screenshot: Custom Programs · 4:00 pm · CONFIRMED with "Sarah Tester", "📞 0412 345 678", and "Confirm attended" button. tsc clean. Test data cleaned.
+
+## Session update 66 (Jun 2026 fork) — Tap-to-call / text member from calendar (DONE)
+- Admin Bookings Calendar agenda item phone line replaced with two tappable pills: "Call" (Linking tel:) and "Text" (Linking sms:), plus the number shown. Number sanitized to digits/+. Nested Pressables so they don't trigger the row's navigation.
+- Verified via screenshot: Custom Programs confirmed booking shows Sarah Tester, Call + Text buttons, 0412 345 678, and Confirm attended. tsc clean; test data cleaned.
