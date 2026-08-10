@@ -8,6 +8,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { api, BACKEND_URL } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
+import { classTime, classDate } from "@/src/datetime";
 import { coachSource } from "@/src/coaches";
 
 type Cls = {
@@ -26,8 +27,7 @@ type Cls = {
 };
 
 function fmt(iso: string) {
-  const d = new Date(iso);
-  return `${d.toLocaleDateString("en-AU", { weekday: "long", day: "2-digit", month: "long", timeZone: "UTC" })} · ${d.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", timeZone: "UTC" })}`;
+  return `${classDate(iso, { weekday: "long", day: "2-digit", month: "long" })} · ${classTime(iso)}`;
 }
 
 export default function ClassDetail() {

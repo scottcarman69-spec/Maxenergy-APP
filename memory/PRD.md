@@ -321,3 +321,12 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
   - Real UTC instants (created_at/paid_at/message times): now converted to timeZone:"Australia/Brisbane". Files: alerts.tsx, notification-history.tsx, booking-history.tsx, admin/membership-log.tsx, admin/inbox.tsx (sameDay via QLD date), admin/members.tsx, receipt.tsx (fmtDateTime for paid_at), membership.tsx.
 - Backend unchanged: reminder scheduler already uses now_local = now_utc()+10h and treats start_at as naive Brisbane, so reminder timing stays correct.
 - Verified: tsc clean on all touched files; schedule screenshot shows "6:00 pm", MON 10/TUE 11 day chips, and "UP NEXT · Tuesday · 6:00 pm".
+
+## Session update 57 (Jun 2026 fork) — CORRECTED timezone handling (real root cause) (DONE)
+- Update 56 was wrong: it assumed class start_at came back tz-aware (+00:00). In reality Motor drops tzinfo, so the API returns NAIVE ISO strings (e.g. "2026-08-10T17:00:00"). JS parses tz-less date-time as DEVICE-LOCAL, so forcing timeZone:"UTC"/getUTC* showed correct times only on the UTC preview but shifted +10h on a Brisbane phone (5pm→7am).
+- Fix: new util /app/frontend/src/datetime.ts. toDate() treats a tz-less string as UTC (appends "Z"). Then:
+  - classTime/classDate/scheduleDay/classParts → format schedule wall-clock (class/event start_at) with timeZone:"UTC" (shows stored QLD wall-clock as-is on ANY device).
+  - stampTime/stampDate/isQldToday → format true UTC instants (created_at/paid_at/message times) with timeZone:"Australia/Brisbane".
+  - qldTodayUTC/qldHour for current QLD date/clock (timetable day grouping + greeting).
+- All time helpers across timetable, home, class/[id], events, event/[id], check-in, receipt, admin/classes, alerts, notification-history, booking-history, admin/membership-log, admin/inbox, admin/members now delegate to this util.
+- Verified device-independence via Node TZ simulation (Brisbane, UTC, America/Los_Angeles): class 17:00→"5:00 pm", 18:00→"6:00 pm"; paid 05:11 UTC→"3:11 pm" QLD. Screenshot confirms Wed shows Kids Muay Thai 5:00 pm + Adults Muay Thai 6:00 pm.

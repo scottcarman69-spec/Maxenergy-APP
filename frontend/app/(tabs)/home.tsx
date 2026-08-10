@@ -20,6 +20,7 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAuth } from "@/src/AuthContext";
 import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
+import { classTime, classDate, qldHour } from "@/src/datetime";
 import ScreenBg from "@/src/components/ScreenBg";
 import { gymPhotos } from "@/src/gymPhotos";
 import { coachSource } from "@/src/coaches";
@@ -39,19 +40,18 @@ type Cls = {
   category: string;
 };
 
-// Class/event times are stored as Queensland (GMT+10) wall-clock, read via UTC components.
+// Class/event times are stored as Queensland (GMT+10) wall-clock, shown as-is.
 function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", timeZone: "UTC" });
+  return classTime(iso);
 }
 function fmtDay(iso: string) {
-  return new Date(iso).toLocaleDateString("en-AU", { weekday: "long", timeZone: "UTC" });
+  return classDate(iso, { weekday: "long" });
 }
 function fmtDate(iso: string) {
-  const d = new Date(iso);
-  return `${d.toLocaleDateString("en-AU", { weekday: "short", timeZone: "UTC" })} ${d.getUTCDate()} ${d.toLocaleDateString("en-AU", { month: "short", timeZone: "UTC" })}`;
+  return classDate(iso, { weekday: "short", day: "numeric", month: "short" });
 }
 function greetingText() {
-  const h = Number(new Date().toLocaleString("en-AU", { hour: "numeric", hour12: false, timeZone: "Australia/Brisbane" })) % 24;
+  const h = qldHour();
   if (h < 12) return "Good morning,";
   if (h < 17) return "Good afternoon,";
   return "Good evening,";

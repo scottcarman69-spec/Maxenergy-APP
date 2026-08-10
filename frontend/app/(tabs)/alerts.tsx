@@ -7,20 +7,16 @@ import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { useAuth } from "@/src/AuthContext";
 import { colors, spacing, radius } from "@/src/theme";
+import { stampTime, stampDate, isQldToday } from "@/src/datetime";
 import ScreenBg from "@/src/components/ScreenBg";
 
 type Notif = { notification_id: string; title: string; body: string; read: boolean; created_at: string; type: string; data?: { nav?: string; user_id?: string; name?: string } };
 
 function fmtWhen(iso?: string) {
   if (!iso) return "";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "";
-  const opt = { timeZone: "Australia/Brisbane" } as const;
-  const qldDay = (x: Date) => x.toLocaleDateString("en-CA", opt);
-  const sameDay = qldDay(d) === qldDay(new Date());
-  return sameDay
-    ? d.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", ...opt })
-    : d.toLocaleDateString("en-AU", { day: "2-digit", month: "short", hour: "numeric", minute: "2-digit", ...opt });
+  return isQldToday(iso)
+    ? stampTime(iso)
+    : stampDate(iso, { day: "2-digit", month: "short", hour: "numeric", minute: "2-digit" });
 }
 
 const ICONS: Record<string, any> = {

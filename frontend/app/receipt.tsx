@@ -8,6 +8,7 @@ import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
+import { classTime, classDate, stampTime, stampDate } from "@/src/datetime";
 
 type Receipt = {
   booking_id: string;
@@ -29,14 +30,12 @@ type Receipt = {
 // "Paid on" is a real UTC instant → show in Queensland time (GMT+10).
 function fmtDateTime(iso?: string) {
   if (!iso) return "—";
-  const d = new Date(iso);
-  return `${d.toLocaleDateString("en-AU", { weekday: "short", day: "2-digit", month: "short", year: "numeric", timeZone: "Australia/Brisbane" })} · ${d.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", timeZone: "Australia/Brisbane" })}`;
+  return `${stampDate(iso, { weekday: "short", day: "2-digit", month: "short", year: "numeric" })} · ${stampTime(iso)}`;
 }
-// Class start time is stored as Queensland wall-clock → read via UTC components.
+// Class start time is stored as Queensland wall-clock → show as-is.
 function fmtClassWhen(iso?: string) {
   if (!iso) return "—";
-  const d = new Date(iso);
-  return `${d.toLocaleDateString("en-AU", { weekday: "short", day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" })} · ${d.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", timeZone: "UTC" })}`;
+  return `${classDate(iso, { weekday: "short", day: "2-digit", month: "short", year: "numeric" })} · ${classTime(iso)}`;
 }
 
 export default function ReceiptScreen() {

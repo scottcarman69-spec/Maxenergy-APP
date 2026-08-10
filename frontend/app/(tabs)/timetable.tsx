@@ -16,6 +16,7 @@ import { Image } from "expo-image";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius, type, font } from "@/src/theme";
+import { classTime, classDate, scheduleDay, qldTodayUTC } from "@/src/datetime";
 import ScreenBg from "@/src/components/ScreenBg";
 import { teamPhotos } from "@/src/gymPhotos";
 import { coachSource } from "@/src/coaches";
@@ -46,19 +47,11 @@ type Cls = {
 
 const CATEGORIES = ["All", "Adults", "Kids"];
 
-// Class times are stored as Australia/Queensland (GMT+10) wall-clock values
-// tagged UTC by the backend, so we read them back via UTC components.
 function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", timeZone: "UTC" });
+  return classTime(iso);
 }
 function sameDay(a: Date, b: Date) {
-  return a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth() && a.getUTCDate() === b.getUTCDate();
-}
-// Current calendar date in Queensland as a UTC-midnight Date (schedule space).
-function qldTodayUTC(): Date {
-  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Australia/Brisbane", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
-  const g = (t: string) => Number(parts.find((p) => p.type === t)?.value);
-  return new Date(Date.UTC(g("year"), g("month") - 1, g("day")));
+  return a.getTime() === b.getTime();
 }
 
 export default function Timetable() {
@@ -111,7 +104,7 @@ export default function Timetable() {
     if (!target) return [];
     return classes
       .filter((c) => !c.by_appointment)
-      .filter((c) => sameDay(new Date(c.start_at), target))
+      .filter((c) => sameDay(scheduleDay(c.start_at), target))
       .filter((c) => category === "All" || c.category === category)
       .filter((c) => !c.ended)
       .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
@@ -123,7 +116,7 @@ export default function Timetable() {
     if (!target || dayOffset !== 0) return false;
     const todays = classes
       .filter((c) => !c.by_appointment)
-      .filter((c) => sameDay(new Date(c.start_at), target))
+      .filter((c) => sameDay(scheduleDay(c.start_at), target))
       .filter((c) => category === "All" || c.category === category);
     return todays.length > 0 && todays.every((c) => c.ended);
   }, [classes, dayOffset, days, category]);
@@ -138,8 +131,7 @@ export default function Timetable() {
   }, [classes, category]);
 
   const goToClassDay = useCallback((iso: string) => {
-    const c = new Date(iso);
-    const dUTC = Date.UTC(c.getUTCFullYear(), c.getUTCMonth(), c.getUTCDate());
+    const dUTC = scheduleDay(iso).getTime();
     const idx = Math.round((dUTC - today.getTime()) / 86400000);
     if (idx >= 0 && idx < days.length) setDayOffset(idx);
   }, [today, days]);
@@ -278,7 +270,7 @@ export default function Timetable() {
                     <View style={{ flex: 1 }}>
                       <Text style={styles.peekName} numberOfLines={1}>{nextClass.name}</Text>
                       <Text style={styles.peekWhen}>
-                        {new Date(nextClass.start_at).toLocaleDateString("en-AU", { weekday: "long", timeZone: "UTC" })} · {fmtTime(nextClass.start_at)}
+                        {classDate(nextClass.start_at, { weekday: "long" })} · {fmtTime(nextClass.start_at)}
                         {nextClass.trainer ? ` · ${nextClass.trainer}` : ""}
                       </Text>
                     </View>

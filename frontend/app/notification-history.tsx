@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
+import { stampTime, stampDate } from "@/src/datetime";
 import ScreenBg from "@/src/components/ScreenBg";
 
 type Notif = {
@@ -27,10 +28,7 @@ const ICONS: Record<string, any> = {
 
 function fmtWhen(iso?: string) {
   if (!iso) return "";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "";
-  return d.toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric", timeZone: "Australia/Brisbane" }) +
-    " · " + d.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", timeZone: "Australia/Brisbane" });
+  return stampDate(iso, { day: "2-digit", month: "short", year: "numeric" }) + " · " + stampTime(iso);
 }
 
 export default function NotificationHistory() {

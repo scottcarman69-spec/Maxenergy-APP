@@ -7,6 +7,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius, type, font } from "@/src/theme";
+import { classTime, classDate } from "@/src/datetime";
 import ScreenBg from "@/src/components/ScreenBg";
 
 type Ann = { announcement_id: string; title: string; body: string; pinned: boolean; author: string; created_at: string };
@@ -20,8 +21,7 @@ function timeAgo(iso: string) {
   return `${d}d ago`;
 }
 function fmtEvt(iso: string) {
-  const d = new Date(iso);
-  return `${d.toLocaleDateString("en-AU", { weekday: "short", day: "2-digit", month: "short", timeZone: "UTC" })} · ${d.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", timeZone: "UTC" })}`;
+  return `${classDate(iso, { weekday: "short", day: "2-digit", month: "short" })} · ${classTime(iso)}`;
 }
 
 export default function Notices() {

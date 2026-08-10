@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
+import { stampDate } from "@/src/datetime";
 
 type Member = {
   user_id: string;
@@ -24,9 +25,7 @@ const FILTERS = ["All", "Members", "Free Trials"] as const;
 
 function fmtDate(iso?: string) {
   if (!iso) return "";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "";
-  return d.toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric", timeZone: "Australia/Brisbane" });
+  return stampDate(iso, { day: "2-digit", month: "short", year: "numeric" });
 }
 
 export default function AdminMembers() {

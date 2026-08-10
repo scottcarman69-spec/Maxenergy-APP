@@ -7,6 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import QRCode from "react-native-qrcode-svg";
 import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
+import { classTime, classDate } from "@/src/datetime";
 import { coachSource } from "@/src/coaches";
 
 type Booking = {
@@ -27,12 +28,11 @@ type Booking = {
 
 function fmtDate(iso?: string) {
   if (!iso) return null;
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-AU", { weekday: "long", day: "2-digit", month: "long", timeZone: "UTC" });
+  return classDate(iso, { weekday: "long", day: "2-digit", month: "long" });
 }
 function fmtTime(iso?: string) {
   if (!iso) return null;
-  return new Date(iso).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", timeZone: "UTC" });
+  return classTime(iso);
 }
 
 export default function CheckIn() {

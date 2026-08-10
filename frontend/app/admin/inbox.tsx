@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
+import { stampTime, stampDate, isQldToday } from "@/src/datetime";
 
 type Thread = {
   user_id: string;
@@ -18,14 +19,7 @@ type Thread = {
 
 function fmtWhen(iso?: string) {
   if (!iso) return "";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "";
-  const opt = { timeZone: "Australia/Brisbane" } as const;
-  const qldDay = (x: Date) => x.toLocaleDateString("en-CA", opt);
-  const sameDay = qldDay(d) === qldDay(new Date());
-  return sameDay
-    ? d.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", ...opt })
-    : d.toLocaleDateString("en-AU", { day: "2-digit", month: "short", ...opt });
+  return isQldToday(iso) ? stampTime(iso) : stampDate(iso, { day: "2-digit", month: "short" });
 }
 
 export default function AdminInbox() {

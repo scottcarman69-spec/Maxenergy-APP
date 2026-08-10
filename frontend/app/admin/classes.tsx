@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
+import { classTime, classDate, classParts } from "@/src/datetime";
 import { Segmented } from "@/src/components/Form";
 
 type Cls = {
@@ -31,16 +32,15 @@ type Cls = {
 };
 
 function toDateStr(iso: string) {
-  const d = new Date(iso);
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+  const p = classParts(iso);
+  return `${p.y}-${String(p.mo).padStart(2, "0")}-${String(p.d).padStart(2, "0")}`;
 }
 function toTimeStr(iso: string) {
-  const d = new Date(iso);
-  return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+  const p = classParts(iso);
+  return `${String(p.h).padStart(2, "0")}:${String(p.mi).padStart(2, "0")}`;
 }
 function fmtLabel(iso: string) {
-  const d = new Date(iso);
-  return `${d.toLocaleDateString("en-AU", { weekday: "short", day: "2-digit", month: "short", timeZone: "UTC" })} · ${d.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", timeZone: "UTC" })}`;
+  return `${classDate(iso, { weekday: "short", day: "2-digit", month: "short" })} · ${classTime(iso)}`;
 }
 
 const emptyForm = {
