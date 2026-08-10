@@ -146,25 +146,6 @@ export default function Login() {
           <Text style={styles.pitchBody}>
             {"We're a friendly, family-run gym in Smithfield, welcoming everyone from complete beginners to experienced athletes. Enjoy 24/7 gym access, Muay Thai & Kickboxing for adults and kids, Boot Camp and Personal Training.\n\nWhatever your age, experience or fitness goals, you'll always be welcome here. Come train, have fun and be part of our gym community."}
           </Text>
-
-          <View style={styles.features}>
-            {[
-              { icon: "calendar", title: "Live Timetable", desc: "See kids & adult classes and book your spot" },
-              { icon: "card", title: "Easy Membership", desc: "Apply & pay online — no paperwork, no queues" },
-              { icon: "megaphone", title: "Gym Notices", desc: "Stay across events, gradings & updates" },
-              { icon: "star", title: "5-Star Community", desc: "Join a crew that trains hard and lifts each other up" },
-            ].map((f) => (
-              <View key={f.title} style={styles.featureRow}>
-                <View style={styles.featureIcon}>
-                  <Ionicons name={f.icon as any} size={18} color={colors.brand} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.featureTitle}>{f.title}</Text>
-                  <Text style={styles.featureDesc}>{f.desc}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
         </View>
 
         <View style={styles.form}>
@@ -258,11 +239,6 @@ const styles = StyleSheet.create({
   pitch: { paddingHorizontal: spacing.xl, paddingTop: spacing.sm },
   pitchTitle: { color: colors.onSurface, fontFamily: font.display, fontSize: 26, letterSpacing: 0.3, marginBottom: spacing.sm },
   pitchBody: { color: colors.onSurfaceSecondary, fontSize: 14, lineHeight: 21 },
-  features: { marginTop: spacing.lg, gap: spacing.md },
-  featureRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  featureIcon: { width: 40, height: 40, borderRadius: radius.sm, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center" },
-  featureTitle: { color: colors.onSurface, fontFamily: font.heading, fontSize: 15 },
-  featureDesc: { color: colors.onSurfaceSecondary, fontSize: 12.5, marginTop: 1 },
   brandEyebrow: {
     color: colors.brand,
     fontSize: 12,
