@@ -47,11 +47,10 @@ function greetingText() {
   if (h < 17) return "Good afternoon,";
   return "Good evening,";
 }
-const KIDS_ICON = require("../../assets/images/kids-icon.webp");
 function catStyle(category: string, name = ""): { color: string; icon: any; set: "ion" | "mci" | "img"; img?: any } {
   const c = (category || "").toLowerCase();
   const nm = (name || "").toLowerCase();
-  if (c.includes("kid") || nm.includes("kid")) return { color: "#22C55E", icon: "karate", set: "img", img: KIDS_ICON };
+  if (c.includes("kid") || nm.includes("kid")) return { color: "#22C55E", icon: "karate", set: "mci" };
   if (nm.includes("box") || nm.includes("kick")) return { color: "#3B82F6", icon: "boxing-glove", set: "mci" };
   return { color: colors.brand, icon: "barbell", set: "ion" };
 }
