@@ -269,3 +269,11 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## CLARIFICATION (Jun 2026) — QR class check-in STAYS
 - User said "we cannot use a QR to scan into the door" — this referred to the PHYSICAL door/gate (handled by Vigyr, separate). For in-app CLASS check-in they confirmed: members MUST show their booking QR to staff who scan it. So the QR check-in (member "Show my entry QR" + admin "Scan Check-In") is CORRECT and unchanged. Self check-in stays disabled. Attendance history unchanged. NO code changes made for this clarification.
+
+## Session update 48 (Jun 2026 fork) — Deployment health check PASS
+- Ran deployment_agent; fixed all flagged items:
+  1. Hardcoded Emergent URLs -> EMAIL_BASE_URL + EMERGENT_AUTH_SESSION_URL now os.environ[...] (required), added to backend/.env.
+  2. frontend/.env METRO_CACHE_ROOT value quoted ("/app/frontend/.metro-cache") -> env_files_malformed=false.
+  3. TS compile blocker: frontend/src/api.ts applyMembership payload type now includes `details?: Record<string, any>` (membership.tsx passes details). npx tsc --noEmit = exit 0.
+- Final status: PASS (no blockers/warnings). backend 0.0.0.0:8001 + /api prefix, /api/classes 200.
+- Non-blocking WARNs acknowledged (not fixed): N+1 reads in reminder job (fine at gym scale); no privacy-policy URL in README (relevant only at App Store/Play submission).

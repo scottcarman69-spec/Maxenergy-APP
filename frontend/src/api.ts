@@ -121,6 +121,7 @@ export const api = {
     category: string;
     experience?: string;
     message?: string;
+    details?: Record<string, any>;
   }) => req("/api/membership/apply", { method: "POST", body: JSON.stringify(payload) }),
   myApplications: () => req("/api/membership/applications/me"),
   reportVigyrSignup: (completed: boolean) =>

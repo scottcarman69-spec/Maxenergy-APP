@@ -45,8 +45,8 @@ ADMIN_PASSWORD = os.environ["ADMIN_PASSWORD"]
 ADMIN2_EMAIL = os.environ["ADMIN2_EMAIL"]
 ADMIN2_PASSWORD = os.environ["ADMIN2_PASSWORD"]
 
-EMAIL_BASE_URL = "https://integrations.emergentagent.com"
-EMERGENT_AUTH_SESSION_URL = "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data"
+EMAIL_BASE_URL = os.environ["EMAIL_BASE_URL"]
+EMERGENT_AUTH_SESSION_URL = os.environ["EMERGENT_AUTH_SESSION_URL"]
 SEED_VERSION = "v14"
 
 GYM_INFO = {
