@@ -1186,7 +1186,91 @@ async def booking_checkin(booking_id: str, u: dict = Depends(require_user)):
     return {"booking": b}
 
 
-# -------------------- messaging (member <-> gym) --------------------
+@api.get("/bookings/{booking_id}/checkin-code")
+async def booking_checkin_code(booking_id: str, u: dict = Depends(require_user)):
+    """Return a signed QR payload the member displays for door check-in."""
+    b = await db.bookings.find_one({"booking_id": booking_id, "user_id": u["user_id"]}, {"_id": 0})
+    if not b:
+        raise HTTPException(404, "Booking not found")
+    if b.get("status") not in ("paid", "confirmed"):
+        raise HTTPException(400, "Only paid or confirmed bookings have a check-in code.")
+    payload = {
+        "bid": booking_id,
+        "uid": u["user_id"],
+        "typ": "checkin",
+        "exp": datetime.now(timezone.utc) + timedelta(days=2),
+    }
+    code = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGO)
+    return {"code": code, "booking_id": booking_id}
+
+
+class ScanCheckinReq(BaseModel):
+    code: str
+
+
+@api.post("/admin/checkin/scan")
+async def admin_checkin_scan(body: ScanCheckinReq, u: dict = Depends(require_admin)):
+    """Admin scans a member's QR to check them in — only on the class day."""
+    try:
+        data = jwt.decode(body.code, JWT_SECRET, algorithms=[JWT_ALGO])
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(400, "This QR code has expired. Ask the member to reopen it.")
+    except Exception:
+        raise HTTPException(400, "Invalid QR code.")
+    if data.get("typ") != "checkin" or not data.get("bid"):
+        raise HTTPException(400, "This isn't a valid check-in code.")
+    b = await db.bookings.find_one({"booking_id": data["bid"]}, {"_id": 0})
+    if not b:
+        raise HTTPException(404, "Booking not found.")
+    if b.get("status") not in ("paid", "confirmed"):
+        raise HTTPException(400, "This booking isn't paid — check payment first.")
+
+    member = await db.users.find_one({"user_id": b["user_id"]}, {"_id": 0})
+    mname = (member or {}).get("name") or (member or {}).get("email") or "Member"
+    cls = await db.classes.find_one({"class_id": b["class_id"]}, {"_id": 0}) or {}
+    start = cls.get("start_at") or b.get("class_start")
+
+    # Class-day restriction. Class start is stored as local wall-clock; compare its date to today (QLD).
+    if not b.get("by_appointment") and isinstance(start, datetime):
+        s = start.replace(tzinfo=None) if start.tzinfo else start
+        class_day = s.date()
+        today = (now_utc() + timedelta(hours=10)).date()  # Queensland time (no DST)
+        if class_day != today:
+            when = s.strftime("%A %d %B")
+            raise HTTPException(400, f"This class is on {when}, not today. Check-in is only available on the class day.")
+
+    when_str = ""
+    if isinstance(start, datetime):
+        s = start.replace(tzinfo=None) if start.tzinfo else start
+        when_str = s.strftime("%-I:%M %p")
+
+    if b.get("attended"):
+        return {
+            "ok": True,
+            "already": True,
+            "member_name": mname,
+            "class_name": b["class_name"],
+            "when": when_str,
+        }
+
+    await db.bookings.update_one(
+        {"booking_id": b["booking_id"]},
+        {"$set": {"attended": True, "checked_in_at": now_utc(), "checked_in_by": "admin_qr"}},
+    )
+    await create_notification(
+        b["user_id"],
+        "Checked in ✅",
+        f"You're checked in for {b['class_name']}. Have a great session!",
+        "booking",
+    )
+    return {
+        "ok": True,
+        "already": False,
+        "member_name": mname,
+        "class_name": b["class_name"],
+        "when": when_str,
+    }
+
 @api.get("/messages/unread")
 async def messages_unread(u: dict = Depends(require_user)):
     count = await db.messages.count_documents(

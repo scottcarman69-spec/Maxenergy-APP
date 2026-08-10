@@ -40,6 +40,7 @@ export default function AdminHome() {
     { key: "bookings", icon: "clipboard", label: "Bookings", desc: "Accept, reschedule or cancel bookings", route: "/admin/bookings", count: stats?.pending_bookings, badge: true },
     { key: "members", icon: "people", label: "Members & Trials", desc: "Browse members and free trial claims", route: "/admin/members", count: stats?.members },
     { key: "inbox", icon: "chatbubbles", label: "Inbox", desc: "Read & reply to member messages", route: "/admin/inbox", count: stats?.unread_messages, badge: true },
+    { key: "scan", icon: "qr-code", label: "Scan Check-In", desc: "Scan a member's QR to check them in", route: "/admin/scan" },
     { key: "attendance", icon: "stats-chart", label: "Attendance Report", desc: "Check-ins by day, week & month", route: "/admin/attendance" },
     { key: "announcements", icon: "megaphone", label: "Gym Notices", desc: "Post & edit announcements to members", route: "/admin/announcements", count: stats?.announcements },
     { key: "applications", icon: "document-text", label: "Applications", desc: "Review membership applications", route: "/admin/applications", count: stats?.pending_applications, badge: true },

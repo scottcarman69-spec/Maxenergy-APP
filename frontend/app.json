@@ -12,7 +12,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.emergent.classnotify.hl9igt",
       "infoPlist": {
-        "NSCameraUsageDescription": "Take a photo for your membership application",
+        "NSCameraUsageDescription": "Scan member booking QR codes for class check-in",
         "NSPhotoLibraryUsageDescription": "Attach a photo to your membership application"
       }
     },
@@ -23,7 +23,10 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.emergent.classnotify.hl9igt",
-      "permissions": ["CAMERA", "READ_MEDIA_IMAGES"]
+      "permissions": [
+        "CAMERA",
+        "READ_MEDIA_IMAGES"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -46,6 +49,12 @@
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#000000"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Scan member booking QR codes for class check-in"
         }
       ]
     ],

@@ -1,9 +1,10 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
+import QRCode from "react-native-qrcode-svg";
 import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
 import { coachSource } from "@/src/coaches";
@@ -40,6 +41,8 @@ export default function CheckIn() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
+  const [qr, setQr] = useState<{ code: string; title: string } | null>(null);
+  const [qrLoading, setQrLoading] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -60,6 +63,17 @@ export default function CheckIn() {
       setBanner(e?.message || "Could not check in.");
     }
     setBusy(null);
+  };
+
+  const showQr = async (b: Booking) => {
+    setQrLoading(true);
+    try {
+      const r = await api.checkinCode(b.booking_id);
+      setQr({ code: r.code, title: b.class_name });
+    } catch (e: any) {
+      setBanner(e?.message || "Could not load your QR code.");
+    }
+    setQrLoading(false);
   };
 
   return (
@@ -165,11 +179,42 @@ export default function CheckIn() {
                     <Text style={styles.detailText}>Ref: {b.booking_id.replace("bk_", "").toUpperCase().slice(0, 8)}</Text>
                   </View>
                 </View>
+
+                {!b.attended && (
+                  <Pressable
+                    testID={`show-qr-${b.booking_id}`}
+                    style={styles.qrBtn}
+                    onPress={() => showQr(b)}
+                    disabled={qrLoading}
+                  >
+                    <Ionicons name="qr-code-outline" size={16} color={colors.brand} />
+                    <Text style={styles.qrBtnText}>Show my entry QR</Text>
+                  </Pressable>
+                )}
               </View>
             );})
           )}
         </ScrollView>
       )}
+
+      <Modal visible={!!qr} transparent animationType="fade" onRequestClose={() => setQr(null)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setQr(null)}>
+          <Pressable style={styles.qrCard} onPress={() => {}}>
+            <Text style={styles.qrTitle}>{qr?.title}</Text>
+            <Text style={styles.qrSub}>Show this to gym staff to check in</Text>
+            <View style={styles.qrBox}>
+              {qr ? <QRCode value={qr.code} size={220} backgroundColor="#fff" color="#000" /> : null}
+            </View>
+            <View style={styles.qrHint}>
+              <Ionicons name="information-circle-outline" size={15} color={colors.onSurfaceSecondary} />
+              <Text style={styles.qrHintText}>Valid on your class day. Keep your screen bright.</Text>
+            </View>
+            <Pressable testID="qr-close" style={styles.qrCloseBtn} onPress={() => setQr(null)}>
+              <Text style={styles.qrCloseText}>DONE</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -194,6 +239,17 @@ const styles = StyleSheet.create({
   btnText: { color: colors.onBrand, fontWeight: "900", fontSize: 13 },
   done: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#16A34A", paddingHorizontal: spacing.md, paddingVertical: 9, borderRadius: radius.md },
   doneText: { color: "#fff", fontWeight: "800", fontSize: 12 },
+  qrBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 11, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.brand },
+  qrBtnText: { color: colors.brand, fontWeight: "800", fontSize: 13 },
+  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.75)", alignItems: "center", justifyContent: "center", padding: spacing.xl },
+  qrCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.xl, alignItems: "center", width: "100%", maxWidth: 340, borderWidth: 1, borderColor: colors.border },
+  qrTitle: { color: colors.onSurface, fontSize: 20, fontWeight: "900" },
+  qrSub: { color: colors.onSurfaceSecondary, fontSize: 13, marginTop: 4, marginBottom: spacing.lg },
+  qrBox: { backgroundColor: "#fff", padding: 16, borderRadius: radius.md },
+  qrHint: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: spacing.lg, paddingHorizontal: spacing.md },
+  qrHintText: { color: colors.onSurfaceSecondary, fontSize: 12, textAlign: "center", flexShrink: 1 },
+  qrCloseBtn: { backgroundColor: colors.brand, paddingVertical: 13, borderRadius: radius.md, alignItems: "center", alignSelf: "stretch", marginTop: spacing.lg },
+  qrCloseText: { color: colors.onBrand, fontWeight: "900", letterSpacing: 1 },
   empty: { alignItems: "center", padding: 40, gap: spacing.md },
   emptyText: { color: colors.onSurfaceSecondary, textAlign: "center" },
   link: { paddingVertical: 8 },

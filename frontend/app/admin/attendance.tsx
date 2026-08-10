@@ -37,7 +37,9 @@ export default function AdminAttendance() {
           <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
         </Pressable>
         <Text style={styles.headerTitle}>Attendance Report</Text>
-        <View style={{ width: 26 }} />
+        <Pressable testID="att-scan" onPress={() => router.push("/admin/scan")} hitSlop={12}>
+          <Ionicons name="qr-code-outline" size={24} color={colors.brand} />
+        </Pressable>
       </View>
 
       {loading ? (
