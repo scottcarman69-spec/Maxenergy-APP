@@ -403,3 +403,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 ## Session update 69 (Jun 2026 fork) — Class capacity bar + admin direct-to-all-bookings calendar (DONE)
 - Capacity bar: backend classes_list now aggregates active bookings (paid/confirmed) per class and adds booked + spots_left (fixed-time classes only); class_detail adds the same via count_documents. Frontend timetable class cards show a coloured progress bar (green >3 left, amber <=3, red full) + "N spots left"/"Class full". Class detail SPOTS stat now shows "X of Y left" / "Class full". Verified: Kickboxing shows "20 spots left" with green bar; API returns booked/spots_left.
 - Admin calendar routing: Home calendar tear-off chip now routes admins straight to /admin/calendar (all bookings + class schedule) and members to /calendar. Removed the "View ALL gym bookings (Admin)" banner from the member /calendar and its now-unused useAuth import.
+
+## Session update 70 (Jun 2026 fork) — Low-spots nudge (DONE)
+- Timetable class cards show an amber "🔥 ONLY N SPOT(S) LEFT — BOOK EARLY!" pill (flame icon) when spots_left is 1–3, next to the trainer line, above the capacity bar.
+- Class detail shows a matching amber banner "Only N spot(s) left — book early to secure your place!" (fixed-time classes only).
+- Verified via screenshot (temp cap=3 + 1 booking → "ONLY 2 SPOTS LEFT — BOOK EARLY!"); capacity restored and demo data cleaned. tsc clean.

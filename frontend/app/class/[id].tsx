@@ -194,6 +194,12 @@ export default function ClassDetail() {
         </View>
 
         <View style={styles.body}>
+          {typeof cls.spots_left === "number" && cls.spots_left > 0 && cls.spots_left <= 3 && !cls.by_appointment && (
+            <View style={styles.nudgeBanner}>
+              <Ionicons name="flame" size={16} color={colors.onBrand} />
+              <Text style={styles.nudgeBannerText}>Only {cls.spots_left} spot{cls.spots_left === 1 ? "" : "s"} left — book early to secure your place!</Text>
+            </View>
+          )}
           <View style={styles.metaGrid}>
             <View style={styles.metaCol}>
               <Ionicons name="calendar-outline" size={16} color={colors.brand} />
@@ -395,6 +401,8 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   metaLabel: { color: colors.onSurfaceSecondary, fontSize: 10, letterSpacing: 1, fontWeight: "800" },
+  nudgeBanner: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.warning, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.lg },
+  nudgeBannerText: { flex: 1, color: colors.onBrand, fontWeight: "800", fontSize: 13 },
   metaVal: { color: colors.onSurface, fontSize: 13, fontWeight: "700" },
   coachCard: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.md, borderWidth: 1, borderColor: colors.border },
   coachAvatar: { width: 54, height: 54, borderRadius: 27, backgroundColor: colors.surfaceTertiary },

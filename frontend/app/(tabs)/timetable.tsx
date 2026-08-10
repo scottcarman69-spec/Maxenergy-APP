@@ -324,6 +324,12 @@ export default function Timetable() {
                       </View>
                     </View>
                     <Text style={styles.trainer}>with {item.trainer}</Text>
+                    {typeof item.spots_left === "number" && item.spots_left > 0 && item.spots_left <= 3 && (
+                      <View style={styles.nudgeTag}>
+                        <Ionicons name="flame" size={12} color={colors.onBrand} />
+                        <Text style={styles.nudgeText}>ONLY {item.spots_left} SPOT{item.spots_left === 1 ? "" : "S"} LEFT — BOOK EARLY!</Text>
+                      </View>
+                    )}
                     <View style={styles.metaRow}>
                       <View style={styles.timePill}>
                         <Ionicons name="time-outline" size={13} color={catStyle(item.category, item.name).color} />
@@ -372,6 +378,8 @@ const styles = StyleSheet.create({
   capTrack: { height: 6, borderRadius: 3, backgroundColor: colors.surfaceTertiary, overflow: "hidden" },
   capFill: { height: 6, borderRadius: 3 },
   capText: { fontSize: 11, fontWeight: "700", color: colors.onSurfaceSecondary },
+  nudgeTag: { flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start", backgroundColor: colors.warning, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill, marginTop: 6 },
+  nudgeText: { color: colors.onBrand, fontSize: 10, fontWeight: "900", letterSpacing: 0.3 },
   header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
   title: { ...type.h1 },
   subtitle: { ...type.small, marginTop: 2 },
