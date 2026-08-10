@@ -350,10 +350,10 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "center",
   },
-  headerLogo: { width: 150, height: 84, marginLeft: -6 },
-  avatarWrap: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
+  headerLogo: { width: 150, height: 84 },
+  avatarWrap: { position: "absolute", right: spacing.lg, top: spacing.md, width: 48, height: 48, alignItems: "center", justifyContent: "center" },
   avatar: {
     width: 44,
     height: 44,
