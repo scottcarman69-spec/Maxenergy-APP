@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal } from "react-native";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useRouter, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
@@ -37,20 +37,13 @@ function fmtTime(iso?: string) {
 
 export default function CheckIn() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ booking_id?: string }>();
   const [rows, setRows] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [banner, setBanner] = useState<string | null>(null);
   const [qr, setQr] = useState<{ code: string; title: string } | null>(null);
   const [qrLoading, setQrLoading] = useState(false);
-
-  const load = useCallback(async () => {
-    try {
-      const r = await api.myBookings();
-      setRows((r.bookings || []).filter((b: Booking) => b.status === "paid" || b.status === "confirmed"));
-    } catch {}
-    setLoading(false);
-  }, []);
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  const autoShown = React.useRef(false);
 
   const showQr = async (b: Booking) => {
     setQrLoading(true);
@@ -62,6 +55,24 @@ export default function CheckIn() {
     }
     setQrLoading(false);
   };
+
+  const load = useCallback(async () => {
+    try {
+      const r = await api.myBookings();
+      const active = (r.bookings || []).filter((b: Booking) => b.status === "paid" || b.status === "confirmed");
+      setRows(active);
+      // If opened from a specific booking, pop its QR straight away.
+      if (params.booking_id && !autoShown.current) {
+        const match = active.find((b: Booking) => b.booking_id === params.booking_id);
+        if (match) {
+          autoShown.current = true;
+          showQr(match);
+        }
+      }
+    } catch {}
+    setLoading(false);
+  }, [params.booking_id]);
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>

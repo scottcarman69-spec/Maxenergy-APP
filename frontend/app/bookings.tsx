@@ -195,10 +195,15 @@ export default function BookingsScreen() {
                           <Text style={styles.checkedInText}>Checked in — see you on the mats!</Text>
                         </View>
                       ) : (
-                        <View style={styles.qrInfoBar}>
-                          <Ionicons name="qr-code-outline" size={15} color={colors.brand} />
-                          <Text style={styles.qrInfoText}>Show your entry QR at the door to check in</Text>
-                        </View>
+                        <Pressable
+                          testID={`booking-qr-${b.booking_id}`}
+                          style={styles.qrInfoBar}
+                          onPress={() => router.push({ pathname: "/check-in", params: { booking_id: b.booking_id } })}
+                        >
+                          <Ionicons name="qr-code" size={16} color={colors.brand} />
+                          <Text style={styles.qrInfoText}>Show entry QR code</Text>
+                          <Ionicons name="chevron-forward" size={15} color={colors.brand} />
+                        </Pressable>
                       )
                     )}
                   </View>
