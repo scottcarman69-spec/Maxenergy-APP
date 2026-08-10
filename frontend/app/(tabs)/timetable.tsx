@@ -287,10 +287,6 @@ export default function Timetable() {
               onPress={() => router.push({ pathname: "/class/[id]", params: { id: item.class_id } })}
               style={styles.row}
             >
-              <View style={styles.timeCol}>
-                <Text style={styles.time} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{fmtTime(item.start_at)}</Text>
-                <Text style={styles.dur}>{item.duration_min}m</Text>
-              </View>
               <View style={styles.card}>
                 <View style={[styles.leftBar, { backgroundColor: catStyle(item.category, item.name).color }]} />
                 <View style={styles.cardBody}>
@@ -319,10 +315,14 @@ export default function Timetable() {
                     </View>
                     <Text style={styles.trainer}>with {item.trainer}</Text>
                     <View style={styles.metaRow}>
+                      <View style={styles.timePill}>
+                        <Ionicons name="time-outline" size={13} color={catStyle(item.category, item.name).color} />
+                        <Text style={[styles.timePillText, { color: catStyle(item.category, item.name).color }]}>{fmtTime(item.start_at)}</Text>
+                      </View>
                       <View style={styles.pill}>
                         <Text style={styles.pillText}>{item.level}</Text>
                       </View>
-                      <Text style={styles.duration}>{item.duration_min} min</Text>
+                      <Text style={styles.duration} numberOfLines={1}>{item.duration_min} min</Text>
                     </View>
                   </View>
                   <View style={styles.bookOutline}>
@@ -376,9 +376,6 @@ const styles = StyleSheet.create({
   dayNum: { color: colors.onSurface, fontSize: 20, fontWeight: "800", marginTop: 4 },
   dayNumActive: { color: colors.onBrand },
   row: { flexDirection: "row", gap: spacing.md, alignItems: "flex-start" },
-  timeCol: { width: 78, alignItems: "flex-end", paddingTop: spacing.md },
-  time: { color: colors.onSurface, fontSize: 15, fontWeight: "800" },
-  dur: { color: colors.onSurfaceSecondary, fontSize: 11, marginTop: 2 },
   card: {
     flex: 1,
     backgroundColor: colors.surfaceSecondary,
@@ -403,11 +400,13 @@ const styles = StyleSheet.create({
   trainer: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 3 },
   programTag: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6, alignSelf: "flex-start", backgroundColor: colors.brandTertiary, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },
   programText: { color: colors.brand, fontSize: 10, fontWeight: "800", letterSpacing: 0.5 },
-  metaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: spacing.md },
+  metaRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: spacing.md },
+  timePill: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.surfaceTertiary, paddingHorizontal: 9, paddingVertical: 4, borderRadius: radius.pill },
+  timePillText: { fontSize: 12, fontWeight: "800" },
   pill: { backgroundColor: colors.surfaceTertiary, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
   pillText: { color: colors.onSurfaceTertiary, fontSize: 11, fontWeight: "700" },
   price: { color: colors.brand, fontSize: 18, fontWeight: "900" },
-  duration: { color: colors.onSurfaceSecondary, fontSize: 12, fontFamily: font.medium },
+  duration: { color: colors.onSurfaceSecondary, fontSize: 12, fontFamily: font.medium, marginLeft: "auto", flexShrink: 0 },
   empty: { alignItems: "center", padding: 40, gap: spacing.md },
   emptyText: { color: colors.onSurfaceSecondary, fontSize: 14 },
   peekCard: { alignSelf: "stretch", backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, borderWidth: 1, borderColor: colors.brand, padding: spacing.lg, marginTop: spacing.md, gap: spacing.sm },

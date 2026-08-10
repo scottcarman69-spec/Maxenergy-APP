@@ -298,3 +298,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 ## Session update 52 (Jun 2026 fork) — Fix wrapping class times (DONE)
 - Schedule class-row time (e.g. "5:00 PM") was wrapping to two lines. Fixed: timeCol width 60 -> 78; time Text now numberOfLines={1} adjustsFontSizeToFit minimumFontScale=0.8.
 - Verified via screenshot: Tuesday shows "6:00 PM" on one line with "60m" below.
+
+## Session update 53 (Jun 2026 fork) — Move class time into the details card (DONE)
+- Removed the separate left time column; the start time now sits inside the class card as a pill (clock icon + "6:00 PM", tinted to the category colour) in the meta row alongside the level pill and "N min" (duration pushed right via marginLeft auto, numberOfLines=1 so nothing wraps).
+- timetable.tsx: dropped timeCol/time/dur styles; added timePill/timePillText; metaRow gap-based. fmtTime still used (pill + peek card).
+- Verified via screenshot: Kickboxing card shows "🕐 6:00 PM · All levels · 60 min" on one line.
