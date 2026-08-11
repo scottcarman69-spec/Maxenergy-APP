@@ -110,6 +110,7 @@ export const api = {
   storeReceipt: (session_id: string) => req(`/api/store/receipt/${session_id}`),
   storeReceiptLatest: () => req(`/api/store/receipt/latest`),
   checkinCode: (booking_id: string) => req(`/api/bookings/${booking_id}/checkin-code`),
+  classPassQr: () => req(`/api/passes/qr`),
   scanCheckin: (code: string) =>
     req("/api/admin/checkin/scan", { method: "POST", body: JSON.stringify({ code }) }),
 

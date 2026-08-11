@@ -432,3 +432,10 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Access-card setup modal: replaced text inputs with day-chip (next 30 QLD days) + time-chip pickers (bottom sheet). Sends human-readable start_date + meet_time to checkout.
 - Plan perks: STORE_PRODUCTS gained per-product `perks` list (auto-flows to store cards as a checkmark list). Trimmed per user: removed "Muay Thai, Kickboxing & Boot Camp" (7 Day Pass), "Unlimited classes for 30 days"+"All class types included" (1m), "All class types included" (6m/12m).
 - Pricing cards restyled translucent (rgba fill + faint border) so they're less bright; MOST POPULAR gets a subtle orange tint.
+
+## Update: Class Pass Credits currency + scannable pass QR (Jun 2026 fork)
+- Store: added "Single Class Pass" (pass_1class, $25) alongside "10 Class Pass" ($200); both type=class_pass and add to users.class_pass_credits on purchase (also logged in db.pass_ledger +N).
+- Wallet (/credits, retitled "My Wallet"): shows CLASS PASS CREDITS as a separate green currency card (count) with "Show my Class Pass QR" (>0) or "Buy class passes" -> /memberships (0), plus a Class Pass History list. GET /api/credits now returns class_pass_credits + pass_entries.
+- Member QR: GET /api/passes/qr returns a signed JWT {typ:classpass, uid, exp+2d} + current credits. Rendered as QR in a modal.
+- Admin redemption: POST /api/admin/checkin/scan now also handles typ=classpass (walk-in) — deducts exactly 1 pass, logs pass_ledger -1 + pass_redemptions, notifies member, returns member_name + "N passes left". 0 passes -> HTTP 400 "no class passes left" (no deduction). Same scanner still handles booking check-in (typ=checkin).
+- Verified by testing_agent iteration_11: backend 9/9 pytest, frontend wallet card + QR modal + buy-when-zero all pass. NOTE: live camera scanning is native-only (test on device after Publish+build).

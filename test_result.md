@@ -153,13 +153,11 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Home screen: Memberships banner no longer overlaps classes-today pill"
-    - "Memberships store: upfront membership setup modal (start date + meet time) + advertising hero"
-    - "Store checkout accepts & persists start_date/meet_time; admin notified on fulfillment"
+    - "Class Pass Credits wallet + scannable pass QR + admin redemption (deduct 1)"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
 agent_communication:
     -agent: "main"
-    -message: "Store receipt added. Please verify E2E: as a member, buy a pass/membership from /memberships → complete Square sandbox payment → confirm a receipt appears (native: router pushes /store-receipt?session_id; web redirect → payment-return?store=1 → /store-receipt using the 'latest' endpoint). Backend: GET /api/store/receipt/{session_id} and GET /api/store/receipt/latest return receipt data (product name, amount, key_tag, start_date, meet_time, membership_expires_at/class_pass_credits, receipt_number, paid_at). Also confirm the store screen opens quickly (reconcilePayments moved to background, no longer blocks product load). Member: member1@gmail.com / Password123."
+    -message: "NEW FEATURE to test — Class Pass Credits as a separate currency + walk-in QR redemption. (1) Store now has 'Single Class Pass' (pass_1class, $25) alongside '10 Class Pass' ($200); both type=class_pass and add to users.class_pass_credits on purchase (also log db.pass_ledger +N). (2) GET /api/credits now also returns class_pass_credits + pass_entries. (3) GET /api/passes/qr (member) returns a signed JWT {code, class_pass_credits}. (4) POST /api/admin/checkin/scan now ALSO handles typ=classpass: deducts 1 class pass, logs pass_ledger -1 + pass_redemptions, notifies member, returns {ok, member_name, class_name:'Class Pass entry', when:'N passes left', passes_left}. If member has 0 passes -> HTTP 400 'has no class passes left'. (5) Credits screen (/credits, now 'My Wallet') shows a green CLASS PASS CREDITS card with count + 'Show my Class Pass QR' (QR modal) when >0, or 'Buy class passes' -> /memberships when 0, plus a Class Pass History list. Already curl-verified: scan deducts 2->1->0 then 400; UI screenshot confirmed. Please regression/E2E test the BACKEND endpoints (passes/qr, scan classpass deduct + 0-pass error + non-admin 403, credits returns pass fields, store checkout for pass_1class returns URL) and the FRONTEND credits screen (card renders, QR modal opens, buy button when 0). NOTE: actual camera scanning is native-only — do NOT try to scan with a camera; test the scan endpoint directly with a code from /api/passes/qr. Member: member1@gmail.com/Password123. Admin: admin@maxenergy.com.au/MaxAdmin123!. To give the member passes for testing, POST store checkout is sandbox — instead you may rely on the scan-endpoint test using a freshly seeded balance, or complete a Square sandbox purchase of pass_1class."

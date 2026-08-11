@@ -1286,6 +1286,19 @@ async def booking_checkin_code(booking_id: str, u: dict = Depends(require_user))
     return {"code": code, "booking_id": booking_id}
 
 
+@api.get("/passes/qr")
+async def class_pass_qr(u: dict = Depends(require_user)):
+    """Signed QR the member shows on arrival; admin scans it to redeem one class pass."""
+    fresh = await db.users.find_one({"user_id": u["user_id"]}, {"_id": 0, "class_pass_credits": 1})
+    payload = {
+        "uid": u["user_id"],
+        "typ": "classpass",
+        "exp": datetime.now(timezone.utc) + timedelta(days=2),
+    }
+    code = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGO)
+    return {"code": code, "class_pass_credits": int((fresh or {}).get("class_pass_credits", 0))}
+
+
 class ScanCheckinReq(BaseModel):
     code: str
 
@@ -1299,6 +1312,44 @@ async def admin_checkin_scan(body: ScanCheckinReq, u: dict = Depends(require_adm
         raise HTTPException(400, "This QR code has expired. Ask the member to reopen it.")
     except Exception:
         raise HTTPException(400, "Invalid QR code.")
+
+    # ----- Class Pass walk-in redemption (deduct 1 pass per scan) -----
+    if data.get("typ") == "classpass":
+        uid = data.get("uid")
+        if not uid:
+            raise HTTPException(400, "This isn't a valid class pass code.")
+        member = await db.users.find_one({"user_id": uid}, {"_id": 0})
+        if not member:
+            raise HTTPException(404, "Member not found.")
+        mname = member.get("name") or member.get("email") or "Member"
+        credits = int(member.get("class_pass_credits", 0))
+        if credits < 1:
+            raise HTTPException(400, f"{mname} has no class passes left. Ask them to buy more.")
+        left = credits - 1
+        now = now_utc()
+        await db.users.update_one({"user_id": uid}, {"$set": {"class_pass_credits": left}})
+        await db.pass_ledger.insert_one({
+            "pass_ledger_id": new_id("pl"), "user_id": uid, "delta": -1,
+            "reason": "Class pass used at the gym", "balance_after": left,
+            "created_at": now, "by": "admin_qr",
+        })
+        await db.pass_redemptions.insert_one({
+            "redemption_id": new_id("pr"), "user_id": uid, "redeemed_at": now,
+            "redeemed_by": u["user_id"], "balance_after": left,
+        })
+        await create_notification(
+            uid, "Class pass used ✅",
+            f"You checked in with a class pass. {left} pass{'es' if left != 1 else ''} left.",
+            "booking",
+        )
+        return {
+            "ok": True,
+            "member_name": mname,
+            "class_name": "Class Pass entry",
+            "when": f"{left} pass{'es' if left != 1 else ''} left",
+            "passes_left": left,
+        }
+
     if data.get("typ") != "checkin" or not data.get("bid"):
         raise HTTPException(400, "This isn't a valid check-in code.")
     b = await db.bookings.find_one({"booking_id": data["bid"]}, {"_id": 0})
@@ -1492,6 +1543,8 @@ STORE_PRODUCTS = {
                    "perks": ["Unlimited classes for 6 months", "24/7 gym access with key tag", "Bigger savings upfront"]},
     "mem_12m":    {"name": "12 Month Upfront Membership", "price_cents": 75000, "type": "membership", "days": 365, "requires_keytag": True,  "discount": False,
                    "perks": ["Unlimited classes for a full year", "24/7 gym access with key tag", "Our lowest price per month"]},
+    "pass_1class":  {"name": "Single Class Pass",         "price_cents": 2500,  "type": "class_pass", "classes": 1,  "requires_keytag": False, "discount": False,
+                   "perks": ["1 class credit to use anytime", "Boot Camp, Muay Thai & Kickboxing", "Credit never expires"]},
     "pass_10class": {"name": "10 Class Pass",             "price_cents": 20000, "type": "class_pass", "classes": 10, "requires_keytag": False, "discount": False,
                    "perks": ["10 class credits to use anytime", "Boot Camp, Muay Thai & Kickboxing", "Credits never expire", "Perfect for casual training"]},
 }
@@ -1530,8 +1583,14 @@ async def fulfill_store_purchase(tx: dict) -> None:
         upd["membership_plan"] = p["name"]
         upd["membership_active"] = True
     if p.get("type") == "class_pass":
-        upd_classes = int(user.get("class_pass_credits", 0)) + int(p.get("classes", 0))
+        added = int(p.get("classes", 0))
+        upd_classes = int(user.get("class_pass_credits", 0)) + added
         upd["class_pass_credits"] = upd_classes
+        await db.pass_ledger.insert_one({
+            "pass_ledger_id": new_id("pl"), "user_id": uid, "delta": added,
+            "reason": f"Purchased {p.get('name')}", "balance_after": upd_classes,
+            "created_at": now,
+        })
     if tx.get("key_tag"):
         upd["key_tag"] = True
         upd["key_tag_purchased_at"] = now
@@ -1903,7 +1962,7 @@ async def my_receipts(u: dict = Depends(require_user)):
 @api.get("/credits")
 async def my_credits(u: dict = Depends(require_user)):
     """Member's current credit balance + history of credits earned and spent."""
-    fresh = await db.users.find_one({"user_id": u["user_id"]}, {"_id": 0, "credit_cents": 1})
+    fresh = await db.users.find_one({"user_id": u["user_id"]}, {"_id": 0, "credit_cents": 1, "class_pass_credits": 1})
     rows = await db.credit_ledger.find({"user_id": u["user_id"]}, {"_id": 0}).sort("created_at", -1).to_list(500)
     entries = [{
         "ledger_id": r.get("ledger_id"),
@@ -1911,7 +1970,19 @@ async def my_credits(u: dict = Depends(require_user)):
         "reason": r.get("reason"),
         "created_at": r["created_at"].isoformat() if isinstance(r.get("created_at"), datetime) else r.get("created_at"),
     } for r in rows]
-    return {"balance_cents": int((fresh or {}).get("credit_cents", 0)), "entries": entries}
+    prows = await db.pass_ledger.find({"user_id": u["user_id"]}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    pass_entries = [{
+        "pass_ledger_id": r.get("pass_ledger_id"),
+        "delta": int(r.get("delta", 0)),
+        "reason": r.get("reason"),
+        "created_at": r["created_at"].isoformat() if isinstance(r.get("created_at"), datetime) else r.get("created_at"),
+    } for r in prows]
+    return {
+        "balance_cents": int((fresh or {}).get("credit_cents", 0)),
+        "entries": entries,
+        "class_pass_credits": int((fresh or {}).get("class_pass_credits", 0)),
+        "pass_entries": pass_entries,
+    }
 
 
 @api.post("/webhook/stripe")

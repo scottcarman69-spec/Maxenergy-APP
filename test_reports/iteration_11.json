@@ -1,0 +1,32 @@
+{
+  "summary": "Tested new Class Pass Credits feature end-to-end (backend + frontend web preview). Backend: 9/9 pytest cases pass — store products include pass_1class ($25 total 2500) and pass_10class ($200 total 20000) with type=class_pass; POST /api/store/checkout for pass_1class returns Square sandbox url + session_id; GET /api/passes/qr returns JWT code + class_pass_credits (401 without auth); POST /api/admin/checkin/scan with classpass code deducts exactly 1 per call (2->1->0), returns {ok, member_name, class_name:'Class Pass entry', when:'N pass(es) left', passes_left}; at 0 the next scan returns HTTP 400 with 'no class passes left' and mongo shows credits still 0 (no negative deduction); non-admin gets 403; invalid JWT returns 400; GET /api/credits returns class_pass_credits and pass_entries with delta=-1 reason='Class pass used at the gym'. Frontend /credits ('My Wallet') screen: with class_pass_credits>0 the green CLASS PASS CREDITS card shows the count and SHOW MY CLASS PASS QR (testID show-pass-qr) opens a modal with the QR SVG and a DONE button (testID pass-qr-close) that closes it; with 0 credits the card shows BUY CLASS PASSES (testID buy-pass) which routes to /memberships; CLASS PASS HISTORY list renders when pass ledger entries exist. No bugs found in the new feature.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_class_pass.py",
+    "/app/test_reports/pytest/pytest_class_pass.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py continues to grow (now 3648 lines). The class-pass logic is co-located with booking check-in in POST /api/admin/checkin/scan — fine now but consider splitting checkin/scan into a dedicated router as the endpoint gains more branches.",
+    "In fulfill_store_purchase (server.py ~1585) the pass_ledger insert happens BEFORE db.users.update_one, so if the users.update_one fails the ledger will show a credit that the balance doesn't reflect. Not observed in this run but worth ordering user update first (or use an idempotent reconcile).",
+    "credits.tsx catches errors silently (try/catch {}); if /api/credits fails the screen just stays at 0/empty with no user feedback. Consider a small inline error state."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_class_pass.py (new)"
+  ],
+  "success_rate": {"backend": "100% (9/9)", "frontend": "100% (both empty-passes and has-passes flows + QR modal open/close verified)"},
+  "seed_data_creation": "Set member1@gmail.com.class_pass_credits directly in mongo to 2 (for scan test) and 3 (for frontend QR test). Backend scan test drove it back to 0 and inserted 2 pass_ledger deduction rows. Frontend '0-passes' test left the user at 0 passes with pass_ledger deduction history visible in the UI.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "For frontend testing use routes /(auth)/login (not /login) — the marketing landing at / renders a smaller login snippet. Test credentials: member1@gmail.com / Password123 and admin admin@maxenergy.com.au / MaxAdmin123!. To toggle the Wallet screen between 'has passes' and '0 passes' states without doing a real Square purchase, set users.class_pass_credits directly in Mongo (DB=maxenergy_db). GET /api/passes/qr JWT has typ=classpass, and POST /api/admin/checkin/scan differentiates via that field. Existing booking check-in path (typ=checkin) is still guarded but not exercised by this iteration — main agent had already curl-verified it. Frontend .env uses EXPO_PUBLIC_BACKEND_URL (not EXPO_BACKEND_URL); conftest.py already handles this.",
+  "rca_of_issue": "N/A — feature verification, no bug. During test authoring, first attempt of POST /api/store/checkout returned 422 because CheckoutReq requires origin_url; fixed the test payload to include origin_url=BASE_URL and it returned 200 with a Square sandbox url."
+}
