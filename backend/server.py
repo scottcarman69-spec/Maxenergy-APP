@@ -315,18 +315,18 @@ TERMS_DECLARATION_TC = (
 
 def _membership_terms_html() -> str:
     parts = [
-        "<hr style='border:none;border-top:1px solid #3F3F46;margin:24px 0'/>",
-        "<h2 style='color:#FF7A00;margin:0 0 4px'>Membership Terms &amp; Conditions</h2>",
-        "<p style='color:#A1A1AA;margin:0 0 12px;font-size:13px'>Your copy of the Maxenergy Fitness Policies &amp; Terms Agreement you accepted.</p>",
+        "<hr style='border:none;border-top:1px solid #e5e5e5;margin:24px 0'/>",
+        "<h2 style='color:#FF7A00;margin:0 0 4px;font-size:18px'>Membership Terms &amp; Conditions</h2>",
+        "<p style='color:#777;margin:0 0 12px;font-size:13px'>Your copy of the Maxenergy Fitness Policies &amp; Terms Agreement you accepted.</p>",
     ]
     for title, body in MEMBERSHIP_TERMS_TC:
         safe = body.replace("\n", "<br/>")
         parts.append(
-            f"<h3 style='color:#F9FAFB;margin:16px 0 4px;font-size:15px'>{title}</h3>"
-            f"<p style='color:#D4D4D8;margin:0;font-size:13px;line-height:1.5'>{safe}</p>"
+            f"<h3 style='color:#111;margin:16px 0 4px;font-size:15px'>{title}</h3>"
+            f"<p style='color:#444;margin:0;font-size:13px;line-height:1.5'>{safe}</p>"
         )
     parts.append(
-        f"<p style='color:#F9FAFB;margin:20px 0 0;font-size:13px;font-style:italic'>{TERMS_DECLARATION_TC}</p>"
+        f"<p style='color:#111;margin:20px 0 0;font-size:13px;font-style:italic'>{TERMS_DECLARATION_TC}</p>"
     )
     return "".join(parts)
 
@@ -2600,7 +2600,7 @@ async def membership_apply(body: MembershipApplyReq, request: Request, u: dict =
     )
     # notify gym
     def _row(k, v):
-        return f"<p style='margin:2px 0'><strong>{k}:</strong> {v}</p>"
+        return f"<p style='margin:0 0 8px;color:#333;font-size:15px'><strong>{k}:</strong> {v}</p>"
 
     details = body.details or {}
     details_html = ""
@@ -2624,17 +2624,21 @@ async def membership_apply(body: MembershipApplyReq, request: Request, u: dict =
         details_html += _row("Waiver agreed", "Yes" if details.get("waiver_agreed") else "No")
 
     gym_html = f"""
-    <table width="100%" style="font-family:Arial,sans-serif;background:#121214;color:#F9FAFB;padding:24px">
-      <tr><td>
-        <h2 style="color:#FF7A00;margin:0 0 8px">New membership application</h2>
-        <p><strong>Name:</strong> {body.full_name}</p>
-        <p><strong>Email:</strong> {u['email']}</p>
-        <p><strong>Phone:</strong> {body.phone}</p>
-        <p><strong>Plan:</strong> {plan_name}{f" (${plan['price_display']})" if plan else ""}</p>
-        <p><strong>Category:</strong> {body.category}</p>
+    <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;background:#ffffff">
+      <div style="background:#FF7A00;padding:20px 24px;border-radius:10px 10px 0 0">
+        <h1 style="color:#ffffff;margin:0;font-size:20px">New membership application</h1>
+      </div>
+      <div style="padding:24px;background:#ffffff;border:1px solid #eee;border-top:none;border-radius:0 0 10px 10px;color:#333;font-size:15px;line-height:1.5">
+        <p style="margin:0 0 8px;color:#333"><strong>Name:</strong> {body.full_name}</p>
+        <p style="margin:0 0 8px;color:#333"><strong>Email:</strong> {u['email']}</p>
+        <p style="margin:0 0 8px;color:#333"><strong>Phone:</strong> {body.phone}</p>
+        <p style="margin:0 0 8px;color:#333"><strong>Plan:</strong> {plan_name}{f" (${plan['price_display']})" if plan else ""}</p>
+        <p style="margin:0 0 8px;color:#333"><strong>Category:</strong> {body.category}</p>
         {details_html}
-      </td></tr>
-    </table>
+        <!--PDFSLOT-->
+        <p style="margin:18px 0 0;color:#999;font-size:12px">Maxenergy Fitness · Smithfield QLD</p>
+      </div>
+    </div>
     """
     # Generate a PDF copy of the completed membership form
     pdf_link = ""
@@ -2652,11 +2656,8 @@ async def membership_apply(body: MembershipApplyReq, request: Request, u: dict =
     except Exception as e:
         log.error(f"membership pdf failed: {e}")
 
-    gym_pdf_html = (
-        f"<p><a href='{pdf_link}' style='color:#FF7A00;font-weight:bold'>Download the completed membership form (PDF)</a></p>"
-        if pdf_link else ""
-    )
-    gym_html = gym_html.replace("</td></tr>", f"{gym_pdf_html}</td></tr>", 1)
+    gym_pdf_html = _download_button(pdf_link, "Download the completed membership form (PDF)") if pdf_link else ""
+    gym_html = gym_html.replace("<!--PDFSLOT-->", gym_pdf_html, 1)
     await send_email(GYM_ADMIN_EMAIL, f"New membership application – {body.full_name}", gym_html)
     # in-app alert to every admin (tappable -> Admin Applications). Email already sent above.
     admins = await db.users.find({"is_admin": True}, {"_id": 0, "user_id": 1}).to_list(100)
@@ -2670,16 +2671,18 @@ async def membership_apply(body: MembershipApplyReq, request: Request, u: dict =
         )
     # confirmation to applicant (with a link to download a copy of their completed form)
     conf_html = f"""
-    <table width="100%" style="font-family:Arial,sans-serif;background:#121214;color:#F9FAFB;padding:24px">
-      <tr><td>
-        <h2 style="color:#FF7A00;margin:0 0 8px">Your membership form</h2>
-        <p>Hi {body.full_name}, thanks for applying for the <strong>{plan_name}</strong> membership at Maxenergy Fitness.</p>
-        <p>You can download a PDF copy of your completed membership form using the button below. Our team will review your application and get in touch shortly.</p>
-        {_download_button(pdf_link, "Download my membership form (PDF)") if pdf_link else ""}
-        {"" if pdf_link else "<p>Your completed form is saved to your account.</p>"}
+    <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;background:#ffffff">
+      <div style="background:#FF7A00;padding:20px 24px;border-radius:10px 10px 0 0">
+        <h1 style="color:#ffffff;margin:0;font-size:20px">Your membership form</h1>
+      </div>
+      <div style="padding:24px;background:#ffffff;border:1px solid #eee;border-top:none;border-radius:0 0 10px 10px;color:#333;font-size:15px;line-height:1.5">
+        <p style="margin:0 0 12px;color:#333">Hi {body.full_name}, thanks for completing the <strong>{plan_name}</strong> membership form at Maxenergy Fitness.</p>
+        <p style="margin:0 0 4px;color:#333">You can download a PDF copy of your completed membership form using the button below. Our team will review it and be in touch shortly.</p>
+        {_download_button(pdf_link, "Download my membership form (PDF)") if pdf_link else "<p style='color:#333'>Your completed form is saved to your account.</p>"}
         {_membership_terms_html()}
-      </td></tr>
-    </table>
+        <p style="margin:20px 0 0;color:#999;font-size:12px">Maxenergy Fitness · Smithfield QLD</p>
+      </div>
+    </div>
     """
     await send_email(u["email"], "Your Max Energy membership form & terms (copy)", conf_html)
     doc.pop("_id", None)
