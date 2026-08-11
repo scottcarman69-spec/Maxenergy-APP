@@ -1,0 +1,29 @@
+{
+  "summary": "Verified the three membership-store changes end-to-end. Backend: 6/6 pytest cases pass — /api/store/products lists mem_1m/3m/6m/12m + pass_7day/pass_10class; /api/store/checkout returns {url, session_id} for both upfront memberships and passes; payment_transactions doc persists start_date + meet_time with kind=store when supplied. Frontend (mobile 390x844): (1) Home 'Memberships & Passes' banner renders as its own full-width row directly below the 'N classes today' pill with no visual overlap. (2) Tapping Get Started on mem_1m opens the setup modal with testID setup-start-date + setup-meet-time; setup-continue has aria-disabled=true when either field is empty and becomes enabled (aria-disabled=null) after both are filled; clicking it redirects to the Square sandbox checkout link. (3) Tapping Get Started on pass_7day does NOT open the modal and goes straight to Square. (4) Orange 'UNLEASH YOUR POTENTIAL' hero banner renders at the top of /memberships, and the mem_3m card shows the ⭐ MOST POPULAR tag with a highlighted brand border. No blockers found.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_membership_upfront.py",
+    "/app/test_reports/pytest/pytest_upfront_membership.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "memberships.tsx line 111: dead-code `{msg === '__never__' ? <Text>{String(firstAvail)}</Text> : null}` — harmless but should be removed.",
+    "server.py store_checkout doesn't currently notify admins of the requested start_date/meet_time at the moment the payment link is created — the review request mentions 'backend persists these and notifies admins'. Admin notification only fires later on payment success (line ~1544 sched string). If a member abandons at Square, admins won't see the requested schedule. Consider firing notify_admins in /api/store/checkout too.",
+    "storeCheckout in api.ts: `extra` is spread into body; verified it flows through correctly to Pydantic StoreCheckoutReq."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_membership_upfront.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "Registered a new test member `test_ui_member_a1@gmail.com` / `Password123!` for UI testing, and per-test-run TEST_upfront_<uuid>@gmail.com members for pytest.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend Mongo env: MONGO_URL + DB_NAME come from /app/backend/.env (mongodb://localhost:27017, maxenergy_db). Public API base = EXPO_PUBLIC_BACKEND_URL. Login for UI testing goes through /login where you must scroll ~6*400px to reveal the login form (marketing hero above). Product cards on /memberships only render for authenticated non-admin members; the auth token must be available in secure storage — direct page.goto('/memberships') without prior UI login was flaky (401), so always click home-store-btn from /home instead. Square sandbox: the returned url redirects to `connect.squareupsandbox.com/.../sandbox-testing-panel/...` — do NOT actually click Next→Test Payment; verifying we hit the sandbox testing panel is sufficient.",
+  "rca_of_issue": "N/A — no bugs found. Overlap fix (spacing.lg top margin + separate Pressable row placed after greetBlock in home.tsx) works; setupFor modal state gates checkout for `type=='membership'` in memberships.tsx line 49-55; StoreCheckoutReq accepts optional start_date+meet_time and inserts them into payment_transactions at server.py:1768."
+}

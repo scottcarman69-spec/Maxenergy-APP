@@ -184,7 +184,7 @@ export default function Home() {
           </View>
         </View>
 
-        <Pressable testID="home-store-btn" onPress={() => router.push("/memberships")} style={styles.verifyBanner}>
+        <Pressable testID="home-store-btn" onPress={() => router.push("/memberships")} style={[styles.verifyBanner, { marginTop: spacing.lg }]}>
           <Ionicons name="card-outline" size={20} color={colors.brand} />
           <View style={{ flex: 1 }}>
             <Text style={styles.verifyTitle}>Memberships & Passes</Text>

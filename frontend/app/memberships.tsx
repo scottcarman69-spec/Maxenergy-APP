@@ -1,8 +1,9 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Platform, Modal, TextInput } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as WebBrowser from "expo-web-browser";
+import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { api, BACKEND_URL } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
@@ -28,6 +29,9 @@ export default function MembershipsScreen() {
   const [firstAvail, setFirstAvail] = useState(false);
   const [passCredits, setPassCredits] = useState(0);
   const [memberExp, setMemberExp] = useState<string | null>(null);
+  const [setupFor, setSetupFor] = useState<Product | null>(null);
+  const [startDate, setStartDate] = useState("");
+  const [meetTime, setMeetTime] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -42,12 +46,21 @@ export default function MembershipsScreen() {
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const buy = async (p: Product) => {
+  const onBuyPress = (p: Product) => {
+    if (p.type === "membership") {
+      setStartDate(""); setMeetTime(""); setSetupFor(p);
+    } else {
+      buy(p);
+    }
+  };
+
+  const buy = async (p: Product, extra?: { start_date?: string; meet_time?: string }) => {
+    setSetupFor(null);
     setBusy(p.product_id);
     setMsg(null);
     try {
       const origin = Platform.OS === "web" && typeof window !== "undefined" ? window.location.origin : BACKEND_URL!;
-      const { url, session_id } = await api.storeCheckout(p.product_id, origin);
+      const { url, session_id } = await api.storeCheckout(p.product_id, origin, extra);
       if (Platform.OS === "web") { window.location.href = url; return; }
       await WebBrowser.openBrowserAsync(url);
       // poll
@@ -88,47 +101,77 @@ export default function MembershipsScreen() {
             </Pressable>
           )}
 
-          {(memberExp || passCredits > 0) && (
-            <View style={styles.statusCard}>
+          {(memberExp || passCredits > 0) && (            <View style={styles.statusCard}>
               {memberExp && <Text style={styles.statusText}>Membership active until {new Date(memberExp).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}</Text>}
               {passCredits > 0 && <Text style={styles.statusText}>{passCredits} class pass credit{passCredits === 1 ? "" : "s"} remaining</Text>}
             </View>
           )}
 
-          {msg === "__never__" ? <Text>{String(firstAvail)}</Text> : null}
+          <LinearGradient colors={["#FF7A00", "#FF3D00"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
+            <Ionicons name="barbell" size={26} color="#fff" />
+            <Text style={styles.heroTitle}>UNLEASH YOUR POTENTIAL</Text>
+            <Text style={styles.heroSub}>Pick a plan and start training today 💪</Text>
+          </LinearGradient>
 
-          {products.map((p) => (
-            <View key={p.product_id} testID={`store-${p.product_id}`} style={styles.card}>
+          {products.map((p) => {
+            const popular = p.product_id === "mem_3m";
+            return (
+            <View key={p.product_id} testID={`store-${p.product_id}`} style={[styles.card, popular && styles.cardPopular]}>
+              {popular && <View style={styles.popularTag}><Text style={styles.popularText}>⭐ MOST POPULAR</Text></View>}
               <View style={styles.cardTop}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.name}>{p.name}</Text>
                   {p.product_id === "pass_10class" && <Text style={styles.sub}>Boot Camp, Muay Thai & Kickboxing</Text>}
-                  {p.key_tag && <Text style={styles.sub}>Includes Key Tag 24/7 access (+{money(p.keytag_cents)})</Text>}
+                  {p.type === "membership" && <Text style={styles.sub}>You'll pick a start date & access-card setup time</Text>}
+                  {p.key_tag && <Text style={styles.sub}>🔑 Includes Key Tag 24/7 access (+{money(p.keytag_cents)})</Text>}
                 </View>
                 <View style={{ alignItems: "flex-end" }}>
-                  {p.discount_cents > 0 && <Text style={styles.strike}>{money(p.base)}</Text>}
                   <Text style={styles.price}>{money(p.total)}</Text>
-                  {p.discount_cents > 0 && <Text style={styles.saveTag}>SAVE {money(p.discount_cents)}</Text>}
                 </View>
               </View>
               <Pressable
                 testID={`store-buy-${p.product_id}`}
                 style={[styles.buyBtn, busy === p.product_id && { opacity: 0.6 }]}
-                onPress={() => buy(p)}
+                onPress={() => onBuyPress(p)}
                 disabled={!!busy}
               >
                 {busy === p.product_id ? <ActivityIndicator color={colors.onBrand} /> : (
                   <>
-                    <Ionicons name="card" size={16} color={colors.onBrand} />
-                    <Text style={styles.buyText}>Buy {money(p.total)}</Text>
+                    <Ionicons name="flash" size={16} color={colors.onBrand} />
+                    <Text style={styles.buyText}>Get started — {money(p.total)}</Text>
                   </>
                 )}
               </Pressable>
             </View>
-          ))}
+            );
+          })}
           <Text style={styles.footNote}>Key Tag 24/7 access is required with all upfront memberships and is included in the price shown.</Text>
         </ScrollView>
       )}
+
+      <Modal visible={!!setupFor} transparent animationType="fade" onRequestClose={() => setSetupFor(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Set up your access card</Text>
+            <Text style={styles.modalSub}>{setupFor?.name}</Text>
+            <Text style={styles.modalLabel}>Membership start date</Text>
+            <TextInput testID="setup-start-date" value={startDate} onChangeText={setStartDate} placeholder="e.g. Mon 18 Aug" placeholderTextColor={colors.onSurfaceSecondary} style={styles.modalInput} />
+            <Text style={styles.modalLabel}>Time to meet at the gym</Text>
+            <TextInput testID="setup-meet-time" value={meetTime} onChangeText={setMeetTime} placeholder="e.g. 9:00am" placeholderTextColor={colors.onSurfaceSecondary} style={styles.modalInput} />
+            <View style={styles.modalActions}>
+              <Pressable style={styles.modalCancel} onPress={() => setSetupFor(null)}><Text style={styles.modalCancelText}>Cancel</Text></Pressable>
+              <Pressable
+                testID="setup-continue"
+                style={[styles.modalGo, (!startDate.trim() || !meetTime.trim()) && { opacity: 0.5 }]}
+                disabled={!startDate.trim() || !meetTime.trim()}
+                onPress={() => setupFor && buy(setupFor, { start_date: startDate.trim(), meet_time: meetTime.trim() })}
+              >
+                <Text style={styles.modalGoText}>CONTINUE TO PAYMENT</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -143,7 +186,24 @@ const styles = StyleSheet.create({
   statusText: { color: colors.onSurface, fontSize: 13, fontWeight: "700" },
   promo: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: colors.brand, borderRadius: radius.md, padding: spacing.md },
   promoText: { color: colors.onBrand, fontWeight: "900", fontSize: 13, flex: 1 },
-  card: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.lg },
+  card: { backgroundColor: "rgba(255,255,255,0.045)", borderWidth: 1, borderColor: "rgba(255,255,255,0.09)", borderRadius: radius.lg, padding: spacing.lg },
+  cardPopular: { backgroundColor: "rgba(255,122,0,0.08)", borderColor: colors.brand, borderWidth: 2 },
+  popularTag: { alignSelf: "flex-start", backgroundColor: colors.brand, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill, marginBottom: spacing.sm },
+  popularText: { color: colors.onBrand, fontSize: 10, fontWeight: "900", letterSpacing: 0.5 },
+  hero: { borderRadius: radius.lg, padding: spacing.xl, alignItems: "center", gap: 4 },
+  heroTitle: { color: "#fff", fontSize: 20, fontWeight: "900", letterSpacing: 0.5, marginTop: 6 },
+  heroSub: { color: "rgba(255,255,255,0.9)", fontSize: 13, fontWeight: "700" },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", padding: spacing.xl },
+  modalCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.xl, borderWidth: 1, borderColor: colors.border },
+  modalTitle: { color: colors.onSurface, fontSize: 20, fontWeight: "900" },
+  modalSub: { color: colors.brand, fontSize: 14, fontWeight: "700", marginTop: 2, marginBottom: spacing.sm },
+  modalLabel: { color: colors.onSurfaceSecondary, fontSize: 12, fontWeight: "700", marginTop: spacing.sm, marginBottom: 6 },
+  modalInput: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, color: colors.onSurface, paddingHorizontal: spacing.md, paddingVertical: 12, borderRadius: radius.md, fontSize: 15 },
+  modalActions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.lg },
+  modalCancel: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 14, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
+  modalCancelText: { color: colors.onSurface, fontWeight: "800" },
+  modalGo: { flex: 1.7, alignItems: "center", justifyContent: "center", paddingVertical: 14, borderRadius: radius.md, backgroundColor: colors.brand },
+  modalGoText: { color: colors.onBrand, fontWeight: "900", letterSpacing: 0.3 },
   cardTop: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md },
   name: { color: colors.onSurface, fontSize: 16, fontWeight: "900" },
   sub: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 3 },

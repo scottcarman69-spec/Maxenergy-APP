@@ -1540,9 +1540,12 @@ async def fulfill_store_purchase(tx: dict) -> None:
                       email_lines=[f"Your <b>{p.get('name')}</b> purchase is confirmed.",
                                    ("Key Tag 24/7 access is included." if tx.get("key_tag") else "")])
     admins = await db.users.find({"is_admin": True}, {"_id": 0, "user_id": 1, "email": 1}).to_list(20)
+    sched = ""
+    if tx.get("start_date") or tx.get("meet_time"):
+        sched = f" Access-card setup: {tx.get('start_date','')} {tx.get('meet_time','')}".rstrip()
     for a in admins:
         await notify_user(a["user_id"], a.get("email"), "New membership purchase",
-                          f"{user.get('name') or user.get('email')} purchased {p.get('name')} (${tx.get('amount',0)/100:.2f}).", "admin")
+                          f"{user.get('name') or user.get('email')} purchased {p.get('name')} (${tx.get('amount',0)/100:.2f}).{sched}", "admin")
 
 
 async def sync_square_payment(tx: dict) -> tuple:
@@ -1731,6 +1734,8 @@ async def store_products(u: dict = Depends(require_user)):
 class StoreCheckoutReq(BaseModel):
     product_id: str
     origin_url: str
+    start_date: Optional[str] = None
+    meet_time: Optional[str] = None
 
 
 @api.post("/store/checkout")
@@ -1760,6 +1765,7 @@ async def store_checkout(body: StoreCheckoutReq, u: dict = Depends(require_user)
         "session_id": order_id, "square_order_id": order_id, "provider": "square", "kind": "store",
         "product_id": body.product_id, "user_id": u["user_id"], "amount": pricing["total"], "currency": "aud",
         "key_tag": pricing["key_tag"], "payment_status": "initiated", "status": "open", "created_at": now_utc(),
+        "start_date": body.start_date, "meet_time": body.meet_time,
     })
     return {"url": link.get("url"), "session_id": order_id}
 

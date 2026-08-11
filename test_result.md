@@ -101,3 +101,65 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: |
+  Maxenergy Fitness gym app. Three changes requested and coded in previous session (never tested):
+  1. Fix "Memberships & Passes" banner overlapping the "N classes today" pill on the Home screen.
+  2. Add a start date + gym meet time to UPFRONT membership purchases (before Square checkout) so members can set up their 24/7 access card; backend saves the fields and notifies admins.
+  3. Make the memberships/passes payment screen look more advertising/exciting (hero banner + MOST POPULAR tag).
+
+backend:
+  - task: "Store checkout accepts & persists start_date/meet_time; admin notified on fulfillment"
+    implemented: true
+    working: "NA"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "StoreCheckoutReq has start_date/meet_time (Optional). store_checkout stores them on the payment_transactions doc. fulfill_store_purchase appends 'Access-card setup: <date> <time>' to the admin notification for upfront memberships. Needs E2E verify: POST /api/store/checkout for an upfront membership product (e.g. mem_1m/mem_3m) with start_date+meet_time returns {url, session_id}; tx doc carries the fields."
+
+frontend:
+  - task: "Home screen: Memberships banner no longer overlaps classes-today pill"
+    implemented: true
+    working: "NA"
+    file: "frontend/app/(tabs)/home.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Store banner refactored into a standalone full-width banner (styles.verifyBanner, testID home-store-btn) placed above the UP NEXT section, below the greeting/today pill. Verify no visual overlap between the greeting 'N classes today' pill and the Memberships & Passes banner on the logged-in home."
+  - task: "Memberships store: upfront membership setup modal (start date + meet time) + advertising hero"
+    implemented: true
+    working: "NA"
+    file: "frontend/app/memberships.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Tapping Get started on a type=membership product opens a modal (testID setup-start-date, setup-meet-time, setup-continue) requiring both fields before continuing to Square checkout via api.storeCheckout with extra {start_date, meet_time}. Non-membership passes buy immediately. Hero gradient 'UNLEASH YOUR POTENTIAL' + MOST POPULAR tag on mem_3m. Verify modal gating + hero render (login required to see product list)."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.1"
+  test_sequence: 0
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Home screen: Memberships banner no longer overlaps classes-today pill"
+    - "Memberships store: upfront membership setup modal (start date + meet time) + advertising hero"
+    - "Store checkout accepts & persists start_date/meet_time; admin notified on fulfillment"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    -agent: "main"
+    -message: "Forked session. Previous agent coded 3 changes but never tested. Please verify all 3. Member login: register a new @gmail.com member or use existing. Admin: admin@maxenergy.com.au / MaxAdmin123!. For the store, product list requires an authenticated member. Upfront membership product ids: mem_1m, mem_3m, mem_6m, mem_12m (type=membership). Do NOT complete a real Square sandbox payment unless needed; verifying that checkout returns a URL + the tx persists start_date/meet_time is sufficient for the backend task. Focus: (1) home layout overlap fixed, (2) membership setup modal gates on both fields then calls checkout, (3) backend persists date/time."

@@ -104,8 +104,8 @@ export const api = {
   myReceipts: () => req("/api/payments/receipts"),
   myCredits: () => req("/api/credits"),
   storeProducts: () => req("/api/store/products"),
-  storeCheckout: (product_id: string, origin_url: string) =>
-    req("/api/store/checkout", { method: "POST", body: JSON.stringify({ product_id, origin_url }) }),
+  storeCheckout: (product_id: string, origin_url: string, extra?: { start_date?: string; meet_time?: string }) =>
+    req("/api/store/checkout", { method: "POST", body: JSON.stringify({ product_id, origin_url, ...(extra || {}) }) }),
   storeStatus: (session_id: string) => req(`/api/store/status/${session_id}`),
   checkinCode: (booking_id: string) => req(`/api/bookings/${booking_id}/checkin-code`),
   scanCheckin: (code: string) =>
