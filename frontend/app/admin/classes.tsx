@@ -30,6 +30,8 @@ type Cls = {
   capacity: number;
   description?: string;
   by_appointment?: boolean;
+  cancelled?: boolean;
+  cancel_reason?: string;
 };
 
 function toDateStr(iso: string) {
@@ -66,6 +68,10 @@ export default function AdminClasses() {
   const [form, setForm] = useState({ ...emptyForm });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [cancelFor, setCancelFor] = useState<Cls | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelling, setCancelling] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -140,6 +146,31 @@ export default function AdminClasses() {
     } catch {}
   };
 
+  const confirmCancel = async () => {
+    if (!cancelFor) return;
+    setCancelling(true);
+    try {
+      const r = await api.adminCancelClass(cancelFor.class_id, cancelReason.trim());
+      const n = r?.notified ?? 0;
+      setToast(`Class cancelled. ${n} member${n === 1 ? "" : "s"} notified.`);
+      setCancelFor(null);
+      setCancelReason("");
+      await load();
+    } catch (e: any) {
+      setErr(e?.message || "Could not cancel class");
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const restore = async (id: string) => {
+    try {
+      await api.adminRestoreClass(id);
+      setToast("Class restored. It's visible to members again.");
+      await load();
+    } catch {}
+  };
+
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
       <View style={styles.header}>
@@ -157,16 +188,35 @@ export default function AdminClasses() {
       ) : (
         <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.sm, paddingBottom: 40 }}>
           {classes.map((c) => (
-            <View key={c.class_id} testID={`adminc-row-${c.class_id}`} style={styles.row}>
+            <View key={c.class_id} testID={`adminc-row-${c.class_id}`} style={[styles.row, c.cancelled && styles.rowCancelled]}>
               <View style={{ flex: 1 }}>
                 <View style={styles.rowTop}>
-                  <Text style={styles.name}>{c.name}</Text>
-                  <View style={[styles.tag, { backgroundColor: c.category === "Kids" ? "rgba(34,197,94,0.15)" : colors.brandTertiary }]}>
-                    <Text style={[styles.tagText, { color: c.category === "Kids" ? "#22C55E" : colors.brand }]}>{c.category}</Text>
-                  </View>
+                  <Text style={[styles.name, c.cancelled && styles.nameCancelled]}>{c.name}</Text>
+                  {c.cancelled ? (
+                    <View style={styles.cancelBadge}>
+                      <Ionicons name="close-circle" size={12} color="#fff" />
+                      <Text style={styles.cancelBadgeText}>CANCELLED</Text>
+                    </View>
+                  ) : (
+                    <View style={[styles.tag, { backgroundColor: c.category === "Kids" ? "rgba(34,197,94,0.15)" : colors.brandTertiary }]}>
+                      <Text style={[styles.tagText, { color: c.category === "Kids" ? "#22C55E" : colors.brand }]}>{c.category}</Text>
+                    </View>
+                  )}
                 </View>
                 <Text style={styles.meta}>{c.by_appointment ? "By appointment" : fmtLabel(c.start_at)} · {c.trainer}</Text>
                 <Text style={styles.meta}>${(c.price_cents / 100).toFixed(0)} · {c.duration_min}m</Text>
+                {c.cancelled && !!c.cancel_reason && <Text style={styles.reasonMeta}>Reason: {c.cancel_reason}</Text>}
+                {c.cancelled ? (
+                  <Pressable testID={`adminc-restore-${c.class_id}`} onPress={() => restore(c.class_id)} style={styles.restoreBtn}>
+                    <Ionicons name="refresh" size={14} color={colors.brand} />
+                    <Text style={styles.restoreText}>Restore class</Text>
+                  </Pressable>
+                ) : (
+                  <Pressable testID={`adminc-cancel-${c.class_id}`} onPress={() => { setCancelFor(c); setCancelReason(""); setErr(null); }} style={styles.cancelClassBtn}>
+                    <Ionicons name="megaphone-outline" size={14} color={colors.error} />
+                    <Text style={styles.cancelClassText}>Cancel & notify members</Text>
+                  </Pressable>
+                )}
               </View>
               <Pressable testID={`adminc-edit-${c.class_id}`} onPress={() => openEdit(c)} style={styles.iconBtn}>
                 <Ionicons name="create-outline" size={20} color={colors.onSurface} />
@@ -276,6 +326,50 @@ export default function AdminClasses() {
           </KeyboardAvoidingView>
         </View>
       )}
+      {toast && (
+        <Pressable testID="adminc-toast" style={styles.toast} onPress={() => setToast(null)}>
+          <Ionicons name="checkmark-circle" size={16} color={colors.onBrand} />
+          <Text style={styles.toastText}>{toast}</Text>
+        </Pressable>
+      )}
+
+      {cancelFor && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.confirmWrap}>
+            <View style={styles.confirmCard}>
+              <View style={styles.confirmIcon}>
+                <Ionicons name="warning" size={24} color={colors.error} />
+              </View>
+              <Text style={styles.confirmTitle}>Cancel this class?</Text>
+              <Text style={styles.confirmSub}>
+                {cancelFor.name}{cancelFor.by_appointment ? "" : ` · ${fmtLabel(cancelFor.start_at)}`}
+              </Text>
+              <Text style={styles.confirmBody}>
+                All booked members will have their booking cancelled and be notified by app and email. The class will be hidden from members but stays here so you can edit or restore it.
+              </Text>
+              <Text style={styles.label}>Reason (optional — shown to members)</Text>
+              <TextInput
+                testID="adminc-cancel-reason"
+                value={cancelReason}
+                onChangeText={setCancelReason}
+                placeholder="e.g. Coach unavailable, venue closed"
+                placeholderTextColor={colors.onSurfaceSecondary}
+                multiline
+                style={[styles.input, { minHeight: 64, textAlignVertical: "top" }]}
+              />
+              {err && <Text style={styles.error}>{err}</Text>}
+              <View style={styles.confirmActions}>
+                <Pressable testID="adminc-cancel-abort" style={styles.confirmGhost} onPress={() => setCancelFor(null)} disabled={cancelling}>
+                  <Text style={styles.confirmGhostText}>Keep class</Text>
+                </Pressable>
+                <Pressable testID="adminc-cancel-confirm" style={[styles.confirmDanger, cancelling && { opacity: 0.5 }]} onPress={confirmCancel} disabled={cancelling}>
+                  {cancelling ? <ActivityIndicator color="#fff" /> : <Text style={styles.confirmDangerText}>CANCEL & NOTIFY</Text>}
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -285,6 +379,28 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
   headerTitle: { color: colors.onSurface, fontSize: 17, fontWeight: "800" },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.surfaceSecondary, padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
+  rowCancelled: { opacity: 0.85, borderColor: colors.error },
+  nameCancelled: { textDecorationLine: "line-through", color: colors.onSurfaceSecondary },
+  cancelBadge: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: colors.error, paddingHorizontal: 7, paddingVertical: 2, borderRadius: radius.pill },
+  cancelBadgeText: { color: "#fff", fontSize: 9, fontWeight: "900", letterSpacing: 0.5 },
+  reasonMeta: { color: colors.error, fontSize: 12, marginTop: 4, fontStyle: "italic" },
+  cancelClassBtn: { flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start", marginTop: 8, paddingVertical: 5, paddingHorizontal: 10, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.error },
+  cancelClassText: { color: colors.error, fontSize: 12, fontWeight: "800" },
+  restoreBtn: { flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start", marginTop: 8, paddingVertical: 5, paddingHorizontal: 10, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.brand },
+  restoreText: { color: colors.brand, fontSize: 12, fontWeight: "800" },
+  toast: { position: "absolute", left: spacing.lg, right: spacing.lg, bottom: 24, flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.brand, padding: spacing.md, borderRadius: radius.md },
+  toastText: { color: colors.onBrand, fontSize: 13, fontWeight: "700", flex: 1 },
+  confirmWrap: { flex: 1, justifyContent: "center", padding: spacing.xl },
+  confirmCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.xl, borderWidth: 1, borderColor: colors.border },
+  confirmIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: "rgba(239,68,68,0.15)", alignItems: "center", justifyContent: "center", marginBottom: spacing.md },
+  confirmTitle: { color: colors.onSurface, fontSize: 20, fontWeight: "900" },
+  confirmSub: { color: colors.brand, fontSize: 14, fontWeight: "700", marginTop: 2, marginBottom: spacing.md },
+  confirmBody: { color: colors.onSurfaceSecondary, fontSize: 13, lineHeight: 19, marginBottom: spacing.md },
+  confirmActions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.lg },
+  confirmGhost: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 14, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
+  confirmGhostText: { color: colors.onSurface, fontWeight: "800" },
+  confirmDanger: { flex: 1.4, alignItems: "center", justifyContent: "center", paddingVertical: 14, borderRadius: radius.md, backgroundColor: colors.error },
+  confirmDangerText: { color: "#fff", fontWeight: "900", letterSpacing: 0.5 },
   rowTop: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   name: { color: colors.onSurface, fontWeight: "800", fontSize: 15 },
   tag: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill },

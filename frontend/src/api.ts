@@ -150,6 +150,9 @@ export const api = {
   adminUpdateClass: (id: string, payload: any) =>
     req(`/api/admin/classes/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
   adminDeleteClass: (id: string) => req(`/api/admin/classes/${id}`, { method: "DELETE" }),
+  adminCancelClass: (id: string, reason?: string) =>
+    req(`/api/admin/classes/${id}/cancel`, { method: "POST", body: JSON.stringify({ reason: reason || "" }) }),
+  adminRestoreClass: (id: string) => req(`/api/admin/classes/${id}/restore`, { method: "POST" }),
   adminCreateAnnouncement: (payload: { title: string; body: string; pinned: boolean }) =>
     req("/api/admin/announcements", { method: "POST", body: JSON.stringify(payload) }),
   adminUpdateAnnouncement: (id: string, payload: { title: string; body: string; pinned: boolean }) =>

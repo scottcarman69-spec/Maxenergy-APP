@@ -997,7 +997,7 @@ async def reviews():
 # -------------------- classes --------------------
 @api.get("/classes")
 async def classes_list(category: Optional[str] = None, include_ended: bool = False):
-    q = {}
+    q: dict = {"cancelled": {"$ne": True}}
     if category and category.lower() != "all":
         q["category"] = category
     rows = await db.classes.find(q, {"_id": 0}).sort("start_at", 1).to_list(1000)
@@ -1033,7 +1033,7 @@ async def classes_list(category: Optional[str] = None, include_ended: bool = Fal
 @api.get("/classes/{class_id}")
 async def class_detail(class_id: str):
     c = await db.classes.find_one({"class_id": class_id}, {"_id": 0})
-    if not c:
+    if not c or c.get("cancelled"):
         raise HTTPException(404, "Class not found")
     if not c.get("by_appointment"):
         cap = c.get("capacity") or 0
@@ -1049,6 +1049,8 @@ async def booking_create(body: BookingCreate, u: dict = Depends(require_user)):
     cls = await db.classes.find_one({"class_id": body.class_id}, {"_id": 0})
     if not cls:
         raise HTTPException(404, "Class not found")
+    if cls.get("cancelled"):
+        raise HTTPException(409, "This class has been cancelled.")
     existing = await db.bookings.find_one(
         {"user_id": u["user_id"], "class_id": body.class_id, "status": {"$in": ["paid", "pending"]}}, {"_id": 0}
     )
@@ -2424,6 +2426,70 @@ async def admin_class_update(class_id: str, body: ClassUpsert, u: dict = Depends
 async def admin_class_delete(class_id: str, u: dict = Depends(require_admin)):
     await db.classes.delete_one({"class_id": class_id})
     return {"ok": True}
+
+
+def _fmt_class_when(c: dict) -> str:
+    if c.get("by_appointment"):
+        return ""
+    s = c.get("start_at")
+    if isinstance(s, datetime):
+        local = s.replace(tzinfo=None) if s.tzinfo else s
+        return " on " + local.strftime("%a %d %b at %I:%M %p").replace(" 0", " ")
+    return ""
+
+
+class ClassCancelReq(BaseModel):
+    reason: Optional[str] = None
+
+
+@api.post("/admin/classes/{class_id}/cancel")
+async def admin_class_cancel(class_id: str, body: ClassCancelReq, u: dict = Depends(require_admin)):
+    c = await db.classes.find_one({"class_id": class_id})
+    if not c:
+        raise HTTPException(404, "Class not found")
+    reason = (body.reason or "").strip()
+    await db.classes.update_one(
+        {"class_id": class_id},
+        {"$set": {"cancelled": True, "cancelled_at": now_utc(), "cancel_reason": reason, "cancelled_by": u["user_id"]}},
+    )
+    when = _fmt_class_when(c)
+    # Cancel every active booking for this class and notify each member.
+    active = await db.bookings.find(
+        {"class_id": class_id, "status": {"$in": ["paid", "confirmed", "pending", "reschedule_requested"]}}
+    ).to_list(1000)
+    notified = 0
+    for b in active:
+        await db.bookings.update_one(
+            {"booking_id": b["booking_id"]},
+            {"$set": {"status": "cancelled", "cancelled_at": now_utc(), "cancelled_by": "admin_class_cancel"}},
+        )
+        member = await db.users.find_one({"user_id": b["user_id"]}, {"_id": 0, "email": 1})
+        body_msg = f"Your {c['name']} class{when} has been cancelled by the gym."
+        lines = [f"Your <b>{c['name']}</b> class{when} has been <b>cancelled</b> by the gym."]
+        if reason:
+            body_msg += f" Reason: {reason}"
+            lines.append(f"Reason: {reason}")
+        if b.get("status") == "paid":
+            lines.append("If you paid for this class, please contact us about a refund or credit.")
+        lines.append("Sorry for any inconvenience — we hope to see you in another session soon!")
+        await notify_user(
+            b["user_id"], (member or {}).get("email"),
+            "Class cancelled", body_msg, "booking", email_lines=lines,
+        )
+        notified += 1
+    return {"ok": True, "cancelled": True, "notified": notified}
+
+
+@api.post("/admin/classes/{class_id}/restore")
+async def admin_class_restore(class_id: str, u: dict = Depends(require_admin)):
+    r = await db.classes.update_one(
+        {"class_id": class_id},
+        {"$set": {"cancelled": False}, "$unset": {"cancelled_at": "", "cancel_reason": "", "cancelled_by": ""}},
+    )
+    if r.matched_count == 0:
+        raise HTTPException(404, "Class not found")
+    c = await db.classes.find_one({"class_id": class_id}, {"_id": 0})
+    return {"ok": True, "class": c}
 
 
 @api.post("/admin/announcements")
