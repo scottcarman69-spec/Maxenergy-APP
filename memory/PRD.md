@@ -445,3 +445,7 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Backend POST /api/payments/checkout gains use_class_pass: deducts 1 class pass, marks booking paid (paid_with_pass), logs pass_ledger -1 ("Booked <class> with a class pass"), creates a provider=class_pass tx, returns {paid_with_pass, passes_left}. 0 passes -> 400; appointment class -> 400.
 - Receipt now reflects the method: "Class Pass (1 used)" (amount $0) / "Account credit" / "Square". Frontend proceedBooking handles paid_with_pass -> /receipt. class/[id].tsx loads class_pass_credits via api.me() and opens the pay modal when passes>0 OR credit>0.
 - Curl-verified: seed 3 passes -> book with pass -> 2 left, ledger entry, receipt method "Class Pass (1 used)". Screenshot confirmed the green pass option in the pay modal.
+
+## Update: Low-pass reminder nudge (Jun 2026 fork)
+- When a member's class-pass balance drops to 1 ("You're on your last class pass ⏳") or 0 ("You're out of class passes"), they get an in-app + email nudge to top up, with data.nav=member_store (tap opens /memberships). Fires from both deduction paths: admin QR redemption and pay-with-pass at booking checkout. Added low_pass_nudge() helper (server.py). alerts.tsx handles the new member_store nav.
+- Curl-verified: 2 passes -> two redemptions produced "last pass" (at 1) then "out" (at 0) nudges, both nav=member_store.

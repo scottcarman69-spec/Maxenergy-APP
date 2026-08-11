@@ -366,6 +366,21 @@ async def notify_user(user_id: str, email: Optional[str], title: str, body: str,
         await send_email(email, title, _email_shell(title, email_lines or [body]))
 
 
+async def low_pass_nudge(user_id: str, email: Optional[str], left: int) -> None:
+    """Nudge the member to top up when they're down to their last class pass (or out)."""
+    if left == 1:
+        title = "You're on your last class pass ⏳"
+        body = "Only 1 class pass left. Top up so you never miss a session."
+    elif left == 0:
+        title = "You're out of class passes"
+        body = "Buy a Single or 10 Class Pass to keep booking classes at the gym."
+    else:
+        return
+    await notify_user(user_id, email, title, body, "booking",
+                      email_lines=[body, "Tap below to buy more passes."],
+                      data={"nav": "member_store"})
+
+
 async def notify_admins(title: str, body: str, ntype: str = "booking", email_lines: Optional[list] = None, data: Optional[dict] = None) -> None:
     """In-app notification to every admin user + email to the gym inbox."""
     if data is None:
@@ -1343,6 +1358,7 @@ async def admin_checkin_scan(body: ScanCheckinReq, u: dict = Depends(require_adm
             f"You checked in with a class pass. {left} pass{'es' if left != 1 else ''} left.",
             "booking",
         )
+        await low_pass_nudge(uid, (member or {}).get("email"), left)
         return {
             "ok": True,
             "member_name": mname,
@@ -1719,6 +1735,7 @@ async def payments_checkout(body: CheckoutCreate, request: Request, u: dict = De
             "created_at": now,
         })
         await mark_booking_paid(booking["booking_id"])
+        await low_pass_nudge(u["user_id"], u.get("email"), left)
         return {"paid_with_pass": True, "passes_left": left, "booking_id": booking["booking_id"]}
 
     # ----- Apply in-app credit if requested -----
