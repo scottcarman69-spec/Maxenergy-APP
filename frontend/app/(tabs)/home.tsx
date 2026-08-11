@@ -184,18 +184,14 @@ export default function Home() {
           </View>
         </View>
 
-        {!user?.is_admin && (
-          <Pressable testID="home-store-btn" style={styles.storeCta} onPress={() => router.push("/memberships")}>
-            <View style={styles.storeIcon}>
-              <Ionicons name="card" size={22} color={colors.onBrand} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.storeTitle}>Memberships & Passes</Text>
-              <Text style={styles.storeSub}>Buy a pass or membership — 10% off your first upfront plan</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.brand} />
-          </Pressable>
-        )}
+        <Pressable testID="home-store-btn" onPress={() => router.push("/memberships")} style={styles.verifyBanner}>
+          <Ionicons name="card-outline" size={20} color={colors.brand} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.verifyTitle}>Memberships & Passes</Text>
+            <Text style={styles.verifySub}>Buy a pass or membership with card</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.brand} />
+        </Pressable>
 
         {user && user.verified === false && (
           <Pressable

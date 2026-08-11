@@ -1483,10 +1483,10 @@ def _square_headers():
 # -------------------- membership / pass store --------------------
 STORE_PRODUCTS = {
     "pass_7day":  {"name": "7 Day Pass",                  "price_cents": 8000,  "type": "pass",       "days": 7,   "requires_keytag": False, "discount": False},
-    "mem_1m":     {"name": "1 Month Upfront Membership",  "price_cents": 15000, "type": "membership", "days": 30,  "requires_keytag": True,  "discount": True},
-    "mem_3m":     {"name": "3 Month Upfront Membership",  "price_cents": 38000, "type": "membership", "days": 90,  "requires_keytag": True,  "discount": True},
-    "mem_6m":     {"name": "6 Month Upfront Membership",  "price_cents": 51000, "type": "membership", "days": 180, "requires_keytag": True,  "discount": True},
-    "mem_12m":    {"name": "12 Month Upfront Membership", "price_cents": 75000, "type": "membership", "days": 365, "requires_keytag": True,  "discount": True},
+    "mem_1m":     {"name": "1 Month Upfront Membership",  "price_cents": 15000, "type": "membership", "days": 30,  "requires_keytag": True,  "discount": False},
+    "mem_3m":     {"name": "3 Month Upfront Membership",  "price_cents": 38000, "type": "membership", "days": 90,  "requires_keytag": True,  "discount": False},
+    "mem_6m":     {"name": "6 Month Upfront Membership",  "price_cents": 51000, "type": "membership", "days": 180, "requires_keytag": True,  "discount": False},
+    "mem_12m":    {"name": "12 Month Upfront Membership", "price_cents": 75000, "type": "membership", "days": 365, "requires_keytag": True,  "discount": False},
     "pass_10class": {"name": "10 Class Pass",             "price_cents": 20000, "type": "class_pass", "classes": 10, "requires_keytag": False, "discount": False},
 }
 KEYTAG_CENTS = 4000

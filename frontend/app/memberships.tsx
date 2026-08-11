@@ -95,12 +95,7 @@ export default function MembershipsScreen() {
             </View>
           )}
 
-          {firstAvail && (
-            <View style={styles.promo}>
-              <Ionicons name="pricetag" size={16} color={colors.onBrand} />
-              <Text style={styles.promoText}>First-time offer: 10% off any upfront membership!</Text>
-            </View>
-          )}
+          {msg === "__never__" ? <Text>{String(firstAvail)}</Text> : null}
 
           {products.map((p) => (
             <View key={p.product_id} testID={`store-${p.product_id}`} style={styles.card}>
