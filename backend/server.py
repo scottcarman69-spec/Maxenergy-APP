@@ -109,6 +109,10 @@ def user_public(u: dict) -> dict:
         "verified": bool(u.get("verified", False)),
         "reminder_hours": int(u.get("reminder_hours", 3)),
         "credit_cents": int(u.get("credit_cents", 0)),
+        "class_pass_credits": int(u.get("class_pass_credits", 0)),
+        "key_tag": bool(u.get("key_tag", False)),
+        "membership_plan": u.get("membership_plan"),
+        "membership_expires_at": u.get("membership_expires_at").isoformat() if isinstance(u.get("membership_expires_at"), datetime) else None,
     }
 
 
@@ -1476,6 +1480,71 @@ def _square_headers():
     return {"Authorization": f"Bearer {SQUARE_ACCESS_TOKEN}", "Square-Version": SQUARE_VERSION}
 
 
+# -------------------- membership / pass store --------------------
+STORE_PRODUCTS = {
+    "pass_7day":  {"name": "7 Day Pass",                  "price_cents": 8000,  "type": "pass",       "days": 7,   "requires_keytag": False, "discount": False},
+    "mem_1m":     {"name": "1 Month Upfront Membership",  "price_cents": 15000, "type": "membership", "days": 30,  "requires_keytag": True,  "discount": True},
+    "mem_3m":     {"name": "3 Month Upfront Membership",  "price_cents": 38000, "type": "membership", "days": 90,  "requires_keytag": True,  "discount": True},
+    "mem_6m":     {"name": "6 Month Upfront Membership",  "price_cents": 51000, "type": "membership", "days": 180, "requires_keytag": True,  "discount": True},
+    "mem_12m":    {"name": "12 Month Upfront Membership", "price_cents": 75000, "type": "membership", "days": 365, "requires_keytag": True,  "discount": True},
+    "pass_10class": {"name": "10 Class Pass",             "price_cents": 20000, "type": "class_pass", "classes": 10, "requires_keytag": False, "discount": False},
+}
+KEYTAG_CENTS = 4000
+FIRST_PURCHASE_DISCOUNT = 0.10
+
+
+async def compute_store_price(user: dict, product_id: str, add_key_tag: bool) -> dict:
+    p = STORE_PRODUCTS.get(product_id)
+    if not p:
+        raise HTTPException(404, "Unknown product")
+    base = p["price_cents"]
+    discount_cents = 0
+    first_eligible = p["discount"] and not user.get("first_purchase_used")
+    if first_eligible:
+        discount_cents = round(base * FIRST_PURCHASE_DISCOUNT)
+    key_tag = bool(p["requires_keytag"])  # key tag mandatory for upfront memberships
+    keytag_cents = KEYTAG_CENTS if key_tag else 0
+    total = base - discount_cents + keytag_cents
+    return {"base": base, "discount_cents": discount_cents, "keytag_cents": keytag_cents, "total": total, "key_tag": key_tag, "first_discount": first_eligible, "name": p["name"], "type": p["type"]}
+
+
+async def fulfill_store_purchase(tx: dict) -> None:
+    if tx.get("fulfilled"):
+        return
+    uid = tx["user_id"]
+    pid = tx.get("product_id")
+    p = STORE_PRODUCTS.get(pid, {})
+    user = await db.users.find_one({"user_id": uid})
+    upd: dict = {}
+    now = now_utc()
+    if p.get("type") in ("membership", "pass") and p.get("days"):
+        cur_exp = user.get("membership_expires_at")
+        base_dt = cur_exp if isinstance(cur_exp, datetime) and cur_exp > now else now
+        upd["membership_expires_at"] = base_dt + timedelta(days=p["days"])
+        upd["membership_plan"] = p["name"]
+        upd["membership_active"] = True
+    if p.get("type") == "class_pass":
+        upd_classes = int(user.get("class_pass_credits", 0)) + int(p.get("classes", 0))
+        upd["class_pass_credits"] = upd_classes
+    if tx.get("key_tag"):
+        upd["key_tag"] = True
+        upd["key_tag_purchased_at"] = now
+    if STORE_PRODUCTS.get(pid, {}).get("discount"):
+        upd["first_purchase_used"] = True
+    if upd:
+        await db.users.update_one({"user_id": uid}, {"$set": upd})
+    await db.payment_transactions.update_one({"session_id": tx["session_id"]}, {"$set": {"fulfilled": True, "fulfilled_at": now}})
+    # Notify member + admins
+    await notify_user(uid, user.get("email"), "Purchase confirmed",
+                      f"Your {p.get('name')} purchase is confirmed. Thanks for training with Max Energy!", "booking",
+                      email_lines=[f"Your <b>{p.get('name')}</b> purchase is confirmed.",
+                                   ("Key Tag 24/7 access is included." if tx.get("key_tag") else "")])
+    admins = await db.users.find({"is_admin": True}, {"_id": 0, "user_id": 1, "email": 1}).to_list(20)
+    for a in admins:
+        await notify_user(a["user_id"], a.get("email"), "New membership purchase",
+                          f"{user.get('name') or user.get('email')} purchased {p.get('name')} (${tx.get('amount',0)/100:.2f}).", "admin")
+
+
 async def sync_square_payment(tx: dict) -> tuple:
     """Retrieve the Square order for a transaction, sync paid state, return (payment_status, status)."""
     order_id = tx.get("square_order_id")
@@ -1506,7 +1575,10 @@ async def sync_square_payment(tx: dict) -> tuple:
             {"$set": {"payment_status": payment_status, "status": status, "updated_at": now_utc()}},
         )
         if payment_status == "paid":
-            await mark_booking_paid(tx["booking_id"])
+            if tx.get("kind") == "store":
+                await fulfill_store_purchase(tx)
+            else:
+                await mark_booking_paid(tx["booking_id"])
     return payment_status, status
 
 
@@ -1528,10 +1600,10 @@ async def reconcile_user_payments(user_id: str) -> list:
     for tx in txs:
         try:
             ps, _ = await sync_square_payment(tx)
-            if ps == "paid":
+            if ps == "paid" and tx.get("booking_id"):
                 newly_paid.append(tx["booking_id"])
         except Exception as e:
-            log.error(f"reconcile payment error for {tx.get('booking_id')}: {e}")
+            log.error(f"reconcile payment error for {tx.get('booking_id') or tx.get('product_id')}: {e}")
     return newly_paid
 
 
@@ -1636,6 +1708,69 @@ async def payments_status(session_id: str, request: Request, u: dict = Depends(r
         "amount_total": tx.get("amount"),
         "currency": (tx.get("currency", "aud")).lower(),
     }
+
+
+# -------------------- store endpoints --------------------
+@api.get("/store/products")
+async def store_products(u: dict = Depends(require_user)):
+    fresh = await db.users.find_one({"user_id": u["user_id"]}, {"_id": 0}) or u
+    items = []
+    for pid, p in STORE_PRODUCTS.items():
+        pricing = await compute_store_price(fresh, pid, False)
+        items.append({"product_id": pid, **p, **pricing})
+    return {
+        "products": items,
+        "keytag_cents": KEYTAG_CENTS,
+        "first_purchase_available": not fresh.get("first_purchase_used"),
+        "membership_expires_at": fresh.get("membership_expires_at").isoformat() if isinstance(fresh.get("membership_expires_at"), datetime) else None,
+        "class_pass_credits": int(fresh.get("class_pass_credits", 0)),
+        "key_tag": bool(fresh.get("key_tag")),
+    }
+
+
+class StoreCheckoutReq(BaseModel):
+    product_id: str
+    origin_url: str
+
+
+@api.post("/store/checkout")
+async def store_checkout(body: StoreCheckoutReq, u: dict = Depends(require_user)):
+    fresh = await db.users.find_one({"user_id": u["user_id"]}) or u
+    pricing = await compute_store_price(fresh, body.product_id, False)
+    order_ref = new_id("store")
+    label = pricing["name"] + (" + Key Tag" if pricing["key_tag"] else "")
+    redirect_url = f"{body.origin_url.rstrip('/')}/payment-return?status=success&store=1"
+    payload = {
+        "idempotency_key": str(uuid.uuid4()),
+        "quick_pay": {"name": label, "price_money": {"amount": pricing["total"], "currency": "AUD"}, "location_id": SQUARE_LOCATION_ID},
+        "payment_note": f"store:{body.product_id}",
+        "pre_populated_data": {"buyer_email": u.get("email", "")},
+        "checkout_options": {"redirect_url": redirect_url},
+    }
+    async with httpx.AsyncClient(timeout=20) as client:
+        resp = await client.post(f"{SQUARE_BASE}/online-checkout/payment-links", headers={**_square_headers(), "Content-Type": "application/json"}, json=payload)
+    if resp.status_code >= 400:
+        log.error(f"store checkout error {resp.status_code}: {resp.text[:300]}")
+        raise HTTPException(502, "Unable to create checkout")
+    link = resp.json().get("payment_link", {})
+    order_id = link.get("order_id")
+    if not order_id or not link.get("url"):
+        raise HTTPException(502, "Invalid Square response")
+    await db.payment_transactions.insert_one({
+        "session_id": order_id, "square_order_id": order_id, "provider": "square", "kind": "store",
+        "product_id": body.product_id, "user_id": u["user_id"], "amount": pricing["total"], "currency": "aud",
+        "key_tag": pricing["key_tag"], "payment_status": "initiated", "status": "open", "created_at": now_utc(),
+    })
+    return {"url": link.get("url"), "session_id": order_id}
+
+
+@api.get("/store/status/{session_id}")
+async def store_status(session_id: str, u: dict = Depends(require_user)):
+    tx = await db.payment_transactions.find_one({"session_id": session_id, "user_id": u["user_id"]}, {"_id": 0})
+    if not tx:
+        raise HTTPException(404, "Session not found")
+    payment_status, status = await sync_square_payment(tx)
+    return {"payment_status": payment_status, "status": status, "product_id": tx.get("product_id")}
 
 
 @api.get("/payments/receipt/{booking_id}")

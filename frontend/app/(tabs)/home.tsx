@@ -184,6 +184,19 @@ export default function Home() {
           </View>
         </View>
 
+        {!user?.is_admin && (
+          <Pressable testID="home-store-btn" style={styles.storeCta} onPress={() => router.push("/memberships")}>
+            <View style={styles.storeIcon}>
+              <Ionicons name="card" size={22} color={colors.onBrand} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.storeTitle}>Memberships & Passes</Text>
+              <Text style={styles.storeSub}>Buy a pass or membership — 10% off your first upfront plan</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.brand} />
+          </Pressable>
+        )}
+
         {user && user.verified === false && (
           <Pressable
             testID="home-verify-banner"
@@ -440,6 +453,10 @@ const styles = StyleSheet.create({
   },
   verifyTitle: { color: colors.onSurface, fontFamily: font.heading, fontSize: 14.5 },
   verifySub: { color: colors.onSurfaceSecondary, fontSize: 12.5, marginTop: 2 },
+  storeCta: { flexDirection: "row", alignItems: "center", gap: 12, marginHorizontal: spacing.lg, marginTop: spacing.lg, padding: spacing.lg, backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.brand },
+  storeIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
+  storeTitle: { color: colors.onSurface, fontFamily: font.heading, fontSize: 15 },
+  storeSub: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 2 },
   todayPill: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", marginTop: 12, backgroundColor: colors.brandTertiary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.brand },
   todayPillText: { color: colors.brand, fontWeight: "800", fontSize: 12.5 },
   sectionTitle: {

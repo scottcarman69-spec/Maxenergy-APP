@@ -5,20 +5,22 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing } from "@/src/theme";
 
 export default function PaymentReturn() {
-  const params = useLocalSearchParams<{ status?: string; booking_id?: string }>();
+  const params = useLocalSearchParams<{ status?: string; booking_id?: string; store?: string }>();
   const router = useRouter();
   const success = params.status === "success";
 
   useEffect(() => {
     const t = setTimeout(() => {
-      if (success && params.booking_id) {
+      if (success && params.store) {
+        router.replace("/memberships");
+      } else if (success && params.booking_id) {
         router.replace({ pathname: "/receipt", params: { booking_id: String(params.booking_id) } });
       } else {
         router.replace("/(tabs)/profile");
       }
     }, 1400);
     return () => clearTimeout(t);
-  }, [router, success, params.booking_id]);
+  }, [router, success, params.booking_id, params.store]);
 
   return (
     <View style={styles.root}>

@@ -416,3 +416,12 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Booking with credit: class detail shows a credit choice modal. POST /api/payments/checkout accepts use_credit. Full coverage => instant paid booking (paid_with_credit:true), credit deducted. Partial => Square link for remainder; credit_applied_cents stored on booking + tx; deducted once in mark_booking_paid (guarded by credit_deducted).
 - credit_ledger collection records +/- credit entries.
 - Verified end-to-end (cancel->flag->credit->balance->full-credit free booking). Partial needs a valid member email (Square rejects blank buyer_email).
+
+## Update: Memberships & Passes store (Square)
+- New member screen /memberships (button on Home "Memberships & Passes", non-admins). Products: 7 Day Pass $80, 1/3/6/12 Month Upfront $150/$380/$510/$750, 10 Class Pass $200. Key Tag $40 MANDATORY + auto-added to all upfront memberships. 10% first-purchase discount on upfront memberships only (users.first_purchase_used).
+- Backend: STORE_PRODUCTS catalog + compute_store_price + fulfill_store_purchase. Endpoints GET /api/store/products, POST /api/store/checkout, GET /api/store/status/{sid}. Reuses Square payment-links; payment_transactions kind="store". sync_square_payment branches to fulfill_store_purchase on paid; reconcile_user_payments also fulfills store txs (safety net) + store screen calls reconcile on load.
+- Fulfillment: memberships/7-day set users.membership_expires_at (+plan, membership_active), 10 Class Pass adds users.class_pass_credits+=10, key tag sets users.key_tag, consumes first_purchase_used. Notifies member + all admins.
+- user_public + /store/products expose credit_cents, class_pass_credits, key_tag, membership_plan, membership_expires_at.
+- payment-return handles ?store=1 -> /memberships.
+- TODO(optional): consume class_pass_credits at class booking; gate booking on membership_active; admin Purchases list.
+- Verified: pricing (mem_1m base 15000 -> disc 1500 + keytag 4000 = 17500), fulfillment (membership expiry/keytag, +10 class credits, first_purchase_used), notifications.
