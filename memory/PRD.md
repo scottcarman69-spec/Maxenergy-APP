@@ -481,3 +481,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Added Mongo-backed atomic fixed-window rate limiting (db.rate_limits, TTL index) via enforce_rate_limit(request, action, email). Wired into /auth/login, /register, /verify-otp, /resend-otp, /forgot-password, /reset-password. Limits both per-IP and per-account. Client IP from X-Forwarded-For (K8s ingress) with request.client fallback; keys HMAC'd with JWT_SECRET. Returns 429 + Retry-After; frontend surfaces the detail message.
 - Limits: login 10/60s, register 6/600s, forgot 4/300s, reset 10/600s, otp 6/300s.
 - Verified: 10 login attempts -> 401 then 429; different email same IP also 429 (IP bucket). Counters cleared after test.
+
+## Update: Square switched to PRODUCTION (Jun 2026 fork)
+- backend/.env: SQUARE_ENV=production, production access token + SQUARE_LOCATION_ID=X9S2RGZSHPZZ9 (location "Maxenergy fitness", AUD/AU). SQUARE_BASE auto-switches to https://connect.squareup.com/v2.
+- Verified: /api/store/checkout returns a real square.link production payment link. REAL charges now occur; refunds via Square dashboard.
+- Sandbox creds (previous) preserved in git history if a revert to test mode is ever needed.
