@@ -2299,32 +2299,55 @@ def build_membership_pdf(doc: dict, plan: dict) -> bytes:
     buf = io.BytesIO()
     c = pdfcanvas.Canvas(buf, pagesize=A4)
     W, H = A4
-    y = H - 50
     ORANGE = (1, 0.478, 0)
     DARK = (0.10, 0.10, 0.12)
     GREY = (0.42, 0.42, 0.46)
-    LABEL_X = 55
-    VALUE_X = 205
+    LIGHT = (0.965, 0.965, 0.972)
+    LINE = (0.88, 0.88, 0.90)
+    LEFT = 45
     RIGHT = W - 45
+    LABEL_X = 55
+    VALUE_X = 210
+    BOTTOM = 58  # reserve for footer
+
+    ref_no = booking_ref_no(doc.get("application_id", ""))
+    submitted = str(d.get("submitted_date", "") or "")
+
+    def draw_footer():
+        c.saveState()
+        c.setStrokeColorRGB(*LINE); c.setLineWidth(0.8)
+        c.line(LEFT, 46, RIGHT, 46)
+        c.setFont("Helvetica", 8); c.setFillColorRGB(*GREY)
+        c.drawString(LEFT, 34, "Maxenergy Fitness · Membership Registration Form")
+        c.drawCentredString(W / 2, 34, "Confidential")
+        c.drawRightString(RIGHT, 34, f"Page {c.getPageNumber()}")
+        c.restoreState()
+
+    y = H - 118  # first content y (below the header band)
+
+    def page_break(newy=H - 55):
+        nonlocal y
+        draw_footer()
+        c.showPage()
+        y = newy
 
     def ensure(space):
         nonlocal y
-        if y < space:
-            c.showPage()
-            y = H - 55
+        if y < max(space, BOTTOM + 24):
+            page_break()
 
     def section(title):
         nonlocal y
         ensure(96)
         y -= 8
-        c.setFillColorRGB(0.955, 0.955, 0.965)
-        c.roundRect(45, y - 7, RIGHT - 45, 23, 4, fill=1, stroke=0)
+        c.setFillColorRGB(*LIGHT)
+        c.roundRect(LEFT, y - 7, RIGHT - LEFT, 24, 4, fill=1, stroke=0)
         c.setFillColorRGB(*ORANGE)
-        c.rect(45, y - 7, 4, 23, fill=1, stroke=0)
+        c.rect(LEFT, y - 7, 4, 24, fill=1, stroke=0)
         c.setFillColorRGB(*DARK)
         c.setFont("Helvetica-Bold", 11)
         c.drawString(60, y, title.upper())
-        y -= 30
+        y -= 32
 
     def field(label, value):
         nonlocal y
@@ -2343,7 +2366,7 @@ def build_membership_pdf(doc: dict, plan: dict) -> bytes:
             linesv.append(cur)
         if not linesv:
             linesv = ["-"]
-        ensure(22 + (len(linesv) - 1) * 13)
+        ensure(20 + (len(linesv) - 1) * 13)
         c.setFont("Helvetica-Bold", 10)
         c.setFillColorRGB(*GREY)
         c.drawString(LABEL_X, y, label)
@@ -2353,19 +2376,26 @@ def build_membership_pdf(doc: dict, plan: dict) -> bytes:
             c.drawString(VALUE_X, y, lv)
             if i < len(linesv) - 1:
                 y -= 13
-        y -= 19
+        # subtle row divider
+        c.setStrokeColorRGB(0.93, 0.93, 0.95); c.setLineWidth(0.5)
+        c.line(LABEL_X, y - 7, RIGHT, y - 7)
+        y -= 18
 
-    # Header band
+    # ---- Header band (page 1) ----
     c.setFillColorRGB(*ORANGE)
     c.rect(0, H - 92, W, 92, fill=1, stroke=0)
     c.setFillColorRGB(1, 1, 1)
     c.setFont("Helvetica-Bold", 22)
-    c.drawString(45, H - 48, "MAXENERGY FITNESS")
+    c.drawString(LEFT, H - 48, "MAXENERGY FITNESS")
     c.setFont("Helvetica", 11)
-    c.drawString(45, H - 66, "Membership Registration Form")
+    c.drawString(LEFT, H - 66, "Membership Registration Form")
     c.setFont("Helvetica", 8.5)
-    c.drawString(45, H - 81, "Shop 38 Campus Village Shopping Centre, Smithfield QLD 4878   ·   Ph 07 4057 9005   ·   ABN 81 213 163 833")
-    y = H - 118
+    c.drawString(LEFT, H - 81, "Shop 38 Campus Village Shopping Centre, Smithfield QLD 4878  ·  Ph 07 4057 9005  ·  ABN 81 213 163 833")
+    c.setFont("Helvetica-Bold", 10)
+    c.drawRightString(RIGHT, H - 45, f"Form No. {ref_no}")
+    if submitted:
+        c.setFont("Helvetica", 9)
+        c.drawRightString(RIGHT, H - 61, f"Submitted: {submitted}")
 
     section("Membership")
     field("Type", d.get("membership_type", "-"))
@@ -2373,7 +2403,7 @@ def build_membership_pdf(doc: dict, plan: dict) -> bytes:
     field("Plan", f"{plan.get('name')}" + (f" (${_pd})" if _pd else ""))
     field("Category", doc.get("category", "-"))
     field("Term", d.get("term", "-"))
-    field("Submitted", d.get("submitted_date", ""))
+    field("Submitted", submitted or "-")
 
     section("Member Details")
     field("Name", doc.get("full_name"))
@@ -2402,26 +2432,37 @@ def build_membership_pdf(doc: dict, plan: dict) -> bytes:
     section("Consent & Waiver")
     field("Media consent", "Yes" if d.get("media_consent") else "No")
     field("Terms & Conditions agreed", "Yes" if d.get("waiver_agreed") else "No")
-    field("Signed (name)", d.get("signature", "-"))
 
-    ensure(210)
+    # ---- Photo & Signature (side by side, tidy) ----
+    ensure(180)
     section("Photo & Signature")
-    # Photo
+    block_top = y
+    col_gap = 24
+    photo_w = 120
+    sig_x = LEFT + photo_w + col_gap
+    sig_w = RIGHT - sig_x
+    box_h = 120
+
+    # labels
+    c.setFont("Helvetica-Bold", 9); c.setFillColorRGB(*GREY)
+    c.drawString(LEFT, block_top, "MEMBER PHOTO")
+    c.drawString(sig_x, block_top, "SIGNATURE")
+    top = block_top - 8
+
+    # photo box (left)
+    c.setStrokeColorRGB(*LINE); c.setLineWidth(1)
+    c.roundRect(LEFT, top - box_h, photo_w, box_h, 5, fill=0, stroke=1)
     photo = d.get("photo_base64")
     if photo and "," in photo:
         try:
             img = base64.b64decode(photo.split(",", 1)[1])
-            if y < 180:
-                c.showPage(); y = H - 55
-            c.setFont("Helvetica-Bold", 10); c.setFillColorRGB(0.42, 0.42, 0.46)
-            c.drawString(55, y, "Photo")
-            y -= 6
-            c.drawImage(ImageReader(io.BytesIO(img)), 55, y - 120, width=110, height=110, preserveAspectRatio=True, mask="auto")
-            y -= 130
+            c.drawImage(ImageReader(io.BytesIO(img)), LEFT + 4, top - box_h + 4, width=photo_w - 8, height=box_h - 8, preserveAspectRatio=True, mask="auto")
         except Exception as e:
             log.error(f"pdf photo: {e}")
 
-    # Signature strokes
+    # signature box (right)
+    c.setStrokeColorRGB(*LINE); c.setLineWidth(1)
+    c.roundRect(sig_x, top - box_h, sig_w, box_h, 5, fill=0, stroke=1)
     sig = d.get("signature_path")
     if sig:
         try:
@@ -2434,30 +2475,29 @@ def build_membership_pdf(doc: dict, plan: dict) -> bytes:
                 xs = [p[0] for p in pts]; ys = [p[1] for p in pts]
                 minx, maxx, miny, maxy = min(xs), max(xs), min(ys), max(ys)
                 sw = max(maxx - minx, 1); sh = max(maxy - miny, 1)
-                box_w, box_h = 220, 80
-                scale = min(box_w / sw, box_h / sh)
-                if y < 130:
-                    c.showPage(); y = H - 55
-                c.setFont("Helvetica-Bold", 10); c.setFillColorRGB(0.42, 0.42, 0.46)
-                c.drawString(55, y, "Signature")
-                y -= 6
-                bx, by = 55, y - 90
-                # signature box
-                c.setStrokeColorRGB(0.85, 0.85, 0.87); c.setLineWidth(1)
-                c.roundRect(bx - 5, by - 4, box_w + 20, box_h + 16, 4, fill=0, stroke=1)
+                pad = 12
+                draw_w, draw_h = sig_w - pad * 2, box_h - 40
+                scale = min(draw_w / sw, draw_h / sh)
+                bx, by = sig_x + pad, top - box_h + 28
                 c.setStrokeColorRGB(0.08, 0.08, 0.10); c.setLineWidth(1.6)
                 prev = None
                 for (px, py, cmd) in pts:
                     X = bx + (px - minx) * scale
-                    Y = by + (box_h - (py - miny) * scale)  # invert y
+                    Y = by + (draw_h - (py - miny) * scale)
                     if cmd == "M" or prev is None:
                         prev = (X, Y)
                     else:
                         c.line(prev[0], prev[1], X, Y)
                         prev = (X, Y)
-                y -= 106
         except Exception as e:
             log.error(f"pdf sig: {e}")
+
+    # signed-by name + date under the signature box
+    c.setFont("Helvetica", 9); c.setFillColorRGB(*DARK)
+    c.drawString(sig_x, top - box_h - 14, f"Signed: {d.get('signature','-')}")
+    if submitted:
+        c.drawRightString(RIGHT, top - box_h - 14, f"Date: {submitted}")
+    y = top - box_h - 30
 
     # ---- Terms & Conditions (full copy appended to the signed form) ----
     def _wrap(text, font, size, max_w):
@@ -2475,49 +2515,48 @@ def build_membership_pdf(doc: dict, plan: dict) -> bytes:
             out.append(cur)
         return out or [""]
 
-    c.showPage()  # finalize the form page; terms start on a fresh page
-    y = H - 50
+    page_break(H - 50)  # terms start on a fresh page
     c.setFillColorRGB(*ORANGE); c.setFont("Helvetica-Bold", 16)
-    c.drawString(45, y, "Membership Terms & Conditions"); y -= 20
+    c.drawString(LEFT, y, "Membership Terms & Conditions"); y -= 20
     c.setFillColorRGB(0.4, 0.4, 0.4); c.setFont("Helvetica", 9)
-    c.drawString(45, y, "Maxenergy Fitness Policies & Terms Agreement"); y -= 18
+    c.drawString(LEFT, y, "Maxenergy Fitness Policies & Terms Agreement"); y -= 20
 
-    def _para(title, body):
+    def _para(idx, title, body):
         nonlocal y
-        if y < 90:
-            c.showPage(); y = H - 50
-        c.setFont("Helvetica-Bold", 11); c.setFillColorRGB(0.1, 0.1, 0.1)
-        for tl in _wrap(title, "Helvetica-Bold", 11, W - 90):
-            if y < 70:
-                c.showPage(); y = H - 50
-                c.setFont("Helvetica-Bold", 11); c.setFillColorRGB(0.1, 0.1, 0.1)
-            c.drawString(45, y, tl); y -= 14
+        if y < 96:
+            page_break(H - 50)
+        c.setFont("Helvetica-Bold", 11); c.setFillColorRGB(*DARK)
+        for tl in _wrap(f"{idx}. {title}", "Helvetica-Bold", 11, RIGHT - LEFT):
+            if y < 72:
+                page_break(H - 50)
+                c.setFont("Helvetica-Bold", 11); c.setFillColorRGB(*DARK)
+            c.drawString(LEFT, y, tl); y -= 14
         c.setFont("Helvetica", 9); c.setFillColorRGB(0.25, 0.25, 0.25)
         for seg in body.split("\n"):
-            for bl in _wrap(seg, "Helvetica", 9, W - 90):
-                if y < 55:
-                    c.showPage(); y = H - 50
+            for bl in _wrap(seg, "Helvetica", 9, RIGHT - LEFT):
+                if y < 58:
+                    page_break(H - 50)
                     c.setFont("Helvetica", 9); c.setFillColorRGB(0.25, 0.25, 0.25)
-                c.drawString(45, y, bl); y -= 12
-        y -= 8
+                c.drawString(LEFT, y, bl); y -= 12
+        y -= 10
 
-    for _t, _b in MEMBERSHIP_TERMS_TC:
-        _para(_t, _b)
+    for i, (_t, _b) in enumerate(MEMBERSHIP_TERMS_TC, start=1):
+        _para(i, _t, _b)
 
-    if y < 90:
-        c.showPage(); y = H - 50
-    c.setFont("Helvetica-Oblique", 9); c.setFillColorRGB(0.1, 0.1, 0.1)
-    for bl in _wrap(TERMS_DECLARATION_TC, "Helvetica-Oblique", 9, W - 90):
-        if y < 55:
-            c.showPage(); y = H - 50
-            c.setFont("Helvetica-Oblique", 9); c.setFillColorRGB(0.1, 0.1, 0.1)
-        c.drawString(45, y, bl); y -= 12
-    y -= 6
+    if y < 96:
+        page_break(H - 50)
+    c.setFont("Helvetica-Oblique", 9); c.setFillColorRGB(*DARK)
+    for bl in _wrap(TERMS_DECLARATION_TC, "Helvetica-Oblique", 9, RIGHT - LEFT):
+        if y < 58:
+            page_break(H - 50)
+            c.setFont("Helvetica-Oblique", 9); c.setFillColorRGB(*DARK)
+        c.drawString(LEFT, y, bl); y -= 12
+    y -= 8
     c.setFont("Helvetica-Bold", 9); c.setFillColorRGB(*ORANGE)
-    _acc = f"Accepted by Maxenergy Fitness on {d.get('submitted_date','')}".strip()
-    c.drawString(45, y, _acc)
+    _acc = f"Accepted by {doc.get('full_name','the member')} on {submitted}".strip()
+    c.drawString(LEFT, y, _acc)
 
-    c.showPage()
+    draw_footer()
     c.save()
     return buf.getvalue()
 
