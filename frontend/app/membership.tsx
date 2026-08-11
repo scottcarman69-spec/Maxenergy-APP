@@ -56,7 +56,7 @@ export default function Membership() {
   const [consentMarketing, setConsentMarketing] = useState<boolean | null>(null);
   const [howFound, setHowFound] = useState("");
   const [category, setCategory] = useState("Adult");
-  const [term, setTerm] = useState("Upfront Membership");
+  const [term, setTerm] = useState("Upfront");
 
   const [meds, setMeds] = useState<Record<string, boolean>>({});
   const [conds, setConds] = useState<Record<string, boolean>>({});
@@ -287,7 +287,7 @@ export default function Membership() {
                 <View style={{ height: spacing.md }} />
                 <Text style={styles.miniLabel}>Membership option</Text>
                 <Segmented
-                  options={["Upfront Membership", "Class Membership"]}
+                  options={["Upfront", "Class"]}
                   value={term}
                   onChange={setTerm}
                   testIDPrefix="term"
