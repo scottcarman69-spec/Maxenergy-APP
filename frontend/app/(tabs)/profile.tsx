@@ -168,7 +168,7 @@ export default function Profile() {
             )}
             <Ionicons name="chevron-forward" size={18} color={colors.brand} />
           </Pressable>
-          <Pressable testID="profile-link-notifications" style={styles.membershipRow} onPress={() => router.push("/notifications")}>
+          <Pressable testID="profile-link-notifications" style={[styles.membershipRow, styles.linkRowDivider]} onPress={() => router.push("/notifications")}>
             <View style={styles.membershipIcon}>
               <Ionicons name="notifications" size={20} color={colors.onBrand} />
             </View>
@@ -179,6 +179,17 @@ export default function Profile() {
             {unread > 0 && (
               <View style={styles.navBadge}><Text style={styles.navBadgeText}>{unread}</Text></View>
             )}
+            <Ionicons name="chevron-forward" size={18} color={colors.brand} />
+          </Pressable>
+          <Pressable testID="profile-link-credits" style={styles.membershipRow} onPress={() => router.push("/credits")}>
+            <View style={styles.membershipIcon}>
+              <Ionicons name="wallet" size={20} color={colors.onBrand} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.membershipLabel}>My Credit</Text>
+              <Text style={styles.membershipSub}>Credit earned & spent on bookings</Text>
+            </View>
+            <View style={styles.navBadge}><Text style={styles.navBadgeText}>${((user?.credit_cents || 0) / 100).toFixed(0)}</Text></View>
             <Ionicons name="chevron-forward" size={18} color={colors.brand} />
           </Pressable>
         </View>
