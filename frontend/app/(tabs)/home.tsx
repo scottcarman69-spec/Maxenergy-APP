@@ -26,6 +26,7 @@ import { gymPhotos } from "@/src/gymPhotos";
 import { coachSource } from "@/src/coaches";
 import FacebookFeed from "@/src/components/FacebookFeed";
 import LiveNowBanner from "@/src/components/LiveNowBanner";
+import { storage } from "@/src/utils/storage";
 
 const CARD_W = Math.min(Dimensions.get("window").width, 480);
 
@@ -77,6 +78,23 @@ export default function Home() {
   const [hasAlerts, setHasAlerts] = useState(false);
   const carouselRef = useRef<ScrollView>(null);
   const [slide, setSlide] = useState(0);
+  const [showWelcome, setShowWelcome] = useState(false);
+
+  // One-time friendly welcome tip for brand-new members (per user, persisted).
+  useEffect(() => {
+    if (!user?.user_id) return;
+    let active = true;
+    (async () => {
+      const seen = await storage.getItem(`welcome_tip_seen_v1_${user.user_id}`, false);
+      if (active && !seen) setShowWelcome(true);
+    })();
+    return () => { active = false; };
+  }, [user?.user_id]);
+
+  const dismissWelcome = useCallback(async () => {
+    setShowWelcome(false);
+    if (user?.user_id) await storage.setItem(`welcome_tip_seen_v1_${user.user_id}`, true);
+  }, [user?.user_id]);
 
   const load = useCallback(async () => {
     try {
@@ -184,6 +202,34 @@ export default function Home() {
             </Text>
           </View>
         </View>
+
+        {showWelcome && (
+          <View testID="home-welcome-tip" style={styles.welcomeCard}>
+            <Pressable testID="home-welcome-dismiss" onPress={dismissWelcome} hitSlop={12} style={styles.welcomeClose}>
+              <Ionicons name="close" size={18} color={colors.onSurfaceSecondary} />
+            </Pressable>
+            <View style={styles.welcomeIcon}>
+              <Ionicons name="hand-left" size={22} color={colors.brand} />
+            </View>
+            <Text style={styles.welcomeTitle}>Welcome to Maxenergy! 🎉</Text>
+            <Text style={styles.welcomeText}>
+              Here's a quick start: browse the timetable, book a class, and manage everything from your profile. You've got this!
+            </Text>
+            <View style={styles.welcomeBtns}>
+              <Pressable
+                testID="home-welcome-browse"
+                onPress={() => { dismissWelcome(); router.navigate("/(tabs)/timetable"); }}
+                style={({ pressed }) => [styles.welcomePrimary, pressed && { opacity: 0.9 }]}
+              >
+                <Ionicons name="calendar-outline" size={16} color={colors.onBrand} />
+                <Text style={styles.welcomePrimaryText}>Browse classes</Text>
+              </Pressable>
+              <Pressable testID="home-welcome-later" onPress={dismissWelcome} style={styles.welcomeGhost}>
+                <Text style={styles.welcomeGhostText}>Maybe later</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
 
         <LiveNowBanner classes={scheduled} />
 
@@ -435,6 +481,16 @@ const styles = StyleSheet.create({
   avatarText: { color: colors.onSurface, fontFamily: font.display, fontSize: 18 },
   avatarDot: { position: "absolute", top: 2, right: 2, width: 11, height: 11, borderRadius: 6, backgroundColor: colors.brand, borderWidth: 2, borderColor: colors.surface },
   greetBlock: { paddingHorizontal: spacing.lg, marginTop: spacing.sm },
+  welcomeCard: { marginHorizontal: spacing.lg, marginTop: spacing.lg, padding: spacing.lg, backgroundColor: colors.brandTertiary, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.brand, gap: 6 },
+  welcomeClose: { position: "absolute", top: 10, right: 10, width: 30, height: 30, alignItems: "center", justifyContent: "center", zIndex: 2 },
+  welcomeIcon: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center", marginBottom: 4 },
+  welcomeTitle: { color: colors.onSurface, fontSize: 18, fontFamily: font.heading },
+  welcomeText: { color: colors.onSurfaceSecondary, fontSize: 13.5, lineHeight: 20 },
+  welcomeBtns: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.md },
+  welcomePrimary: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, backgroundColor: colors.brand, paddingHorizontal: spacing.lg, paddingVertical: 11, borderRadius: radius.pill },
+  welcomePrimaryText: { color: colors.onBrand, fontSize: 14, fontFamily: font.heading },
+  welcomeGhost: { paddingHorizontal: spacing.md, paddingVertical: 11 },
+  welcomeGhostText: { color: colors.onSurfaceSecondary, fontSize: 14, fontWeight: "700" },
   greetSmall: { color: colors.onSurfaceSecondary, fontSize: 16 },
   greetName: { color: colors.onSurface, fontSize: 40, fontFamily: font.display, letterSpacing: -0.5, marginTop: 2 },
   greetSub: { color: colors.onSurfaceSecondary, fontSize: 15, marginTop: 6 },
