@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Platform, Modal, TextInput } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Platform, Modal } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as WebBrowser from "expo-web-browser";
@@ -7,6 +7,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { api, BACKEND_URL } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
+import { classDate, classTime, qldTodayUTC } from "@/src/datetime";
 
 type Product = {
   product_id: string;
@@ -31,8 +32,19 @@ export default function MembershipsScreen() {
   const [passCredits, setPassCredits] = useState(0);
   const [memberExp, setMemberExp] = useState<string | null>(null);
   const [setupFor, setSetupFor] = useState<Product | null>(null);
-  const [startDate, setStartDate] = useState("");
-  const [meetTime, setMeetTime] = useState("");
+  const [dayIdx, setDayIdx] = useState<number | null>(null);
+  const [hour, setHour] = useState<number | null>(null);
+
+  // Next 30 Queensland days for the membership start date.
+  const days = React.useMemo(() => {
+    const base = qldTodayUTC();
+    return Array.from({ length: 30 }, (_, i) =>
+      new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate() + i))
+    );
+  }, []);
+  const MEET_HOURS = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
+  const dayIso = (d: Date, h = 12) =>
+    `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}T${String(h).padStart(2, "0")}:00:00`;
 
   const load = useCallback(async () => {
     try {
@@ -49,10 +61,18 @@ export default function MembershipsScreen() {
 
   const onBuyPress = (p: Product) => {
     if (p.type === "membership") {
-      setStartDate(""); setMeetTime(""); setSetupFor(p);
+      setDayIdx(null); setHour(null); setSetupFor(p);
     } else {
       buy(p);
     }
+  };
+
+  const confirmSetup = () => {
+    if (!setupFor || dayIdx === null || hour === null) return;
+    const d = days[dayIdx];
+    const start_date = classDate(dayIso(d), { weekday: "short", day: "2-digit", month: "short" });
+    const meet_time = classTime(dayIso(d, hour));
+    buy(setupFor, { start_date, meet_time });
   };
 
   const buy = async (p: Product, extra?: { start_date?: string; meet_time?: string }) => {
@@ -160,26 +180,71 @@ export default function MembershipsScreen() {
         </ScrollView>
       )}
 
-      <Modal visible={!!setupFor} transparent animationType="fade" onRequestClose={() => setSetupFor(null)}>
+      <Modal visible={!!setupFor} transparent animationType="slide" onRequestClose={() => setSetupFor(null)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Set up your access card</Text>
-            <Text style={styles.modalSub}>{setupFor?.name}</Text>
-            <Text style={styles.modalLabel}>Membership start date</Text>
-            <TextInput testID="setup-start-date" value={startDate} onChangeText={setStartDate} placeholder="e.g. Mon 18 Aug" placeholderTextColor={colors.onSurfaceSecondary} style={styles.modalInput} />
-            <Text style={styles.modalLabel}>Time to meet at the gym</Text>
-            <TextInput testID="setup-meet-time" value={meetTime} onChangeText={setMeetTime} placeholder="e.g. 9:00am" placeholderTextColor={colors.onSurfaceSecondary} style={styles.modalInput} />
-            <View style={styles.modalActions}>
-              <Pressable style={styles.modalCancel} onPress={() => setSetupFor(null)}><Text style={styles.modalCancelText}>Cancel</Text></Pressable>
-              <Pressable
-                testID="setup-continue"
-                style={[styles.modalGo, (!startDate.trim() || !meetTime.trim()) && { opacity: 0.5 }]}
-                disabled={!startDate.trim() || !meetTime.trim()}
-                onPress={() => setupFor && buy(setupFor, { start_date: startDate.trim(), meet_time: meetTime.trim() })}
-              >
-                <Text style={styles.modalGoText}>CONTINUE TO PAYMENT</Text>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>Set up your access card</Text>
+                <Text style={styles.modalSub}>{setupFor?.name}</Text>
+              </View>
+              <Pressable testID="setup-close" onPress={() => setSetupFor(null)} hitSlop={12}>
+                <Ionicons name="close" size={24} color={colors.onSurface} />
               </Pressable>
             </View>
+
+            <Text style={styles.modalLabel}>MEMBERSHIP START DATE</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm, paddingVertical: 4 }}>
+              {days.map((d, i) => {
+                const active = i === dayIdx;
+                return (
+                  <Pressable
+                    key={i}
+                    testID={`setup-day-${i}`}
+                    onPress={() => setDayIdx(i)}
+                    style={[styles.dayChip, active && styles.chipActive]}
+                  >
+                    <Text style={[styles.dayChipLabel, active && styles.chipTextActive]}>
+                      {classDate(dayIso(d), { weekday: "short" }).toUpperCase()}
+                    </Text>
+                    <Text style={[styles.dayChipNum, active && styles.chipTextActive]}>{d.getUTCDate()}</Text>
+                    <Text style={[styles.dayChipMon, active && styles.chipTextActive]}>
+                      {classDate(dayIso(d), { month: "short" }).toUpperCase()}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+
+            <Text style={[styles.modalLabel, { marginTop: spacing.lg }]}>TIME TO MEET AT THE GYM</Text>
+            <View style={styles.timeWrap}>
+              {MEET_HOURS.map((h) => {
+                const active = hour === h;
+                return (
+                  <Pressable
+                    key={h}
+                    testID={`setup-time-${h}`}
+                    onPress={() => setHour(h)}
+                    style={[styles.timeChip, active && styles.chipActive]}
+                  >
+                    <Text style={[styles.timeChipText, active && styles.chipTextActive]}>
+                      {classTime(dayIso(days[0], h))}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Pressable
+              testID="setup-continue"
+              style={[styles.modalGo, (dayIdx === null || hour === null) && { opacity: 0.5 }]}
+              disabled={dayIdx === null || hour === null}
+              onPress={confirmSetup}
+            >
+              <Text style={styles.modalGoText}>CONTINUE TO PAYMENT</Text>
+              <Ionicons name="arrow-forward" size={18} color={colors.onBrand} />
+            </Pressable>
+            <Text style={styles.modalFoot}>Come in at this time on your start date and we'll set up your 24/7 key tag.</Text>
           </View>
         </View>
       </Modal>
@@ -204,17 +269,24 @@ const styles = StyleSheet.create({
   hero: { borderRadius: radius.lg, padding: spacing.xl, alignItems: "center", gap: 4 },
   heroTitle: { color: "#fff", fontSize: 20, fontWeight: "900", letterSpacing: 0.5, marginTop: 6 },
   heroSub: { color: "rgba(255,255,255,0.9)", fontSize: 13, fontWeight: "700" },
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", padding: spacing.xl },
-  modalCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.xl, borderWidth: 1, borderColor: colors.border },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
+  modalCard: { backgroundColor: colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: spacing.xl, paddingBottom: spacing.xxl, borderWidth: 1, borderColor: colors.border },
+  modalHeader: { flexDirection: "row", alignItems: "flex-start", marginBottom: spacing.md },
   modalTitle: { color: colors.onSurface, fontSize: 20, fontWeight: "900" },
-  modalSub: { color: colors.brand, fontSize: 14, fontWeight: "700", marginTop: 2, marginBottom: spacing.sm },
-  modalLabel: { color: colors.onSurfaceSecondary, fontSize: 12, fontWeight: "700", marginTop: spacing.sm, marginBottom: 6 },
-  modalInput: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, color: colors.onSurface, paddingHorizontal: spacing.md, paddingVertical: 12, borderRadius: radius.md, fontSize: 15 },
-  modalActions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.lg },
-  modalCancel: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 14, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
-  modalCancelText: { color: colors.onSurface, fontWeight: "800" },
-  modalGo: { flex: 1.7, alignItems: "center", justifyContent: "center", paddingVertical: 14, borderRadius: radius.md, backgroundColor: colors.brand },
-  modalGoText: { color: colors.onBrand, fontWeight: "900", letterSpacing: 0.3 },
+  modalSub: { color: colors.brand, fontSize: 14, fontWeight: "700", marginTop: 2 },
+  modalLabel: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "800", letterSpacing: 1, marginTop: spacing.sm, marginBottom: 8 },
+  dayChip: { width: 60, paddingVertical: 10, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSecondary, alignItems: "center" },
+  dayChipLabel: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "800" },
+  dayChipNum: { color: colors.onSurface, fontSize: 20, fontWeight: "900", marginVertical: 1 },
+  dayChipMon: { color: colors.onSurfaceSecondary, fontSize: 10, fontWeight: "700" },
+  timeWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  timeChip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSecondary },
+  timeChipText: { color: colors.onSurface, fontSize: 13, fontWeight: "700" },
+  chipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
+  chipTextActive: { color: colors.onBrand },
+  modalGo: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 15, borderRadius: radius.md, backgroundColor: colors.brand, marginTop: spacing.xl },
+  modalGoText: { color: colors.onBrand, fontWeight: "900", letterSpacing: 0.3, fontSize: 15 },
+  modalFoot: { color: colors.onSurfaceSecondary, fontSize: 12, textAlign: "center", marginTop: spacing.md, lineHeight: 17 },
   cardTop: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md },
   perks: { marginTop: spacing.md, gap: 8 },
   perkRow: { flexDirection: "row", alignItems: "center", gap: 8 },
