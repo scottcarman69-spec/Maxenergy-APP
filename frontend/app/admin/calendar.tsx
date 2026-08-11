@@ -71,7 +71,6 @@ function dayKeyOf(iso: string): string {
 function anchorHour(b: Booking): number {
   const iso = anchorIso(b);
   if (!iso) return 9999; // no time → sort last
-  const d = scheduleDay(iso);
   const parsed = new Date(iso.match(/[zZ]|[+-]\d{2}:?\d{2}$/) ? iso : iso + "Z");
   return parsed.getUTCHours() * 60 + parsed.getUTCMinutes();
 }
@@ -390,7 +389,13 @@ export default function AdminCalendar() {
           </View>
           </View>
 
-          <Text style={styles.agendaTitle}>{selectedLabel}</Text>
+          <View style={styles.agendaHeader}>
+            <Text style={styles.agendaTitle}>{selectedLabel}</Text>
+            <Pressable testID="cal-scan-qr" style={styles.scanBtn} onPress={() => router.push("/admin/scan")}>
+              <Ionicons name="qr-code" size={15} color={colors.onBrand} />
+              <Text style={styles.scanBtnText}>Scan QR</Text>
+            </Pressable>
+          </View>
           {dayList.length === 0 && dayClasses.length === 0 ? (
             <View style={styles.empty}>
               <Ionicons name="calendar-clear-outline" size={34} color={colors.onSurfaceSecondary} />
@@ -557,7 +562,15 @@ export default function AdminCalendar() {
                       );
                     })}
                   </ScrollView>
-                  <Text style={styles.mHint}>Tap the circle to mark a member attended.</Text>
+                  <Pressable
+                    testID="roster-scan-qr"
+                    style={styles.rosterScanBtn}
+                    onPress={() => { setClassModal(null); router.push("/admin/scan"); }}
+                  >
+                    <Ionicons name="qr-code" size={17} color={colors.onBrand} />
+                    <Text style={styles.rosterScanText}>Scan member QR to check in</Text>
+                  </Pressable>
+                  <Text style={styles.mHint}>Or tap the circle to mark a member attended.</Text>
                 </>
               );
             })()}
@@ -616,6 +629,11 @@ const styles = StyleSheet.create({
   legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   legendText: { color: colors.onSurfaceSecondary, fontSize: 12 },
   agendaTitle: { color: colors.onSurface, fontSize: 16, fontFamily: font.heading, marginBottom: spacing.md },
+  agendaHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  scanBtn: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: colors.brand, paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.pill, marginBottom: spacing.md },
+  scanBtnText: { color: colors.onBrand, fontWeight: "800", fontSize: 12.5 },
+  rosterScanBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.brand, paddingVertical: 13, borderRadius: radius.md, marginTop: spacing.md },
+  rosterScanText: { color: colors.onBrand, fontWeight: "900", fontSize: 14 },
   empty: { alignItems: "center", padding: 40, gap: spacing.sm },
   emptyText: { color: colors.onSurfaceSecondary },
   item: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, padding: spacing.md, overflow: "hidden" },
