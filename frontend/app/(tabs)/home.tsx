@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "flex-start",
   },
   headerLogo: { width: 150, height: 84 },
   headerActions: { position: "absolute", right: spacing.lg, top: spacing.md, flexDirection: "row", alignItems: "center", gap: spacing.sm },
