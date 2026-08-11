@@ -3757,7 +3757,7 @@ async def seed_data():
                 "trainer": "Coach Alex",
                 "level": "Any level",
                 "duration_min": 60,
-                "price_cents": 8000,
+                "price_cents": 100,
                 "currency": "aud",
                 "image": "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1200&q=80",
                 "description": "1-on-1 tailored coaching session with a certified trainer. Booked by appointment — we'll contact you to arrange a time that suits you.",

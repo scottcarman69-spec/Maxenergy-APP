@@ -486,3 +486,7 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - backend/.env: SQUARE_ENV=production, production access token + SQUARE_LOCATION_ID=X9S2RGZSHPZZ9 (location "Maxenergy fitness", AUD/AU). SQUARE_BASE auto-switches to https://connect.squareup.com/v2.
 - Verified: /api/store/checkout returns a real square.link production payment link. REAL charges now occur; refunds via Square dashboard.
 - Sandbox creds (previous) preserved in git history if a revert to test mode is ever needed.
+
+## Update: Personal Training set to $1 for live testing (Jun 2026 fork)
+- TEMPORARY for production go-live testing: Personal Training price_cents 8000 -> 100, in both the live DB (cls_18f877b1782a) and the seed default (server.py ~line 3760, so fresh deploy also gets $1). Custom Programs left at $80.
+- REVERT to 8000 after live testing is complete.
