@@ -164,9 +164,9 @@ export default function Register() {
               importantForAutofill="no"
               value={password}
               onChangeText={setPassword}
-              style={styles.pwInput}
+              style={[styles.input, styles.pwInput]}
             />
-            <Pressable testID="toggle-password" onPress={() => setShowPw((s) => !s)} hitSlop={10}>
+            <Pressable style={styles.pwEye} testID="toggle-password" onPress={() => setShowPw((s) => !s)} hitSlop={10}>
               <Ionicons name={showPw ? "eye-off-outline" : "eye-outline"} size={20} color={colors.onSurfaceSecondary} />
             </Pressable>
           </View>
@@ -322,6 +322,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: radius.md,
     fontSize: 15,
+    ...(Platform.OS === "web" ? ({ outlineStyle: "none" } as any) : {}),
   },
   pickerField: {
     flexDirection: "row",
@@ -336,19 +337,19 @@ const styles = StyleSheet.create({
   },
   pickerFieldText: { flex: 1, color: colors.onSurface, fontSize: 15 },
   pwWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radius.md,
+    position: "relative",
+    justifyContent: "center",
   },
   pwInput: {
-    flex: 1,
-    color: colors.onSurface,
-    paddingVertical: 14,
-    fontSize: 15,
+    paddingRight: 48,
+    ...(Platform.OS === "web" ? ({ outlineStyle: "none" } as any) : {}),
+  },
+  pwEye: {
+    position: "absolute",
+    right: spacing.lg,
+    top: 0,
+    bottom: 0,
+    justifyContent: "center",
   },
   rules: { gap: 6, marginTop: 2, paddingHorizontal: 2 },
   ruleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
