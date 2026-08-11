@@ -155,6 +155,12 @@ export default function Home() {
             contentFit="contain"
           />
           <View style={styles.headerActions}>
+            {!user?.is_admin && (
+              <Pressable testID="home-credit-btn" onPress={() => router.push("/credits")} style={styles.creditChip} hitSlop={8}>
+                <Ionicons name="wallet" size={14} color={colors.brand} />
+                <Text style={styles.creditChipText}>${((user?.credit_cents || 0) / 100).toFixed(0)}</Text>
+              </Pressable>
+            )}
             <Pressable testID="home-calendar-btn" onPress={() => router.push(user?.is_admin ? "/admin/calendar" : "/calendar")} style={styles.calChip} hitSlop={8}>
               <Text style={styles.calChipMonth}>{qldTodayUTC().toLocaleDateString("en-AU", { month: "short", timeZone: "UTC" }).toUpperCase()}</Text>
               <Text style={styles.calChipDay}>{qldTodayUTC().getUTCDate()}</Text>
@@ -401,6 +407,8 @@ const styles = StyleSheet.create({
   headerActions: { position: "absolute", right: spacing.lg, top: spacing.md, flexDirection: "row", alignItems: "center", gap: spacing.sm },
   iconBtn: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border },
   calChip: { width: 46, height: 48, borderRadius: 10, overflow: "hidden", backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.brand, alignItems: "stretch" },
+  creditChip: { flexDirection: "row", alignItems: "center", gap: 4, height: 32, paddingHorizontal: 10, borderRadius: 16, backgroundColor: colors.brandTertiary, borderWidth: 1, borderColor: colors.brand },
+  creditChipText: { color: colors.brand, fontWeight: "900", fontSize: 13 },
   calChipMonth: { backgroundColor: colors.brand, color: colors.onBrand, fontSize: 10, fontWeight: "900", letterSpacing: 1, textAlign: "center", paddingVertical: 2 },
   calChipDay: { flex: 1, color: colors.onSurface, fontSize: 20, fontWeight: "900", textAlign: "center", textAlignVertical: "center", lineHeight: 26 },
   avatarWrap: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },

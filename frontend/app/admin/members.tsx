@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, TextInput, Linking } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, TextInput, Linking, Modal } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -19,6 +19,7 @@ type Member = {
   application_status?: string | null;
   active_bookings?: number;
   phone?: string;
+  credit_cents?: number;
 };
 
 const FILTERS = ["All", "Members", "Free Trials"] as const;
@@ -37,6 +38,26 @@ export default function AdminMembers() {
   const [totals, setTotals] = useState<{ total: number; trial_claims: number }>({ total: 0, trial_claims: 0 });
   const [exporting, setExporting] = useState(false);
   const [banner, setBanner] = useState<string | null>(null);
+  const [creditFor, setCreditFor] = useState<Member | null>(null);
+  const [creditAmt, setCreditAmt] = useState("");
+  const [creditReason, setCreditReason] = useState("");
+  const [savingCredit, setSavingCredit] = useState(false);
+
+  const submitCredit = async (sign: 1 | -1) => {
+    if (!creditFor) return;
+    const dollars = parseFloat(creditAmt || "0");
+    if (!dollars || dollars <= 0) { setBanner("Enter a dollar amount."); return; }
+    setSavingCredit(true);
+    try {
+      const r = await api.adminAdjustCredit(creditFor.user_id, Math.round(dollars * 100) * sign, creditReason.trim());
+      setBanner(`✅ ${creditFor.name || creditFor.email} balance is now $${(r.balance_cents / 100).toFixed(2)}.`);
+      setCreditFor(null); setCreditAmt(""); setCreditReason("");
+      await load();
+    } catch (e: any) {
+      setBanner(e?.message || "Could not update credit.");
+    }
+    setSavingCredit(false);
+  };
 
   const load = useCallback(async () => {
     try {
@@ -149,8 +170,10 @@ export default function AdminMembers() {
                     <Text style={styles.avatarText}>{(m.name || m.email || "?").slice(0, 1).toUpperCase()}</Text>
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.name}>{m.name || "—"}</Text>
-                    <Text style={styles.email}>{m.email}</Text>
+                    <Pressable testID={`adminmem-name-${m.user_id}`} onPress={() => { setCreditFor(m); setCreditAmt(""); setCreditReason(""); }}>
+                      <Text style={styles.name}>{m.name || "—"}</Text>
+                      <Text style={styles.email}>{m.email}</Text>
+                    </Pressable>
                     {!!m.phone && <Text style={styles.phone}>{m.phone}</Text>}
                     <View style={styles.tagRow}>
                       {m.is_admin && <View style={[styles.tag, { backgroundColor: colors.brand }]}><Text style={styles.tagText}>ADMIN</Text></View>}
@@ -160,9 +183,14 @@ export default function AdminMembers() {
                         <View key={t} style={[styles.tag, { backgroundColor: "#7C3AED" }]}><Text style={styles.tagText}>{t?.toUpperCase()} TRIAL</Text></View>
                       ))}
                       {!!m.active_bookings && <View style={[styles.tag, { backgroundColor: colors.surfaceTertiary }]}><Text style={[styles.tagText, { color: colors.onSurface }]}>{m.active_bookings} BOOKED</Text></View>}
+                      {!!m.credit_cents && m.credit_cents > 0 && <View style={[styles.tag, { backgroundColor: colors.brandTertiary }]}><Text style={[styles.tagText, { color: colors.brand }]}>${(m.credit_cents / 100).toFixed(0)} CREDIT</Text></View>}
                     </View>
                     <Text style={styles.joined}>Joined {fmtDate(m.created_at)} · {m.provider === "google" ? "Google" : "Email"}</Text>
                   </View>
+                  <Pressable testID={`adminmem-credit-${m.user_id}`} onPress={() => { setCreditFor(m); setCreditAmt(""); setCreditReason(""); }} style={styles.creditIconBtn} hitSlop={8}>
+                    <Ionicons name="wallet" size={18} color={colors.brand} />
+                    <Text style={styles.creditIconText}>Credit</Text>
+                  </Pressable>
                 </View>
                 <View style={styles.contactRow}>
                   <Pressable
@@ -197,6 +225,47 @@ export default function AdminMembers() {
           )}
         </ScrollView>
       )}
+
+      <Modal visible={!!creditFor} transparent animationType="fade" onRequestClose={() => setCreditFor(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalIcon}><Ionicons name="wallet" size={22} color={colors.brand} /></View>
+            <Text style={styles.modalTitle}>Adjust credit</Text>
+            <Text style={styles.modalSub}>{creditFor?.name || creditFor?.email}</Text>
+            <Text style={styles.modalBalance}>Current: ${((creditFor?.credit_cents || 0) / 100).toFixed(2)}</Text>
+            <Text style={styles.modalLabel}>Amount ($)</Text>
+            <TextInput
+              testID="adminmem-credit-amount"
+              value={creditAmt}
+              onChangeText={setCreditAmt}
+              placeholder="e.g. 25"
+              placeholderTextColor={colors.onSurfaceSecondary}
+              keyboardType="decimal-pad"
+              style={styles.modalInput}
+            />
+            <Text style={styles.modalLabel}>Reason (optional — shown to member)</Text>
+            <TextInput
+              testID="adminmem-credit-reason"
+              value={creditReason}
+              onChangeText={setCreditReason}
+              placeholder="e.g. Goodwill credit"
+              placeholderTextColor={colors.onSurfaceSecondary}
+              style={styles.modalInput}
+            />
+            <View style={styles.modalActions}>
+              <Pressable testID="adminmem-credit-remove" style={styles.modalRemove} onPress={() => submitCredit(-1)} disabled={savingCredit}>
+                <Text style={styles.modalRemoveText}>Remove</Text>
+              </Pressable>
+              <Pressable testID="adminmem-credit-add" style={[styles.modalAdd, savingCredit && { opacity: 0.5 }]} onPress={() => submitCredit(1)} disabled={savingCredit}>
+                {savingCredit ? <ActivityIndicator color={colors.onBrand} /> : <Text style={styles.modalAddText}>ADD CREDIT</Text>}
+              </Pressable>
+            </View>
+            <Pressable onPress={() => setCreditFor(null)} disabled={savingCredit}>
+              <Text style={styles.modalCancel}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -236,4 +305,20 @@ const styles = StyleSheet.create({
   joined: { color: colors.onSurfaceSecondary, fontSize: 11, marginTop: 8 },
   empty: { alignItems: "center", padding: 50, gap: spacing.md },
   emptyText: { color: colors.onSurfaceSecondary },
+  creditIconBtn: { alignItems: "center", justifyContent: "center", gap: 2, paddingHorizontal: 6 },
+  creditIconText: { color: colors.brand, fontSize: 10, fontWeight: "800" },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", padding: spacing.xl },
+  modalCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.xl, borderWidth: 1, borderColor: colors.border },
+  modalIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center", marginBottom: spacing.sm },
+  modalTitle: { color: colors.onSurface, fontSize: 20, fontWeight: "900" },
+  modalSub: { color: colors.brand, fontSize: 14, fontWeight: "700", marginTop: 2 },
+  modalBalance: { color: colors.onSurfaceSecondary, fontSize: 13, marginTop: 2, marginBottom: spacing.md },
+  modalLabel: { color: colors.onSurfaceSecondary, fontSize: 12, fontWeight: "700", marginTop: spacing.sm, marginBottom: 6 },
+  modalInput: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, color: colors.onSurface, paddingHorizontal: spacing.md, paddingVertical: 12, borderRadius: radius.md, fontSize: 15 },
+  modalActions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.lg },
+  modalRemove: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 14, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
+  modalRemoveText: { color: colors.onSurface, fontWeight: "800" },
+  modalAdd: { flex: 1.6, alignItems: "center", justifyContent: "center", paddingVertical: 14, borderRadius: radius.md, backgroundColor: colors.brand },
+  modalAddText: { color: colors.onBrand, fontWeight: "900", letterSpacing: 0.5 },
+  modalCancel: { color: colors.onSurfaceSecondary, textAlign: "center", marginTop: spacing.md, fontWeight: "700" },
 });

@@ -159,6 +159,8 @@ export const api = {
   adminRefunds: () => req("/api/admin/refunds"),
   adminResolveRefund: (booking_id: string, method: "credit" | "refunded") =>
     req(`/api/admin/refunds/${booking_id}/resolve`, { method: "POST", body: JSON.stringify({ method }) }),
+  adminAdjustCredit: (user_id: string, amount_cents: number, reason?: string) =>
+    req(`/api/admin/members/${user_id}/credit`, { method: "POST", body: JSON.stringify({ amount_cents, reason: reason || "" }) }),
   adminCreateAnnouncement: (payload: { title: string; body: string; pinned: boolean }) =>
     req("/api/admin/announcements", { method: "POST", body: JSON.stringify(payload) }),
   adminUpdateAnnouncement: (id: string, payload: { title: string; body: string; pinned: boolean }) =>

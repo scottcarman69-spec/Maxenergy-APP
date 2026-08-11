@@ -2721,6 +2721,7 @@ async def _build_members_list() -> list:
             "is_member": "approved" in statuses,
             "application_status": ("approved" if "approved" in statuses else ("pending" if "pending" in statuses else (statuses[0] if statuses else None))),
             "active_bookings": bookings_count.get(uid, 0),
+            "credit_cents": int(m.get("credit_cents", 0)),
         })
     return members
 
@@ -2730,6 +2731,43 @@ async def admin_members(u: dict = Depends(require_admin)):
     members = await _build_members_list()
     trial_count = await db.free_trials.count_documents({})
     return {"members": members, "total": len(members), "trial_claims": trial_count}
+
+
+class AdminCreditReq(BaseModel):
+    amount_cents: int
+    reason: Optional[str] = None
+
+
+@api.post("/admin/members/{user_id}/credit")
+async def admin_adjust_credit(user_id: str, body: AdminCreditReq, u: dict = Depends(require_admin)):
+    """Add (or subtract) account credit for a member and log it."""
+    target = await db.users.find_one({"user_id": user_id})
+    if not target:
+        raise HTTPException(404, "Member not found")
+    delta = int(body.amount_cents)
+    if delta == 0:
+        raise HTTPException(400, "Enter a non-zero amount.")
+    current = int(target.get("credit_cents", 0))
+    if current + delta < 0:
+        raise HTTPException(400, "Adjustment would make the balance negative.")
+    await db.users.update_one({"user_id": user_id}, {"$inc": {"credit_cents": delta}})
+    reason = (body.reason or "").strip() or ("Credit added by gym" if delta > 0 else "Credit adjustment by gym")
+    await db.credit_ledger.insert_one({
+        "ledger_id": new_id("cl"), "user_id": user_id, "delta_cents": delta,
+        "reason": reason, "created_at": now_utc(),
+    })
+    verb = "added to" if delta > 0 else "adjusted on"
+    await notify_user(
+        user_id, target.get("email"),
+        "Account credit updated",
+        f"${abs(delta)/100:.2f} has been {verb} your account. New balance: ${(current+delta)/100:.2f}.",
+        "booking",
+        email_lines=[
+            f"<b>${abs(delta)/100:.2f}</b> in credit has been {verb} your Maxenergy Fitness account.",
+            f"Your new balance is <b>${(current+delta)/100:.2f}</b> — use it toward any class booking.",
+        ],
+    )
+    return {"ok": True, "user_id": user_id, "balance_cents": current + delta}
 
 
 @api.post("/admin/members/export")
