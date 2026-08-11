@@ -439,3 +439,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Member QR: GET /api/passes/qr returns a signed JWT {typ:classpass, uid, exp+2d} + current credits. Rendered as QR in a modal.
 - Admin redemption: POST /api/admin/checkin/scan now also handles typ=classpass (walk-in) — deducts exactly 1 pass, logs pass_ledger -1 + pass_redemptions, notifies member, returns member_name + "N passes left". 0 passes -> HTTP 400 "no class passes left" (no deduction). Same scanner still handles booking check-in (typ=checkin).
 - Verified by testing_agent iteration_11: backend 9/9 pytest, frontend wallet card + QR modal + buy-when-zero all pass. NOTE: live camera scanning is native-only (test on device after Publish+build).
+
+## Update: Pay for a class booking with a Class Pass (Jun 2026 fork)
+- Class detail payment modal now offers "Use a class pass — book free (N left)" (green) above credit/card options when the member has class passes and the class is fixed-time (not by-appointment).
+- Backend POST /api/payments/checkout gains use_class_pass: deducts 1 class pass, marks booking paid (paid_with_pass), logs pass_ledger -1 ("Booked <class> with a class pass"), creates a provider=class_pass tx, returns {paid_with_pass, passes_left}. 0 passes -> 400; appointment class -> 400.
+- Receipt now reflects the method: "Class Pass (1 used)" (amount $0) / "Account credit" / "Square". Frontend proceedBooking handles paid_with_pass -> /receipt. class/[id].tsx loads class_pass_credits via api.me() and opens the pay modal when passes>0 OR credit>0.
+- Curl-verified: seed 3 passes -> book with pass -> 2 left, ledger entry, receipt method "Class Pass (1 used)". Screenshot confirmed the green pass option in the pay modal.

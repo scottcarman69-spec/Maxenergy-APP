@@ -44,6 +44,7 @@ export default function ClassDetail() {
   const [apptDay, setApptDay] = useState(0);
   const [apptHour, setApptHour] = useState<number | null>(null);
   const [credit, setCredit] = useState(0);
+  const [passes, setPasses] = useState(0);
   const [creditOpen, setCreditOpen] = useState(false);
 
   const load = useCallback(async () => {
@@ -57,6 +58,7 @@ export default function ClassDetail() {
     try {
       const m = await api.me();
       setCredit(m?.user?.credit_cents || 0);
+      setPasses(m?.user?.class_pass_credits || 0);
     } catch {}
     try {
       const a = await api.myApplications();
@@ -69,7 +71,7 @@ export default function ClassDetail() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const proceedBooking = async (requestedTime?: string, requestedAt?: string, useCredit?: boolean) => {
+  const proceedBooking = async (requestedTime?: string, requestedAt?: string, useCredit?: boolean, useClassPass?: boolean) => {
     if (!cls) return;
     setCreditOpen(false);
     setBusy(true);
@@ -87,10 +89,10 @@ export default function ClassDetail() {
         Platform.OS === "web" && typeof window !== "undefined"
           ? window.location.origin
           : BACKEND_URL!;
-      const res = await api.checkout(booking.booking_id, origin, useCredit);
+      const res = await api.checkout(booking.booking_id, origin, useCredit, useClassPass);
 
-      // Fully covered by in-app credit — no card payment needed.
-      if (res.paid_with_credit) {
+      // Fully covered by in-app credit or a class pass — no card payment needed.
+      if (res.paid_with_credit || res.paid_with_pass) {
         setBusy(false);
         router.replace({ pathname: "/receipt", params: { booking_id: booking.booking_id } });
         return;
@@ -150,7 +152,7 @@ export default function ClassDetail() {
       setApptHour(null);
       setMsg(null);
       setApptOpen(true);
-    } else if (credit > 0) {
+    } else if (credit > 0 || passes > 0) {
       setMsg(null);
       setCreditOpen(true);
     } else {
@@ -395,33 +397,46 @@ export default function ClassDetail() {
         <View style={styles.creditOverlay}>
           <View style={styles.creditCard}>
             <View style={styles.creditIcon}>
-              <Ionicons name="wallet" size={24} color={colors.brand} />
+              <Ionicons name="pricetags" size={24} color={colors.brand} />
             </View>
-            <Text style={styles.creditTitle}>You have ${(credit / 100).toFixed(2)} credit</Text>
+            <Text style={styles.creditTitle}>How would you like to pay?</Text>
             <Text style={styles.creditSub}>
-              This class is ${((cls?.price_cents || 0) / 100).toFixed(2)}. How would you like to pay?
+              {cls?.name} · ${((cls?.price_cents || 0) / 100).toFixed(2)}
             </Text>
 
-            {credit >= (cls?.price_cents || 0) ? (
-              <Pressable testID="credit-use-full" style={styles.creditPrimary} onPress={() => proceedBooking(undefined, undefined, true)} disabled={busy}>
-                {busy ? <ActivityIndicator color={colors.onBrand} /> : (
+            {passes > 0 && (
+              <Pressable testID="pay-with-pass" style={styles.passPrimary} onPress={() => proceedBooking(undefined, undefined, false, true)} disabled={busy}>
+                {busy ? <ActivityIndicator color="#fff" /> : (
                   <>
-                    <Ionicons name="wallet" size={16} color={colors.onBrand} />
-                    <Text style={styles.creditPrimaryText}>Use ${((cls?.price_cents || 0) / 100).toFixed(2)} credit — book free</Text>
+                    <Ionicons name="ticket" size={16} color="#fff" />
+                    <Text style={styles.passPrimaryText}>Use a class pass — book free ({passes} left)</Text>
                   </>
                 )}
               </Pressable>
-            ) : (
-              <Pressable testID="credit-use-partial" style={styles.creditPrimary} onPress={() => proceedBooking(undefined, undefined, true)} disabled={busy}>
-                {busy ? <ActivityIndicator color={colors.onBrand} /> : (
-                  <>
-                    <Ionicons name="wallet" size={16} color={colors.onBrand} />
-                    <Text style={styles.creditPrimaryText}>
-                      Use ${(credit / 100).toFixed(2)} credit + pay ${(((cls?.price_cents || 0) - credit) / 100).toFixed(2)}
-                    </Text>
-                  </>
-                )}
-              </Pressable>
+            )}
+
+            {credit > 0 && (
+              credit >= (cls?.price_cents || 0) ? (
+                <Pressable testID="credit-use-full" style={styles.creditPrimary} onPress={() => proceedBooking(undefined, undefined, true)} disabled={busy}>
+                  {busy ? <ActivityIndicator color={colors.onBrand} /> : (
+                    <>
+                      <Ionicons name="wallet" size={16} color={colors.onBrand} />
+                      <Text style={styles.creditPrimaryText}>Use ${((cls?.price_cents || 0) / 100).toFixed(2)} credit — book free</Text>
+                    </>
+                  )}
+                </Pressable>
+              ) : (
+                <Pressable testID="credit-use-partial" style={styles.creditPrimary} onPress={() => proceedBooking(undefined, undefined, true)} disabled={busy}>
+                  {busy ? <ActivityIndicator color={colors.onBrand} /> : (
+                    <>
+                      <Ionicons name="wallet" size={16} color={colors.onBrand} />
+                      <Text style={styles.creditPrimaryText}>
+                        Use ${(credit / 100).toFixed(2)} credit + pay ${(((cls?.price_cents || 0) - credit) / 100).toFixed(2)}
+                      </Text>
+                    </>
+                  )}
+                </Pressable>
+              )
             )}
 
             <Pressable testID="credit-pay-card" style={styles.creditGhost} onPress={() => proceedBooking(undefined, undefined, false)} disabled={busy}>
@@ -448,6 +463,8 @@ const styles = StyleSheet.create({
   creditSub: { color: colors.onSurfaceSecondary, fontSize: 13, textAlign: "center", marginTop: 6, marginBottom: spacing.lg },
   creditPrimary: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.brand, paddingVertical: 15, borderRadius: radius.md, alignSelf: "stretch" },
   creditPrimaryText: { color: colors.onBrand, fontWeight: "900", fontSize: 14 },
+  passPrimary: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#22C55E", paddingVertical: 15, borderRadius: radius.md, alignSelf: "stretch", marginBottom: spacing.sm },
+  passPrimaryText: { color: "#fff", fontWeight: "900", fontSize: 14 },
   creditGhost: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 15, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, alignSelf: "stretch", marginTop: spacing.sm },
   creditGhostText: { color: colors.onSurface, fontWeight: "800", fontSize: 14 },
   creditCancel: { color: colors.onSurfaceSecondary, fontWeight: "700", fontSize: 13, marginTop: spacing.md },

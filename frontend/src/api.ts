@@ -93,10 +93,10 @@ export const api = {
   rescheduleBooking: (id: string, requested_time: string, note?: string) =>
     req(`/api/bookings/${id}/reschedule`, { method: "POST", body: JSON.stringify({ requested_time, note }) }),
 
-  checkout: (booking_id: string, origin_url: string, use_credit?: boolean) =>
+  checkout: (booking_id: string, origin_url: string, use_credit?: boolean, use_class_pass?: boolean) =>
     req("/api/payments/checkout", {
       method: "POST",
-      body: JSON.stringify({ booking_id, origin_url, use_credit: !!use_credit }),
+      body: JSON.stringify({ booking_id, origin_url, use_credit: !!use_credit, use_class_pass: !!use_class_pass }),
     }),
   paymentStatus: (session_id: string) => req(`/api/payments/status/${session_id}`),
   reconcilePayments: () => req("/api/payments/reconcile", { method: "POST" }),

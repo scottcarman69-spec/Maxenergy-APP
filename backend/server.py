@@ -564,6 +564,7 @@ class CheckoutCreate(BaseModel):
     booking_id: str
     origin_url: str
     use_credit: Optional[bool] = False
+    use_class_pass: Optional[bool] = False
 
 
 class MembershipApplyReq(BaseModel):
@@ -1686,6 +1687,40 @@ async def payments_checkout(body: CheckoutCreate, request: Request, u: dict = De
     amount_cents = int(booking["amount"])
     currency = (booking.get("currency") or "AUD").upper()
 
+    # ----- Pay with a class pass (deduct 1 pass, no card) -----
+    if body.use_class_pass:
+        if booking.get("by_appointment"):
+            raise HTTPException(400, "Class passes can't be used for by-appointment sessions.")
+        fresh = await db.users.find_one({"user_id": u["user_id"]}, {"_id": 0, "class_pass_credits": 1})
+        passes = int((fresh or {}).get("class_pass_credits", 0))
+        if passes < 1:
+            raise HTTPException(400, "You have no class passes left.")
+        left = passes - 1
+        now = now_utc()
+        await db.users.update_one({"user_id": u["user_id"]}, {"$set": {"class_pass_credits": left}})
+        await db.pass_ledger.insert_one({
+            "pass_ledger_id": new_id("pl"), "user_id": u["user_id"], "delta": -1,
+            "reason": f"Booked {booking['class_name']} with a class pass", "balance_after": left,
+            "created_at": now,
+        })
+        await db.bookings.update_one(
+            {"booking_id": booking["booking_id"]},
+            {"$set": {"paid_with_pass": True}},
+        )
+        await db.payment_transactions.insert_one({
+            "session_id": f"pass_{booking['booking_id']}",
+            "provider": "class_pass",
+            "booking_id": booking["booking_id"],
+            "user_id": u["user_id"],
+            "amount": booking["amount"],
+            "currency": currency.lower(),
+            "payment_status": "paid",
+            "status": "paid",
+            "created_at": now,
+        })
+        await mark_booking_paid(booking["booking_id"])
+        return {"paid_with_pass": True, "passes_left": left, "booking_id": booking["booking_id"]}
+
     # ----- Apply in-app credit if requested -----
     credit_applied = 0
     if body.use_credit:
@@ -1910,6 +1945,13 @@ async def payment_receipt(booking_id: str, u: dict = Depends(require_user)):
     tx = await db.payment_transactions.find_one({"booking_id": booking_id}, {"_id": 0}) or {}
     start = cls.get("start_at") or b.get("class_start")
     paid_at = b.get("paid_at")
+    # Reflect how it was actually paid.
+    if b.get("paid_with_pass"):
+        method, amount_cents = "Class Pass (1 used)", 0
+    elif int(b.get("credit_applied_cents", 0)) >= int(b.get("amount", 0)) and tx.get("provider") == "credit":
+        method, amount_cents = "Account credit", 0
+    else:
+        method, amount_cents = "Square", b.get("amount", 0)
     return {
         "booking_id": booking_id,
         "receipt_number": booking_id.replace("bk_", "").upper()[:10],
@@ -1917,10 +1959,10 @@ async def payment_receipt(booking_id: str, u: dict = Depends(require_user)):
         "trainer": cls.get("trainer"),
         "class_start": start.isoformat() if isinstance(start, datetime) else start,
         "by_appointment": bool(b.get("by_appointment")),
-        "amount_cents": b.get("amount", 0),
+        "amount_cents": amount_cents,
         "currency": (b.get("currency") or "aud").upper(),
         "paid_at": paid_at.isoformat() if isinstance(paid_at, datetime) else paid_at,
-        "payment_method": "Square",
+        "payment_method": method,
         "order_id": tx.get("square_order_id"),
         "member_name": u.get("name") or u.get("email"),
         "member_email": u.get("email"),
