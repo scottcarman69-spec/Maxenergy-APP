@@ -26,6 +26,7 @@ import { gymPhotos } from "@/src/gymPhotos";
 import { coachSource } from "@/src/coaches";
 import FacebookFeed from "@/src/components/FacebookFeed";
 import LiveNowBanner from "@/src/components/LiveNowBanner";
+import WelcomeTour from "@/src/components/WelcomeTour";
 import { storage } from "@/src/utils/storage";
 
 const CARD_W = Math.min(Dimensions.get("window").width, 480);
@@ -80,12 +81,12 @@ export default function Home() {
   const [slide, setSlide] = useState(0);
   const [showWelcome, setShowWelcome] = useState(false);
 
-  // One-time friendly welcome tip for brand-new members (per user, persisted).
+  // One-time first-run walkthrough for brand-new members (per user, persisted).
   useEffect(() => {
     if (!user?.user_id) return;
     let active = true;
     (async () => {
-      const seen = await storage.getItem(`welcome_tip_seen_v1_${user.user_id}`, false);
+      const seen = await storage.getItem(`welcome_tour_v2_${user.user_id}`, false);
       if (active && !seen) setShowWelcome(true);
     })();
     return () => { active = false; };
@@ -93,7 +94,7 @@ export default function Home() {
 
   const dismissWelcome = useCallback(async () => {
     setShowWelcome(false);
-    if (user?.user_id) await storage.setItem(`welcome_tip_seen_v1_${user.user_id}`, true);
+    if (user?.user_id) await storage.setItem(`welcome_tour_v2_${user.user_id}`, true);
   }, [user?.user_id]);
 
   const load = useCallback(async () => {
@@ -205,31 +206,11 @@ export default function Home() {
         </View>
 
         {showWelcome && (
-          <View testID="home-welcome-tip" style={styles.welcomeCard}>
-            <Pressable testID="home-welcome-dismiss" onPress={dismissWelcome} hitSlop={12} style={styles.welcomeClose}>
-              <Ionicons name="close" size={18} color={colors.onSurfaceSecondary} />
-            </Pressable>
-            <View style={styles.welcomeIcon}>
-              <Ionicons name="hand-left" size={22} color={colors.brand} />
-            </View>
-            <Text style={styles.welcomeTitle}>Welcome to Maxenergy! 🎉</Text>
-            <Text style={styles.welcomeText}>
-              Here's a quick start: browse the timetable, book a class, and manage everything from your profile. You've got this!
-            </Text>
-            <View style={styles.welcomeBtns}>
-              <Pressable
-                testID="home-welcome-browse"
-                onPress={() => { dismissWelcome(); router.navigate("/(tabs)/timetable"); }}
-                style={({ pressed }) => [styles.welcomePrimary, pressed && { opacity: 0.9 }]}
-              >
-                <Ionicons name="calendar-outline" size={16} color={colors.onBrand} />
-                <Text style={styles.welcomePrimaryText}>Browse classes</Text>
-              </Pressable>
-              <Pressable testID="home-welcome-later" onPress={dismissWelcome} style={styles.welcomeGhost}>
-                <Text style={styles.welcomeGhostText}>Maybe later</Text>
-              </Pressable>
-            </View>
-          </View>
+          <WelcomeTour
+            visible={showWelcome}
+            onDone={dismissWelcome}
+            onFinish={() => router.navigate("/(tabs)/timetable")}
+          />
         )}
 
         <LiveNowBanner classes={scheduled} />
