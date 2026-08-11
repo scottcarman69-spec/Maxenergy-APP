@@ -408,3 +408,11 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Timetable class cards show an amber "🔥 ONLY N SPOT(S) LEFT — BOOK EARLY!" pill (flame icon) when spots_left is 1–3, next to the trainer line, above the capacity bar.
 - Class detail shows a matching amber banner "Only N spot(s) left — book early to secure your place!" (fixed-time classes only).
 - Verified via screenshot (temp cap=3 + 1 booking → "ONLY 2 SPOTS LEFT — BOOK EARLY!"); capacity restored and demo data cleaned. tsc clean.
+
+## Update: Refund-to-Credit system (in-app credits)
+- Admin **Cancel & notify members** flags PAID members for refund (booking.refund_status="pending").
+- New **Admin → Refunds & Credits** screen (/admin/refunds): lists members owed; buttons "Give $X credit" (adds users.credit_cents + notifies) or "Mark refunded" (notifies). Backend: GET /api/admin/refunds, POST /api/admin/refunds/{booking_id}/resolve {method: credit|refunded}. admin/overview now returns refunds_pending.
+- Members have users.credit_cents (surfaced in user_public + /auth/me). Shown as a banner on Profile.
+- Booking with credit: class detail shows a credit choice modal. POST /api/payments/checkout accepts use_credit. Full coverage => instant paid booking (paid_with_credit:true), credit deducted. Partial => Square link for remainder; credit_applied_cents stored on booking + tx; deducted once in mark_booking_paid (guarded by credit_deducted).
+- credit_ledger collection records +/- credit entries.
+- Verified end-to-end (cancel->flag->credit->balance->full-credit free booking). Partial needs a valid member email (Square rejects blank buyer_email).

@@ -108,6 +108,7 @@ def user_public(u: dict) -> dict:
         "is_admin": bool(u.get("is_admin", False)),
         "verified": bool(u.get("verified", False)),
         "reminder_hours": int(u.get("reminder_hours", 3)),
+        "credit_cents": int(u.get("credit_cents", 0)),
     }
 
 
@@ -396,6 +397,19 @@ async def mark_booking_paid(booking_id: str) -> None:
         {"booking_id": booking_id},
         {"$set": {"status": "paid", "paid_at": now_utc(), "paid_notified": True}},
     )
+    # Deduct any in-app credit that was applied to this booking (once).
+    applied = int(b.get("credit_applied_cents", 0))
+    if applied > 0 and not b.get("credit_deducted"):
+        user_doc = await db.users.find_one({"user_id": b["user_id"]}, {"_id": 0, "credit_cents": 1})
+        avail = int((user_doc or {}).get("credit_cents", 0))
+        ded = min(applied, avail)
+        if ded > 0:
+            await db.users.update_one({"user_id": b["user_id"]}, {"$inc": {"credit_cents": -ded}})
+            await db.credit_ledger.insert_one({
+                "ledger_id": new_id("cl"), "user_id": b["user_id"], "delta_cents": -ded,
+                "reason": f"Used toward {b.get('class_name')}", "booking_id": booking_id, "created_at": now_utc(),
+            })
+        await db.bookings.update_one({"booking_id": booking_id}, {"$set": {"credit_deducted": True}})
     member = await db.users.find_one({"user_id": b["user_id"]}, {"_id": 0})
     mname = (member or {}).get("name") or (member or {}).get("email") or "A member"
     cls = await db.classes.find_one({"class_id": b["class_id"]}, {"_id": 0})
@@ -545,6 +559,7 @@ class BookingCreate(BaseModel):
 class CheckoutCreate(BaseModel):
     booking_id: str
     origin_url: str
+    use_credit: Optional[bool] = False
 
 
 class MembershipApplyReq(BaseModel):
@@ -1530,6 +1545,37 @@ async def payments_checkout(body: CheckoutCreate, request: Request, u: dict = De
 
     amount_cents = int(booking["amount"])
     currency = (booking.get("currency") or "AUD").upper()
+
+    # ----- Apply in-app credit if requested -----
+    credit_applied = 0
+    if body.use_credit:
+        fresh = await db.users.find_one({"user_id": u["user_id"]}, {"_id": 0, "credit_cents": 1})
+        avail = int((fresh or {}).get("credit_cents", 0))
+        credit_applied = min(avail, amount_cents)
+        if credit_applied > 0:
+            await db.bookings.update_one(
+                {"booking_id": booking["booking_id"]},
+                {"$set": {"credit_applied_cents": credit_applied}},
+            )
+        remainder = amount_cents - credit_applied
+        if remainder <= 0:
+            # Fully covered by credit — no card payment needed.
+            await db.payment_transactions.insert_one({
+                "session_id": f"credit_{booking['booking_id']}",
+                "provider": "credit",
+                "booking_id": booking["booking_id"],
+                "user_id": u["user_id"],
+                "amount": booking["amount"],
+                "currency": currency.lower(),
+                "credit_applied_cents": credit_applied,
+                "payment_status": "paid",
+                "status": "paid",
+                "created_at": now_utc(),
+            })
+            await mark_booking_paid(booking["booking_id"])
+            return {"paid_with_credit": True, "booking_id": booking["booking_id"]}
+        amount_cents = remainder  # charge only the remainder on the card
+
     redirect_url = f"{body.origin_url.rstrip('/')}/payment-return?status=success&booking_id={booking['booking_id']}"
     payload = {
         "idempotency_key": str(uuid.uuid4()),
@@ -1568,6 +1614,7 @@ async def payments_checkout(body: CheckoutCreate, request: Request, u: dict = De
             "user_id": u["user_id"],
             "amount": booking["amount"],
             "currency": currency.lower(),
+            "credit_applied_cents": credit_applied,
             "payment_status": "initiated",
             "status": "open",
             "created_at": now_utc(),
@@ -2348,7 +2395,8 @@ async def admin_overview(u: dict = Depends(require_admin)):
     session_requests = await db.bookings.count_documents({"by_appointment": True, "status": {"$in": ["pending", "reschedule_requested"]}})
     trials = await db.free_trials.count_documents({})
     unread_messages = await db.messages.count_documents({"sender_is_admin": False, "read_by_admin": {"$ne": True}})
-    return {"classes": classes, "applications": apps, "pending_applications": pending, "announcements": ann, "members": members, "pending_bookings": pending_bookings, "session_requests": session_requests, "trials": trials, "unread_messages": unread_messages}
+    refunds_pending = await db.bookings.count_documents({"refund_status": "pending"})
+    return {"classes": classes, "applications": apps, "pending_applications": pending, "announcements": ann, "members": members, "pending_bookings": pending_bookings, "session_requests": session_requests, "trials": trials, "unread_messages": unread_messages, "refunds_pending": refunds_pending}
 
 
 @api.get("/admin/classes")
@@ -2458,11 +2506,15 @@ async def admin_class_cancel(class_id: str, body: ClassCancelReq, u: dict = Depe
         {"class_id": class_id, "status": {"$in": ["paid", "confirmed", "pending", "reschedule_requested"]}}
     ).to_list(1000)
     notified = 0
+    refunds_flagged = 0
     for b in active:
-        await db.bookings.update_one(
-            {"booking_id": b["booking_id"]},
-            {"$set": {"status": "cancelled", "cancelled_at": now_utc(), "cancelled_by": "admin_class_cancel"}},
-        )
+        upd = {"status": "cancelled", "cancelled_at": now_utc(), "cancelled_by": "admin_class_cancel"}
+        if b.get("status") == "paid":
+            upd["refund_status"] = "pending"
+            upd["refund_amount_cents"] = int(b.get("amount", 0))
+            upd["refund_flagged_at"] = now_utc()
+            refunds_flagged += 1
+        await db.bookings.update_one({"booking_id": b["booking_id"]}, {"$set": upd})
         member = await db.users.find_one({"user_id": b["user_id"]}, {"_id": 0, "email": 1})
         body_msg = f"Your {c['name']} class{when} has been cancelled by the gym."
         lines = [f"Your <b>{c['name']}</b> class{when} has been <b>cancelled</b> by the gym."]
@@ -2470,14 +2522,14 @@ async def admin_class_cancel(class_id: str, body: ClassCancelReq, u: dict = Depe
             body_msg += f" Reason: {reason}"
             lines.append(f"Reason: {reason}")
         if b.get("status") == "paid":
-            lines.append("If you paid for this class, please contact us about a refund or credit.")
+            lines.append("You've been flagged for a refund or account credit — the gym will process this shortly.")
         lines.append("Sorry for any inconvenience — we hope to see you in another session soon!")
         await notify_user(
             b["user_id"], (member or {}).get("email"),
             "Class cancelled", body_msg, "booking", email_lines=lines,
         )
         notified += 1
-    return {"ok": True, "cancelled": True, "notified": notified}
+    return {"ok": True, "cancelled": True, "notified": notified, "refunds_flagged": refunds_flagged}
 
 
 @api.post("/admin/classes/{class_id}/restore")
@@ -2490,6 +2542,80 @@ async def admin_class_restore(class_id: str, u: dict = Depends(require_admin)):
         raise HTTPException(404, "Class not found")
     c = await db.classes.find_one({"class_id": class_id}, {"_id": 0})
     return {"ok": True, "class": c}
+
+
+@api.get("/admin/refunds")
+async def admin_refunds(u: dict = Depends(require_admin)):
+    """Members owed a refund/credit after a class cancellation."""
+    rows = await db.bookings.find(
+        {"refund_status": {"$in": ["pending", "credited", "refunded"]}}, {"_id": 0}
+    ).sort("refund_flagged_at", -1).to_list(500)
+    out = []
+    for b in rows:
+        m = await db.users.find_one({"user_id": b["user_id"]}, {"_id": 0, "name": 1, "email": 1, "mobile": 1, "phone": 1})
+        out.append({
+            "booking_id": b["booking_id"],
+            "class_name": b.get("class_name"),
+            "member_name": (m or {}).get("name") or (m or {}).get("email"),
+            "member_email": (m or {}).get("email"),
+            "member_mobile": (m or {}).get("mobile") or (m or {}).get("phone"),
+            "amount_cents": int(b.get("refund_amount_cents", b.get("amount", 0))),
+            "currency": (b.get("currency") or "aud").upper(),
+            "refund_status": b.get("refund_status"),
+            "flagged_at": b.get("refund_flagged_at").isoformat() if isinstance(b.get("refund_flagged_at"), datetime) else b.get("refund_flagged_at"),
+        })
+    pending_total = sum(r["amount_cents"] for r in out if r["refund_status"] == "pending")
+    return {"refunds": out, "pending_total_cents": pending_total}
+
+
+class RefundResolveReq(BaseModel):
+    method: str  # "credit" | "refunded"
+
+
+@api.post("/admin/refunds/{booking_id}/resolve")
+async def admin_refund_resolve(booking_id: str, body: RefundResolveReq, u: dict = Depends(require_admin)):
+    b = await db.bookings.find_one({"booking_id": booking_id}, {"_id": 0})
+    if not b:
+        raise HTTPException(404, "Booking not found")
+    if b.get("refund_status") != "pending":
+        raise HTTPException(409, "This refund is already resolved.")
+    amount = int(b.get("refund_amount_cents", b.get("amount", 0)))
+    member = await db.users.find_one({"user_id": b["user_id"]}, {"_id": 0})
+    if body.method == "credit":
+        await db.users.update_one({"user_id": b["user_id"]}, {"$inc": {"credit_cents": amount}})
+        await db.bookings.update_one(
+            {"booking_id": booking_id},
+            {"$set": {"refund_status": "credited", "refund_resolved_at": now_utc(), "refund_method": "credit"}},
+        )
+        await db.credit_ledger.insert_one({
+            "ledger_id": new_id("cl"), "user_id": b["user_id"], "delta_cents": amount,
+            "reason": f"Credit for cancelled {b.get('class_name')}", "booking_id": booking_id, "created_at": now_utc(),
+        })
+        await notify_user(
+            b["user_id"], (member or {}).get("email"),
+            "Account credit added",
+            f"We've added ${amount/100:.2f} credit to your account for the cancelled {b.get('class_name')} class. Use it toward your next booking!",
+            "booking",
+            email_lines=[
+                f"We've added <b>${amount/100:.2f}</b> in account credit for your cancelled <b>{b.get('class_name')}</b> class.",
+                "You can use this credit toward any future class booking in the app.",
+            ],
+        )
+    elif body.method == "refunded":
+        await db.bookings.update_one(
+            {"booking_id": booking_id},
+            {"$set": {"refund_status": "refunded", "refund_resolved_at": now_utc(), "refund_method": "refunded"}},
+        )
+        await notify_user(
+            b["user_id"], (member or {}).get("email"),
+            "Refund processed",
+            f"Your refund of ${amount/100:.2f} for the cancelled {b.get('class_name')} class has been processed.",
+            "booking",
+            email_lines=[f"Your refund of <b>${amount/100:.2f}</b> for the cancelled <b>{b.get('class_name')}</b> class has been processed."],
+        )
+    else:
+        raise HTTPException(400, "Invalid method")
+    return {"ok": True, "refund_status": body.method if body.method == "credit" else "refunded"}
 
 
 @api.post("/admin/announcements")

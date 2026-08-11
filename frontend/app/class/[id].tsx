@@ -43,6 +43,8 @@ export default function ClassDetail() {
   const [apptOpen, setApptOpen] = useState(false);
   const [apptDay, setApptDay] = useState(0);
   const [apptHour, setApptHour] = useState<number | null>(null);
+  const [credit, setCredit] = useState(0);
+  const [creditOpen, setCreditOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -52,6 +54,10 @@ export default function ClassDetail() {
     } catch (e: any) {
       setMsg(e?.message || "Failed to load");
     }
+    try {
+      const m = await api.me();
+      setCredit(m?.user?.credit_cents || 0);
+    } catch {}
     try {
       const a = await api.myApplications();
       setIsMember((a.applications || []).length > 0);
@@ -63,8 +69,9 @@ export default function ClassDetail() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const proceedBooking = async (requestedTime?: string, requestedAt?: string) => {
+  const proceedBooking = async (requestedTime?: string, requestedAt?: string, useCredit?: boolean) => {
     if (!cls) return;
+    setCreditOpen(false);
     setBusy(true);
     setMsg(null);
     try {
@@ -80,7 +87,15 @@ export default function ClassDetail() {
         Platform.OS === "web" && typeof window !== "undefined"
           ? window.location.origin
           : BACKEND_URL!;
-      const { url, session_id } = await api.checkout(booking.booking_id, origin);
+      const res = await api.checkout(booking.booking_id, origin, useCredit);
+
+      // Fully covered by in-app credit — no card payment needed.
+      if (res.paid_with_credit) {
+        setBusy(false);
+        router.replace({ pathname: "/receipt", params: { booking_id: booking.booking_id } });
+        return;
+      }
+      const { url, session_id } = res;
 
       let opened = false;
       if (Platform.OS === "web") {
@@ -135,6 +150,9 @@ export default function ClassDetail() {
       setApptHour(null);
       setMsg(null);
       setApptOpen(true);
+    } else if (credit > 0) {
+      setMsg(null);
+      setCreditOpen(true);
     } else {
       proceedBooking();
     }
@@ -372,12 +390,67 @@ export default function ClassDetail() {
           </View>
         </View>
       </Modal>
+
+      <Modal visible={creditOpen} transparent animationType="fade" onRequestClose={() => setCreditOpen(false)}>
+        <View style={styles.creditOverlay}>
+          <View style={styles.creditCard}>
+            <View style={styles.creditIcon}>
+              <Ionicons name="wallet" size={24} color={colors.brand} />
+            </View>
+            <Text style={styles.creditTitle}>You have ${(credit / 100).toFixed(2)} credit</Text>
+            <Text style={styles.creditSub}>
+              This class is ${((cls?.price_cents || 0) / 100).toFixed(2)}. How would you like to pay?
+            </Text>
+
+            {credit >= (cls?.price_cents || 0) ? (
+              <Pressable testID="credit-use-full" style={styles.creditPrimary} onPress={() => proceedBooking(undefined, undefined, true)} disabled={busy}>
+                {busy ? <ActivityIndicator color={colors.onBrand} /> : (
+                  <>
+                    <Ionicons name="wallet" size={16} color={colors.onBrand} />
+                    <Text style={styles.creditPrimaryText}>Use ${((cls?.price_cents || 0) / 100).toFixed(2)} credit — book free</Text>
+                  </>
+                )}
+              </Pressable>
+            ) : (
+              <Pressable testID="credit-use-partial" style={styles.creditPrimary} onPress={() => proceedBooking(undefined, undefined, true)} disabled={busy}>
+                {busy ? <ActivityIndicator color={colors.onBrand} /> : (
+                  <>
+                    <Ionicons name="wallet" size={16} color={colors.onBrand} />
+                    <Text style={styles.creditPrimaryText}>
+                      Use ${(credit / 100).toFixed(2)} credit + pay ${(((cls?.price_cents || 0) - credit) / 100).toFixed(2)}
+                    </Text>
+                  </>
+                )}
+              </Pressable>
+            )}
+
+            <Pressable testID="credit-pay-card" style={styles.creditGhost} onPress={() => proceedBooking(undefined, undefined, false)} disabled={busy}>
+              <Ionicons name="card-outline" size={16} color={colors.onSurface} />
+              <Text style={styles.creditGhostText}>Pay ${((cls?.price_cents || 0) / 100).toFixed(2)} by card</Text>
+            </Pressable>
+
+            <Pressable testID="credit-cancel" onPress={() => setCreditOpen(false)} disabled={busy}>
+              <Text style={styles.creditCancel}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
+  creditOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", padding: spacing.xl },
+  creditCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, alignItems: "center" },
+  creditIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center", marginBottom: spacing.md },
+  creditTitle: { color: colors.onSurface, fontSize: 19, fontWeight: "900", textAlign: "center" },
+  creditSub: { color: colors.onSurfaceSecondary, fontSize: 13, textAlign: "center", marginTop: 6, marginBottom: spacing.lg },
+  creditPrimary: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.brand, paddingVertical: 15, borderRadius: radius.md, alignSelf: "stretch" },
+  creditPrimaryText: { color: colors.onBrand, fontWeight: "900", fontSize: 14 },
+  creditGhost: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 15, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, alignSelf: "stretch", marginTop: spacing.sm },
+  creditGhostText: { color: colors.onSurface, fontWeight: "800", fontSize: 14 },
+  creditCancel: { color: colors.onSurfaceSecondary, fontWeight: "700", fontSize: 13, marginTop: spacing.md },
   hero: { height: 380, justifyContent: "flex-end" },
   heroSafe: { position: "absolute", top: 0, left: 0, right: 0 },
   backBtn: {

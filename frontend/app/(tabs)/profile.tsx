@@ -110,6 +110,15 @@ export default function Profile() {
               <Text style={styles.statLabel}>UNREAD</Text>
             </View>
           </View>
+
+          {!!user?.credit_cents && user.credit_cents > 0 && (
+            <View style={styles.creditBanner} testID="profile-credit">
+              <Ionicons name="wallet" size={18} color={colors.brand} />
+              <Text style={styles.creditBannerText}>
+                ${(user.credit_cents / 100).toFixed(2)} account credit — use it when you book a class
+              </Text>
+            </View>
+          )}
         </View>
 
         {user?.is_admin && (
@@ -279,6 +288,8 @@ const styles = StyleSheet.create({
   memberBadge: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#16A34A", paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
   memberBadgeText: { color: "#fff", fontSize: 10, fontWeight: "900", letterSpacing: 1 },
   statsRow: { flexDirection: "row", marginTop: spacing.xl, gap: spacing.md, alignSelf: "stretch" },
+  creditBanner: { flexDirection: "row", alignItems: "center", gap: spacing.sm, alignSelf: "stretch", marginTop: spacing.md, backgroundColor: colors.brandTertiary, borderRadius: radius.md, paddingVertical: 12, paddingHorizontal: spacing.md },
+  creditBannerText: { color: colors.brand, fontSize: 13, fontWeight: "800", flex: 1 },
   statBox: { flex: 1, backgroundColor: colors.surfaceSecondary, padding: spacing.md, borderRadius: radius.md, alignItems: "center", borderWidth: 1, borderColor: colors.border },
   statNum: { color: colors.brand, fontSize: 22, fontWeight: "900" },
   statLabel: { color: colors.onSurfaceSecondary, fontSize: 10, letterSpacing: 1, fontWeight: "700", marginTop: 2 },

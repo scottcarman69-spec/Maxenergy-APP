@@ -45,6 +45,7 @@ export default function AdminHome() {
     { key: "attendance", icon: "stats-chart", label: "Attendance Report", desc: "Check-ins by day, week & month", route: "/admin/attendance" },
     { key: "announcements", icon: "megaphone", label: "Gym Notices", desc: "Post & edit announcements to members", route: "/admin/announcements", count: stats?.announcements },
     { key: "applications", icon: "document-text", label: "Applications", desc: "Review membership applications", route: "/admin/applications", count: stats?.pending_applications, badge: true },
+    { key: "refunds", icon: "cash", label: "Refunds & Credits", desc: "Members owed after a cancellation", route: "/admin/refunds", count: stats?.refunds_pending, badge: true },
   ];
 
   return (
