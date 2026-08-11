@@ -61,14 +61,14 @@ export default function AlertsTab() {
         if (user?.is_admin && n.data?.user_id) {
           router.push({ pathname: "/admin/thread", params: { userId: n.data.user_id, name: n.data?.name || "Member" } } as any);
         } else {
-          router.push("/(tabs)/inbox");
+          router.navigate("/(tabs)/inbox");
         }
         break;
       case "member_inbox":
-        router.push("/(tabs)/inbox");
+        router.navigate("/(tabs)/inbox");
         break;
       case "member_bookings":
-        router.push("/(tabs)/profile");
+        router.navigate("/(tabs)/profile");
         break;
       case "member_membership":
         router.push("/vigyr-signon");
@@ -78,7 +78,7 @@ export default function AlertsTab() {
         break;
       case "class_detail":
         if (n.data?.class_id) router.push({ pathname: "/class/[id]", params: { id: n.data.class_id } } as any);
-        else router.push("/(tabs)/home");
+        else router.navigate("/(tabs)/home");
         break;
       case "admin_bookings":
         router.push("/admin/bookings" as any);

@@ -132,12 +132,12 @@ export default function Home() {
   };
 
   const quickActions = [
-    { key: "schedule", label: "View Schedule", icon: "calendar", grad: ["#FF7A00", "#FFB259"], onPress: () => router.push("/(tabs)/timetable") },
+    { key: "schedule", label: "View Schedule", icon: "calendar", grad: ["#FF7A00", "#FFB259"], onPress: () => router.navigate("/(tabs)/timetable") },
     { key: "checkin", label: "Class Check-In", icon: "checkmark-done", grad: ["#16A34A", "#4ADE80"], onPress: () => router.push("/check-in") },
     { key: "trial", label: "Free Trial", icon: "gift", grad: ["#9333EA", "#C084FC"], onPress: () => router.push("/free-trial") },
     { key: "membership", label: "Join Membership", icon: "ribbon", grad: ["#2563EB", "#60A5FA"], onPress: () => router.push("/vigyr-signon") },
     { key: "services", label: "Our Services", icon: "barbell", grad: ["#DC2626", "#F87171"], onPress: () => router.push("/services") },
-    { key: "notices", label: "Gym Notices", icon: "megaphone", grad: ["#D97706", "#FBBF24"], onPress: () => router.push("/(tabs)/events") },
+    { key: "notices", label: "Gym Notices", icon: "megaphone", grad: ["#D97706", "#FBBF24"], onPress: () => router.navigate("/(tabs)/events") },
     { key: "about", label: "About Us", icon: "people", grad: ["#0891B2", "#22D3EE"], onPress: () => router.push("/about") },
     { key: "contact", label: "Contact Us", icon: "chatbubbles", grad: ["#DB2777", "#F472B6"], onPress: () => router.push("/contact") },
   ] as const;
@@ -164,7 +164,7 @@ export default function Home() {
               <Text style={styles.calChipMonth}>{qldTodayUTC().toLocaleDateString("en-AU", { month: "short", timeZone: "UTC" }).toUpperCase()}</Text>
               <Text style={styles.calChipDay}>{qldTodayUTC().getUTCDate()}</Text>
             </Pressable>
-            <Pressable testID="home-profile-btn" onPress={() => router.push("/(tabs)/profile")} style={styles.avatarWrap}>
+            <Pressable testID="home-profile-btn" onPress={() => router.navigate("/(tabs)/profile")} style={styles.avatarWrap}>
               <View style={styles.avatar}>
                 <Text style={styles.avatarText}>{(user?.name || user?.email || "?").slice(0, 1).toUpperCase()}</Text>
               </View>
@@ -217,7 +217,7 @@ export default function Home() {
           <>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>UP NEXT</Text>
-              <Pressable testID="home-view-schedule" onPress={() => router.push("/(tabs)/timetable")} style={styles.linkRow}>
+              <Pressable testID="home-view-schedule" onPress={() => router.navigate("/(tabs)/timetable")} style={styles.linkRow}>
                 <Text style={styles.linkText}>VIEW SCHEDULE</Text>
                 <Ionicons name="arrow-forward" size={13} color={colors.brand} />
               </Pressable>
@@ -313,7 +313,7 @@ export default function Home() {
 
             <View style={[styles.sectionHeader, { marginTop: spacing.xl }]}>
               <Text style={styles.sectionTitle}>UPCOMING CLASSES</Text>
-              <Pressable testID="home-see-timetable" onPress={() => router.push("/(tabs)/timetable")} style={styles.linkRow}>
+              <Pressable testID="home-see-timetable" onPress={() => router.navigate("/(tabs)/timetable")} style={styles.linkRow}>
                 <Text style={styles.linkText}>See all</Text>
                 <Ionicons name="arrow-forward" size={13} color={colors.brand} />
               </Pressable>

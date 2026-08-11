@@ -137,7 +137,7 @@ export default function FreeTrial() {
           })}
 
           {msg && <Text style={styles.msg}>{msg}</Text>}
-          <Pressable testID="trial-view-schedule" style={styles.secondary} onPress={() => router.push("/(tabs)/timetable")}>
+          <Pressable testID="trial-view-schedule" style={styles.secondary} onPress={() => router.navigate("/(tabs)/timetable")}>
             <Text style={styles.secondaryText}>View class schedule</Text>
           </Pressable>
         </ScrollView>

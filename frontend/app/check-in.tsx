@@ -100,7 +100,7 @@ export default function CheckIn() {
             <View style={styles.empty}>
               <Ionicons name="calendar-outline" size={40} color={colors.onSurfaceSecondary} />
               <Text style={styles.emptyText}>You have no active bookings to check in to.</Text>
-              <Pressable style={styles.link} onPress={() => router.push("/(tabs)/timetable")}>
+              <Pressable style={styles.link} onPress={() => router.navigate("/(tabs)/timetable")}>
                 <Text style={styles.linkText}>Book a class</Text>
               </Pressable>
             </View>

@@ -148,6 +148,11 @@ export default function Timetable() {
     <SafeAreaView style={styles.root} edges={["top"]}>
       <ScreenBg />
       <View style={styles.header}>
+        {router.canGoBack() && (
+          <Pressable testID="timetable-back" onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
+            <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
+          </Pressable>
+        )}
         <Text style={styles.title}>Schedule</Text>
         <Text style={styles.subtitle}>Cairns · Smithfield</Text>
       </View>
@@ -390,6 +395,7 @@ const styles = StyleSheet.create({
   nudgeTag: { flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start", backgroundColor: colors.warning, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill, marginTop: 6 },
   nudgeText: { color: colors.onBrand, fontSize: 10, fontWeight: "900", letterSpacing: 0.3 },
   header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
+  backBtn: { marginBottom: 4 },
   title: { ...type.h1 },
   subtitle: { ...type.small, marginTop: 2 },
   chipRow: { flexDirection: "row", gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
