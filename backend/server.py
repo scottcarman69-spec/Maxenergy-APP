@@ -3,6 +3,7 @@ from fastapi.responses import Response
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import ReturnDocument
 import os
 import logging
 import uuid
@@ -114,6 +115,57 @@ def verify_dl_token(token: Optional[str], kind: str, rid: str) -> bool:
     except Exception:
         return False
     return data.get("typ") == "dl" and data.get("k") == kind and data.get("id") == rid
+
+
+# ---- Auth rate limiting (Mongo-backed atomic fixed-window) ----
+import hashlib as _hashlib
+import hmac as _hmac
+import math as _math
+
+# (limit, window_seconds) per auth action — counts every attempt (not just failures).
+RATE_LIMITS = {
+    "login": (10, 60),
+    "register": (6, 600),
+    "forgot": (4, 300),
+    "reset": (10, 600),
+    "otp": (6, 300),
+}
+
+
+def _client_ip(request: Request) -> str:
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _rl_hash(val: str) -> str:
+    return _hmac.new(JWT_SECRET.encode(), val.strip().casefold().encode(), _hashlib.sha256).hexdigest()[:32]
+
+
+async def _rl_consume(key: str, limit: int, window_seconds: int) -> tuple[bool, int]:
+    now = now_utc()
+    bucket = _math.floor(now.timestamp() / window_seconds) * window_seconds
+    reset = datetime.fromtimestamp(bucket + window_seconds, tz=timezone.utc)
+    doc = await db.rate_limits.find_one_and_update(
+        {"_id": f"{key}:{bucket}"},
+        {"$inc": {"count": 1}, "$setOnInsert": {"expires_at": reset + timedelta(minutes=2)}},
+        upsert=True, return_document=ReturnDocument.AFTER,
+    )
+    retry_after = max(1, int((reset - now).total_seconds()))
+    return int(doc.get("count", 1)) <= limit, retry_after
+
+
+async def enforce_rate_limit(request: Request, action: str, email: Optional[str] = None) -> None:
+    """Throttle repeated auth attempts per IP and per account. Raises 429 when exceeded."""
+    limit, window = RATE_LIMITS[action]
+    ip = _client_ip(request)
+    checks = [await _rl_consume(f"ip:{action}:{_rl_hash(ip)}", limit, window)]
+    if email:
+        checks.append(await _rl_consume(f"acct:{action}:{_rl_hash(email)}", limit, window))
+    if not all(ok for ok, _ in checks):
+        retry = max(r for ok, r in checks if not ok)
+        raise HTTPException(status_code=429, detail=f"Too many attempts. Please try again in {retry} seconds.", headers={"Retry-After": str(retry)})
 
 
 def user_public(u: dict) -> dict:
@@ -678,7 +730,8 @@ DEFAULT_CLASS_IMAGE = "https://images.unsplash.com/photo-1591117207239-788bf8de6
 
 # -------------------- auth --------------------
 @api.post("/auth/register")
-async def auth_register(body: RegisterReq):
+async def auth_register(body: RegisterReq, request: Request):
+    await enforce_rate_limit(request, "register", body.email.lower())
     existing = await db.users.find_one({"email": body.email.lower()})
     if existing:
         raise HTTPException(status_code=409, detail="Email already registered")
@@ -704,7 +757,8 @@ async def auth_register(body: RegisterReq):
 
 
 @api.post("/auth/login")
-async def auth_login(body: LoginReq):
+async def auth_login(body: LoginReq, request: Request):
+    await enforce_rate_limit(request, "login", body.email.lower())
     u = await db.users.find_one({"email": body.email.lower()})
     if not u or not u.get("password_hash") or not check_pw(body.password, u["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
@@ -757,8 +811,9 @@ async def auth_session(body: GoogleSessionReq):
     return {"session_token": session_token, "user": user_public(u)}
 
 @api.post("/auth/verify-otp")
-async def auth_verify_otp(body: VerifyOtpReq):
+async def auth_verify_otp(body: VerifyOtpReq, request: Request):
     email = body.email.lower()
+    await enforce_rate_limit(request, "otp", email)
     u = await db.users.find_one({"email": email})
     if not u:
         raise HTTPException(status_code=404, detail="Account not found")
@@ -773,8 +828,9 @@ async def auth_verify_otp(body: VerifyOtpReq):
 
 
 @api.post("/auth/resend-otp")
-async def auth_resend_otp(body: ResendOtpReq):
+async def auth_resend_otp(body: ResendOtpReq, request: Request):
     email = body.email.lower()
+    await enforce_rate_limit(request, "otp", email)
     u = await db.users.find_one({"email": email})
     # Always respond ok (don't leak which emails exist), but only send when valid + unverified.
     if u and not u.get("verified") and u.get("provider") == "password":
@@ -788,8 +844,9 @@ async def auth_resend_otp(body: ResendOtpReq):
 
 
 @api.post("/auth/forgot-password")
-async def auth_forgot_password(body: ForgotPasswordReq):
+async def auth_forgot_password(body: ForgotPasswordReq, request: Request):
     email = body.email.lower()
+    await enforce_rate_limit(request, "forgot", email)
     u = await db.users.find_one({"email": email})
     # Google-login accounts have no password to reset — tell the app to guide
     # the user to "Continue with Google" instead of leaving them stuck.
@@ -806,8 +863,9 @@ async def auth_forgot_password(body: ForgotPasswordReq):
 
 
 @api.post("/auth/reset-password")
-async def auth_reset_password(body: ResetPasswordReq):
+async def auth_reset_password(body: ResetPasswordReq, request: Request):
     email = body.email.lower()
+    await enforce_rate_limit(request, "reset", email)
     u = await db.users.find_one({"email": email})
     if not u or u.get("provider") != "password":
         raise HTTPException(status_code=400, detail="Invalid or expired code")
@@ -3605,6 +3663,7 @@ async def seed_data():
         await db.membership_plans.create_index("plan_id", unique=True)
         await db.membership_applications.create_index("application_id", unique=True)
         await db.free_trials.create_index([("user_id", 1), ("category", 1)], unique=True)
+        await db.rate_limits.create_index("expires_at", expireAfterSeconds=0)
     except Exception as e:
         log.warning(f"index warn: {e}")
 

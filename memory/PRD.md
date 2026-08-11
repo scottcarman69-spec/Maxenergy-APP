@@ -476,3 +476,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 ## Update: Health check fixes (Jun 2026 fork)
 - Fixed 500 crash in fulfill_store_purchase (line ~1627): membership_expires_at from Mongo could be tz-naive and was compared to aware now_utc() -> "can't compare offset-naive and offset-aware datetimes". Now normalizes cur_exp to UTC-aware before compare. Verified /api/store/receipt/latest returns clean 404 (was 500).
 - FLAGGED (infra, not code): EMERGENT_EMAIL_KEY returning 401 "API key is invalid" then 403 "This API key is suspended" -> ALL emails failing (booking/receipt/cancellation confirmations + OTP verify/reset codes). Needs the managed email key restored.
+
+## Update: Auth rate limiting (Jun 2026 fork)
+- Added Mongo-backed atomic fixed-window rate limiting (db.rate_limits, TTL index) via enforce_rate_limit(request, action, email). Wired into /auth/login, /register, /verify-otp, /resend-otp, /forgot-password, /reset-password. Limits both per-IP and per-account. Client IP from X-Forwarded-For (K8s ingress) with request.client fallback; keys HMAC'd with JWT_SECRET. Returns 429 + Retry-After; frontend surfaces the detail message.
+- Limits: login 10/60s, register 6/600s, forgot 4/300s, reset 10/600s, otp 6/300s.
+- Verified: 10 login attempts -> 401 then 429; different email same IP also 429 (IP bucket). Counters cleared after test.
