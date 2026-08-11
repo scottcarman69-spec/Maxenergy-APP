@@ -1457,6 +1457,22 @@ async def class_pass_qr(u: dict = Depends(require_user)):
     return {"code": code, "class_pass_credits": int((fresh or {}).get("class_pass_credits", 0))}
 
 
+@api.get("/me/stats")
+async def me_stats(u: dict = Depends(require_user)):
+    """Lightweight member stats for the home screen (e.g. classes attended this month)."""
+    QLD = timedelta(hours=10)  # Queensland time (no DST)
+    # Start of the current QLD month, converted to UTC for the query.
+    now_local = (now_utc() + QLD)
+    month_start_local = now_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    month_start_utc = (month_start_local - QLD).replace(tzinfo=timezone.utc)
+    attended_this_month = await db.bookings.count_documents({
+        "user_id": u["user_id"],
+        "attended": True,
+        "checked_in_at": {"$gte": month_start_utc},
+    })
+    return {"attended_this_month": int(attended_this_month), "month": now_local.strftime("%B")}
+
+
 class ScanCheckinReq(BaseModel):
     code: str
 
