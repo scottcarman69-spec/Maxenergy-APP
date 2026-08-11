@@ -19,11 +19,6 @@ from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
-from emergentintegrations.payments.stripe.checkout import (
-    StripeCheckout,
-    CheckoutSessionRequest,
-    CheckoutStatusResponse,
-)
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -34,7 +29,6 @@ JWT_SECRET = os.environ["JWT_SECRET"]
 JWT_ALGO = os.environ["JWT_ALGO"]
 EMERGENT_EMAIL_KEY = os.environ["EMERGENT_EMAIL_KEY"]
 EMAIL_FROM_NAME = os.environ["EMAIL_FROM_NAME"]
-STRIPE_API_KEY = os.environ["STRIPE_API_KEY"]
 SQUARE_ENV = os.environ.get("SQUARE_ENV", "sandbox")
 SQUARE_ACCESS_TOKEN = os.environ.get("SQUARE_ACCESS_TOKEN", "")
 SQUARE_LOCATION_ID = os.environ.get("SQUARE_LOCATION_ID", "")
@@ -2143,30 +2137,6 @@ async def my_credits(u: dict = Depends(require_user)):
     }
 
 
-@api.post("/webhook/stripe")
-async def stripe_webhook(request: Request):
-    payload = await request.body()
-    sig = request.headers.get("Stripe-Signature", "")
-    host_url = str(request.base_url).rstrip("/")
-    webhook_url = f"{host_url}/api/webhook/stripe"
-    stripe = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=webhook_url)
-    try:
-        wh = await stripe.handle_webhook(payload, sig)
-    except Exception as e:
-        log.error(f"webhook err: {e}")
-        raise HTTPException(400, "Invalid webhook")
-    if wh.payment_status == "paid" and wh.session_id:
-        tx = await db.payment_transactions.find_one({"session_id": wh.session_id}, {"_id": 0})
-        if tx and tx.get("payment_status") != "paid":
-            await db.payment_transactions.update_one(
-                {"session_id": wh.session_id},
-                {"$set": {"payment_status": "paid", "status": "complete", "updated_at": now_utc()}},
-            )
-            await mark_booking_paid(tx["booking_id"])
-    return {"received": True}
-
-
-# -------------------- announcements (gym notices) --------------------
 @api.get("/announcements")
 async def announcements_list():
     rows = await db.announcements.find({}, {"_id": 0}).sort([("pinned", -1), ("created_at", -1)]).to_list(200)

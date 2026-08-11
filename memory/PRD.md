@@ -490,3 +490,6 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 ## Update: Personal Training set to $1 for live testing (Jun 2026 fork)
 - TEMPORARY for production go-live testing: Personal Training price_cents 8000 -> 100, in both the live DB (cls_18f877b1782a) and the seed default (server.py ~line 3760, so fresh deploy also gets $1). Custom Programs left at $80.
 - REVERT to 8000 after live testing is complete.
+
+## Update: Removed unused Stripe template code (Jun 2026 fork)
+- Publish scanner flagged a test Stripe key. App uses Square exclusively; Stripe was dead template code. Removed: emergentintegrations stripe imports, STRIPE_API_KEY env read, and the /webhook/stripe endpoint (server.py); removed STRIPE_API_KEY=sk_test_emergent from backend/.env. Verified backend healthy + Square checkout still returns a production square.link. No Stripe references remain.
