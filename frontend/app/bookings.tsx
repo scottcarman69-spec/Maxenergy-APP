@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, TextInput } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, TextInput, RefreshControl } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Swipeable } from "react-native-gesture-handler";
@@ -27,6 +27,7 @@ export default function BookingsScreen() {
   const [rescheduleFor, setRescheduleFor] = useState<Booking | null>(null);
   const [rTime, setRTime] = useState("");
   const [rNote, setRNote] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -35,6 +36,12 @@ export default function BookingsScreen() {
     } catch {}
     setLoading(false);
   }, []);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }, [load]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -101,7 +108,10 @@ export default function BookingsScreen() {
       {loading ? (
         <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />
       ) : (
-        <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: 40, gap: spacing.sm }}>
+        <ScrollView
+          contentContainerStyle={{ padding: spacing.lg, paddingBottom: 40, gap: spacing.sm }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} colors={[colors.brand]} />}
+        >
           {bookings.length > 0 && (
             <View style={styles.topRow}>
               <Text style={styles.countText}>{bookings.length} booking{bookings.length === 1 ? "" : "s"}</Text>

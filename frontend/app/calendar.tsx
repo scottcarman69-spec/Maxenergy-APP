@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, RefreshControl } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -57,6 +57,7 @@ export default function MyCalendar() {
   const router = useRouter();
   const [rows, setRows] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [cursor, setCursor] = useState<Date>(() => {
     const t = qldTodayUTC();
     return new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), 1));
@@ -71,6 +72,11 @@ export default function MyCalendar() {
     } catch {}
     setLoading(false);
   }, []);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }, [load]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const grouped = useMemo(() => {
@@ -122,7 +128,10 @@ export default function MyCalendar() {
       {loading ? (
         <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />
       ) : (
-        <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: 48 }}>
+        <ScrollView
+          contentContainerStyle={{ padding: spacing.lg, paddingBottom: 48 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} colors={[colors.brand]} />}
+        >
           <View style={styles.filterRow}>
             {FILTERS.map((f) => (
               <Pressable key={f} testID={`mycal-filter-${f}`} onPress={() => setFilter(f)} style={[styles.filterChip, filter === f && styles.filterChipOn]}>
