@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
+import ScreenHeader from "@/src/components/ScreenHeader";
 
 type Refund = {
   booking_id: string;
@@ -64,13 +65,7 @@ export default function AdminRefunds() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      <View style={styles.header}>
-        <Pressable testID="refunds-back" onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Refunds & Credits</Text>
-        <View style={{ width: 26 }} />
-      </View>
+      <ScreenHeader title="Refunds & Credits" backTestID="refunds-back" fallback="/admin" />
 
       {loading ? (
         <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />

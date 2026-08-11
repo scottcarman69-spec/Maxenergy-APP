@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { useAuth } from "@/src/AuthContext";
 import { colors, spacing, radius } from "@/src/theme";
+import ScreenHeader from "@/src/components/ScreenHeader";
 import { SectionTitle, Field, Checkbox, Segmented, YesNo } from "@/src/components/Form";
 import { SignaturePad } from "@/src/components/SignaturePad";
 import { PhotoCapture } from "@/src/components/PhotoCapture";
@@ -208,13 +209,11 @@ export default function Membership() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      <View style={styles.header}>
-        <Pressable testID="membership-back" onPress={() => (step === 0 ? router.back() : setStep(step - 1))} hitSlop={12}>
-          <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Membership Form</Text>
-        <View style={{ width: 26 }} />
-      </View>
+      <ScreenHeader
+        title="Membership Form"
+        backTestID="membership-back"
+        onBack={() => (step === 0 ? (router.canGoBack() ? router.back() : router.replace("/(tabs)/home")) : setStep(step - 1))}
+      />
 
       {/* progress */}
       <View style={styles.progressRow}>

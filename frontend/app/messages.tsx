@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
+import ScreenHeader from "@/src/components/ScreenHeader";
 
 type Msg = { message_id: string; body: string; sender_is_admin: boolean; sender_name: string; created_at: string };
 
@@ -43,13 +44,7 @@ export default function Messages() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      <View style={styles.header}>
-        <Pressable testID="msg-back" onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Message the Gym</Text>
-        <View style={{ width: 26 }} />
-      </View>
+      <ScreenHeader title="Message the Gym" backTestID="msg-back" fallback="/(tabs)/inbox" />
 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }} keyboardVerticalOffset={80}>
         {loading ? (

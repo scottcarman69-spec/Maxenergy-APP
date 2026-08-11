@@ -7,6 +7,7 @@ import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
 import { stampTime, stampDate } from "@/src/datetime";
 import ScreenBg from "@/src/components/ScreenBg";
+import ScreenHeader from "@/src/components/ScreenHeader";
 
 type Booking = {
   booking_id: string;
@@ -57,15 +58,7 @@ export default function BookingHistory() {
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
       <ScreenBg />
-      <View style={styles.header}>
-        <Pressable testID="booking-history-back" hitSlop={12} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
-        </Pressable>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>Booking Log</Text>
-          <Text style={styles.headerSub}>Your full saved history — including cleared bookings</Text>
-        </View>
-      </View>
+      <ScreenHeader title="Booking Log" subtitle="Your full saved history" backTestID="booking-history-back" fallback="/(tabs)/profile" />
 
       {loading ? (
         <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />

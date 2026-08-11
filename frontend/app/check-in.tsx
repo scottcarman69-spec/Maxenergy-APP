@@ -7,6 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import QRCode from "react-native-qrcode-svg";
 import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
+import ScreenHeader from "@/src/components/ScreenHeader";
 import { classTime, classDate } from "@/src/datetime";
 import { coachSource } from "@/src/coaches";
 
@@ -76,13 +77,7 @@ export default function CheckIn() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      <View style={styles.header}>
-        <Pressable testID="checkin-back" onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Class Check-In</Text>
-        <View style={{ width: 26 }} />
-      </View>
+      <ScreenHeader title="Class Check-In" backTestID="checkin-back" fallback="/(tabs)/profile" />
 
       {banner && (
         <Pressable onPress={() => setBanner(null)} style={styles.banner}>

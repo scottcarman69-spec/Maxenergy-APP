@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius, type } from "@/src/theme";
+import ScreenHeader from "@/src/components/ScreenHeader";
 
 type Loc = { name: string; address: string; hours: string; map_url: string };
 
@@ -44,13 +45,7 @@ export default function Contact() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      <View style={styles.header}>
-        <Pressable testID="contact-back" onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Contact & Gym Info</Text>
-        <View style={{ width: 26 }} />
-      </View>
+      <ScreenHeader title="Contact & Gym Info" backTestID="contact-back" fallback="/(tabs)/profile" />
 
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: 40 }}>
         <Text style={styles.gymName}>{info?.name || "Maxenergy Fitness"}</Text>

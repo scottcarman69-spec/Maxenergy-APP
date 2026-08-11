@@ -8,6 +8,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius, type, font } from "@/src/theme";
 import { gymPhotoByService } from "@/src/gymPhotos";
+import ScreenHeader from "@/src/components/ScreenHeader";
 
 type Service = { key: string; title: string; icon: string; image: string; desc: string };
 
@@ -27,13 +28,7 @@ export default function Services() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      <View style={styles.header}>
-        <Pressable testID="services-back" onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Our Services</Text>
-        <View style={{ width: 26 }} />
-      </View>
+      <ScreenHeader title="Our Services" backTestID="services-back" />
 
       {loading ? (
         <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />

@@ -8,6 +8,7 @@ import * as WebBrowser from "expo-web-browser";
 import { api, BACKEND_URL } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
 import { SignatureView } from "@/src/components/SignaturePad";
+import ScreenHeader from "@/src/components/ScreenHeader";
 
 type App = {
   application_id: string;
@@ -97,16 +98,17 @@ export default function AdminApplications() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      <View style={styles.header}>
-        <Pressable testID="adminapp-back" onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Applications</Text>
-        <Pressable testID="adminapp-log" hitSlop={12} onPress={() => router.push("/admin/membership-log")} style={styles.logBtn}>
-          <Ionicons name="time-outline" size={15} color={colors.brand} />
-          <Text style={styles.logBtnText}>Log</Text>
-        </Pressable>
-      </View>
+      <ScreenHeader
+        title="Applications"
+        backTestID="adminapp-back"
+        fallback="/admin"
+        right={
+          <Pressable testID="adminapp-log" hitSlop={12} onPress={() => router.push("/admin/membership-log")} style={styles.logBtn}>
+            <Ionicons name="time-outline" size={15} color={colors.brand} />
+            <Text style={styles.logBtnText}>Log</Text>
+          </Pressable>
+        }
+      />
 
       {loading ? (
         <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />

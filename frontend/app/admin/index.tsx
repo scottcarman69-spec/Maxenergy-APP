@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { useAuth } from "@/src/AuthContext";
 import { colors, spacing, radius } from "@/src/theme";
+import ScreenHeader from "@/src/components/ScreenHeader";
 
 export default function AdminHome() {
   const router = useRouter();
@@ -50,13 +51,7 @@ export default function AdminHome() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      <View style={styles.header}>
-        <Pressable testID="admin-back" onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Admin Dashboard</Text>
-        <View style={{ width: 26 }} />
-      </View>
+      <ScreenHeader title="Admin Dashboard" backTestID="admin-back" fallback="/(tabs)/profile" />
 
       {loading ? (
         <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />

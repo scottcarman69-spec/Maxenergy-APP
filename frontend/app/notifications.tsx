@@ -6,6 +6,7 @@ import { Swipeable } from "react-native-gesture-handler";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
+import ScreenHeader from "@/src/components/ScreenHeader";
 
 type Notif = { notification_id: string; title: string; body: string; read: boolean; created_at: string; type: string };
 
@@ -52,13 +53,7 @@ export default function NotificationsScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      <View style={styles.header}>
-        <Pressable testID="notifications-back" onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Notifications</Text>
-        <View style={{ width: 26 }} />
-      </View>
+      <ScreenHeader title="Notifications" backTestID="notifications-back" fallback="/(tabs)/alerts" />
 
       {banner && (
         <Pressable testID="notifications-banner" style={styles.banner} onPress={() => setBanner(null)}>

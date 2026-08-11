@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
 import { stampDate } from "@/src/datetime";
+import ScreenHeader from "@/src/components/ScreenHeader";
 
 type Member = {
   user_id: string;
@@ -95,15 +96,16 @@ export default function AdminMembers() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      <View style={styles.header}>
-        <Pressable testID="adminmem-back" onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Members & Trials</Text>
-        <Pressable testID="adminmem-export" onPress={doExport} hitSlop={12} disabled={exporting}>
-          {exporting ? <ActivityIndicator size="small" color={colors.brand} /> : <Ionicons name="download-outline" size={24} color={colors.brand} />}
-        </Pressable>
-      </View>
+      <ScreenHeader
+        title="Members & Trials"
+        backTestID="adminmem-back"
+        fallback="/admin"
+        right={
+          <Pressable testID="adminmem-export" onPress={doExport} hitSlop={12} disabled={exporting}>
+            {exporting ? <ActivityIndicator size="small" color={colors.brand} /> : <Ionicons name="download-outline" size={24} color={colors.brand} />}
+          </Pressable>
+        }
+      />
 
       {banner && (
         <Pressable onPress={() => setBanner(null)} style={styles.banner}>

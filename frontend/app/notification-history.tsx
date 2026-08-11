@@ -7,6 +7,7 @@ import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
 import { stampTime, stampDate } from "@/src/datetime";
 import ScreenBg from "@/src/components/ScreenBg";
+import ScreenHeader from "@/src/components/ScreenHeader";
 
 type Notif = {
   notification_id: string;
@@ -55,15 +56,7 @@ export default function NotificationHistory() {
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
       <ScreenBg />
-      <View style={styles.header}>
-        <Pressable testID="history-back" hitSlop={12} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
-        </Pressable>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>Notification Log</Text>
-          <Text style={styles.headerSub}>Your full saved history — including cleared alerts</Text>
-        </View>
-      </View>
+      <ScreenHeader title="Notification Log" subtitle="Your full saved history" backTestID="history-back" fallback="/(tabs)/alerts" />
 
       {loading ? (
         <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />

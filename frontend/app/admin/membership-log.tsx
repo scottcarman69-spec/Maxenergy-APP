@@ -8,6 +8,7 @@ import { api, BACKEND_URL } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
 import { stampTime, stampDate } from "@/src/datetime";
 import ScreenBg from "@/src/components/ScreenBg";
+import ScreenHeader from "@/src/components/ScreenHeader";
 
 type LogItem = {
   application_id: string;
@@ -66,15 +67,7 @@ export default function MembershipLog() {
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
       <ScreenBg />
-      <View style={styles.header}>
-        <Pressable testID="mlog-back" hitSlop={12} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
-        </Pressable>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>Membership Decisions</Text>
-          <Text style={styles.headerSub}>Log of approved & declined applications</Text>
-        </View>
-      </View>
+      <ScreenHeader title="Membership Decisions" subtitle="Approved & declined applications" backTestID="mlog-back" fallback="/admin/applications" />
 
       <View style={styles.statsRow}>
         <View style={[styles.stat, { borderColor: colors.brand }]}>

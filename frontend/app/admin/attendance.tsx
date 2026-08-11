@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
+import ScreenHeader from "@/src/components/ScreenHeader";
 
 type Report = {
   totals: { today: number; week: number; month: number; all: number };
@@ -34,15 +35,16 @@ export default function AdminAttendance() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      <View style={styles.header}>
-        <Pressable testID="att-back" onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Attendance Report</Text>
-        <Pressable testID="att-scan" onPress={() => router.push("/admin/scan")} hitSlop={12}>
-          <Ionicons name="qr-code-outline" size={24} color={colors.brand} />
-        </Pressable>
-      </View>
+      <ScreenHeader
+        title="Attendance Report"
+        backTestID="att-back"
+        fallback="/admin"
+        right={
+          <Pressable testID="att-scan" onPress={() => router.push("/admin/scan")} hitSlop={12}>
+            <Ionicons name="qr-code-outline" size={24} color={colors.brand} />
+          </Pressable>
+        }
+      />
 
       {loading ? (
         <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />

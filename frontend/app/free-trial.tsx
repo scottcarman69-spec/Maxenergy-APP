@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius, type, font } from "@/src/theme";
+import ScreenHeader from "@/src/components/ScreenHeader";
 
 const TRIALS = [
   { category: "Kids", icon: "happy", blurb: "Ages 6-16 · Muay Thai · Mon & Thu 5:00pm", accent: "#22C55E" },
@@ -77,13 +78,7 @@ export default function FreeTrial() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      <View style={styles.header}>
-        <Pressable testID="trial-back" onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Free Trial</Text>
-        <View style={{ width: 26 }} />
-      </View>
+      <ScreenHeader title="Free Trial" backTestID="trial-back" />
 
       {loading ? (
         <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />

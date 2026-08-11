@@ -7,6 +7,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { api, BACKEND_URL } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
+import ScreenHeader from "@/src/components/ScreenHeader";
 import { classDate, classTime, qldTodayUTC } from "@/src/datetime";
 
 type Product = {
@@ -111,13 +112,7 @@ export default function MembershipsScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      <View style={styles.header}>
-        <Pressable testID="store-back" onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Memberships & Passes</Text>
-        <View style={{ width: 26 }} />
-      </View>
+      <ScreenHeader title="Memberships & Passes" backTestID="store-back" />
 
       {loading ? (
         <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />

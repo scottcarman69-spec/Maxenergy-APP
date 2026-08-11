@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
+import ScreenHeader from "@/src/components/ScreenHeader";
 
 type Result = { ok: boolean; already?: boolean; member_name?: string; class_name?: string; when?: string; error?: string };
 
@@ -39,13 +40,7 @@ export default function AdminScan() {
   };
 
   const Header = (
-    <View style={styles.header}>
-      <Pressable testID="scan-back" onPress={() => router.back()} hitSlop={12}>
-        <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
-      </Pressable>
-      <Text style={styles.headerTitle}>Scan Check-In</Text>
-      <View style={{ width: 26 }} />
-    </View>
+    <ScreenHeader title="Scan Check-In" backTestID="scan-back" fallback="/admin" />
   );
 
   // Web / no camera support

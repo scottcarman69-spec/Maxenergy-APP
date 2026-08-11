@@ -18,6 +18,7 @@ import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
 import { classTime, classDate, classParts } from "@/src/datetime";
 import { Segmented } from "@/src/components/Form";
+import ScreenHeader from "@/src/components/ScreenHeader";
 
 type Cls = {
   class_id: string;
@@ -177,15 +178,16 @@ export default function AdminClasses() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      <View style={styles.header}>
-        <Pressable testID="adminc-back" onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Manage Classes</Text>
-        <Pressable testID="adminc-add" onPress={openNew} hitSlop={12}>
-          <Ionicons name="add-circle" size={28} color={colors.brand} />
-        </Pressable>
-      </View>
+      <ScreenHeader
+        title="Manage Classes"
+        backTestID="adminc-back"
+        fallback="/admin"
+        right={
+          <Pressable testID="adminc-add" onPress={openNew} hitSlop={12}>
+            <Ionicons name="add-circle" size={28} color={colors.brand} />
+          </Pressable>
+        }
+      />
 
       {loading ? (
         <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />

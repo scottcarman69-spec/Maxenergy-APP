@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
 import { classTime, classDate, stampTime, stampDate } from "@/src/datetime";
+import ScreenHeader from "@/src/components/ScreenHeader";
 
 type ReceiptItem = {
   booking_id: string;
@@ -55,13 +56,7 @@ export default function ReceiptsScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      <View style={styles.header}>
-        <Pressable testID="receipts-back" onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Receipts</Text>
-        <View style={{ width: 26 }} />
-      </View>
+      <ScreenHeader title="Receipts" backTestID="receipts-back" fallback="/(tabs)/profile" />
 
       {loading ? (
         <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />

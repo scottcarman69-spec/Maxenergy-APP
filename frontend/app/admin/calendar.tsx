@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
+import ScreenHeader from "@/src/components/ScreenHeader";
 import { classTime, classDate, scheduleDay, qldTodayUTC } from "@/src/datetime";
 
 type Booking = {
@@ -262,13 +263,7 @@ export default function AdminCalendar() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      <View style={styles.header}>
-        <Pressable testID="admincal-back" onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Bookings Calendar</Text>
-        <View style={{ width: 26 }} />
-      </View>
+      <ScreenHeader title="Bookings Calendar" backTestID="admincal-back" fallback="/admin" />
 
       {loading ? (
         <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />

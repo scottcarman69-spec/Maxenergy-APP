@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
+import ScreenHeader from "@/src/components/ScreenHeader";
 
 type Msg = { message_id: string; body: string; sender_is_admin: boolean; sender_name: string; created_at: string };
 
@@ -49,16 +50,7 @@ export default function AdminThread() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      <View style={styles.header}>
-        <Pressable testID="thread-back" onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
-        </Pressable>
-        <View style={{ flex: 1, alignItems: "center" }}>
-          <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
-          {!!member?.email && <Text style={styles.headerSub} numberOfLines={1}>{member.email}</Text>}
-        </View>
-        <View style={{ width: 26 }} />
-      </View>
+      <ScreenHeader title={title} subtitle={member?.email || undefined} backTestID="thread-back" fallback="/admin/inbox" />
 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }} keyboardVerticalOffset={80}>
         {loading ? (

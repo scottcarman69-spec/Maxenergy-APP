@@ -6,6 +6,7 @@ import { Swipeable } from "react-native-gesture-handler";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
+import ScreenHeader from "@/src/components/ScreenHeader";
 
 type Booking = { booking_id: string; class_name: string; status: string; amount: number; by_appointment?: boolean; requested_time?: string; scheduled_time?: string; attended?: boolean };
 
@@ -78,16 +79,17 @@ export default function BookingsScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      <View style={styles.header}>
-        <Pressable testID="bookings-back" onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
-        </Pressable>
-        <Text style={styles.headerTitle}>My Bookings</Text>
-        <Pressable testID="booking-history" style={styles.logBtn} onPress={() => router.push("/booking-history")}>
-          <Ionicons name="time-outline" size={14} color={colors.onSurfaceSecondary} />
-          <Text style={styles.logBtnText}>Log</Text>
-        </Pressable>
-      </View>
+      <ScreenHeader
+        title="My Bookings"
+        backTestID="bookings-back"
+        fallback="/(tabs)/profile"
+        right={
+          <Pressable testID="booking-history" style={styles.logBtn} onPress={() => router.push("/booking-history")}>
+            <Ionicons name="time-outline" size={14} color={colors.onSurfaceSecondary} />
+            <Text style={styles.logBtnText}>Log</Text>
+          </Pressable>
+        }
+      />
 
       {banner && (
         <Pressable testID="bookings-banner" style={styles.banner} onPress={() => setBanner(null)}>

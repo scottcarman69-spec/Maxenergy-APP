@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
 import { Checkbox } from "@/src/components/Form";
+import ScreenHeader from "@/src/components/ScreenHeader";
 
 type Ann = { announcement_id: string; title: string; body: string; pinned: boolean; author: string; created_at: string };
 
@@ -87,15 +88,16 @@ export default function AdminAnnouncements() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      <View style={styles.header}>
-        <Pressable testID="admina-back" onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Gym Notices</Text>
-        <Pressable testID="admina-add" onPress={() => { if (showForm) { resetForm(); } setShowForm((s) => !s); }} hitSlop={12}>
-          <Ionicons name={showForm ? "close-circle" : "add-circle"} size={28} color={colors.brand} />
-        </Pressable>
-      </View>
+      <ScreenHeader
+        title="Gym Notices"
+        backTestID="admina-back"
+        fallback="/admin"
+        right={
+          <Pressable testID="admina-add" onPress={() => { if (showForm) { resetForm(); } setShowForm((s) => !s); }} hitSlop={12}>
+            <Ionicons name={showForm ? "close-circle" : "add-circle"} size={28} color={colors.brand} />
+          </Pressable>
+        }
+      />
 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">

@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
+import ScreenHeader from "@/src/components/ScreenHeader";
 
 const VIGYR_URL = "https://signon.vigyr.com/online-sign-on/form/CUSTOMER/75-MaxenergyFitness";
 
@@ -51,13 +52,7 @@ export default function VigyrSignOn() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      <View style={styles.header}>
-        <Pressable testID="vigyr-back" hitSlop={12} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Join Maxenergy Fitness</Text>
-        <View style={{ width: 26 }} />
-      </View>
+      <ScreenHeader title="Join Maxenergy Fitness" backTestID="vigyr-back" />
 
       {returned ? (
         <View style={styles.body}>

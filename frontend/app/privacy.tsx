@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, radius, font } from "@/src/theme";
+import ScreenHeader from "@/src/components/ScreenHeader";
 
 const GYM = {
   name: "Maxenergy Fitness",
@@ -39,13 +40,7 @@ export default function PrivacyPolicy() {
   const router = useRouter();
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      <View style={styles.header}>
-        <Pressable testID="privacy-back" hitSlop={12} onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/profile"))}>
-          <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Privacy Policy</Text>
-        <View style={{ width: 26 }} />
-      </View>
+      <ScreenHeader title="Privacy Policy" backTestID="privacy-back" fallback="/(tabs)/profile" />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>Privacy Policy</Text>
