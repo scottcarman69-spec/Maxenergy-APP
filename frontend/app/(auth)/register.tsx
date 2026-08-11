@@ -19,21 +19,62 @@ import { Ionicons } from "@expo/vector-icons";
 export default function Register() {
   const router = useRouter();
   const { registerEmail } = useAuth();
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [dob, setDob] = useState(""); // DD/MM/YYYY
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  const onDobChange = (raw: string) => {
+    const digits = raw.replace(/\D/g, "").slice(0, 8);
+    let out = digits;
+    if (digits.length > 4) out = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+    else if (digits.length > 2) out = `${digits.slice(0, 2)}/${digits.slice(2)}`;
+    setDob(out);
+  };
+
+  // Returns YYYY-MM-DD if valid, else null.
+  const parseDob = (v: string): string | null => {
+    const m = v.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!m) return null;
+    const [, dd, mm, yyyy] = m;
+    const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+    if (d.getFullYear() !== Number(yyyy) || d.getMonth() !== Number(mm) - 1 || d.getDate() !== Number(dd)) return null;
+    const today = new Date();
+    if (d > today) return null;
+    let age = today.getFullYear() - d.getFullYear();
+    const mo = today.getMonth() - d.getMonth();
+    if (mo < 0 || (mo === 0 && today.getDate() < d.getDate())) age--;
+    if (age < 5 || age > 100) return null;
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
   const submit = async () => {
     setErr(null);
-    if (!name || !email || password.length < 6) {
-      setErr("Enter name, email and password (min 6 chars)");
+    if (!firstName.trim() || !lastName.trim()) {
+      setErr("Please enter your first and last name");
+      return;
+    }
+    const isoDob = parseDob(dob);
+    if (!isoDob) {
+      setErr("Enter a valid date of birth (DD/MM/YYYY)");
+      return;
+    }
+    if (!email || password.length < 6) {
+      setErr("Enter email and a password (min 6 chars)");
       return;
     }
     setLoading(true);
     try {
-      await registerEmail(name, email.trim(), password);
+      await registerEmail({
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        date_of_birth: isoDob,
+        email: email.trim(),
+        password,
+      });
       router.replace({ pathname: "/(auth)/verify", params: { email: email.trim().toLowerCase() } });
     } catch (e: any) {
       setErr(e?.message || "Sign up failed");
@@ -63,11 +104,31 @@ export default function Register() {
           <Text style={styles.subtitle}>Join the Maxenergy Fitness community.</Text>
 
           <TextInput
-            testID="register-name-input"
-            placeholder="Full name"
+            testID="register-first-name-input"
+            placeholder="First name"
             placeholderTextColor={colors.onSurfaceSecondary}
-            value={name}
-            onChangeText={setName}
+            autoCapitalize="words"
+            value={firstName}
+            onChangeText={setFirstName}
+            style={styles.input}
+          />
+          <TextInput
+            testID="register-last-name-input"
+            placeholder="Last name"
+            placeholderTextColor={colors.onSurfaceSecondary}
+            autoCapitalize="words"
+            value={lastName}
+            onChangeText={setLastName}
+            style={styles.input}
+          />
+          <TextInput
+            testID="register-dob-input"
+            placeholder="Date of birth (DD/MM/YYYY)"
+            placeholderTextColor={colors.onSurfaceSecondary}
+            keyboardType="number-pad"
+            value={dob}
+            onChangeText={onDobChange}
+            maxLength={10}
             style={styles.input}
           />
           <TextInput

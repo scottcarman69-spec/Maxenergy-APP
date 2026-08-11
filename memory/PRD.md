@@ -496,3 +496,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Update: Matching booking/order numbers (Jun 2026 fork)
 - Added booking_ref_no(booking_id) -> stable 5-digit number, now shown consistently: Square payment note ("<Class> — Booking No. N — <Name> (App Booking)"), class receipt (booking_no) + receipts list, member bookings (_enrich_bookings adds booking_no) and admin bookings ("No. N" line). Store: order_ref persisted on tx; store receipt shows order_no matching the Square "Order No.". Verified bk_8f8669ae1032 -> 84722 in both admin bookings API and the Square note format. Frontend: receipt.tsx + store-receipt.tsx (screen + PDF) + admin/bookings.tsx updated.
+
+## Update: Registration now collects first/last name + DOB (Jun 2026 fork)
+- New-member sign-up requires First name, Last name, and Date of birth (added identity/security). Frontend register.tsx: separate first/last name inputs + a DD/MM/YYYY masked DOB input with client validation (valid calendar date, not future, age 5-100). Sends {first_name,last_name,date_of_birth(YYYY-MM-DD),email,password}.
+- Backend RegisterReq updated; /auth/register validates DOB (400 on invalid/future/out-of-range), stores first_name/last_name/date_of_birth and derives name = "First Last". api.register + AuthContext.registerEmail take a payload object.
+- Verified: valid register returns token (name "Jane Doe", dob stored 1995-06-15); future DOB -> 400; missing last name -> 422. Google social login unaffected.

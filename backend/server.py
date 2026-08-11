@@ -617,9 +617,12 @@ async def require_admin(authorization: Optional[str] = Header(None)) -> dict:
 
 # -------------------- models --------------------
 class RegisterReq(BaseModel):
-    name: str
+    first_name: str = Field(min_length=1)
+    last_name: str = Field(min_length=1)
+    date_of_birth: str  # ISO date YYYY-MM-DD
     email: EmailStr
     password: str = Field(min_length=6)
+    name: Optional[str] = None
 
 
 class LoginReq(BaseModel):
@@ -739,11 +742,28 @@ async def auth_register(body: RegisterReq, request: Request):
     existing = await db.users.find_one({"email": body.email.lower()})
     if existing:
         raise HTTPException(status_code=409, detail="Email already registered")
+    # Validate date of birth (added identity check for new members).
+    try:
+        dob = datetime.strptime(body.date_of_birth.strip(), "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Enter a valid date of birth")
+    today = now_utc().date()
+    if dob > today:
+        raise HTTPException(status_code=400, detail="Date of birth can't be in the future")
+    age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+    if age < 5 or age > 100:
+        raise HTTPException(status_code=400, detail="Please enter a valid date of birth")
+    first = body.first_name.strip()
+    last = body.last_name.strip()
+    full_name = (f"{first} {last}").strip()
     user_id = new_id("user")
     doc = {
         "user_id": user_id,
         "email": body.email.lower(),
-        "name": body.name,
+        "name": full_name,
+        "first_name": first,
+        "last_name": last,
+        "date_of_birth": body.date_of_birth.strip(),
         "password_hash": hash_pw(body.password),
         "provider": "password",
         "picture": None,

@@ -54,8 +54,8 @@ async function req(path: string, opts: RequestInit = {}) {
 }
 
 export const api = {
-  register: (name: string, email: string, password: string) =>
-    req("/api/auth/register", { method: "POST", body: JSON.stringify({ name, email, password }) }),
+  register: (payload: { first_name: string; last_name: string; date_of_birth: string; email: string; password: string }) =>
+    req("/api/auth/register", { method: "POST", body: JSON.stringify(payload) }),
   login: (email: string, password: string) =>
     req("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
   googleSession: (session_id: string) =>
