@@ -25,6 +25,7 @@ import ScreenBg from "@/src/components/ScreenBg";
 import { gymPhotos } from "@/src/gymPhotos";
 import { coachSource } from "@/src/coaches";
 import FacebookFeed from "@/src/components/FacebookFeed";
+import LiveNowBanner from "@/src/components/LiveNowBanner";
 
 const CARD_W = Math.min(Dimensions.get("window").width, 480);
 
@@ -183,6 +184,8 @@ export default function Home() {
             </Text>
           </View>
         </View>
+
+        <LiveNowBanner classes={scheduled} />
 
         <Pressable testID="home-store-btn" onPress={() => router.push("/memberships")} style={[styles.verifyBanner, { marginTop: spacing.lg }]}>
           <Ionicons name="card-outline" size={20} color={colors.brand} />

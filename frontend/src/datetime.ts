@@ -30,6 +30,11 @@ export function classDate(iso?: string, opts: Intl.DateTimeFormatOptions = {}): 
   if (!iso) return "";
   return toDate(iso).toLocaleDateString(LOCALE, { ...opts, timeZone: "UTC" });
 }
+// Absolute ms of a class/event start_at (QLD wall-clock interpreted as UTC).
+export function classStartMs(iso?: string): number {
+  if (!iso) return NaN;
+  return toDate(iso).getTime();
+}
 // A UTC-midnight Date carrying the schedule's wall-clock Y/M/D (for day grouping).
 export function scheduleDay(iso: string): Date {
   const d = toDate(iso);
@@ -50,6 +55,19 @@ export function qldTodayUTC(): Date {
 }
 export function qldHour(): number {
   return Number(new Date().toLocaleString(LOCALE, { hour: "numeric", hour12: false, timeZone: QLD })) % 24;
+}
+// Current Queensland wall-clock as a UTC-based Date, so it is directly
+// comparable to a class/event `start_at` (which stores QLD wall-clock as UTC).
+export function qldNowUTC(): Date {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: QLD,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+  }).formatToParts(new Date());
+  const g = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  let h = g("hour");
+  if (h === 24) h = 0; // some engines report midnight as 24
+  return new Date(Date.UTC(g("year"), g("month") - 1, g("day"), h, g("minute"), g("second")));
 }
 
 // ---- True UTC instants (created_at / paid_at / message times) → Queensland ----
