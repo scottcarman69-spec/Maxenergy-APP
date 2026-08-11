@@ -1624,6 +1624,8 @@ async def fulfill_store_purchase(tx: dict) -> None:
     now = now_utc()
     if p.get("type") in ("membership", "pass") and p.get("days"):
         cur_exp = user.get("membership_expires_at")
+        if isinstance(cur_exp, datetime) and cur_exp.tzinfo is None:
+            cur_exp = cur_exp.replace(tzinfo=timezone.utc)
         base_dt = cur_exp if isinstance(cur_exp, datetime) and cur_exp > now else now
         upd["membership_expires_at"] = base_dt + timedelta(days=p["days"])
         upd["membership_plan"] = p["name"]

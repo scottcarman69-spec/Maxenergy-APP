@@ -472,3 +472,7 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - SEC-003 (Med): class-pass deduction is now atomic (guarded $inc, modified_count check) in admin scan redemption AND payments checkout use_class_pass (booking claim guard too). Verified: 6 concurrent scans on a 1-pass account -> exactly 1 success, balance never negative.
 - Hardening: added esc() HTML-escape helper; escaped user-supplied names/class names in confirmation + admin emails (booking confirm/create/cancel/reschedule).
 - Not code-fixable here (deploy-managed): SEC-004 JWT_SECRET rotation + SEC-005 secret rotation happen at Publish/Deploy (protected env). CORS/rate-limiting left as P3.
+
+## Update: Health check fixes (Jun 2026 fork)
+- Fixed 500 crash in fulfill_store_purchase (line ~1627): membership_expires_at from Mongo could be tz-naive and was compared to aware now_utc() -> "can't compare offset-naive and offset-aware datetimes". Now normalizes cur_exp to UTC-aware before compare. Verified /api/store/receipt/latest returns clean 404 (was 500).
+- FLAGGED (infra, not code): EMERGENT_EMAIL_KEY returning 401 "API key is invalid" then 403 "This API key is suspended" -> ALL emails failing (booking/receipt/cancellation confirmations + OTP verify/reset codes). Needs the managed email key restored.
