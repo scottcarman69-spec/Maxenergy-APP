@@ -48,7 +48,6 @@ export default function MembershipsScreen() {
 
   const load = useCallback(async () => {
     try {
-      try { await api.reconcilePayments(); } catch {}
       const r = await api.storeProducts();
       setProducts(r.products || []);
       setFirstAvail(!!r.first_purchase_available);
@@ -56,6 +55,8 @@ export default function MembershipsScreen() {
       setMemberExp(r.membership_expires_at || null);
     } catch {}
     setLoading(false);
+    // Reconcile any pending Square payments in the background (doesn't block the UI).
+    api.reconcilePayments().catch(() => {});
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -89,7 +90,7 @@ export default function MembershipsScreen() {
         await new Promise((r) => setTimeout(r, 1500));
         try {
           const s = await api.storeStatus(session_id);
-          if (s.payment_status === "paid") { setMsg("✅ Purchase confirmed! Your account has been updated."); await load(); setBusy(null); return; }
+          if (s.payment_status === "paid") { setBusy(null); router.push({ pathname: "/store-receipt", params: { session_id } }); return; }
         } catch {}
       }
       setMsg("Still processing — your purchase will appear once confirmed.");

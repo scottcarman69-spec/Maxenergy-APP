@@ -425,3 +425,10 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - payment-return handles ?store=1 -> /memberships.
 - TODO(optional): consume class_pass_credits at class booking; gate booking on membership_active; admin Purchases list.
 - Verified: pricing (mem_1m base 15000 -> disc 1500 + keytag 4000 = 17500), fulfillment (membership expiry/keytag, +10 class credits, first_purchase_used), notifications.
+
+## Update: Store receipts + faster store + pricing polish (Jun 2026 fork)
+- Store purchases now show a proper receipt. NEW backend GET /api/store/receipt/{session_id} (syncs Square if unpaid) + GET /api/store/receipt/latest (most recent store tx in 6h). NEW screen /store-receipt.tsx (PAID card: item, amount, key tag, start date/setup time, active-until/credits, receipt #, share/save PDF). Native buy() -> router.push /store-receipt?session_id; web Square redirect -> payment-return?store=1 -> /store-receipt (latest). Verified E2E via Square sandbox (pass + upfront membership).
+- Faster store: memberships.tsx load() no longer blocks on reconcilePayments (moved to background) — product list renders ~0.3s.
+- Access-card setup modal: replaced text inputs with day-chip (next 30 QLD days) + time-chip pickers (bottom sheet). Sends human-readable start_date + meet_time to checkout.
+- Plan perks: STORE_PRODUCTS gained per-product `perks` list (auto-flows to store cards as a checkmark list). Trimmed per user: removed "Muay Thai, Kickboxing & Boot Camp" (7 Day Pass), "Unlimited classes for 30 days"+"All class types included" (1m), "All class types included" (6m/12m).
+- Pricing cards restyled translucent (rgba fill + faint border) so they're less bright; MOST POPULAR gets a subtle orange tint.

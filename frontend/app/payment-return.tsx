@@ -12,7 +12,7 @@ export default function PaymentReturn() {
   useEffect(() => {
     const t = setTimeout(() => {
       if (success && params.store) {
-        router.replace("/memberships");
+        router.replace("/store-receipt");
       } else if (success && params.booking_id) {
         router.replace({ pathname: "/receipt", params: { booking_id: String(params.booking_id) } });
       } else {

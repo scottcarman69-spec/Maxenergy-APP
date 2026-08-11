@@ -107,6 +107,8 @@ export const api = {
   storeCheckout: (product_id: string, origin_url: string, extra?: { start_date?: string; meet_time?: string }) =>
     req("/api/store/checkout", { method: "POST", body: JSON.stringify({ product_id, origin_url, ...(extra || {}) }) }),
   storeStatus: (session_id: string) => req(`/api/store/status/${session_id}`),
+  storeReceipt: (session_id: string) => req(`/api/store/receipt/${session_id}`),
+  storeReceiptLatest: () => req(`/api/store/receipt/latest`),
   checkinCode: (booking_id: string) => req(`/api/bookings/${booking_id}/checkin-code`),
   scanCheckin: (code: string) =>
     req("/api/admin/checkin/scan", { method: "POST", body: JSON.stringify({ code }) }),

@@ -1785,6 +1785,55 @@ async def store_status(session_id: str, u: dict = Depends(require_user)):
     return {"payment_status": payment_status, "status": status, "product_id": tx.get("product_id")}
 
 
+@api.get("/store/receipt/latest")
+async def store_receipt_latest(u: dict = Depends(require_user)):
+    cutoff = now_utc() - timedelta(hours=6)
+    tx = await db.payment_transactions.find_one(
+        {"user_id": u["user_id"], "kind": "store", "created_at": {"$gte": cutoff}},
+        {"_id": 0}, sort=[("created_at", -1)],
+    )
+    if not tx:
+        raise HTTPException(404, "No recent purchase")
+    return await store_receipt(tx["session_id"], u)
+
+
+@api.get("/store/receipt/{session_id}")
+async def store_receipt(session_id: str, u: dict = Depends(require_user)):
+    tx = await db.payment_transactions.find_one({"session_id": session_id, "user_id": u["user_id"]}, {"_id": 0})
+    if not tx:
+        raise HTTPException(404, "Purchase not found")
+    if tx.get("payment_status") != "paid":
+        # Web redirect can arrive before any poll ran — sync with Square now.
+        await sync_square_payment(tx)
+        tx = await db.payment_transactions.find_one({"session_id": session_id, "user_id": u["user_id"]}, {"_id": 0}) or tx
+    if tx.get("payment_status") != "paid":
+        raise HTTPException(409, "Purchase not paid")
+    p = STORE_PRODUCTS.get(tx.get("product_id"), {})
+    fresh = await db.users.find_one({"user_id": u["user_id"]}, {"_id": 0}) or u
+    exp = fresh.get("membership_expires_at")
+    paid_at = tx.get("fulfilled_at") or tx.get("updated_at") or tx.get("created_at")
+    return {
+        "session_id": session_id,
+        "receipt_number": str(session_id).replace("store_", "").upper()[:10],
+        "product_name": p.get("name") or "Purchase",
+        "product_type": p.get("type"),
+        "key_tag": bool(tx.get("key_tag")),
+        "start_date": tx.get("start_date"),
+        "meet_time": tx.get("meet_time"),
+        "amount_cents": tx.get("amount", 0),
+        "currency": (tx.get("currency") or "aud").upper(),
+        "paid_at": paid_at.isoformat() if isinstance(paid_at, datetime) else paid_at,
+        "payment_method": "Square",
+        "order_id": tx.get("square_order_id"),
+        "membership_expires_at": exp.isoformat() if isinstance(exp, datetime) else None,
+        "class_pass_credits": int(fresh.get("class_pass_credits", 0)),
+        "member_name": u.get("name") or u.get("email"),
+        "member_email": u.get("email"),
+        "location": GYM_INFO["address"],
+    }
+
+
+
 @api.get("/payments/receipt/{booking_id}")
 async def payment_receipt(booking_id: str, u: dict = Depends(require_user)):
     b = await db.bookings.find_one({"booking_id": booking_id, "user_id": u["user_id"]}, {"_id": 0})
