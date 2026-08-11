@@ -128,6 +128,7 @@ export default function Home() {
   // Scheduled (fixed-time) classes only — exclude by-appointment options and ended ones.
   const scheduled = classes.filter((c) => !c.by_appointment && !c.ended);
   const upcoming = scheduled.slice(0, 6);
+  const nextClass = scheduled[0];
   const todayKey = qldTodayUTC().toISOString().slice(0, 10);
   const todayCount = scheduled.filter((c) => scheduleDay(c.start_at).toISOString().slice(0, 10) === todayKey).length;
 
@@ -232,6 +233,32 @@ export default function Home() {
         )}
 
         <LiveNowBanner classes={scheduled} />
+
+        <View style={styles.shortcutRow}>
+          <Pressable
+            testID="home-book-next"
+            style={({ pressed }) => [styles.shortcutBtn, pressed && { opacity: 0.9 }]}
+            onPress={() => (nextClass ? router.push({ pathname: "/class/[id]", params: { id: nextClass.class_id } }) : router.navigate("/(tabs)/timetable"))}
+          >
+            <View style={[styles.shortcutIcon, { backgroundColor: colors.brandTertiary }]}>
+              <Ionicons name="flash" size={20} color={colors.brand} />
+            </View>
+            <Text style={styles.shortcutTitle}>Book next class</Text>
+            <Text style={styles.shortcutSub} numberOfLines={1}>{nextClass ? nextClass.name : "See timetable"}</Text>
+          </Pressable>
+
+          <Pressable
+            testID="home-my-bookings"
+            style={({ pressed }) => [styles.shortcutBtn, pressed && { opacity: 0.9 }]}
+            onPress={() => router.push("/bookings")}
+          >
+            <View style={[styles.shortcutIcon, { backgroundColor: "rgba(34,197,94,0.15)" }]}>
+              <Ionicons name="bookmark" size={20} color="#22C55E" />
+            </View>
+            <Text style={styles.shortcutTitle}>My bookings</Text>
+            <Text style={styles.shortcutSub} numberOfLines={1}>View & manage</Text>
+          </Pressable>
+        </View>
 
         <Pressable testID="home-store-btn" onPress={() => router.push("/memberships")} style={[styles.verifyBanner, { marginTop: spacing.lg }]}>
           <Ionicons name="card-outline" size={20} color={colors.brand} />
@@ -481,6 +508,11 @@ const styles = StyleSheet.create({
   avatarText: { color: colors.onSurface, fontFamily: font.display, fontSize: 18 },
   avatarDot: { position: "absolute", top: 2, right: 2, width: 11, height: 11, borderRadius: 6, backgroundColor: colors.brand, borderWidth: 2, borderColor: colors.surface },
   greetBlock: { paddingHorizontal: spacing.lg, marginTop: spacing.sm },
+  shortcutRow: { flexDirection: "row", gap: spacing.md, paddingHorizontal: spacing.lg, marginTop: spacing.lg },
+  shortcutBtn: { flex: 1, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md },
+  shortcutIcon: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", marginBottom: spacing.sm },
+  shortcutTitle: { color: colors.onSurface, fontSize: 15, fontFamily: font.heading },
+  shortcutSub: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 2 },
   welcomeCard: { marginHorizontal: spacing.lg, marginTop: spacing.lg, padding: spacing.lg, backgroundColor: colors.brandTertiary, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.brand, gap: 6 },
   welcomeClose: { position: "absolute", top: 10, right: 10, width: 30, height: 30, alignItems: "center", justifyContent: "center", zIndex: 2 },
   welcomeIcon: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center", marginBottom: 4 },
