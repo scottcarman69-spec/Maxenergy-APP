@@ -112,12 +112,13 @@ export default function Profile() {
           </View>
 
           {!!user?.credit_cents && user.credit_cents > 0 && (
-            <View style={styles.creditBanner} testID="profile-credit">
+            <Pressable style={styles.creditBanner} testID="profile-credit" onPress={() => router.push("/credits")}>
               <Ionicons name="wallet" size={18} color={colors.brand} />
               <Text style={styles.creditBannerText}>
                 ${(user.credit_cents / 100).toFixed(2)} account credit — use it when you book a class
               </Text>
-            </View>
+              <Ionicons name="chevron-forward" size={16} color={colors.brand} />
+            </Pressable>
           )}
         </View>
 

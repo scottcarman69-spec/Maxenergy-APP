@@ -102,6 +102,7 @@ export const api = {
   reconcilePayments: () => req("/api/payments/reconcile", { method: "POST" }),
   paymentReceipt: (booking_id: string) => req(`/api/payments/receipt/${booking_id}`),
   myReceipts: () => req("/api/payments/receipts"),
+  myCredits: () => req("/api/credits"),
   checkinCode: (booking_id: string) => req(`/api/bookings/${booking_id}/checkin-code`),
   scanCheckin: (code: string) =>
     req("/api/admin/checkin/scan", { method: "POST", body: JSON.stringify({ code }) }),

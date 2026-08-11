@@ -1704,6 +1704,20 @@ async def my_receipts(u: dict = Depends(require_user)):
     return {"receipts": out}
 
 
+@api.get("/credits")
+async def my_credits(u: dict = Depends(require_user)):
+    """Member's current credit balance + history of credits earned and spent."""
+    fresh = await db.users.find_one({"user_id": u["user_id"]}, {"_id": 0, "credit_cents": 1})
+    rows = await db.credit_ledger.find({"user_id": u["user_id"]}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    entries = [{
+        "ledger_id": r.get("ledger_id"),
+        "delta_cents": int(r.get("delta_cents", 0)),
+        "reason": r.get("reason"),
+        "created_at": r["created_at"].isoformat() if isinstance(r.get("created_at"), datetime) else r.get("created_at"),
+    } for r in rows]
+    return {"balance_cents": int((fresh or {}).get("credit_cents", 0)), "entries": entries}
+
+
 @api.post("/webhook/stripe")
 async def stripe_webhook(request: Request):
     payload = await request.body()
