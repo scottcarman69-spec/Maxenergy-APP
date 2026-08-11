@@ -13,7 +13,8 @@ type Refund = {
   member_email?: string;
   amount_cents: number;
   currency: string;
-  refund_status: "pending" | "credited" | "refunded";
+  refund_status: "pending" | "credited" | "refunded" | "pass_returned";
+  paid_with_pass?: boolean;
   flagged_at?: string;
 };
 
@@ -21,6 +22,7 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
   pending: { label: "OWED", color: colors.warning },
   credited: { label: "CREDITED", color: colors.success },
   refunded: { label: "REFUNDED", color: colors.info },
+  pass_returned: { label: "PASS RETURNED", color: "#22C55E" },
 };
 
 export default function AdminRefunds() {
@@ -41,11 +43,15 @@ export default function AdminRefunds() {
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const resolve = async (booking_id: string, method: "credit" | "refunded") => {
+  const resolve = async (booking_id: string, method: "credit" | "refunded" | "class_pass") => {
     setBusy(booking_id + method);
     try {
       await api.adminResolveRefund(booking_id, method);
-      setToast(method === "credit" ? "Credit added to member's account." : "Marked as refunded — member notified.");
+      setToast(
+        method === "credit" ? "Credit added to member's account." :
+        method === "class_pass" ? "Class pass returned — member notified." :
+        "Marked as refunded — member notified."
+      );
       await load();
     } catch (e: any) {
       setToast(e?.message || "Could not update");
@@ -97,35 +103,72 @@ export default function AdminRefunds() {
                   {!!r.member_email && <Text style={styles.metaSub}>{r.member_email}</Text>}
                 </View>
                 <View style={styles.amountBox}>
-                  <Text style={styles.amount}>${(r.amount_cents / 100).toFixed(2)}</Text>
-                  <Text style={styles.cur}>{r.currency}</Text>
-                </View>
-              </View>
-              <View style={styles.actions}>
-                <Pressable
-                  testID={`refund-credit-${r.booking_id}`}
-                  style={styles.creditBtn}
-                  onPress={() => resolve(r.booking_id, "credit")}
-                  disabled={!!busy}
-                >
-                  {busy === r.booking_id + "credit" ? <ActivityIndicator color={colors.onBrand} size="small" /> : (
+                  {r.paid_with_pass ? (
                     <>
-                      <Ionicons name="wallet" size={15} color={colors.onBrand} />
-                      <Text style={styles.creditBtnText}>Give ${(r.amount_cents / 100).toFixed(0)} credit</Text>
+                      <Ionicons name="ticket" size={18} color="#22C55E" />
+                      <Text style={[styles.cur, { color: "#22C55E", fontWeight: "800" }]}>1 CLASS PASS</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.amount}>${(r.amount_cents / 100).toFixed(2)}</Text>
+                      <Text style={styles.cur}>{r.currency}</Text>
                     </>
                   )}
-                </Pressable>
-                <Pressable
-                  testID={`refund-refunded-${r.booking_id}`}
-                  style={styles.refundedBtn}
-                  onPress={() => resolve(r.booking_id, "refunded")}
-                  disabled={!!busy}
-                >
-                  {busy === r.booking_id + "refunded" ? <ActivityIndicator color={colors.onSurface} size="small" /> : (
-                    <Text style={styles.refundedBtnText}>Mark refunded</Text>
-                  )}
-                </Pressable>
+                </View>
               </View>
+              {r.paid_with_pass ? (
+                <View style={styles.actions}>
+                  <Pressable
+                    testID={`refund-pass-${r.booking_id}`}
+                    style={styles.passBtn}
+                    onPress={() => resolve(r.booking_id, "class_pass")}
+                    disabled={!!busy}
+                  >
+                    {busy === r.booking_id + "class_pass" ? <ActivityIndicator color="#fff" size="small" /> : (
+                      <>
+                        <Ionicons name="ticket" size={15} color="#fff" />
+                        <Text style={styles.passBtnText}>Return class pass</Text>
+                      </>
+                    )}
+                  </Pressable>
+                  <Pressable
+                    testID={`refund-refunded-${r.booking_id}`}
+                    style={styles.refundedBtn}
+                    onPress={() => resolve(r.booking_id, "refunded")}
+                    disabled={!!busy}
+                  >
+                    {busy === r.booking_id + "refunded" ? <ActivityIndicator color={colors.onSurface} size="small" /> : (
+                      <Text style={styles.refundedBtnText}>No return</Text>
+                    )}
+                  </Pressable>
+                </View>
+              ) : (
+                <View style={styles.actions}>
+                  <Pressable
+                    testID={`refund-credit-${r.booking_id}`}
+                    style={styles.creditBtn}
+                    onPress={() => resolve(r.booking_id, "credit")}
+                    disabled={!!busy}
+                  >
+                    {busy === r.booking_id + "credit" ? <ActivityIndicator color={colors.onBrand} size="small" /> : (
+                      <>
+                        <Ionicons name="wallet" size={15} color={colors.onBrand} />
+                        <Text style={styles.creditBtnText}>Give ${(r.amount_cents / 100).toFixed(0)} credit</Text>
+                      </>
+                    )}
+                  </Pressable>
+                  <Pressable
+                    testID={`refund-refunded-${r.booking_id}`}
+                    style={styles.refundedBtn}
+                    onPress={() => resolve(r.booking_id, "refunded")}
+                    disabled={!!busy}
+                  >
+                    {busy === r.booking_id + "refunded" ? <ActivityIndicator color={colors.onSurface} size="small" /> : (
+                      <Text style={styles.refundedBtnText}>Mark refunded</Text>
+                    )}
+                  </Pressable>
+                </View>
+              )}
             </View>
           ))}
 
@@ -142,7 +185,11 @@ export default function AdminRefunds() {
                         <Text style={styles.meta}>{r.class_name}</Text>
                       </View>
                       <View style={{ alignItems: "flex-end", gap: 4 }}>
-                        <Text style={styles.amount}>${(r.amount_cents / 100).toFixed(2)}</Text>
+                        {r.paid_with_pass ? (
+                          <Text style={styles.amount}>1 pass</Text>
+                        ) : (
+                          <Text style={styles.amount}>${(r.amount_cents / 100).toFixed(2)}</Text>
+                        )}
                         <View style={[styles.statusPill, { backgroundColor: m.color }]}>
                           <Text style={styles.statusText}>{m.label}</Text>
                         </View>
@@ -189,6 +236,8 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
   creditBtn: { flex: 1.3, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.brand, paddingVertical: 11, borderRadius: radius.md },
   creditBtnText: { color: colors.onBrand, fontWeight: "800", fontSize: 13 },
+  passBtn: { flex: 1.5, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: "#22C55E", paddingVertical: 11, borderRadius: radius.md },
+  passBtnText: { color: "#fff", fontWeight: "800", fontSize: 13 },
   refundedBtn: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 11, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
   refundedBtnText: { color: colors.onSurface, fontWeight: "800", fontSize: 13 },
   sectionLabel: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "800", letterSpacing: 1, marginTop: spacing.lg, marginBottom: 2 },

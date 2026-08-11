@@ -449,3 +449,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 ## Update: Low-pass reminder nudge (Jun 2026 fork)
 - When a member's class-pass balance drops to 1 ("You're on your last class pass ⏳") or 0 ("You're out of class passes"), they get an in-app + email nudge to top up, with data.nav=member_store (tap opens /memberships). Fires from both deduction paths: admin QR redemption and pay-with-pass at booking checkout. Added low_pass_nudge() helper (server.py). alerts.tsx handles the new member_store nav.
 - Curl-verified: 2 passes -> two redemptions produced "last pass" (at 1) then "out" (at 0) nudges, both nav=member_store.
+
+## Update: Refund a class pass on cancellation (Jun 2026 fork)
+- When a class is cancelled, pass-paid bookings (paid_with_pass) are flagged for refund like other paid bookings. Admin → Refunds & Credits now shows these with a green "1 CLASS PASS" tag (excluded from the $ owed total) and a "Return class pass" action (or "No return").
+- Backend: admin_refunds returns paid_with_pass; admin_refund_resolve gains method "class_pass" -> +1 class_pass_credits, pass_ledger +1 ("Pass returned — <class> cancelled"), refund_status "pass_returned", notifies member (nav member_store). RefundResolveReq supports credit|refunded|class_pass.
+- Frontend refunds.tsx branches pass bookings to the return-pass UI; STATUS_META adds PASS RETURNED; api.adminResolveRefund accepts class_pass.
+- Curl-verified: pass booking -> cancel flags it paid_with_pass -> return pass restores 1->2 with ledger entry. Screenshot confirmed the green pass card + Return class pass button.

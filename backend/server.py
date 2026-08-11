@@ -2888,7 +2888,7 @@ async def admin_class_restore(class_id: str, u: dict = Depends(require_admin)):
 async def admin_refunds(u: dict = Depends(require_admin)):
     """Members owed a refund/credit after a class cancellation."""
     rows = await db.bookings.find(
-        {"refund_status": {"$in": ["pending", "credited", "refunded"]}}, {"_id": 0}
+        {"refund_status": {"$in": ["pending", "credited", "refunded", "pass_returned"]}}, {"_id": 0}
     ).sort("refund_flagged_at", -1).to_list(500)
     out = []
     for b in rows:
@@ -2902,14 +2902,15 @@ async def admin_refunds(u: dict = Depends(require_admin)):
             "amount_cents": int(b.get("refund_amount_cents", b.get("amount", 0))),
             "currency": (b.get("currency") or "aud").upper(),
             "refund_status": b.get("refund_status"),
+            "paid_with_pass": bool(b.get("paid_with_pass")),
             "flagged_at": b.get("refund_flagged_at").isoformat() if isinstance(b.get("refund_flagged_at"), datetime) else b.get("refund_flagged_at"),
         })
-    pending_total = sum(r["amount_cents"] for r in out if r["refund_status"] == "pending")
+    pending_total = sum(r["amount_cents"] for r in out if r["refund_status"] == "pending" and not r["paid_with_pass"])
     return {"refunds": out, "pending_total_cents": pending_total}
 
 
 class RefundResolveReq(BaseModel):
-    method: str  # "credit" | "refunded"
+    method: str  # "credit" | "refunded" | "class_pass"
 
 
 @api.post("/admin/refunds/{booking_id}/resolve")
@@ -2953,9 +2954,33 @@ async def admin_refund_resolve(booking_id: str, body: RefundResolveReq, u: dict 
             "booking",
             email_lines=[f"Your refund of <b>${amount/100:.2f}</b> for the cancelled <b>{b.get('class_name')}</b> class has been processed."],
         )
+    elif body.method == "class_pass":
+        fresh = await db.users.find_one({"user_id": b["user_id"]}, {"_id": 0, "class_pass_credits": 1})
+        left = int((fresh or {}).get("class_pass_credits", 0)) + 1
+        await db.users.update_one({"user_id": b["user_id"]}, {"$set": {"class_pass_credits": left}})
+        await db.pass_ledger.insert_one({
+            "pass_ledger_id": new_id("pl"), "user_id": b["user_id"], "delta": 1,
+            "reason": f"Pass returned — {b.get('class_name')} cancelled", "balance_after": left,
+            "created_at": now_utc(),
+        })
+        await db.bookings.update_one(
+            {"booking_id": booking_id},
+            {"$set": {"refund_status": "pass_returned", "refund_resolved_at": now_utc(), "refund_method": "class_pass"}},
+        )
+        await notify_user(
+            b["user_id"], (member or {}).get("email"),
+            "Class pass returned",
+            f"We've added your class pass back for the cancelled {b.get('class_name')} class. You now have {left} pass{'es' if left != 1 else ''}.",
+            "booking",
+            email_lines=[
+                f"We've returned <b>1 class pass</b> for your cancelled <b>{b.get('class_name')}</b> class.",
+                f"You now have <b>{left}</b> class pass{'es' if left != 1 else ''} ready to use.",
+            ],
+            data={"nav": "member_store"},
+        )
     else:
         raise HTTPException(400, "Invalid method")
-    return {"ok": True, "refund_status": body.method if body.method == "credit" else "refunded"}
+    return {"ok": True, "refund_status": body.method if body.method != "refunded" else "refunded"}
 
 
 @api.post("/admin/announcements")

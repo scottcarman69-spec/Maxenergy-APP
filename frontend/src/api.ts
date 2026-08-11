@@ -164,7 +164,7 @@ export const api = {
     req(`/api/admin/classes/${id}/cancel`, { method: "POST", body: JSON.stringify({ reason: reason || "" }) }),
   adminRestoreClass: (id: string) => req(`/api/admin/classes/${id}/restore`, { method: "POST" }),
   adminRefunds: () => req("/api/admin/refunds"),
-  adminResolveRefund: (booking_id: string, method: "credit" | "refunded") =>
+  adminResolveRefund: (booking_id: string, method: "credit" | "refunded" | "class_pass") =>
     req(`/api/admin/refunds/${booking_id}/resolve`, { method: "POST", body: JSON.stringify({ method }) }),
   adminAdjustCredit: (user_id: string, amount_cents: number, reason?: string) =>
     req(`/api/admin/members/${user_id}/credit`, { method: "POST", body: JSON.stringify({ amount_cents, reason: reason || "" }) }),
