@@ -6,7 +6,7 @@ import { Swipeable } from "react-native-gesture-handler";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { useAuth } from "@/src/AuthContext";
-import { colors, spacing, radius } from "@/src/theme";
+import { colors, spacing, radius, font } from "@/src/theme";
 import { stampTime, stampDate, isQldToday } from "@/src/datetime";
 import ScreenBg from "@/src/components/ScreenBg";
 
@@ -128,9 +128,12 @@ export default function AlertsTab() {
           refreshControl={<RefreshControl tintColor={colors.brand} colors={[colors.brand]} refreshing={refreshing} onRefresh={onRefresh} />}
         >
           {notifs.length === 0 ? (
-            <View style={styles.empty}>
-              <Ionicons name="notifications-off-outline" size={40} color={colors.onSurfaceSecondary} />
-              <Text style={styles.emptyText}>No notifications yet. Booking updates, messages and gym alerts will appear here.</Text>
+            <View style={styles.emptyCard}>
+              <View style={styles.emptyIcon}>
+                <Ionicons name="notifications-outline" size={30} color={colors.brand} />
+              </View>
+              <Text style={styles.emptyTitle}>Nothing here yet</Text>
+              <Text style={styles.emptyText}>Booking updates, messages and gym alerts will appear here as soon as there's news.</Text>
             </View>
           ) : (
             notifs.map((n) => (
@@ -182,7 +185,10 @@ const styles = StyleSheet.create({
   markAllBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 8, paddingHorizontal: 12, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.brand },
   markAllText: { color: colors.brand, fontWeight: "800", fontSize: 12 },
   empty: { alignItems: "center", padding: 50, gap: spacing.md },
-  emptyText: { color: colors.onSurfaceSecondary, textAlign: "center", lineHeight: 20 },
+  emptyCard: { marginTop: spacing.xl, padding: spacing.xxl, backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, alignItems: "center", gap: spacing.sm },
+  emptyIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center", marginBottom: spacing.sm },
+  emptyTitle: { color: colors.onSurface, fontSize: 17, fontFamily: font.heading },
+  emptyText: { color: colors.onSurfaceSecondary, fontSize: 13.5, textAlign: "center", lineHeight: 20 },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
   rowUnread: { borderColor: colors.brand },
   iconWrap: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center" },
