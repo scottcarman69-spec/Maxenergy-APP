@@ -235,8 +235,6 @@ export default function Membership() {
           <ScrollView scrollEnabled={scrollEnabled} contentContainerStyle={{ padding: spacing.lg, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
             {step === 0 && (
               <>
-                <SectionTitle>MEMBERSHIP TYPE</SectionTitle>
-                <Segmented options={["New Membership", "Renewing Membership"]} value={membershipType} onChange={setMembershipType} testIDPrefix="mtype" />
                 <SectionTitle>MEMBERSHIP FORM</SectionTitle>
                 <View style={{ gap: spacing.md }}>
                   <View style={[styles.planCard, styles.planCardOn]}>
