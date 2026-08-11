@@ -144,38 +144,41 @@ export default function Notices() {
                   <Text style={styles.countPillText}>{events.length}</Text>
                 </View>
               </View>
-              {events.map((e) => (
-                <Pressable
-                  key={e.event_id}
-                  testID={`event-card-${e.event_id}`}
-                  onPress={() => router.push({ pathname: "/event/[id]", params: { id: e.event_id } })}
-                  style={({ pressed }) => [styles.evtCard, pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] }]}
-                >
-                  <Image source={e.image} style={styles.evtImage} contentFit="cover" />
-                  <LinearGradient
-                    colors={["transparent", "rgba(18,18,20,0.4)", "rgba(18,18,20,0.96)"]}
-                    locations={[0, 0.5, 1]}
-                    style={StyleSheet.absoluteFill}
-                  />
-                  <View style={styles.evtBadge}>
-                    <Ionicons name="calendar" size={12} color={colors.onBrand} />
-                    <Text style={styles.evtBadgeText}>{fmtEvt(e.start_at)}</Text>
-                  </View>
-                  <View style={styles.evtContent}>
-                    <Text style={styles.evtTitle}>{e.title}</Text>
-                    {!!e.location && (
-                      <View style={styles.evtMeta}>
-                        <Ionicons name="location-outline" size={13} color={colors.onSurfaceSecondary} />
-                        <Text style={styles.evtMetaText} numberOfLines={1}>{e.location}</Text>
+              {events.map((e) => {
+                const grad: [string, string] = ["#10B981", "#059669"];
+                const accent = "#10B981";
+                return (
+                  <Pressable
+                    key={e.event_id}
+                    testID={`event-card-${e.event_id}`}
+                    onPress={() => router.push({ pathname: "/event/[id]", params: { id: e.event_id } })}
+                    style={({ pressed }) => [styles.annCard, pressed && { opacity: 0.9 }]}
+                  >
+                    <View style={[styles.leftBar, { backgroundColor: accent }]} />
+                    <LinearGradient colors={grad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.annIcon}>
+                      <Ionicons name="calendar" size={20} color="#fff" />
+                    </LinearGradient>
+                    <View style={styles.annContent}>
+                      <View style={styles.annTop}>
+                        <Text style={[styles.tag, { color: accent }]}>EVENT</Text>
+                        <Text style={styles.annTime}>{fmtEvt(e.start_at)}</Text>
                       </View>
-                    )}
-                    <View style={styles.evtCta}>
-                      <Text style={styles.evtCtaText}>View & RSVP</Text>
-                      <Ionicons name="arrow-forward" size={13} color={colors.brand} />
+                      <View style={styles.annTitleRow}>
+                        <Text style={styles.annTitle} numberOfLines={1}>{e.title}</Text>
+                        <View style={styles.chevronCircle}>
+                          <Ionicons name="chevron-forward" size={16} color={colors.brand} />
+                        </View>
+                      </View>
+                      {!!e.location && (
+                        <View style={styles.evtMeta}>
+                          <Ionicons name="location-outline" size={13} color={colors.onSurfaceSecondary} />
+                          <Text style={styles.annPreview} numberOfLines={1}>{e.location}</Text>
+                        </View>
+                      )}
                     </View>
-                  </View>
-                </Pressable>
-              ))}
+                  </Pressable>
+                );
+              })}
             </>
           )}
         </ScrollView>
