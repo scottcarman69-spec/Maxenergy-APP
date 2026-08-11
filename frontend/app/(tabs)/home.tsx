@@ -68,7 +68,7 @@ function catStyle(category: string, name = ""): { color: string; icon: any; set:
 }
 
 export default function Home() {
-  const { user } = useAuth();
+  const { user, refresh } = useAuth();
   const router = useRouter();
   const [classes, setClasses] = useState<Cls[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,7 +86,7 @@ export default function Home() {
     setLoading(false);
   }, []);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => { load(); refresh(); }, [load, refresh]));
 
   // Auto-refresh when the app is reopened (foregrounded) so content stays current.
   const appState = useRef(AppState.currentState);
@@ -155,12 +155,10 @@ export default function Home() {
             contentFit="contain"
           />
           <View style={styles.headerActions}>
-            {!user?.is_admin && (
-              <Pressable testID="home-credit-btn" onPress={() => router.push("/credits")} style={styles.creditChip} hitSlop={8}>
-                <Ionicons name="wallet" size={14} color={colors.brand} />
-                <Text style={styles.creditChipText}>${((user?.credit_cents || 0) / 100).toFixed(0)}</Text>
-              </Pressable>
-            )}
+            <Pressable testID="home-credit-btn" onPress={() => router.push("/credits")} style={styles.creditChip} hitSlop={8}>
+              <Ionicons name="wallet" size={14} color={colors.brand} />
+              <Text style={styles.creditChipText}>${((user?.credit_cents || 0) / 100).toFixed(0)}</Text>
+            </Pressable>
             <Pressable testID="home-calendar-btn" onPress={() => router.push(user?.is_admin ? "/admin/calendar" : "/calendar")} style={styles.calChip} hitSlop={8}>
               <Text style={styles.calChipMonth}>{qldTodayUTC().toLocaleDateString("en-AU", { month: "short", timeZone: "UTC" }).toUpperCase()}</Text>
               <Text style={styles.calChipDay}>{qldTodayUTC().getUTCDate()}</Text>
