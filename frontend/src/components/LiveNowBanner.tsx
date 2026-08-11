@@ -72,29 +72,23 @@ export default function LiveNowBanner({ classes }: { classes: Cls[] }) {
       onPress={() => router.push({ pathname: "/class/[id]", params: { id: live.class_id } })}
       style={({ pressed }) => [styles.card, pressed && { opacity: 0.92 }]}
     >
-      <View style={styles.topRow}>
+      <View style={styles.row}>
         <View style={styles.liveTag}>
           <Animated.View style={[styles.liveDot, { opacity: pulse }]} />
-          <Text style={styles.liveText}>LIVE NOW</Text>
+          <Text style={styles.liveText}>LIVE</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.name} numberOfLines={1}>{live.name}</Text>
+          <Text style={styles.meta} numberOfLines={1}>{live.trainer} · {live.duration_min} min</Text>
         </View>
         <View style={styles.timerPill}>
-          <Ionicons name="timer-outline" size={13} color={colors.brand} />
+          <Ionicons name="timer-outline" size={12} color={colors.brand} />
           <Text style={styles.timerText}>{fmtRemaining(remaining)}</Text>
         </View>
       </View>
-
-      <Text style={styles.name} numberOfLines={1}>{live.name}</Text>
-      <View style={styles.metaRow}>
-        <Ionicons name="person-outline" size={13} color={colors.onSurfaceSecondary} />
-        <Text style={styles.meta} numberOfLines={1}>{live.trainer}</Text>
-        <Text style={styles.dot}>·</Text>
-        <Text style={styles.meta}>{live.duration_min} min class</Text>
-      </View>
-
       <View style={styles.progressTrack}>
         <View style={[styles.progressFill, { width: `${elapsed * 100}%` }]} />
       </View>
-      <Text style={styles.remainLabel}>{fmtRemaining(remaining)} remaining</Text>
     </Pressable>
   );
 }
@@ -103,25 +97,23 @@ const styles = StyleSheet.create({
   card: {
     marginHorizontal: spacing.lg,
     marginTop: spacing.lg,
-    padding: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
     backgroundColor: colors.surfaceSecondary,
-    borderRadius: radius.lg,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: "#EF4444",
-    gap: 6,
+    gap: 8,
     overflow: "hidden",
   },
-  topRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  liveTag: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(239,68,68,0.15)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill },
-  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#EF4444" },
-  liveText: { color: "#EF4444", fontSize: 11, fontFamily: font.heading, letterSpacing: 1 },
-  timerPill: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: colors.brandTertiary, paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill },
-  timerText: { color: colors.brand, fontSize: 13, fontFamily: font.heading, fontVariant: ["tabular-nums"] },
-  name: { color: colors.onSurface, fontSize: 22, fontFamily: font.display, letterSpacing: -0.3, marginTop: 4 },
-  metaRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  meta: { color: colors.onSurfaceSecondary, fontSize: 13 },
-  dot: { color: colors.onSurfaceSecondary, fontSize: 13 },
-  progressTrack: { height: 6, borderRadius: 3, backgroundColor: colors.surfaceTertiary, marginTop: 8, overflow: "hidden" },
-  progressFill: { height: 6, borderRadius: 3, backgroundColor: "#EF4444" },
-  remainLabel: { color: colors.onSurfaceSecondary, fontSize: 11.5, marginTop: 2 },
+  row: { flexDirection: "row", alignItems: "center", gap: 10 },
+  liveTag: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(239,68,68,0.15)", paddingHorizontal: 8, paddingVertical: 4, borderRadius: radius.pill },
+  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#EF4444" },
+  liveText: { color: "#EF4444", fontSize: 10, fontFamily: font.heading, letterSpacing: 0.8 },
+  timerPill: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.brandTertiary, paddingHorizontal: 8, paddingVertical: 4, borderRadius: radius.pill },
+  timerText: { color: colors.brand, fontSize: 12, fontFamily: font.heading, fontVariant: ["tabular-nums"] },
+  name: { color: colors.onSurface, fontSize: 15, fontFamily: font.heading },
+  meta: { color: colors.onSurfaceSecondary, fontSize: 11.5, marginTop: 1 },
+  progressTrack: { height: 4, borderRadius: 2, backgroundColor: colors.surfaceTertiary, overflow: "hidden" },
+  progressFill: { height: 4, borderRadius: 2, backgroundColor: "#EF4444" },
 });
