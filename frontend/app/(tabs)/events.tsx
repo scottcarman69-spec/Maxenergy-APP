@@ -72,7 +72,7 @@ export default function Notices() {
       ) : (
         <ScrollView
           contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: 40 }}
-          refreshControl={<RefreshControl tintColor={colors.brand} refreshing={refreshing} onRefresh={onRefresh} />}
+          refreshControl={<RefreshControl tintColor={colors.brand} colors={[colors.brand]} refreshing={refreshing} onRefresh={onRefresh} />}
         >
           {isEmpty && (
             <View style={styles.emptyCard}>

@@ -125,7 +125,7 @@ export default function AlertsTab() {
       ) : (
         <ScrollView
           contentContainerStyle={{ padding: spacing.lg, gap: spacing.sm, paddingBottom: 40 }}
-          refreshControl={<RefreshControl tintColor={colors.brand} refreshing={refreshing} onRefresh={onRefresh} />}
+          refreshControl={<RefreshControl tintColor={colors.brand} colors={[colors.brand]} refreshing={refreshing} onRefresh={onRefresh} />}
         >
           {notifs.length === 0 ? (
             <View style={styles.empty}>
