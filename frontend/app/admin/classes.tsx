@@ -9,6 +9,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Switch,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -70,6 +71,7 @@ export default function AdminClasses() {
   const [err, setErr] = useState<string | null>(null);
   const [cancelFor, setCancelFor] = useState<Cls | null>(null);
   const [cancelReason, setCancelReason] = useState("");
+  const [autoReturnPasses, setAutoReturnPasses] = useState(true);
   const [cancelling, setCancelling] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -150,11 +152,13 @@ export default function AdminClasses() {
     if (!cancelFor) return;
     setCancelling(true);
     try {
-      const r = await api.adminCancelClass(cancelFor.class_id, cancelReason.trim());
+      const r = await api.adminCancelClass(cancelFor.class_id, cancelReason.trim(), autoReturnPasses);
       const n = r?.notified ?? 0;
-      setToast(`Class cancelled. ${n} member${n === 1 ? "" : "s"} notified.`);
+      const pr = r?.passes_returned ?? 0;
+      setToast(`Class cancelled. ${n} member${n === 1 ? "" : "s"} notified${pr ? `, ${pr} pass${pr === 1 ? "" : "es"} returned` : ""}.`);
       setCancelFor(null);
       setCancelReason("");
+      setAutoReturnPasses(true);
       await load();
     } catch (e: any) {
       setErr(e?.message || "Could not cancel class");
@@ -212,7 +216,7 @@ export default function AdminClasses() {
                     <Text style={styles.restoreText}>Restore class</Text>
                   </Pressable>
                 ) : (
-                  <Pressable testID={`adminc-cancel-${c.class_id}`} onPress={() => { setCancelFor(c); setCancelReason(""); setErr(null); }} style={styles.cancelClassBtn}>
+                  <Pressable testID={`adminc-cancel-${c.class_id}`} onPress={() => { setCancelFor(c); setCancelReason(""); setAutoReturnPasses(true); setErr(null); }} style={styles.cancelClassBtn}>
                     <Ionicons name="megaphone-outline" size={14} color={colors.error} />
                     <Text style={styles.cancelClassText}>Cancel & notify members</Text>
                   </Pressable>
@@ -357,6 +361,19 @@ export default function AdminClasses() {
                 multiline
                 style={[styles.input, { minHeight: 64, textAlignVertical: "top" }]}
               />
+              <View style={[styles.toggleRow, { marginTop: spacing.md }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.toggleTitle}>Auto-return class passes</Text>
+                  <Text style={styles.toggleSub}>Members who booked with a class pass get it back instantly.</Text>
+                </View>
+                <Switch
+                  testID="adminc-auto-return-passes"
+                  value={autoReturnPasses}
+                  onValueChange={setAutoReturnPasses}
+                  trackColor={{ false: colors.border, true: "#22C55E" }}
+                  thumbColor="#fff"
+                />
+              </View>
               {err && <Text style={styles.error}>{err}</Text>}
               <View style={styles.confirmActions}>
                 <Pressable testID="adminc-cancel-abort" style={styles.confirmGhost} onPress={() => setCancelFor(null)} disabled={cancelling}>
@@ -385,6 +402,8 @@ const styles = StyleSheet.create({
   cancelBadgeText: { color: "#fff", fontSize: 9, fontWeight: "900", letterSpacing: 0.5 },
   reasonMeta: { color: colors.error, fontSize: 12, marginTop: 4, fontStyle: "italic" },
   cancelClassBtn: { flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start", marginTop: 8, paddingVertical: 5, paddingHorizontal: 10, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.error },
+  toggleTitle: { color: colors.onSurface, fontSize: 14, fontWeight: "800" },
+  toggleSub: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 2, lineHeight: 16 },
   cancelClassText: { color: colors.error, fontSize: 12, fontWeight: "800" },
   restoreBtn: { flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start", marginTop: 8, paddingVertical: 5, paddingHorizontal: 10, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.brand },
   restoreText: { color: colors.brand, fontSize: 12, fontWeight: "800" },

@@ -160,8 +160,8 @@ export const api = {
   adminUpdateClass: (id: string, payload: any) =>
     req(`/api/admin/classes/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
   adminDeleteClass: (id: string) => req(`/api/admin/classes/${id}`, { method: "DELETE" }),
-  adminCancelClass: (id: string, reason?: string) =>
-    req(`/api/admin/classes/${id}/cancel`, { method: "POST", body: JSON.stringify({ reason: reason || "" }) }),
+  adminCancelClass: (id: string, reason?: string, auto_return_passes?: boolean) =>
+    req(`/api/admin/classes/${id}/cancel`, { method: "POST", body: JSON.stringify({ reason: reason || "", auto_return_passes: auto_return_passes !== false }) }),
   adminRestoreClass: (id: string) => req(`/api/admin/classes/${id}/restore`, { method: "POST" }),
   adminRefunds: () => req("/api/admin/refunds"),
   adminResolveRefund: (booking_id: string, method: "credit" | "refunded" | "class_pass") =>

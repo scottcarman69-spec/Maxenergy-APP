@@ -2828,6 +2828,7 @@ def _fmt_class_when(c: dict) -> str:
 
 class ClassCancelReq(BaseModel):
     reason: Optional[str] = None
+    auto_return_passes: Optional[bool] = True
 
 
 @api.post("/admin/classes/{class_id}/cancel")
@@ -2836,6 +2837,7 @@ async def admin_class_cancel(class_id: str, body: ClassCancelReq, u: dict = Depe
     if not c:
         raise HTTPException(404, "Class not found")
     reason = (body.reason or "").strip()
+    auto_pass = body.auto_return_passes is not False
     await db.classes.update_one(
         {"class_id": class_id},
         {"$set": {"cancelled": True, "cancelled_at": now_utc(), "cancel_reason": reason, "cancelled_by": u["user_id"]}},
@@ -2847,9 +2849,29 @@ async def admin_class_cancel(class_id: str, body: ClassCancelReq, u: dict = Depe
     ).to_list(1000)
     notified = 0
     refunds_flagged = 0
+    passes_returned = 0
     for b in active:
         upd = {"status": "cancelled", "cancelled_at": now_utc(), "cancelled_by": "admin_class_cancel"}
-        if b.get("status") == "paid":
+        paid = b.get("status") == "paid"
+        pass_auto_returned = False
+        if paid and b.get("paid_with_pass") and auto_pass:
+            # Return the class pass right away.
+            fresh = await db.users.find_one({"user_id": b["user_id"]}, {"_id": 0, "class_pass_credits": 1})
+            left = int((fresh or {}).get("class_pass_credits", 0)) + 1
+            await db.users.update_one({"user_id": b["user_id"]}, {"$set": {"class_pass_credits": left}})
+            await db.pass_ledger.insert_one({
+                "pass_ledger_id": new_id("pl"), "user_id": b["user_id"], "delta": 1,
+                "reason": f"Pass returned — {c['name']} cancelled", "balance_after": left,
+                "created_at": now_utc(),
+            })
+            upd["refund_status"] = "pass_returned"
+            upd["refund_amount_cents"] = int(b.get("amount", 0))
+            upd["refund_flagged_at"] = now_utc()
+            upd["refund_resolved_at"] = now_utc()
+            upd["refund_method"] = "class_pass"
+            passes_returned += 1
+            pass_auto_returned = True
+        elif paid:
             upd["refund_status"] = "pending"
             upd["refund_amount_cents"] = int(b.get("amount", 0))
             upd["refund_flagged_at"] = now_utc()
@@ -2861,7 +2883,10 @@ async def admin_class_cancel(class_id: str, body: ClassCancelReq, u: dict = Depe
         if reason:
             body_msg += f" Reason: {reason}"
             lines.append(f"Reason: {reason}")
-        if b.get("status") == "paid":
+        if pass_auto_returned:
+            body_msg += " Your class pass has been returned to your account."
+            lines.append("Good news — your <b>class pass has been returned</b> to your account, ready to use again.")
+        elif paid:
             lines.append("You've been flagged for a refund or account credit — the gym will process this shortly.")
         lines.append("Sorry for any inconvenience — we hope to see you in another session soon!")
         await notify_user(
@@ -2869,7 +2894,7 @@ async def admin_class_cancel(class_id: str, body: ClassCancelReq, u: dict = Depe
             "Class cancelled", body_msg, "booking", email_lines=lines,
         )
         notified += 1
-    return {"ok": True, "cancelled": True, "notified": notified, "refunds_flagged": refunds_flagged}
+    return {"ok": True, "cancelled": True, "notified": notified, "refunds_flagged": refunds_flagged, "passes_returned": passes_returned}
 
 
 @api.post("/admin/classes/{class_id}/restore")

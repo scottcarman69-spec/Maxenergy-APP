@@ -455,3 +455,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Backend: admin_refunds returns paid_with_pass; admin_refund_resolve gains method "class_pass" -> +1 class_pass_credits, pass_ledger +1 ("Pass returned — <class> cancelled"), refund_status "pass_returned", notifies member (nav member_store). RefundResolveReq supports credit|refunded|class_pass.
 - Frontend refunds.tsx branches pass bookings to the return-pass UI; STATUS_META adds PASS RETURNED; api.adminResolveRefund accepts class_pass.
 - Curl-verified: pass booking -> cancel flags it paid_with_pass -> return pass restores 1->2 with ledger entry. Screenshot confirmed the green pass card + Return class pass button.
+
+## Update: Auto-return class passes on cancellation (Jun 2026 fork)
+- Admin cancel-class modal now has an "Auto-return class passes" toggle (ON by default). When ON, every pass-paid booking on that class has its class pass returned instantly at cancel time (+1 credit, pass_ledger, refund_status=pass_returned/resolved, refund_method=class_pass) and the member is told their pass was returned. When OFF, pass bookings fall back to the manual "Return class pass" flow in Admin → Refunds & Credits.
+- Backend: ClassCancelReq.auto_return_passes (default True); admin_class_cancel returns passes_returned count. Card-paid bookings still flag pending refunds as before.
+- Frontend: classes.tsx Switch (testID adminc-auto-return-passes); toast reports "N passes returned". api.adminCancelClass passes the flag.
+- Verified: cancel with auto ON -> passes_returned:1, member 0->1 with "Pass returned — <class> cancelled" ledger; toggle renders in modal. Restored all test-cancelled classes/bookings afterward.
