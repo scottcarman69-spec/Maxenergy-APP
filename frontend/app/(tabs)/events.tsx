@@ -81,6 +81,14 @@ export default function Notices() {
               </View>
               <Text style={styles.emptyTitle}>All quiet for now</Text>
               <Text style={styles.emptyText}>New announcements and events will show up here.</Text>
+              <Pressable
+                testID="events-browse-classes"
+                onPress={() => router.navigate("/(tabs)/timetable")}
+                style={({ pressed }) => [styles.emptyBtn, pressed && { opacity: 0.9 }]}
+              >
+                <Ionicons name="calendar-outline" size={16} color={colors.onBrand} />
+                <Text style={styles.emptyBtnText}>Browse classes</Text>
+              </Pressable>
             </View>
           )}
 
@@ -270,4 +278,6 @@ const styles = StyleSheet.create({
   emptyIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center", marginBottom: spacing.sm },
   emptyTitle: { color: colors.onSurface, fontSize: 17, fontFamily: font.heading },
   emptyText: { color: colors.onSurfaceSecondary, fontSize: 13.5, textAlign: "center" },
+  emptyBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, marginTop: spacing.md, backgroundColor: colors.brand, paddingHorizontal: spacing.lg, paddingVertical: 11, borderRadius: radius.pill },
+  emptyBtnText: { color: colors.onBrand, fontSize: 14, fontFamily: font.heading },
 });

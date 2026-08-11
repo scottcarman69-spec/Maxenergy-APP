@@ -134,6 +134,14 @@ export default function AlertsTab() {
               </View>
               <Text style={styles.emptyTitle}>Nothing here yet</Text>
               <Text style={styles.emptyText}>Booking updates, messages and gym alerts will appear here as soon as there's news.</Text>
+              <Pressable
+                testID="alerts-browse-classes"
+                onPress={() => router.navigate("/(tabs)/timetable")}
+                style={({ pressed }) => [styles.emptyBtn, pressed && { opacity: 0.9 }]}
+              >
+                <Ionicons name="calendar-outline" size={16} color={colors.onBrand} />
+                <Text style={styles.emptyBtnText}>Browse classes</Text>
+              </Pressable>
             </View>
           ) : (
             notifs.map((n) => (
@@ -189,6 +197,8 @@ const styles = StyleSheet.create({
   emptyIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center", marginBottom: spacing.sm },
   emptyTitle: { color: colors.onSurface, fontSize: 17, fontFamily: font.heading },
   emptyText: { color: colors.onSurfaceSecondary, fontSize: 13.5, textAlign: "center", lineHeight: 20 },
+  emptyBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, marginTop: spacing.md, backgroundColor: colors.brand, paddingHorizontal: spacing.lg, paddingVertical: 11, borderRadius: radius.pill },
+  emptyBtnText: { color: colors.onBrand, fontSize: 14, fontFamily: font.heading },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
   rowUnread: { borderColor: colors.brand },
   iconWrap: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center" },
