@@ -56,7 +56,7 @@ export default function Membership() {
   const [consentMarketing, setConsentMarketing] = useState<boolean | null>(null);
   const [howFound, setHowFound] = useState("");
   const [category, setCategory] = useState("Adult");
-  const [term, setTerm] = useState("Direct Debit");
+  const [term, setTerm] = useState("Upfront Membership");
 
   const [meds, setMeds] = useState<Record<string, boolean>>({});
   const [conds, setConds] = useState<Record<string, boolean>>({});
@@ -285,13 +285,19 @@ export default function Membership() {
                 <Text style={styles.miniLabel}>Category</Text>
                 <Segmented options={["Adult", "Student", "Senior", "Child 4-16", "Other"]} value={category} onChange={setCategory} testIDPrefix="category" />
                 <View style={{ height: spacing.md }} />
-                <Text style={styles.miniLabel}>Term</Text>
+                <Text style={styles.miniLabel}>Membership option</Text>
                 <Segmented
-                  options={["Direct Debit", "Upfront", "1 Month", "3 Month", "6 Month", "12 Month", "10 Visit Pass"]}
+                  options={["Upfront Membership", "Class Membership"]}
                   value={term}
                   onChange={setTerm}
                   testIDPrefix="term"
                 />
+                <View style={styles.ddNotice}>
+                  <Ionicons name="information-circle" size={18} color={colors.brand} />
+                  <Text style={styles.ddNoticeText}>
+                    Direct debit memberships must be set up via the Vigyr sign-on link (not through this form).
+                  </Text>
+                </View>
               </>
             )}
 
@@ -468,6 +474,8 @@ const styles = StyleSheet.create({
   progressLabel: { color: colors.onSurfaceSecondary, fontSize: 10, fontWeight: "700" },
   miniLabel: { color: colors.onSurfaceSecondary, fontSize: 12, fontWeight: "700", marginBottom: 6 },
   helpText: { color: colors.onSurfaceSecondary, fontSize: 12, marginBottom: spacing.sm },
+  ddNotice: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: spacing.md, backgroundColor: colors.brandTertiary, borderWidth: 1, borderColor: colors.brand, borderRadius: radius.md, padding: spacing.md },
+  ddNoticeText: { color: colors.onSurface, fontSize: 12.5, lineHeight: 18, flex: 1 },
   planCard: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.lg, gap: 6 },
   formIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center" },
   planCardOn: { borderColor: colors.brand, borderWidth: 2 },
