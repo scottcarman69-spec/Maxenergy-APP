@@ -10,7 +10,7 @@ import {
   Platform,
   Modal,
 } from "react-native";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useRouter, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
@@ -30,7 +30,8 @@ const STEPS = ["Plan", "Details", "Medical", "Waiver"];
 
 export default function Membership() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, refresh } = useAuth();
+  const { next } = useLocalSearchParams<{ next?: string }>();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState(0);
@@ -173,6 +174,7 @@ export default function Membership() {
         },
       });
       setDone(true);
+      refresh();
     } catch (e: any) {
       setErr(e?.message || "Could not submit application");
     } finally {
@@ -185,13 +187,20 @@ export default function Membership() {
       <SafeAreaView style={styles.root}>
         <View style={styles.doneWrap}>
           <Ionicons name="checkmark-circle" size={72} color={colors.brand} />
-          <Text style={styles.doneTitle}>Application submitted!</Text>
+          <Text style={styles.doneTitle}>Form submitted!</Text>
           <Text style={styles.doneSub}>
-            Thanks {firstName}. The Maxenergy Team will review your application and be in touch. A confirmation email is on its way.
+            Thanks {firstName}. Your membership form has been sent to the Maxenergy team and is now on file.
+            {next === "store" ? " You can now continue to your purchase." : " A confirmation email is on its way."}
           </Text>
-          <Pressable testID="membership-done-btn" style={styles.primaryBtn} onPress={() => router.replace("/(tabs)/home")}>
-            <Text style={styles.primaryBtnText}>BACK TO HOME</Text>
-          </Pressable>
+          {next === "store" ? (
+            <Pressable testID="membership-done-btn" style={styles.primaryBtn} onPress={() => router.replace("/memberships")}>
+              <Text style={styles.primaryBtnText}>CONTINUE TO PURCHASE</Text>
+            </Pressable>
+          ) : (
+            <Pressable testID="membership-done-btn" style={styles.primaryBtn} onPress={() => router.replace("/(tabs)/home")}>
+              <Text style={styles.primaryBtnText}>BACK TO HOME</Text>
+            </Pressable>
+          )}
         </View>
       </SafeAreaView>
     );

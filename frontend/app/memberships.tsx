@@ -31,6 +31,7 @@ export default function MembershipsScreen() {
   const [firstAvail, setFirstAvail] = useState(false);
   const [passCredits, setPassCredits] = useState(0);
   const [memberExp, setMemberExp] = useState<string | null>(null);
+  const [formDone, setFormDone] = useState(true);
   const [setupFor, setSetupFor] = useState<Product | null>(null);
   const [dayIdx, setDayIdx] = useState<number | null>(null);
   const [hour, setHour] = useState<number | null>(null);
@@ -53,6 +54,7 @@ export default function MembershipsScreen() {
       setFirstAvail(!!r.first_purchase_available);
       setPassCredits(r.class_pass_credits || 0);
       setMemberExp(r.membership_expires_at || null);
+      setFormDone(!!r.membership_form_completed);
     } catch {}
     setLoading(false);
     // Reconcile any pending Square payments in the background (doesn't block the UI).
@@ -61,6 +63,10 @@ export default function MembershipsScreen() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const onBuyPress = (p: Product) => {
+    if (!formDone) {
+      router.push({ pathname: "/membership", params: { next: "store" } });
+      return;
+    }
     if (p.type === "membership") {
       setDayIdx(null); setHour(null); setSetupFor(p);
     } else {
@@ -127,6 +133,22 @@ export default function MembershipsScreen() {
               {memberExp && <Text style={styles.statusText}>Membership active until {new Date(memberExp).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}</Text>}
               {passCredits > 0 && <Text style={styles.statusText}>{passCredits} class pass credit{passCredits === 1 ? "" : "s"} remaining</Text>}
             </View>
+          )}
+
+          {formDone ? (
+            <View style={styles.formOk}>
+              <Ionicons name="shield-checkmark" size={18} color="#22C55E" />
+              <Text style={styles.formOkText}>Membership form on file ✓</Text>
+            </View>
+          ) : (
+            <Pressable testID="store-form-prompt" style={styles.formPrompt} onPress={() => router.push({ pathname: "/membership", params: { next: "store" } })}>
+              <Ionicons name="document-text" size={20} color={colors.brand} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.formPromptTitle}>Complete your membership form</Text>
+                <Text style={styles.formPromptSub}>A one-time form is required before your first purchase.</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.brand} />
+            </Pressable>
           )}
 
           <LinearGradient colors={["#FF7A00", "#FF3D00"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
@@ -261,6 +283,11 @@ const styles = StyleSheet.create({
   bannerText: { color: colors.brand, fontWeight: "700", fontSize: 13 },
   statusCard: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md, gap: 4 },
   statusText: { color: colors.onSurface, fontSize: 13, fontWeight: "700" },
+  formOk: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "rgba(34,197,94,0.10)", borderWidth: 1, borderColor: "#22C55E55", borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2 },
+  formOkText: { color: "#22C55E", fontSize: 13, fontWeight: "800" },
+  formPrompt: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.brandTertiary, borderWidth: 1, borderColor: colors.brand, borderRadius: radius.md, padding: spacing.md },
+  formPromptTitle: { color: colors.onSurface, fontSize: 14, fontWeight: "800" },
+  formPromptSub: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 2 },
   promo: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: colors.brand, borderRadius: radius.md, padding: spacing.md },
   promoText: { color: colors.onBrand, fontWeight: "900", fontSize: 13, flex: 1 },
   card: { backgroundColor: "rgba(255,255,255,0.045)", borderWidth: 1, borderColor: "rgba(255,255,255,0.09)", borderRadius: radius.lg, padding: spacing.lg },

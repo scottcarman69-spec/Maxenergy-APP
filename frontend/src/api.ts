@@ -12,6 +12,7 @@ export type User = {
   verified?: boolean;
   reminder_hours?: number;
   credit_cents?: number;
+  membership_form_completed?: boolean;
 };
 
 export async function getToken(): Promise<string | null> {

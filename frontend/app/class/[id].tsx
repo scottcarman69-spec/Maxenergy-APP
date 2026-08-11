@@ -10,6 +10,7 @@ import { api, BACKEND_URL } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
 import { classTime, classDate, qldTodayUTC } from "@/src/datetime";
 import { coachSource } from "@/src/coaches";
+import { useAuth } from "@/src/AuthContext";
 import FlashingText from "@/src/components/FlashingText";
 
 const FLASH_LINE = "All fitness and experience levels welcome.";
@@ -38,6 +39,7 @@ function fmt(iso: string) {
 export default function ClassDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { user, refresh } = useAuth();
   const [cls, setCls] = useState<Cls | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -72,7 +74,7 @@ export default function ClassDetail() {
     setLoading(false);
   }, [id]);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => { load(); refresh(); }, [load, refresh]));
 
   const proceedBooking = async (requestedTime?: string, requestedAt?: string, useCredit?: boolean, useClassPass?: boolean) => {
     if (!cls) return;
@@ -287,6 +289,23 @@ export default function ClassDetail() {
               </>
             );
           })()}
+
+          {user && (user.membership_form_completed ? (
+            <View style={styles.formBadgeOk}>
+              <Ionicons name="shield-checkmark" size={16} color="#22C55E" />
+              <Text style={styles.formBadgeOkText}>Membership form on file</Text>
+            </View>
+          ) : (
+            <Pressable
+              testID="class-form-prompt"
+              style={styles.formBadgeWarn}
+              onPress={() => router.push({ pathname: "/membership", params: { next: "class" } })}
+            >
+              <Ionicons name="document-text-outline" size={16} color={colors.brand} />
+              <Text style={styles.formBadgeWarnText}>No membership form yet — tap to complete it</Text>
+              <Ionicons name="chevron-forward" size={15} color={colors.brand} />
+            </Pressable>
+          ))}
 
           {isMember === false && (
             <Pressable testID="join-notice" style={styles.joinNotice} onPress={() => router.push("/vigyr-signon")}>
@@ -534,6 +553,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   desc: { color: colors.onSurface, fontSize: 15, lineHeight: 22 },
+  formBadgeOk: { flexDirection: "row", alignItems: "center", gap: 7, alignSelf: "flex-start", backgroundColor: "rgba(34,197,94,0.10)", borderWidth: 1, borderColor: "#22C55E55", borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 7, marginTop: spacing.md },
+  formBadgeOkText: { color: "#22C55E", fontSize: 12.5, fontWeight: "800" },
+  formBadgeWarn: { flexDirection: "row", alignItems: "center", gap: 7, backgroundColor: colors.brandTertiary, borderWidth: 1, borderColor: colors.brand, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 10, marginTop: spacing.md },
+  formBadgeWarnText: { color: colors.brand, fontSize: 12.5, fontWeight: "800", flex: 1 },
   joinNotice: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.brandTertiary, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.md, borderWidth: 1, borderColor: colors.brand },
   joinIcon: { width: 38, height: 38, borderRadius: radius.sm, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
   joinTitle: { color: colors.onSurface, fontSize: 15, fontWeight: "800" },

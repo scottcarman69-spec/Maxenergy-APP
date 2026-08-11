@@ -187,6 +187,7 @@ def user_public(u: dict) -> dict:
         "key_tag": bool(u.get("key_tag", False)),
         "membership_plan": u.get("membership_plan"),
         "membership_expires_at": u.get("membership_expires_at").isoformat() if isinstance(u.get("membership_expires_at"), datetime) else None,
+        "membership_form_completed": bool(u.get("membership_form_completed_at")),
     }
 
 
@@ -1983,6 +1984,7 @@ async def store_products(u: dict = Depends(require_user)):
         "membership_expires_at": fresh.get("membership_expires_at").isoformat() if isinstance(fresh.get("membership_expires_at"), datetime) else None,
         "class_pass_credits": int(fresh.get("class_pass_credits", 0)),
         "key_tag": bool(fresh.get("key_tag")),
+        "membership_form_completed": bool(fresh.get("membership_form_completed_at")),
     }
 
 
@@ -1996,6 +1998,10 @@ class StoreCheckoutReq(BaseModel):
 @api.post("/store/checkout")
 async def store_checkout(body: StoreCheckoutReq, u: dict = Depends(require_user)):
     fresh = await db.users.find_one({"user_id": u["user_id"]}) or u
+    # All upfront memberships and passes require the member to complete the
+    # membership form first (collected once, remembered forever).
+    if not fresh.get("membership_form_completed_at"):
+        raise HTTPException(status_code=428, detail="Please complete your membership form before purchasing.")
     pricing = await compute_store_price(fresh, body.product_id, False)
     order_ref = new_id("store")
     label = pricing["name"] + (" + Key Tag" if pricing["key_tag"] else "")
@@ -2537,6 +2543,11 @@ async def membership_apply(body: MembershipApplyReq, request: Request, u: dict =
         "created_at": now_utc(),
     }
     await db.membership_applications.insert_one(doc)
+    # Mark this member as having completed the membership form (remembered forever).
+    await db.users.update_one(
+        {"user_id": u["user_id"]},
+        {"$set": {"membership_form_completed_at": now_utc(), "membership_form_application_id": app_id}},
+    )
     await db.notifications.insert_one(
         {
             "notification_id": new_id("ntf"),
