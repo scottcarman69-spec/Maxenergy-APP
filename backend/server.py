@@ -2843,6 +2843,18 @@ async def admin_class_cancel(class_id: str, body: ClassCancelReq, u: dict = Depe
         {"$set": {"cancelled": True, "cancelled_at": now_utc(), "cancel_reason": reason, "cancelled_by": u["user_id"]}},
     )
     when = _fmt_class_when(c)
+    # Find a similar upcoming class (same name, still open) to suggest for rebooking.
+    similar = await db.classes.find_one(
+        {
+            "class_id": {"$ne": class_id},
+            "name": c.get("name"),
+            "cancelled": {"$ne": True},
+            "$or": [{"by_appointment": True}, {"start_at": {"$gt": now_utc()}}],
+        },
+        {"_id": 0},
+        sort=[("start_at", 1)],
+    )
+    similar_when = _fmt_class_when(similar) if similar else ""
     # Cancel every active booking for this class and notify each member.
     active = await db.bookings.find(
         {"class_id": class_id, "status": {"$in": ["paid", "confirmed", "pending", "reschedule_requested"]}}
@@ -2889,9 +2901,14 @@ async def admin_class_cancel(class_id: str, body: ClassCancelReq, u: dict = Depe
         elif paid:
             lines.append("You've been flagged for a refund or account credit — the gym will process this shortly.")
         lines.append("Sorry for any inconvenience — we hope to see you in another session soon!")
+        notif_data = None
+        if similar:
+            body_msg += f" Tap to rebook the next {c['name']} class{similar_when}."
+            lines.append(f"👉 <b>Rebook the next {c['name']} class</b>{similar_when} — tap the alert in the app to grab your spot.")
+            notif_data = {"nav": "class_detail", "class_id": similar["class_id"]}
         await notify_user(
             b["user_id"], (member or {}).get("email"),
-            "Class cancelled", body_msg, "booking", email_lines=lines,
+            "Class cancelled", body_msg, "booking", email_lines=lines, data=notif_data,
         )
         notified += 1
     return {"ok": True, "cancelled": True, "notified": notified, "refunds_flagged": refunds_flagged, "passes_returned": passes_returned}

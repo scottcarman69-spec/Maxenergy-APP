@@ -461,3 +461,7 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Backend: ClassCancelReq.auto_return_passes (default True); admin_class_cancel returns passes_returned count. Card-paid bookings still flag pending refunds as before.
 - Frontend: classes.tsx Switch (testID adminc-auto-return-passes); toast reports "N passes returned". api.adminCancelClass passes the flag.
 - Verified: cancel with auto ON -> passes_returned:1, member 0->1 with "Pass returned — <class> cancelled" ledger; toggle renders in modal. Restored all test-cancelled classes/bookings afterward.
+
+## Update: Rebook link in class-cancellation message (Jun 2026 fork)
+- Cancellation in-app alert + email now suggest rebooking: admin_class_cancel looks up the next similar upcoming class (same name, not cancelled, future/by-appointment) and, if found, appends "Tap to rebook the next <name> class on <when>" to the message with data={nav:class_detail, class_id}. Tapping the alert deep-links to that class detail (alerts.tsx new class_detail nav; falls back to home). Email gets a matching rebook line.
+- Verified: cancelling a Muay Thai instance produced a member alert with the rebook body + nav class_detail + the next Muay Thai class_id.

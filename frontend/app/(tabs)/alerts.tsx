@@ -10,7 +10,7 @@ import { colors, spacing, radius } from "@/src/theme";
 import { stampTime, stampDate, isQldToday } from "@/src/datetime";
 import ScreenBg from "@/src/components/ScreenBg";
 
-type Notif = { notification_id: string; title: string; body: string; read: boolean; created_at: string; type: string; data?: { nav?: string; user_id?: string; name?: string } };
+type Notif = { notification_id: string; title: string; body: string; read: boolean; created_at: string; type: string; data?: { nav?: string; user_id?: string; name?: string; class_id?: string } };
 
 function fmtWhen(iso?: string) {
   if (!iso) return "";
@@ -75,6 +75,10 @@ export default function AlertsTab() {
         break;
       case "member_store":
         router.push("/memberships");
+        break;
+      case "class_detail":
+        if (n.data?.class_id) router.push({ pathname: "/class/[id]", params: { id: n.data.class_id } } as any);
+        else router.push("/(tabs)/home");
         break;
       case "admin_bookings":
         router.push("/admin/bookings" as any);
