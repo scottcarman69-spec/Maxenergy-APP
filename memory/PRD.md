@@ -501,3 +501,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - New-member sign-up requires First name, Last name, and Date of birth (added identity/security). Frontend register.tsx: separate first/last name inputs + a DD/MM/YYYY masked DOB input with client validation (valid calendar date, not future, age 5-100). Sends {first_name,last_name,date_of_birth(YYYY-MM-DD),email,password}.
 - Backend RegisterReq updated; /auth/register validates DOB (400 on invalid/future/out-of-range), stores first_name/last_name/date_of_birth and derives name = "First Last". api.register + AuthContext.registerEmail take a payload object.
 - Verified: valid register returns token (name "Jane Doe", dob stored 1995-06-15); future DOB -> 400; missing last name -> 422. Google social login unaffected.
+
+## Update: DOB picker + password strength (Jun 2026 fork)
+- Register DOB is now a tap-to-scroll Day/Month/Year picker modal (no manual typing); builds YYYY-MM-DD. Day list adjusts to month/year; invalid day cleared on month change.
+- Password rule: min 6 chars + at least one number + at least one symbol. Frontend shows live rule checklist + show/hide toggle and gates submit. Backend validate_password_strength() enforced on /auth/register and /auth/reset-password (400 with specific message).
+- Verified: no-symbol/no-number -> 400; strong pw -> token. Screenshots confirm picker + live rules.

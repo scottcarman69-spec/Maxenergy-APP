@@ -7,6 +7,7 @@ from pymongo import ReturnDocument
 import os
 import logging
 import uuid
+import re
 import secrets
 import asyncio
 import time
@@ -616,6 +617,16 @@ async def require_admin(authorization: Optional[str] = Header(None)) -> dict:
 
 
 # -------------------- models --------------------
+def validate_password_strength(pw: str) -> None:
+    """Require min 6 chars, at least one number and one symbol."""
+    if len(pw or "") < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    if not re.search(r"\d", pw):
+        raise HTTPException(status_code=400, detail="Password must include at least one number")
+    if not re.search(r"[^A-Za-z0-9]", pw):
+        raise HTTPException(status_code=400, detail="Password must include at least one symbol (e.g. !@#)")
+
+
 class RegisterReq(BaseModel):
     first_name: str = Field(min_length=1)
     last_name: str = Field(min_length=1)
@@ -753,6 +764,7 @@ async def auth_register(body: RegisterReq, request: Request):
     age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
     if age < 5 or age > 100:
         raise HTTPException(status_code=400, detail="Please enter a valid date of birth")
+    validate_password_strength(body.password)
     first = body.first_name.strip()
     last = body.last_name.strip()
     full_name = (f"{first} {last}").strip()
@@ -896,6 +908,7 @@ async def auth_reset_password(body: ResetPasswordReq, request: Request):
     code = (body.code or "").strip()
     if not await verify_otp(email, "reset", code):
         raise HTTPException(status_code=400, detail="Invalid or expired code")
+    validate_password_strength(body.new_password)
     await db.users.update_one(
         {"user_id": u["user_id"]},
         {"$set": {"password_hash": hash_pw(body.new_password), "verified": True}},
