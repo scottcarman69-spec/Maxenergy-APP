@@ -157,9 +157,14 @@ export default function Register() {
               placeholder="Password"
               placeholderTextColor={colors.onSurfaceSecondary}
               secureTextEntry={!showPw}
+              autoComplete="off"
+              autoCapitalize="none"
+              autoCorrect={false}
+              textContentType="none"
+              importantForAutofill="no"
               value={password}
               onChangeText={setPassword}
-              style={[styles.input, { flex: 1, borderWidth: 0, backgroundColor: "transparent", paddingHorizontal: 0 }]}
+              style={styles.pwInput}
             />
             <Pressable testID="toggle-password" onPress={() => setShowPw((s) => !s)} hitSlop={10}>
               <Ionicons name={showPw ? "eye-off-outline" : "eye-outline"} size={20} color={colors.onSurfaceSecondary} />
@@ -338,6 +343,12 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     paddingHorizontal: spacing.lg,
     borderRadius: radius.md,
+  },
+  pwInput: {
+    flex: 1,
+    color: colors.onSurface,
+    paddingVertical: 14,
+    fontSize: 15,
   },
   rules: { gap: 6, marginTop: 2, paddingHorizontal: 2 },
   ruleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
