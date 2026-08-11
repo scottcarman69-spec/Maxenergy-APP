@@ -254,6 +254,7 @@ def _email_shell(heading: str, lines: list) -> str:
         "<div style='background:#FF7A00;padding:20px 24px;border-radius:10px 10px 0 0;'>"
         f"<h1 style='color:#fff;margin:0;font-size:20px;'>{heading}</h1></div>"
         f"<div style='padding:24px;background:#fafafa;border-radius:0 0 10px 10px;border:1px solid #eee;'>{body}"
+        f"{_email_contact_footer()}"
         "<p style='margin:18px 0 0;color:#999;font-size:12px;'>Maxenergy Fitness · Smithfield QLD</p></div></div>"
     )
 
@@ -276,6 +277,24 @@ def _download_button(url: str, label: str) -> str:
         "style='display:inline-block;background:#FF7A00;color:#fff;text-decoration:none;"
         "padding:12px 22px;border-radius:8px;font-weight:bold;font-size:15px'>"
         f"{label}</a></p>"
+    )
+
+
+def _email_contact_footer() -> str:
+    """A friendly, readable 'how to reach us' block appended to every email."""
+    return (
+        "<div style='margin-top:22px;padding:16px 18px;background:#fff7ef;border:1px solid #ffe0c2;border-radius:10px'>"
+        "<p style='margin:0 0 6px;color:#111;font-size:14px;font-weight:bold'>Need help or have a problem?</p>"
+        "<p style='margin:0 0 8px;color:#444;font-size:13px;line-height:1.5'>You can contact us any time from the "
+        "<strong>Maxenergy Fitness</strong> app:</p>"
+        "<p style='margin:0 0 8px;color:#444;font-size:13px;line-height:1.6'>"
+        "1. Open the Maxenergy Fitness app<br/>"
+        "2. Tap <strong>Profile</strong> in the bottom menu<br/>"
+        "3. Tap <strong>Contact &amp; Gym Info</strong> to call, email, or get directions</p>"
+        "<p style='margin:0;color:#444;font-size:13px'>Or reach us directly &nbsp;·&nbsp; "
+        "Phone: <a href='tel:0740579005' style='color:#FF7A00;text-decoration:none;font-weight:bold'>07 4057 9005</a> &nbsp;·&nbsp; "
+        "Email: <a href='mailto:info@maxenergy.com.au' style='color:#FF7A00;text-decoration:none;font-weight:bold'>info@maxenergy.com.au</a></p>"
+        "</div>"
     )
 
 
@@ -2239,17 +2258,15 @@ async def event_rsvp(body: EventRSVPReq, u: dict = Depends(require_user)):
             "created_at": now_utc(),
         }
     )
-    html = f"""
-    <table width="100%" style="font-family:Arial,sans-serif;background:#121214;color:#F9FAFB;padding:24px">
-      <tr><td>
-        <h2 style="color:#FF7A00;margin:0 0 8px">You're going to {e['title']}</h2>
-        <p style="color:#A1A1AA;margin:0 0 12px">See you at Maxenergy Fitness.</p>
-        <p><strong>When:</strong> {when}</p>
-        <p><strong>Where:</strong> {e.get('location','Maxenergy Fitness, Smithfield')}</p>
-        <p style="margin-top:16px">{e.get('description','')}</p>
-      </td></tr>
-    </table>
-    """
+    html = _email_shell(
+        f"You're going to {e['title']}",
+        [
+            "See you at Maxenergy Fitness.",
+            f"<strong>When:</strong> {when}",
+            f"<strong>Where:</strong> {e.get('location','Maxenergy Fitness, Smithfield')}",
+            e.get("description", ""),
+        ],
+    )
     await send_email(u["email"], f"RSVP confirmed – {e['title']}", html)
     return {"ok": True}
 
@@ -2636,6 +2653,7 @@ async def membership_apply(body: MembershipApplyReq, request: Request, u: dict =
         <p style="margin:0 0 8px;color:#333"><strong>Category:</strong> {body.category}</p>
         {details_html}
         <!--PDFSLOT-->
+        {_email_contact_footer()}
         <p style="margin:18px 0 0;color:#999;font-size:12px">Maxenergy Fitness · Smithfield QLD</p>
       </div>
     </div>
@@ -2680,6 +2698,7 @@ async def membership_apply(body: MembershipApplyReq, request: Request, u: dict =
         <p style="margin:0 0 4px;color:#333">You can download a PDF copy of your completed membership form using the button below. Our team will review it and be in touch shortly.</p>
         {_download_button(pdf_link, "Download my membership form (PDF)") if pdf_link else "<p style='color:#333'>Your completed form is saved to your account.</p>"}
         {_membership_terms_html()}
+        {_email_contact_footer()}
         <p style="margin:20px 0 0;color:#999;font-size:12px">Maxenergy Fitness · Smithfield QLD</p>
       </div>
     </div>
