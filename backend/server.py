@@ -74,6 +74,16 @@ def new_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:12]}"
 
 
+def booking_ref_no(booking_id: str) -> int:
+    """Stable, tidy 5-digit booking number derived from the internal booking id."""
+    h = (booking_id or "").split("_", 1)[-1]
+    try:
+        n = int(h, 16)
+    except ValueError:
+        n = sum(ord(c) for c in h)
+    return 10000 + (n % 90000)
+
+
 def hash_pw(pw: str) -> str:
     return bcrypt.hashpw(pw.encode(), bcrypt.gensalt()).decode()
 
@@ -1869,7 +1879,7 @@ async def payments_checkout(body: CheckoutCreate, request: Request, u: dict = De
             "price_money": {"amount": amount_cents, "currency": currency},
             "location_id": SQUARE_LOCATION_ID,
         },
-        "payment_note": f"class_booking:{booking['booking_id']}",
+        "payment_note": f"{booking['class_name']} — Booking No. {booking_ref_no(booking['booking_id'])} — {u.get('name') or u.get('email') or 'Member'} (App Booking)",
         "pre_populated_data": {"buyer_email": u.get("email", "")},
         "checkout_options": {"redirect_url": redirect_url},
     }
@@ -1958,7 +1968,7 @@ async def store_checkout(body: StoreCheckoutReq, u: dict = Depends(require_user)
     payload = {
         "idempotency_key": str(uuid.uuid4()),
         "quick_pay": {"name": label, "price_money": {"amount": pricing["total"], "currency": "AUD"}, "location_id": SQUARE_LOCATION_ID},
-        "payment_note": f"store:{body.product_id}",
+        "payment_note": f"{label} — Order No. {booking_ref_no(order_ref)} — {u.get('name') or u.get('email') or 'Member'} (App Purchase)",
         "pre_populated_data": {"buyer_email": u.get("email", "")},
         "checkout_options": {"redirect_url": redirect_url},
     }
