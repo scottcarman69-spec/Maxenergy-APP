@@ -92,7 +92,7 @@ export default function CreditsScreen() {
                     </>
                   )}
                 </Pressable>
-                <Text style={styles.passHint}>Show this to gym staff on arrival — they'll scan it to check you in and use one pass.</Text>
+                <Text style={styles.passHint}>Show this to gym staff on arrival — they'll scan it to check you in and use one pass. Passes never expire — they're only used when you check in.</Text>
               </>
             ) : (
               <>
@@ -100,7 +100,7 @@ export default function CreditsScreen() {
                   <Ionicons name="add-circle-outline" size={18} color={colors.brand} />
                   <Text style={styles.passBtnOutlineText}>BUY CLASS PASSES</Text>
                 </Pressable>
-                <Text style={styles.passHint}>Buy a Single or 10 Class Pass to check in at the gym with your QR code.</Text>
+                <Text style={styles.passHint}>Buy a Single or 10 Class Pass to check in at the gym with your QR code. Passes never expire.</Text>
               </>
             )}
           </View>
