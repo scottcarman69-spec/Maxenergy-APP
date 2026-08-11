@@ -18,6 +18,7 @@ type Product = {
   keytag_cents: number;
   key_tag: boolean;
   first_discount: boolean;
+  perks?: string[];
 };
 
 export default function MembershipsScreen() {
@@ -129,6 +130,16 @@ export default function MembershipsScreen() {
                   <Text style={styles.price}>{money(p.total)}</Text>
                 </View>
               </View>
+              {!!p.perks?.length && (
+                <View style={styles.perks}>
+                  {p.perks.map((perk, i) => (
+                    <View key={i} style={styles.perkRow}>
+                      <Ionicons name="checkmark-circle" size={16} color={colors.brand} />
+                      <Text style={styles.perkText}>{perk}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
               <Pressable
                 testID={`store-buy-${p.product_id}`}
                 style={[styles.buyBtn, busy === p.product_id && { opacity: 0.6 }]}
@@ -205,6 +216,9 @@ const styles = StyleSheet.create({
   modalGo: { flex: 1.7, alignItems: "center", justifyContent: "center", paddingVertical: 14, borderRadius: radius.md, backgroundColor: colors.brand },
   modalGoText: { color: colors.onBrand, fontWeight: "900", letterSpacing: 0.3 },
   cardTop: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md },
+  perks: { marginTop: spacing.md, gap: 8 },
+  perkRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  perkText: { color: colors.onSurfaceTertiary, fontSize: 13, flex: 1, lineHeight: 18 },
   name: { color: colors.onSurface, fontSize: 16, fontWeight: "900" },
   sub: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 3 },
   strike: { color: colors.onSurfaceSecondary, fontSize: 12, textDecorationLine: "line-through" },
