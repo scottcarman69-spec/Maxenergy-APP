@@ -16,6 +16,7 @@ type Booking = {
   scheduled_time?: string;
   member_name?: string;
   member_email?: string;
+  booking_no?: number;
   created_at?: string;
   attended?: boolean;
 };
@@ -132,6 +133,7 @@ export default function AdminBookings() {
                       <Text style={styles.className}>{b.class_name}</Text>
                       <Text style={styles.member}>{b.member_name}{b.member_email ? ` · ${b.member_email}` : ""}</Text>
                       <Text style={styles.meta}>
+                        {b.booking_no ? `No. ${b.booking_no} · ` : ""}
                         {b.by_appointment ? "By appointment" : `$${(b.amount / 100).toFixed(0)}`}
                         {b.scheduled_time ? ` · confirmed: ${b.scheduled_time}` : ""}
                         {!b.scheduled_time && b.requested_time ? ` · preferred: ${b.requested_time}` : ""}

@@ -13,6 +13,7 @@ import { stampTime, stampDate } from "@/src/datetime";
 type Receipt = {
   session_id: string;
   receipt_number: string;
+  order_no?: number;
   product_name: string;
   product_type?: string;
   key_tag?: boolean;
@@ -81,6 +82,7 @@ export default function StoreReceiptScreen() {
     const rows = [
       ["Item", r.product_name],
       ...extra,
+      ["Order No.", r.order_no ? String(r.order_no) : "—"],
       ["Paid on", fmtDateTime(r.paid_at)],
       ["Payment method", r.payment_method],
       ["Receipt #", r.receipt_number],
@@ -179,6 +181,7 @@ export default function StoreReceiptScreen() {
               {!!receipt.start_date && <Row label="Start date" value={receipt.start_date} />}
               {!!receipt.meet_time && <Row label="Setup time" value={receipt.meet_time} />}
               {!!receipt.key_tag && <Row label="Key Tag" value="24/7 access included" />}
+              {!!receipt.order_no && <Row label="Order No." value={String(receipt.order_no)} />}
               <Row label="Paid on" value={fmtDateTime(receipt.paid_at)} />
               <Row label="Payment method" value={receipt.payment_method} />
               <Row label="Receipt #" value={receipt.receipt_number} />

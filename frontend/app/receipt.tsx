@@ -13,6 +13,7 @@ import { classTime, classDate, stampTime, stampDate } from "@/src/datetime";
 type Receipt = {
   booking_id: string;
   receipt_number: string;
+  booking_no?: number;
   class_name: string;
   trainer?: string;
   class_start?: string;
@@ -73,11 +74,11 @@ export default function ReceiptScreen() {
       ["Class", r.class_name],
       ["Coach", r.trainer || "—"],
       ["When", when],
+      ["Booking No.", r.booking_no ? String(r.booking_no) : "—"],
       ["Paid on", fmtDateTime(r.paid_at)],
       ["Payment method", r.payment_method],
       ["Receipt #", r.receipt_number],
       ["Account", r.member_email || "—"],
-      ["Booking ref", r.booking_id],
     ].map(([l, v]) => `<tr><td class="l">${l}</td><td class="v">${v}</td></tr>`).join("");
     return `<!doctype html><html><head><meta charset="utf-8"/>
       <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -162,6 +163,7 @@ export default function ReceiptScreen() {
               <Row label="Class" value={receipt.class_name} />
               {!!receipt.trainer && <Row label="Coach" value={receipt.trainer} />}
               <Row label="When" value={receipt.by_appointment ? "By appointment" : fmtClassWhen(receipt.class_start)} />
+              {!!receipt.booking_no && <Row label="Booking No." value={String(receipt.booking_no)} />}
               <Row label="Paid on" value={fmtDateTime(receipt.paid_at)} />
               <Row label="Payment method" value={receipt.payment_method} />
               <Row label="Receipt #" value={receipt.receipt_number} />

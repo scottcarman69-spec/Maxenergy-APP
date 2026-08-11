@@ -1258,6 +1258,8 @@ async def payments_reconcile(u: dict = Depends(require_user)):
 
 async def _enrich_bookings(rows: list) -> None:
     """Attach current class details (time, coach, duration) to each booking row."""
+    for r in rows:
+        r["booking_no"] = booking_ref_no(r.get("booking_id", ""))
     class_ids = list({r.get("class_id") for r in rows if r.get("class_id")})
     if not class_ids:
         return
@@ -1985,7 +1987,7 @@ async def store_checkout(body: StoreCheckoutReq, u: dict = Depends(require_user)
         "session_id": order_id, "square_order_id": order_id, "provider": "square", "kind": "store",
         "product_id": body.product_id, "user_id": u["user_id"], "amount": pricing["total"], "currency": "aud",
         "key_tag": pricing["key_tag"], "payment_status": "initiated", "status": "open", "created_at": now_utc(),
-        "start_date": body.start_date, "meet_time": body.meet_time,
+        "start_date": body.start_date, "meet_time": body.meet_time, "order_ref": order_ref,
     })
     return {"url": link.get("url"), "session_id": order_id}
 
@@ -2029,6 +2031,7 @@ async def store_receipt(session_id: str, u: dict = Depends(require_user)):
     return {
         "session_id": session_id,
         "receipt_number": str(session_id).replace("store_", "").upper()[:10],
+        "order_no": booking_ref_no(tx.get("order_ref") or session_id),
         "product_name": p.get("name") or "Purchase",
         "product_type": p.get("type"),
         "key_tag": bool(tx.get("key_tag")),
@@ -2075,6 +2078,7 @@ async def payment_receipt(booking_id: str, u: dict = Depends(require_user)):
     return {
         "booking_id": booking_id,
         "receipt_number": booking_id.replace("bk_", "").upper()[:10],
+        "booking_no": booking_ref_no(booking_id),
         "class_name": b.get("class_name"),
         "trainer": cls.get("trainer"),
         "class_start": start.isoformat() if isinstance(start, datetime) else start,
@@ -2109,6 +2113,7 @@ async def my_receipts(u: dict = Depends(require_user)):
         out.append({
             "booking_id": b["booking_id"],
             "receipt_number": b["booking_id"].replace("bk_", "").upper()[:10],
+            "booking_no": booking_ref_no(b["booking_id"]),
             "class_name": b.get("class_name"),
             "trainer": cls.get("trainer"),
             "class_start": start.isoformat() if isinstance(start, datetime) else start,
@@ -3415,6 +3420,7 @@ async def admin_bookings(u: dict = Depends(require_admin)):
             phone_by_user[a["user_id"]] = a.get("phone")
     for r in rows:
         m = umap.get(r["user_id"], {})
+        r["booking_no"] = booking_ref_no(r.get("booking_id", ""))
         r["member_name"] = m.get("name") or m.get("email") or "Member"
         r["member_email"] = m.get("email")
         r["member_phone"] = m.get("phone") or phone_by_user.get(r["user_id"])

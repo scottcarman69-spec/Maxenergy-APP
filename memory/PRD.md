@@ -493,3 +493,6 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Update: Removed unused Stripe template code (Jun 2026 fork)
 - Publish scanner flagged a test Stripe key. App uses Square exclusively; Stripe was dead template code. Removed: emergentintegrations stripe imports, STRIPE_API_KEY env read, and the /webhook/stripe endpoint (server.py); removed STRIPE_API_KEY=sk_test_emergent from backend/.env. Verified backend healthy + Square checkout still returns a production square.link. No Stripe references remain.
+
+## Update: Matching booking/order numbers (Jun 2026 fork)
+- Added booking_ref_no(booking_id) -> stable 5-digit number, now shown consistently: Square payment note ("<Class> — Booking No. N — <Name> (App Booking)"), class receipt (booking_no) + receipts list, member bookings (_enrich_bookings adds booking_no) and admin bookings ("No. N" line). Store: order_ref persisted on tx; store receipt shows order_no matching the Square "Order No.". Verified bk_8f8669ae1032 -> 84722 in both admin bookings API and the Square note format. Frontend: receipt.tsx + store-receipt.tsx (screen + PDF) + admin/bookings.tsx updated.
