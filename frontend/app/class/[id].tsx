@@ -10,6 +10,9 @@ import { api, BACKEND_URL } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
 import { classTime, classDate, qldTodayUTC } from "@/src/datetime";
 import { coachSource } from "@/src/coaches";
+import FlashingText from "@/src/components/FlashingText";
+
+const FLASH_LINE = "All fitness and experience levels welcome.";
 
 type Cls = {
   class_id: string;
@@ -272,7 +275,18 @@ export default function ClassDetail() {
           ) : null}
 
           <Text style={styles.sectionTitle}>ABOUT</Text>
-          <Text style={styles.desc}>{cls.description}</Text>
+          {(() => {
+            const raw = cls.description || "";
+            const idx = raw.indexOf(FLASH_LINE);
+            if (idx === -1) return <Text style={styles.desc}>{raw}</Text>;
+            const before = raw.slice(0, idx).replace(/\s+$/, "");
+            return (
+              <>
+                {!!before && <Text style={styles.desc}>{before}</Text>}
+                <FlashingText>{FLASH_LINE}</FlashingText>
+              </>
+            );
+          })()}
 
           {isMember === false && (
             <Pressable testID="join-notice" style={styles.joinNotice} onPress={() => router.push("/vigyr-signon")}>
