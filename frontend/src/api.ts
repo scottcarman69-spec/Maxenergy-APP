@@ -176,6 +176,7 @@ export const api = {
     req(`/api/admin/announcements/${id}`, { method: "DELETE" }),
   adminApplications: () => req("/api/admin/applications"),
   adminMembershipLog: () => req("/api/admin/membership-log"),
+  membershipFormUrl: (application_id: string) => req(`/api/membership/forms/${application_id}/url`),
   adminSetApplicationStatus: (id: string, status: string) =>
     req(`/api/admin/applications/${id}/status`, { method: "POST", body: JSON.stringify({ status }) }),
   adminBookings: () => req("/api/admin/bookings"),

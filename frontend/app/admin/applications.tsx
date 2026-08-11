@@ -139,13 +139,15 @@ export default function AdminApplications() {
                   <Pressable
                     testID={`adminapp-pdf-${a.application_id}`}
                     style={styles.pdfBtn}
-                    onPress={() => {
-                      const url = `${BACKEND_URL}/api/membership/forms/${a.application_id}.pdf`;
-                      if (Platform.OS === "web") {
-                        Linking.openURL(url).catch(() => {});
-                      } else {
-                        WebBrowser.openBrowserAsync(url).catch(() => Linking.openURL(url).catch(() => {}));
-                      }
+                    onPress={async () => {
+                      try {
+                        const { url } = await api.membershipFormUrl(a.application_id);
+                        if (Platform.OS === "web") {
+                          Linking.openURL(url).catch(() => {});
+                        } else {
+                          WebBrowser.openBrowserAsync(url).catch(() => Linking.openURL(url).catch(() => {}));
+                        }
+                      } catch {}
                     }}
                   >
                     <Ionicons name="document-text" size={16} color={colors.brand} />

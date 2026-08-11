@@ -465,3 +465,10 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 ## Update: Rebook link in class-cancellation message (Jun 2026 fork)
 - Cancellation in-app alert + email now suggest rebooking: admin_class_cancel looks up the next similar upcoming class (same name, not cancelled, future/by-appointment) and, if found, appends "Tap to rebook the next <name> class on <when>" to the message with data={nav:class_detail, class_id}. Tapping the alert deep-links to that class detail (alerts.tsx new class_detail nav; falls back to home). Email gets a matching rebook line.
 - Verified: cancelling a Muay Thai instance produced a member alert with the rebook body + nav class_detail + the next Muay Thai class_id.
+
+## Update: Security audit fixes (Jun 2026 fork)
+- SEC-001 (High): /api/admin/exports/{id}.csv and /api/membership/forms/{id}.pdf now require a signed capability token (?t=) OR admin/owner bearer. Emailed links include the token; admin app opens PDFs via new authed GET /api/membership/forms/{id}/url (api.membershipFormUrl). Verified: 403 without token, 404 passthrough with valid token, 403 wrong-kind token.
+- SEC-002 (Med): removed OTP code from server logs (send_otp_email).
+- SEC-003 (Med): class-pass deduction is now atomic (guarded $inc, modified_count check) in admin scan redemption AND payments checkout use_class_pass (booking claim guard too). Verified: 6 concurrent scans on a 1-pass account -> exactly 1 success, balance never negative.
+- Hardening: added esc() HTML-escape helper; escaped user-supplied names/class names in confirmation + admin emails (booking confirm/create/cancel/reschedule).
+- Not code-fixable here (deploy-managed): SEC-004 JWT_SECRET rotation + SEC-005 secret rotation happen at Publish/Deploy (protected env). CORS/rate-limiting left as P3.

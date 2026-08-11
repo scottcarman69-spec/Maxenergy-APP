@@ -99,6 +99,23 @@ def make_jwt(user_id: str) -> str:
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGO)
 
 
+def sign_dl_token(kind: str, rid: str, days: int = 30) -> str:
+    """Signed capability token embedded in emailed/opened download links so the
+    file is only reachable by someone holding the link's token (not by id guessing)."""
+    payload = {"typ": "dl", "k": kind, "id": rid, "exp": datetime.now(timezone.utc) + timedelta(days=days)}
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGO)
+
+
+def verify_dl_token(token: Optional[str], kind: str, rid: str) -> bool:
+    if not token:
+        return False
+    try:
+        data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGO])
+    except Exception:
+        return False
+    return data.get("typ") == "dl" and data.get("k") == kind and data.get("id") == rid
+
+
 def user_public(u: dict) -> dict:
     return {
         "user_id": u["user_id"],
@@ -162,6 +179,14 @@ async def send_email(recipient: str, subject: str, html: str, attachments: Optio
             log.error(f"email failed to {recipient}: {e}")
             return False
     return False
+
+
+import html as _html
+
+
+def esc(s) -> str:
+    """HTML-escape user-supplied text before placing it into email HTML."""
+    return _html.escape(str(s or ""))
 
 
 def _email_shell(heading: str, lines: list) -> str:
@@ -331,7 +356,7 @@ def _otp_email_html(code: str, purpose: str) -> str:
 
 async def send_otp_email(email: str, purpose: str) -> str:
     code = await issue_otp(email, purpose)
-    log.info(f"OTP issued for {email} ({purpose}): {code}")
+    log.info(f"OTP issued for {email} ({purpose})")
     subject = "Your Maxenergy Fitness verification code" if purpose == "verify" else "Your Maxenergy Fitness password reset code"
     await send_email(email, subject, _otp_email_html(code, purpose))
     return code
@@ -467,11 +492,11 @@ async def mark_booking_paid(booking_id: str) -> None:
             _email_shell(
                 "Payment Confirmed ✅",
                 [
-                    f"Hi {mname},",
+                    f"Hi {esc(mname)},",
                     "Great news — your payment has been <b>verified</b> and your class is booked! Here are your booking details:",
                     "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
-                    f"<b>Class:</b> {b['class_name']}",
-                    (f"<b>Coach:</b> {trainer}" if trainer else ""),
+                    f"<b>Class:</b> {esc(b['class_name'])}",
+                    (f"<b>Coach:</b> {esc(trainer)}" if trainer else ""),
                     f"<b>When:</b> {when}",
                     (f"<b>Duration:</b> {duration} minutes" if duration else ""),
                     f"<b>Amount paid:</b> ${amount:.2f} {currency}",
@@ -489,7 +514,7 @@ async def mark_booking_paid(booking_id: str) -> None:
         "New paid booking",
         f"{mname} booked and paid for {b['class_name']} ({when}).",
         "booking",
-        email_lines=[f"<b>{mname}</b> booked and paid for <b>{b['class_name']}</b>.", f"When: {when}", f"Amount: ${amount:.2f} {currency}"],
+        email_lines=[f"<b>{esc(mname)}</b> booked and paid for <b>{esc(b['class_name'])}</b>.", f"When: {when}", f"Amount: ${amount:.2f} {currency}"],
     )
 
 
@@ -1137,8 +1162,8 @@ async def booking_create(body: BookingCreate, u: dict = Depends(require_user)):
             f"{member_name} requested a {cls['name']} session — preferred: {pref}.",
             "booking",
             email_lines=[
-                f"<b>{member_name}</b> has requested a <b>{cls['name']}</b> session.",
-                f"Preferred time: <b>{pref}</b>",
+                f"<b>{esc(member_name)}</b> has requested a <b>{esc(cls['name'])}</b> session.",
+                f"Preferred time: <b>{esc(pref)}</b>",
                 "This is a by-appointment booking — open the app Admin → Bookings to accept, reschedule or cancel.",
             ],
         )
@@ -1238,7 +1263,7 @@ async def booking_cancel(booking_id: str, u: dict = Depends(require_user)):
         "Booking cancelled by member",
         f"{member_name} cancelled their {b['class_name']} booking.",
         "booking",
-        email_lines=[f"<b>{member_name}</b> cancelled their <b>{b['class_name']}</b> booking."],
+        email_lines=[f"<b>{esc(member_name)}</b> cancelled their <b>{esc(b['class_name'])}</b> booking."],
     )
     b = await db.bookings.find_one({"booking_id": booking_id}, {"_id": 0})
     return {"booking": b}
@@ -1268,9 +1293,9 @@ async def booking_reschedule(booking_id: str, body: RescheduleReq, u: dict = Dep
         f"{member_name} asked to reschedule {b['class_name']} to: {body.requested_time}.{note_txt}",
         "booking",
         email_lines=[
-            f"<b>{member_name}</b> requested to reschedule their <b>{b['class_name']}</b> booking.",
-            f"Preferred time: <b>{body.requested_time}</b>",
-            (f"Note: {body.note}" if body.note else ""),
+            f"<b>{esc(member_name)}</b> requested to reschedule their <b>{esc(b['class_name'])}</b> booking.",
+            f"Preferred time: <b>{esc(body.requested_time)}</b>",
+            (f"Note: {esc(body.note)}" if body.note else ""),
             "Open Admin → Bookings to confirm the new time.",
         ],
     )
@@ -1338,12 +1363,16 @@ async def admin_checkin_scan(body: ScanCheckinReq, u: dict = Depends(require_adm
         if not member:
             raise HTTPException(404, "Member not found.")
         mname = member.get("name") or member.get("email") or "Member"
-        credits = int(member.get("class_pass_credits", 0))
-        if credits < 1:
-            raise HTTPException(400, f"{mname} has no class passes left. Ask them to buy more.")
-        left = credits - 1
         now = now_utc()
-        await db.users.update_one({"user_id": uid}, {"$set": {"class_pass_credits": left}})
+        # Atomic guarded decrement prevents concurrent double-spend.
+        res = await db.users.update_one(
+            {"user_id": uid, "class_pass_credits": {"$gte": 1}},
+            {"$inc": {"class_pass_credits": -1}},
+        )
+        if res.modified_count != 1:
+            raise HTTPException(400, f"{mname} has no class passes left. Ask them to buy more.")
+        fresh = await db.users.find_one({"user_id": uid}, {"_id": 0, "class_pass_credits": 1})
+        left = int((fresh or {}).get("class_pass_credits", 0))
         await db.pass_ledger.insert_one({
             "pass_ledger_id": new_id("pl"), "user_id": uid, "delta": -1,
             "reason": "Class pass used at the gym", "balance_after": left,
@@ -1707,22 +1736,32 @@ async def payments_checkout(body: CheckoutCreate, request: Request, u: dict = De
     if body.use_class_pass:
         if booking.get("by_appointment"):
             raise HTTPException(400, "Class passes can't be used for by-appointment sessions.")
-        fresh = await db.users.find_one({"user_id": u["user_id"]}, {"_id": 0, "class_pass_credits": 1})
-        passes = int((fresh or {}).get("class_pass_credits", 0))
-        if passes < 1:
-            raise HTTPException(400, "You have no class passes left.")
-        left = passes - 1
+        if booking.get("status") == "paid" or booking.get("paid_with_pass"):
+            return {"paid_with_pass": True, "booking_id": booking["booking_id"]}
         now = now_utc()
-        await db.users.update_one({"user_id": u["user_id"]}, {"$set": {"class_pass_credits": left}})
+        # Claim this booking atomically so a double-tap can't deduct two passes.
+        claim = await db.bookings.update_one(
+            {"booking_id": booking["booking_id"], "paid_with_pass": {"$ne": True}, "status": {"$ne": "paid"}},
+            {"$set": {"paid_with_pass": True}},
+        )
+        if claim.modified_count != 1:
+            return {"paid_with_pass": True, "booking_id": booking["booking_id"]}
+        # Atomic guarded decrement prevents concurrent double-spend across bookings.
+        res = await db.users.update_one(
+            {"user_id": u["user_id"], "class_pass_credits": {"$gte": 1}},
+            {"$inc": {"class_pass_credits": -1}},
+        )
+        if res.modified_count != 1:
+            # No pass available — roll back the claim and report.
+            await db.bookings.update_one({"booking_id": booking["booking_id"]}, {"$unset": {"paid_with_pass": ""}})
+            raise HTTPException(400, "You have no class passes left.")
+        fresh = await db.users.find_one({"user_id": u["user_id"]}, {"_id": 0, "class_pass_credits": 1})
+        left = int((fresh or {}).get("class_pass_credits", 0))
         await db.pass_ledger.insert_one({
             "pass_ledger_id": new_id("pl"), "user_id": u["user_id"], "delta": -1,
             "reason": f"Booked {booking['class_name']} with a class pass", "balance_after": left,
             "created_at": now,
         })
-        await db.bookings.update_one(
-            {"booking_id": booking["booking_id"]},
-            {"$set": {"paid_with_pass": True}},
-        )
         await db.payment_transactions.insert_one({
             "session_id": f"pass_{booking['booking_id']}",
             "provider": "class_pass",
@@ -2481,7 +2520,7 @@ async def membership_apply(body: MembershipApplyReq, request: Request, u: dict =
         )
         base = _public_base(request)
         if base:
-            pdf_link = f"{base}/api/membership/forms/{app_id}.pdf"
+            pdf_link = f"{base}/api/membership/forms/{app_id}.pdf?t={sign_dl_token('form', app_id)}"
     except Exception as e:
         log.error(f"membership pdf failed: {e}")
 
@@ -2520,7 +2559,16 @@ async def membership_apply(body: MembershipApplyReq, request: Request, u: dict =
 
 
 @api.get("/membership/forms/{application_id}.pdf")
-async def download_membership_pdf(application_id: str):
+async def download_membership_pdf(application_id: str, t: Optional[str] = None, authorization: Optional[str] = Header(None)):
+    # Access requires a valid signed link token, OR the owner/admin via bearer auth.
+    authorized = verify_dl_token(t, "form", application_id)
+    if not authorized:
+        u = await get_user_by_token(authorization)
+        if u:
+            doc0 = await db.membership_applications.find_one({"application_id": application_id}, {"_id": 0, "user_id": 1})
+            authorized = bool(u.get("is_admin")) or (doc0 and doc0.get("user_id") == u["user_id"])
+    if not authorized:
+        raise HTTPException(403, "Not authorised to view this form")
     doc = await db.membership_applications.find_one(
         {"application_id": application_id}, {"_id": 0, "pdf_base64": 1, "pdf_filename": 1}
     )
@@ -2536,6 +2584,19 @@ async def download_membership_pdf(application_id: str):
         media_type="application/pdf",
         headers={"Content-Disposition": f'inline; filename="{filename}"'},
     )
+
+
+@api.get("/membership/forms/{application_id}/url")
+async def membership_form_url(application_id: str, request: Request, u: dict = Depends(require_user)):
+    """Return a tokenised, openable PDF URL for the owner or an admin."""
+    doc = await db.membership_applications.find_one({"application_id": application_id}, {"_id": 0, "user_id": 1, "pdf_base64": 1})
+    if not doc or not doc.get("pdf_base64"):
+        raise HTTPException(404, "Membership form not found")
+    if not (u.get("is_admin") or doc.get("user_id") == u["user_id"]):
+        raise HTTPException(403, "Not authorised to view this form")
+    base = _public_base(request) or ""
+    return {"url": f"{base}/api/membership/forms/{application_id}.pdf?t={sign_dl_token('form', application_id)}"}
+
 
 
 @api.get("/membership/applications/me")
@@ -3194,7 +3255,7 @@ async def admin_members_export(request: Request, u: dict = Depends(require_admin
         "created_at": now_utc(),
     })
     base = _public_base(request)
-    dl_link = f"{base}/api/admin/exports/{export_id}.csv" if base else ""
+    dl_link = f"{base}/api/admin/exports/{export_id}.csv?t={sign_dl_token('export', export_id)}" if base else ""
     ok = await send_email(
         GYM_ADMIN_EMAIL,
         f"Max Energy — Members & Trials export ({len(members)})",
@@ -3208,7 +3269,14 @@ async def admin_members_export(request: Request, u: dict = Depends(require_admin
 
 
 @api.get("/admin/exports/{export_id}.csv")
-async def download_export_csv(export_id: str):
+async def download_export_csv(export_id: str, t: Optional[str] = None, authorization: Optional[str] = Header(None)):
+    # Member data export — requires a valid signed link token or an admin bearer.
+    authorized = verify_dl_token(t, "export", export_id)
+    if not authorized:
+        u = await get_user_by_token(authorization)
+        authorized = bool(u and u.get("is_admin"))
+    if not authorized:
+        raise HTTPException(403, "Not authorised")
     doc = await db.exports.find_one({"export_id": export_id}, {"_id": 0, "csv_base64": 1, "filename": 1})
     if not doc or not doc.get("csv_base64"):
         raise HTTPException(404, "Export not found")

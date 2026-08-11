@@ -53,10 +53,12 @@ export default function MembershipLog() {
     setRefreshing(false);
   };
 
-  const openPdf = (id: string) => {
-    const url = `${BACKEND_URL}/api/membership/forms/${id}.pdf`;
-    if (Platform.OS === "web") Linking.openURL(url).catch(() => {});
-    else WebBrowser.openBrowserAsync(url).catch(() => Linking.openURL(url).catch(() => {}));
+  const openPdf = async (id: string) => {
+    try {
+      const { url } = await api.membershipFormUrl(id);
+      if (Platform.OS === "web") Linking.openURL(url).catch(() => {});
+      else WebBrowser.openBrowserAsync(url).catch(() => Linking.openURL(url).catch(() => {}));
+    } catch {}
   };
 
   const shown = items.filter((i) => filter === "all" || i.status === filter);
