@@ -45,7 +45,6 @@ export default function ClassDetail() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-  const [isMember, setIsMember] = useState<boolean | null>(null);
   const [apptOpen, setApptOpen] = useState(false);
   const [apptDay, setApptDay] = useState(0);
   const [apptHour, setApptHour] = useState<number | null>(null);
@@ -68,12 +67,6 @@ export default function ClassDetail() {
       setCredit(m?.user?.credit_cents || 0);
       setPasses(m?.user?.class_pass_credits || 0);
     } catch {}
-    try {
-      const a = await api.myApplications();
-      setIsMember((a.applications || []).length > 0);
-    } catch {
-      setIsMember(null);
-    }
     setLoading(false);
   }, [id]);
 
@@ -319,27 +312,19 @@ export default function ClassDetail() {
           ) : (
             <Pressable
               testID="class-form-prompt"
-              style={styles.formBadgeWarn}
+              style={styles.joinNotice}
               onPress={() => router.push({ pathname: "/membership", params: { next: "class" } })}
             >
-              <Ionicons name="document-text-outline" size={16} color={colors.brand} />
-              <Text style={styles.formBadgeWarnText}>No membership form yet — tap to complete it</Text>
-              <Ionicons name="chevron-forward" size={15} color={colors.brand} />
-            </Pressable>
-          ))}
-
-          {isMember === false && (
-            <Pressable testID="join-notice" style={styles.joinNotice} onPress={() => router.push("/vigyr-signon")}>
               <View style={styles.joinIcon}>
-                <Ionicons name="card" size={18} color={colors.brand} />
+                <Ionicons name="document-text-outline" size={18} color={colors.brand} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.joinTitle}>Not a member yet?</Text>
-                <Text style={styles.joinBody}>Join Maxenergy Fitness to book classes. Tap here to sign up.</Text>
+                <Text style={styles.joinTitle}>Complete your membership form</Text>
+                <Text style={styles.joinBody}>Fill out your membership form to book classes. Tap here to complete it.</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color={colors.brand} />
             </Pressable>
-          )}
+          ))}
 
           {!!(cls as any).program && (
             <View style={styles.programBanner}>
