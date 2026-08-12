@@ -240,7 +240,6 @@ export default function Home() {
   // Scheduled (fixed-time) classes only — exclude by-appointment options and ended ones.
   const scheduled = classes.filter((c) => !c.by_appointment && !c.ended);
   const upcoming = scheduled.slice(0, 6);
-  const nextClass = scheduled[0];
   const todayKey = qldTodayUTC().toISOString().slice(0, 10);
   const todayCount = scheduled.filter((c) => scheduleDay(c.start_at).toISOString().slice(0, 10) === todayKey).length;
 
@@ -263,6 +262,8 @@ export default function Home() {
   };
 
   const quickActions = [
+    { key: "booknext", label: "Book Next Class", icon: "flash", grad: ["#FF7A00", "#FFB259"], onPress: () => (scheduled[0] ? router.push({ pathname: "/class/[id]", params: { id: scheduled[0].class_id } }) : router.navigate("/(tabs)/timetable")) },
+    { key: "bookings", label: "My Bookings", icon: "bookmark", grad: ["#0D9488", "#2DD4BF"], onPress: () => router.push("/bookings") },
     { key: "schedule", label: "View Schedule", icon: "calendar", grad: ["#FF7A00", "#FFB259"], onPress: () => router.navigate("/(tabs)/timetable") },
     { key: "checkin", label: "Class Check-In", icon: "checkmark-done", grad: ["#16A34A", "#4ADE80"], onPress: () => router.push("/check-in") },
     { key: "trial", label: "Free Trial", icon: "gift", grad: ["#9333EA", "#C084FC"], onPress: () => router.push("/free-trial") },
@@ -354,32 +355,6 @@ export default function Home() {
         )}
 
         <LiveNowBanner classes={scheduled} />
-
-        <View style={styles.shortcutRow}>
-          <Pressable
-            testID="home-book-next"
-            style={({ pressed }) => [styles.shortcutBtn, pressed && { opacity: 0.9 }]}
-            onPress={() => (nextClass ? router.push({ pathname: "/class/[id]", params: { id: nextClass.class_id } }) : router.navigate("/(tabs)/timetable"))}
-          >
-            <View style={[styles.shortcutIcon, { backgroundColor: colors.brandTertiary }]}>
-              <Ionicons name="flash" size={20} color={colors.brand} />
-            </View>
-            <Text style={styles.shortcutTitle}>Book next class</Text>
-            <Text style={styles.shortcutSub} numberOfLines={1}>{nextClass ? nextClass.name : "See timetable"}</Text>
-          </Pressable>
-
-          <Pressable
-            testID="home-my-bookings"
-            style={({ pressed }) => [styles.shortcutBtn, pressed && { opacity: 0.9 }]}
-            onPress={() => router.push("/bookings")}
-          >
-            <View style={[styles.shortcutIcon, { backgroundColor: "rgba(34,197,94,0.15)" }]}>
-              <Ionicons name="bookmark" size={20} color="#22C55E" />
-            </View>
-            <Text style={styles.shortcutTitle}>My bookings</Text>
-            <Text style={styles.shortcutSub} numberOfLines={1}>View & manage</Text>
-          </Pressable>
-        </View>
 
         {user && !user.is_admin && !user.membership_form_completed && !user.vigyr_signup_reported && !user.membership_active && (
           <Pressable testID="home-store-btn" onPress={() => router.push("/vigyr-signon")} style={[styles.verifyBanner, { marginTop: spacing.lg }]}>
