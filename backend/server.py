@@ -2391,6 +2391,12 @@ async def track_event_view(event_id: str, u: dict = Depends(require_user)):
     return {"ok": True}
 
 
+@api.post("/views/announcement/{announcement_id}")
+async def track_announcement_view(announcement_id: str, u: dict = Depends(require_user)):
+    await _record_view("announcement", announcement_id, u)
+    return {"ok": True}
+
+
 @api.get("/admin/views")
 async def admin_views(u: dict = Depends(require_admin)):
     # Notices tab: distinct viewers + total views
@@ -2399,28 +2405,50 @@ async def admin_views(u: dict = Depends(require_admin)):
         "unique_users": len(notices_docs),
         "total_views": sum(int(d.get("count", 0)) for d in notices_docs),
     }
+
+    async def _by_key(view_type: str) -> dict:
+        docs = await db.content_views.find({"view_type": view_type}, {"_id": 0}).to_list(10000)
+        agg: dict = {}
+        for d in docs:
+            a = agg.setdefault(d["key"], {"unique_users": 0, "total_views": 0})
+            a["unique_users"] += 1
+            a["total_views"] += int(d.get("count", 0))
+        return agg
+
     # Per-event viewers
-    event_docs = await db.content_views.find({"view_type": "event"}, {"_id": 0}).to_list(10000)
-    by_event: dict = {}
-    for d in event_docs:
-        k = d["key"]
-        agg = by_event.setdefault(k, {"unique_users": 0, "total_views": 0})
-        agg["unique_users"] += 1
-        agg["total_views"] += int(d.get("count", 0))
+    by_event = await _by_key("event")
     events_rows = await db.events.find({}, {"_id": 0, "event_id": 1, "title": 1, "start_at": 1}).to_list(200)
-    title_map = {e["event_id"]: e for e in events_rows}
+    ev_map = {e["event_id"]: e for e in events_rows}
     events = []
-    for k, agg in by_event.items():
-        meta = title_map.get(k, {})
+    for k, a in by_event.items():
+        meta = ev_map.get(k, {})
         events.append({
             "event_id": k,
             "title": meta.get("title", "(deleted event)"),
             "start_at": meta.get("start_at"),
-            "unique_users": agg["unique_users"],
-            "total_views": agg["total_views"],
+            "unique_users": a["unique_users"],
+            "total_views": a["total_views"],
         })
     events.sort(key=lambda x: x["unique_users"], reverse=True)
-    return {"notices": notices, "events": events}
+
+    # Per-announcement (individual notice) viewers
+    by_ann = await _by_key("announcement")
+    ann_rows = await db.announcements.find({}, {"_id": 0, "announcement_id": 1, "title": 1, "pinned": 1, "created_at": 1}).to_list(200)
+    ann_map = {a["announcement_id"]: a for a in ann_rows}
+    announcements = []
+    for k, a in by_ann.items():
+        meta = ann_map.get(k, {})
+        announcements.append({
+            "announcement_id": k,
+            "title": meta.get("title", "(deleted notice)"),
+            "pinned": bool(meta.get("pinned")),
+            "created_at": meta.get("created_at"),
+            "unique_users": a["unique_users"],
+            "total_views": a["total_views"],
+        })
+    announcements.sort(key=lambda x: x["unique_users"], reverse=True)
+
+    return {"notices": notices, "events": events, "announcements": announcements}
 
 
 class EventRSVPReq(BaseModel):

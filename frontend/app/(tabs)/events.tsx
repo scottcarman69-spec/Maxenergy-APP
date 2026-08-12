@@ -36,7 +36,10 @@ export default function Notices() {
     setExpanded((cur) => {
       const next = new Set(cur);
       if (next.has(id)) next.delete(id);
-      else next.add(id);
+      else {
+        next.add(id);
+        api.trackAnnouncementView(id).catch(() => {}); // record a read when opened
+      }
       return next;
     });
 

@@ -9,7 +9,8 @@ import { classDate, classTime } from "@/src/datetime";
 import ScreenHeader from "@/src/components/ScreenHeader";
 
 type EventView = { event_id: string; title: string; start_at?: string; unique_users: number; total_views: number };
-type ViewsData = { notices: { unique_users: number; total_views: number }; events: EventView[] };
+type AnnView = { announcement_id: string; title: string; pinned?: boolean; created_at?: string; unique_users: number; total_views: number };
+type ViewsData = { notices: { unique_users: number; total_views: number }; events: EventView[]; announcements: AnnView[] };
 
 export default function AdminViews() {
   const [data, setData] = useState<ViewsData | null>(null);
@@ -32,6 +33,7 @@ export default function AdminViews() {
   };
 
   const events = data?.events || [];
+  const announcements = data?.announcements || [];
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
@@ -61,6 +63,36 @@ export default function AdminViews() {
             </View>
           </View>
           <Text style={styles.metaLine}>{data?.notices.total_views ?? 0} total opens</Text>
+
+          {/* Per-notice breakdown */}
+          <Text style={[styles.section, { marginTop: spacing.xl }]}>VIEWS PER NOTICE</Text>
+          {announcements.length === 0 ? (
+            <View style={styles.empty}>
+              <Ionicons name="eye-off-outline" size={34} color={colors.onSurfaceSecondary} />
+              <Text style={styles.emptyText}>No notice reads recorded yet.</Text>
+            </View>
+          ) : (
+            announcements.map((a) => (
+              <View key={a.announcement_id} style={styles.card}>
+                <View style={styles.cardIcon}>
+                  <Ionicons name={a.pinned ? "pin" : "megaphone"} size={22} color={colors.brand} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cardTitle} numberOfLines={2}>{a.title}</Text>
+                  {!!a.created_at && (
+                    <Text style={styles.cardSub}>
+                      Posted {classDate(a.created_at, { day: "2-digit", month: "short" })}
+                    </Text>
+                  )}
+                  <Text style={styles.cardSub}>{a.total_views} total views</Text>
+                </View>
+                <View style={styles.statBox}>
+                  <Text style={styles.statNum}>{a.unique_users}</Text>
+                  <Text style={styles.statLabel}>members</Text>
+                </View>
+              </View>
+            ))
+          )}
 
           {/* Events */}
           <Text style={[styles.section, { marginTop: spacing.xl }]}>UPCOMING EVENTS</Text>

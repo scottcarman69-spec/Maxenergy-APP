@@ -112,6 +112,8 @@ export default function Home() {
     if (newNotices.length && user?.user_id) {
       const newestTs = newNotices.reduce((m, a) => Math.max(m, new Date(a.created_at).getTime()), 0);
       await storage.setItem(`last_seen_notice_ts_${user.user_id}`, newestTs);
+      // Count each notice shown in the popup as a read for per-notice view stats.
+      newNotices.forEach((n) => api.trackAnnouncementView(n.announcement_id).catch(() => {}));
     }
     setNewNotices([]);
   }, [newNotices, user?.user_id]);
