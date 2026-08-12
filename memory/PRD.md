@@ -689,3 +689,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Home Quick Actions "Muay Thai Academy" tile now shows the combat badge logo (expo-image + groupLogo("muay-thai-academy") inside the gradient circle; quickLogo style) instead of a generic icon.
 - Group screen: replaced the silent inbox redirect with a proper "Members only" state — non-members opening a group see a lock screen: "Only group members can access this group" + "Head to your Inbox to request to join, then an admin can add you." + Go to Inbox button (testID group-denied / group-denied-inbox). Header collapses to just the title for the denied state.
 - Verified via screenshots (member1, not in academy): tile shows logo; tapping shows the members-only screen.
+
+## Session update (Jun 2026 fork) — DM Read Receipts ("Seen") + Typing Indicator (DONE)
+- Read receipts: DM messages already carry a `read` flag (set when recipient opens the thread). Frontend chat/[id].tsx now shows "Seen" (or "Sent") under the sender's LAST message. No schema change.
+- Typing indicator: NEW POST /api/dm/{other}/typing (friends-only; upserts db.dm_typing {key,user_id,until_ts=now+6s}). GET /api/dm/{other} now returns friend_typing (true if the OTHER user's until_ts>now). Frontend: onChangeText throttles api.dmTyping (max 1/3s); a "<name> is typing…" bubble shows at the bottom.
+- Live feel: DM screen now POLLS every 3s (useFocusEffect setInterval + cleanup) to refresh messages, Seen status, and typing; auto-scrolls on new messages (lenRef guard).
+- Verified via curl E2E (send→read False; recipient opens→read True "Seen"; recipient typing→friend_typing True) and UI screenshot showing "Seen" under a sent bubble. Test data cleaned. tsc clean.

@@ -191,6 +191,7 @@ export const api = {
   dmUnread: () => req("/api/dm/unread"),
   dmMessages: (otherId: string) => req(`/api/dm/${otherId}`),
   dmSend: (otherId: string, body: string) => req(`/api/dm/${otherId}`, { method: "POST", body: JSON.stringify({ body }) }),
+  dmTyping: (otherId: string) => req(`/api/dm/${otherId}/typing`, { method: "POST" }),
   createGroup: (name: string, member_ids: string[]) => req("/api/groups", { method: "POST", body: JSON.stringify({ name, member_ids }) }),
   groups: () => req("/api/groups"),
   groupGet: (id: string) => req(`/api/groups/${id}`),

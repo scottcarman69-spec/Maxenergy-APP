@@ -2220,7 +2220,19 @@ async def dm_messages_get(other_id: str, u: dict = Depends(require_user)):
     other = await db.users.find_one({"user_id": other_id}, {"_id": 0, "user_id": 1, "name": 1, "handle": 1, "picture": 1})
     rows = await db.dm_messages.find({"key": key}, {"_id": 0}).sort("created_at", 1).to_list(1000)
     await db.dm_messages.update_many({"key": key, "to_id": u["user_id"], "read": {"$ne": True}}, {"$set": {"read": True}})
-    return {"messages": rows, "friend": _member_card(other or {})}
+    tdoc = await db.dm_typing.find_one({"key": key, "user_id": other_id})
+    friend_typing = bool(tdoc and tdoc.get("until_ts", 0) > now_utc().timestamp())
+    return {"messages": rows, "friend": _member_card(other or {}), "friend_typing": friend_typing}
+
+
+@api.post("/dm/{other_id}/typing")
+async def dm_typing(other_id: str, u: dict = Depends(require_user)):
+    key = _dm_key(u["user_id"], other_id)
+    if not await db.friendships.find_one({"key": key, "status": "accepted"}):
+        raise HTTPException(403, "You can only message your friends.")
+    await db.dm_typing.update_one({"key": key, "user_id": u["user_id"]},
+                                  {"$set": {"until_ts": now_utc().timestamp() + 6}}, upsert=True)
+    return {"ok": True}
 
 
 class DMSendReq(BaseModel):
