@@ -71,6 +71,9 @@ export default function InboxTab() {
         <Pressable testID="inbox-new-group" style={styles.groupBtn} onPress={() => router.push("/group/new")}>
           <Ionicons name="people" size={18} color={colors.brand} />
         </Pressable>
+        <Pressable testID="inbox-settings" style={styles.groupBtn} onPress={() => router.push("/inbox-settings")}>
+          <Ionicons name="settings-outline" size={18} color={colors.brand} />
+        </Pressable>
       </View>
 
       {loading ? (

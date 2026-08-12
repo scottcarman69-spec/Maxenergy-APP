@@ -213,6 +213,7 @@ def user_public(u: dict) -> dict:
         "is_admin": bool(u.get("is_admin", False)),
         "verified": bool(u.get("verified", False)),
         "reminder_hours": int(u.get("reminder_hours", 3)),
+        "message_notifications": bool(u.get("message_notifications", True)),
         "credit_cents": int(u.get("credit_cents", 0)),
         "class_pass_credits": int(u.get("class_pass_credits", 0)),
         "key_tag": bool(u.get("key_tag", False)),
@@ -1084,6 +1085,23 @@ async def set_reminder_preference(body: ReminderPrefReq, u: dict = Depends(requi
         raise HTTPException(400, "Choose Off, 1, 3 or 12 hours.")
     await db.users.update_one({"user_id": u["user_id"]}, {"$set": {"reminder_hours": body.hours}})
     return {"ok": True, "reminder_hours": body.hours}
+
+
+class MessageNotifPrefReq(BaseModel):
+    enabled: bool
+
+
+@api.put("/me/message-notifications")
+async def set_message_notifications(body: MessageNotifPrefReq, u: dict = Depends(require_user)):
+    await db.users.update_one({"user_id": u["user_id"]}, {"$set": {"message_notifications": bool(body.enabled)}})
+    return {"ok": True, "message_notifications": bool(body.enabled)}
+
+
+async def _msg_notifs_on(user_id: str) -> bool:
+    """Whether a member wants message notifications (default on)."""
+    doc = await db.users.find_one({"user_id": user_id}, {"_id": 0, "message_notifications": 1})
+    return bool((doc or {}).get("message_notifications", True))
+
 
 
 @api.post("/auth/logout")
@@ -2184,15 +2202,16 @@ async def dm_send(other_id: str, body: DMSendReq, u: dict = Depends(require_user
     }
     await db.dm_messages.insert_one(msg)
     other = await db.users.find_one({"user_id": other_id}, {"_id": 0})
-    await notify_user(
-        other_id, (other or {}).get("email"),
-        f"New message from {msg['sender_name']}",
-        f"{msg['sender_name']}: {text[:120]}",
-        "message",
-        email_lines=[f"<b>{esc(msg['sender_name'])}</b> sent you a message:", f"\"{esc(text)}\"",
-                     "Open the app → Inbox to reply."],
-        data={"nav": "member_inbox"},
-    )
+    if await _msg_notifs_on(other_id):
+        await notify_user(
+            other_id, (other or {}).get("email"),
+            f"New message from {msg['sender_name']}",
+            f"{msg['sender_name']}: {text[:120]}",
+            "message",
+            email_lines=[f"<b>{esc(msg['sender_name'])}</b> sent you a message:", f"\"{esc(text)}\"",
+                         "Open the app → Inbox to reply."],
+            data={"nav": "member_inbox"},
+        )
     msg.pop("_id", None)
     return {"message": msg}
 
@@ -2361,9 +2380,11 @@ async def group_send(gid: str, body: DMSendReq, u: dict = Depends(require_user))
     msg = {"gmsg_id": new_id("gm"), "group_id": gid, "from_id": u["user_id"],
            "sender_name": u.get("name") or u.get("email"), "body": text, "read_by": [u["user_id"]], "created_at": now_utc()}
     await db.group_messages.insert_one(msg)
-    # In-app notification only (no email) for group chat messages.
+    # In-app notification only (no email) for group chat messages; respect member's toggle.
     for mid in g.get("member_ids", []):
         if mid == u["user_id"]:
+            continue
+        if not await _msg_notifs_on(mid):
             continue
         await create_notification(mid, f"{g['name']}: new message",
                                   f"{msg['sender_name']}: {text[:100]}", "message",
@@ -2632,14 +2653,15 @@ async def admin_thread_reply(user_id: str, body: MessageReq, request: Request, u
     await db.messages.insert_one(msg)
     base = _public_base(request)
     open_btn = _download_button(f"{base}/messages", "Open your messages") if base else "Open the app to reply: Profile → Message the Gym."
-    await notify_user(
-        user_id, member.get("email"),
-        "New message from Maxenergy Fitness",
-        text[:140],
-        "message",
-        email_lines=["You have a new message from the Maxenergy Team:", f"\"{text}\"", open_btn],
-        data={"nav": "member_inbox"},
-    )
+    if await _msg_notifs_on(user_id):
+        await notify_user(
+            user_id, member.get("email"),
+            "New message from Maxenergy Fitness",
+            text[:140],
+            "message",
+            email_lines=["You have a new message from the Maxenergy Team:", f"\"{text}\"", open_btn],
+            data={"nav": "member_inbox"},
+        )
     msg.pop("_id", None)
     return {"message": msg}
 
