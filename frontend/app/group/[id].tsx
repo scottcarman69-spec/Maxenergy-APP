@@ -9,6 +9,13 @@ import ScreenHeader from "@/src/components/ScreenHeader";
 
 type GM = { gmsg_id: string; from_id: string; sender_name: string; body: string; created_at: string };
 
+function shortName(full?: string): string {
+  const parts = (full || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "";
+  if (parts.length === 1) return parts[0];
+  return `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.`;
+}
+
 export default function GroupChat() {
   const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
   const router = useRouter();
@@ -77,7 +84,7 @@ export default function GroupChat() {
               }
               return (
                 <View key={m.gmsg_id} style={[styles.bubble, mine ? styles.me : styles.them]}>
-                  {!mine && <Text style={styles.sender}>{m.sender_name}</Text>}
+                  {!mine && <Text style={styles.sender}>{shortName(m.sender_name)}</Text>}
                   <Text style={[styles.msg, mine && { color: colors.onBrand }]}>{m.body}</Text>
                 </View>
               );
