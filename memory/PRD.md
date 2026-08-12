@@ -714,3 +714,7 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Session update (Jun 2026 fork) — Removed About Us from quick actions (DONE)
 - Removed the "About Us" tile from Home Quick Actions (still available in Profile → Gym Info → "About Us & Team"). Grid back to 12 tiles (3 even rows). tsc clean.
+
+## Session update (Jun 2026 fork) — 24h reschedule cutoff + picker form (DONE)
+- Backend: booking_reschedule now enforces the same 24-hour cutoff as cancel (409 "Bookings can only be rescheduled at least 24 hours before the start time…"). Uses requested_at or class start (QLD local). Verified: booking 10h out → 409, 48h out → 200.
+- Frontend bookings.tsx reschedule modal: replaced the free-text "Preferred day & time" input with horizontal chip pickers — Pick a day (next 14 days, e.g. "Wed 12 Aug") + Pick a time (6:00 AM–8:00 PM, 30-min slots). Composes requested_time = "<Weekday D Mon> · <h:mm AM/PM>" (unchanged backend contract). Added 24h notice + live "Preferred:" summary; Send disabled until both chosen. Verified via screenshot. tsc clean. Test bookings cleaned.

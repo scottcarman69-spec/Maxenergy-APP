@@ -26,9 +26,38 @@ export default function BookingsScreen() {
   const [actioning, setActioning] = useState<string | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
   const [rescheduleFor, setRescheduleFor] = useState<Booking | null>(null);
-  const [rTime, setRTime] = useState("");
+  const [rDay, setRDay] = useState("");
+  const [rSlot, setRSlot] = useState("");
   const [rNote, setRNote] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+
+  // Next 14 days as pickable chips (label shown to member + sent to gym).
+  const dayOptions = React.useMemo(() => {
+    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const out: { key: string; short: string; full: string }[] = [];
+    const base = new Date();
+    for (let i = 0; i < 14; i++) {
+      const d = new Date(base.getFullYear(), base.getMonth(), base.getDate() + i);
+      out.push({
+        key: d.toISOString().slice(0, 10),
+        short: `${days[d.getDay()].slice(0, 3)} ${d.getDate()} ${months[d.getMonth()]}`,
+        full: `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`,
+      });
+    }
+    return out;
+  }, [rescheduleFor]);
+  const timeSlots = React.useMemo(() => {
+    const out: { v: string; label: string }[] = [];
+    for (let h = 6; h <= 20; h++) for (const m of [0, 30]) {
+      const ap = h < 12 ? "AM" : "PM"; const hh = h % 12 === 0 ? 12 : h % 12;
+      out.push({ v: `${h}:${m}`, label: `${hh}:${String(m).padStart(2, "0")} ${ap}` });
+    }
+    return out;
+  }, []);
+  const rDayFull = dayOptions.find((d) => d.key === rDay)?.full || "";
+  const rSlotLabel = timeSlots.find((s) => s.v === rSlot)?.label || "";
+  const rComposed = rDayFull && rSlotLabel ? `${rDayFull} · ${rSlotLabel}` : "";
 
   const load = useCallback(async () => {
     try {
@@ -91,14 +120,13 @@ export default function BookingsScreen() {
   };
 
   const submitReschedule = async () => {
-    if (!rescheduleFor || !rTime.trim()) return;
+    if (!rescheduleFor || !rComposed) return;
     setActioning(rescheduleFor.booking_id);
     try {
-      await api.rescheduleBooking(rescheduleFor.booking_id, rTime.trim(), rNote.trim() || undefined);
+      await api.rescheduleBooking(rescheduleFor.booking_id, rComposed, rNote.trim() || undefined);
       setBanner("Reschedule request sent. The gym will confirm a time.");
       setRescheduleFor(null);
-      setRTime("");
-      setRNote("");
+      setRDay(""); setRSlot(""); setRNote("");
       await load();
     } catch (e: any) {
       setBanner(e?.message || "Could not request reschedule.");
@@ -223,7 +251,7 @@ export default function BookingsScreen() {
                         <Pressable
                           testID={`booking-reschedule-${b.booking_id}`}
                           style={styles.actionBtnGhost}
-                          onPress={() => { setRescheduleFor(b); setRTime(""); setRNote(""); }}
+                          onPress={() => { setRescheduleFor(b); setRDay(""); setRSlot(""); setRNote(""); }}
                           disabled={actioning === b.booking_id}
                         >
                           <Ionicons name="time-outline" size={15} color={colors.brand} />
@@ -288,15 +316,34 @@ export default function BookingsScreen() {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Request a reschedule</Text>
             <Text style={styles.modalSub}>{rescheduleFor?.class_name}</Text>
-            <Text style={styles.modalLabel}>Preferred day & time</Text>
-            <TextInput
-              testID="reschedule-time"
-              value={rTime}
-              onChangeText={setRTime}
-              placeholder="e.g. Tuesday 6:00pm"
-              placeholderTextColor={colors.onSurfaceSecondary}
-              style={styles.modalInput}
-            />
+            <Text style={styles.modalHint}>Reschedules must be at least 24 hours before your booking.</Text>
+
+            <Text style={styles.modalLabel}>Pick a day</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
+              {dayOptions.map((d) => {
+                const on = rDay === d.key;
+                return (
+                  <Pressable key={d.key} testID={`rday-${d.key}`} style={[styles.pickChip, on && styles.pickChipOn]} onPress={() => setRDay(d.key)}>
+                    <Text style={[styles.pickChipText, on && styles.pickChipTextOn]}>{d.short}</Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+
+            <Text style={styles.modalLabel}>Pick a time</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
+              {timeSlots.map((s) => {
+                const on = rSlot === s.v;
+                return (
+                  <Pressable key={s.v} testID={`rslot-${s.v}`} style={[styles.pickChip, on && styles.pickChipOn]} onPress={() => setRSlot(s.v)}>
+                    <Text style={[styles.pickChipText, on && styles.pickChipTextOn]}>{s.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+
+            {!!rComposed && <Text style={styles.rComposed}>Preferred: {rComposed}</Text>}
+
             <Text style={styles.modalLabel}>Note (optional)</Text>
             <TextInput
               testID="reschedule-note"
@@ -313,9 +360,9 @@ export default function BookingsScreen() {
               </Pressable>
               <Pressable
                 testID="reschedule-submit"
-                style={[styles.modalSubmit, (!rTime.trim() || !!actioning) && { opacity: 0.5 }]}
+                style={[styles.modalSubmit, (!rComposed || !!actioning) && { opacity: 0.5 }]}
                 onPress={submitReschedule}
-                disabled={!rTime.trim() || !!actioning}
+                disabled={!rComposed || !!actioning}
               >
                 {actioning ? <ActivityIndicator color={colors.onBrand} /> : <Text style={styles.modalSubmitText}>SEND REQUEST</Text>}
               </Pressable>
@@ -373,6 +420,12 @@ const styles = StyleSheet.create({
   modalTitle: { color: colors.onSurface, fontSize: 20, fontFamily: font.heading },
   modalSub: { color: colors.brand, fontSize: 14, fontWeight: "700", marginTop: 2, marginBottom: spacing.md },
   modalLabel: { color: colors.onSurfaceSecondary, fontSize: 12, fontWeight: "700", marginTop: spacing.sm, marginBottom: 6 },
+  modalHint: { color: colors.brand, fontSize: 12, fontWeight: "700", marginTop: 4, marginBottom: 2 },
+  pickChip: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSecondary, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 9 },
+  pickChipOn: { borderColor: colors.brand, backgroundColor: colors.brandTertiary },
+  pickChipText: { color: colors.onSurfaceSecondary, fontSize: 13, fontWeight: "800" },
+  pickChipTextOn: { color: colors.brand },
+  rComposed: { color: colors.onSurface, fontSize: 13.5, fontWeight: "800", marginTop: spacing.sm },
   modalInput: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, color: colors.onSurface, paddingHorizontal: spacing.md, paddingVertical: 12, borderRadius: radius.md, fontSize: 15 },
   modalActions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.lg },
   modalCancel: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 14, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },

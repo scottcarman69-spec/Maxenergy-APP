@@ -1742,6 +1742,33 @@ async def booking_reschedule(booking_id: str, body: RescheduleReq, u: dict = Dep
         raise HTTPException(404, "Booking not found")
     if b.get("status") == "cancelled":
         raise HTTPException(400, "This booking is cancelled and cannot be rescheduled.")
+    # 24-hour reschedule cutoff (Queensland time) — same policy as cancellations.
+    now_local = (now_utc() + timedelta(hours=10)).replace(tzinfo=None)
+    start_local = None
+    ra = b.get("requested_at")
+    if ra:
+        try:
+            start_local = datetime.fromisoformat(ra).replace(tzinfo=None)
+        except Exception:
+            start_local = None
+    else:
+        cs = None
+        if b.get("class_id"):
+            c = await db.classes.find_one({"class_id": b["class_id"]}, {"_id": 0, "start_at": 1})
+            cs = (c or {}).get("start_at")
+        cs = cs or b.get("class_start")
+        if isinstance(cs, str):
+            try:
+                cs = datetime.fromisoformat(cs.replace("Z", "+00:00"))
+            except Exception:
+                cs = None
+        if isinstance(cs, datetime):
+            start_local = cs.replace(tzinfo=None) if cs.tzinfo else cs
+    if start_local is not None and now_local >= (start_local - timedelta(hours=24)):
+        raise HTTPException(
+            409,
+            "Bookings can only be rescheduled at least 24 hours before the start time. Please contact the gym on 07 4057 9005 if you need help.",
+        )
     await db.bookings.update_one(
         {"booking_id": booking_id},
         {"$set": {"status": "reschedule_requested", "requested_time": body.requested_time, "reschedule_note": body.note, "reschedule_requested_at": now_utc()}},
