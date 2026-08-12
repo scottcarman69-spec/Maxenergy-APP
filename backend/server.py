@@ -2361,14 +2361,13 @@ async def group_send(gid: str, body: DMSendReq, u: dict = Depends(require_user))
     msg = {"gmsg_id": new_id("gm"), "group_id": gid, "from_id": u["user_id"],
            "sender_name": u.get("name") or u.get("email"), "body": text, "read_by": [u["user_id"]], "created_at": now_utc()}
     await db.group_messages.insert_one(msg)
+    # In-app notification only (no email) for group chat messages.
     for mid in g.get("member_ids", []):
         if mid == u["user_id"]:
             continue
-        m = await db.users.find_one({"user_id": mid}, {"_id": 0})
-        await notify_user(mid, (m or {}).get("email"), f"{g['name']}: new message",
-                          f"{msg['sender_name']}: {text[:100]}", "message",
-                          email_lines=[f"New message in <b>{esc(g['name'])}</b> from <b>{esc(msg['sender_name'])}</b>:", f"\"{esc(text)}\"", "Open the app → Inbox to reply."],
-                          data={"nav": "member_inbox"})
+        await create_notification(mid, f"{g['name']}: new message",
+                                  f"{msg['sender_name']}: {text[:100]}", "message",
+                                  data={"nav": "member_inbox"})
     msg.pop("_id", None)
     return {"message": msg}
 

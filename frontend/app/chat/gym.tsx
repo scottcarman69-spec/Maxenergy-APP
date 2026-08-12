@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
 import ScreenHeader from "@/src/components/ScreenHeader";
+import EmojiButton from "@/src/components/EmojiButton";
 
 type Msg = { message_id: string; body: string; sender_is_admin: boolean; sender_name: string; created_at: string };
 
@@ -51,6 +52,7 @@ export default function GymChat() {
           </ScrollView>
         )}
         <View style={styles.inputBar}>
+          <EmojiButton testID="msg-emoji" onPick={(e) => setText((t) => t + e)} />
           <TextInput testID="msg-input" value={text} onChangeText={setText} placeholder="Type a message…" placeholderTextColor={colors.onSurfaceSecondary} style={styles.input} multiline />
           <Pressable testID="msg-send" style={styles.sendBtn} onPress={send} disabled={sending || !text.trim()}>
             {sending ? <ActivityIndicator size="small" color={colors.onBrand} /> : <Ionicons name="send" size={18} color={colors.onBrand} />}

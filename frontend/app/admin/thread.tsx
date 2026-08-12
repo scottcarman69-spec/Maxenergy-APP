@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
 import ScreenHeader from "@/src/components/ScreenHeader";
+import EmojiButton from "@/src/components/EmojiButton";
 
 type Msg = { message_id: string; body: string; sender_is_admin: boolean; sender_name: string; created_at: string };
 
@@ -74,6 +75,7 @@ export default function AdminThread() {
         )}
 
         <View style={styles.inputBar}>
+          <EmojiButton testID="thread-emoji" onPick={(e) => setText((t) => t + e)} />
           <TextInput
             testID="thread-input"
             value={text}

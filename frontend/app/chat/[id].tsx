@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
 import ScreenHeader from "@/src/components/ScreenHeader";
+import EmojiButton from "@/src/components/EmojiButton";
 
 type DM = { dm_id: string; from_id: string; to_id: string; body: string; created_at: string };
 
@@ -65,6 +66,7 @@ export default function FriendChat() {
           </ScrollView>
         )}
         <View style={styles.inputBar}>
+          <EmojiButton testID="dm-emoji" onPick={(e) => setText((t) => t + e)} />
           <TextInput testID="dm-input" value={text} onChangeText={setText} placeholder="Type a message…" placeholderTextColor={colors.onSurfaceSecondary} style={styles.input} multiline />
           <Pressable testID="dm-send" style={styles.sendBtn} onPress={send} disabled={sending || !text.trim()}>
             {sending ? <ActivityIndicator size="small" color={colors.onBrand} /> : <Ionicons name="send" size={18} color={colors.onBrand} />}

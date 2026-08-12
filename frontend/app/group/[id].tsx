@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
 import ScreenHeader from "@/src/components/ScreenHeader";
+import EmojiButton from "@/src/components/EmojiButton";
 
 type GM = { gmsg_id: string; from_id: string; sender_name: string; body: string; created_at: string };
 
@@ -92,6 +93,7 @@ export default function GroupChat() {
           </ScrollView>
         )}
         <View style={styles.bar}>
+          <EmojiButton testID="group-emoji" onPick={(e) => setText((t) => t + e)} />
           <TextInput testID="group-input" value={text} onChangeText={setText} placeholder="Message the group…" placeholderTextColor={colors.onSurfaceSecondary} style={styles.input} multiline />
           <Pressable testID="group-send" style={styles.sendBtn} onPress={send} disabled={sending || !text.trim()}>
             {sending ? <ActivityIndicator size="small" color={colors.onBrand} /> : <Ionicons name="send" size={18} color={colors.onBrand} />}
