@@ -2529,6 +2529,12 @@ async def admin_group_join_approve(request_id: str, u: dict = Depends(require_ad
     await db.group_join_requests.update_one({"request_id": request_id},
                                             {"$set": {"status": "approved", "decided_at": now_utc(), "decided_by": u.get("name") or "Admin"}})
     member = await db.users.find_one({"user_id": r["user_id"]}, {"_id": 0})
+    # Auto-post a friendly welcome message in the group chat.
+    first = ((member or {}).get("name") or "a new member").split(" ")[0]
+    welcome = {"gmsg_id": new_id("gm"), "group_id": r["group_id"], "from_id": "system",
+               "sender_name": "Max Energy", "body": f"🥊 Everyone welcome {first} to the {g['name']}! Say hi 👋",
+               "read_by": [], "created_at": now_utc()}
+    await db.group_messages.insert_one(welcome)
     await notify_user(r["user_id"], (member or {}).get("email"), f"Welcome to {g['name'][:40]} 🥊",
                       f"You've been accepted into '{g['name'][:40]}'. Open Inbox to say hi!", "message",
                       email_lines=[f"You're in! You've been accepted into <b>{esc(g['name'])}</b>.", "Open the app → Inbox to join the conversation."],

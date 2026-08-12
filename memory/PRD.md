@@ -646,3 +646,6 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Session update (Jun 2026 fork) — Transparent group logo (DONE)
 - Generated a transparent-centre version of the combat badge (PIL: near-black pixels < ~55 set to alpha 0, dark greys feathered) → assets/images/combat-logo-transparent.webp. Removes the solid black disc so only the white ring/skull/wings/orange/green + text remain. src/groups.ts now maps muay-thai-academy → the transparent logo. Inbox groupLogo bumped to 64px. Verified via screenshot: badge floats cleanly on the dark row, no dark circle.
+
+## Session update (Jun 2026 fork) — Academy welcome auto-post (DONE)
+- When an admin ACCEPTS a join request into an official group, a friendly system message is auto-posted in that group chat: from_id="system", sender_name "Max Energy", body "🥊 Everyone welcome {first} to the {group}! Say hi 👋" (renders as a normal incoming bubble). Added in admin_group_join_approve before the member notification. Verified via curl (welcome appears in GET /groups/{gid}). Test state reset (academy back to admins only).
