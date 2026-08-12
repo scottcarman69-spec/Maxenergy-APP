@@ -541,3 +541,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Members can only cancel a booking at least 24h before the scheduled start (classes & appointments). Enforced server-side in POST /api/bookings/{id}/cancel: computes Brisbane local now (utc+10) and the booking start (appointment requested_at, else class start_at fresh from classes / class_start fallback); if now >= start-24h -> HTTP 409 with message "Bookings can only be cancelled at least 24 hours before the start time. Please contact the gym on 07 4057 9005 if you need help." Admin cancel endpoint is unaffected.
 - Frontend bookings.tsx: Cancel now shows a confirm dialog stating the 24h policy; server 409 is surfaced in the banner + native Alert.
 - Verified via authenticated API: within-24h booking -> 409 blocked; beyond-24h -> 200 cancelled. tsc clean.
+
+## Session update (Jun 2026 fork) — Auto credit/pass on member cancel (DONE)
+- When a member cancels a PAID/CONFIRMED booking (within the 24h policy), they now automatically get compensation in POST /api/bookings/{id}/cancel: if paid_with_pass -> return 1 class pass (pass_ledger + notify); else if amount>0 -> add credit_cents = amount (credit_ledger + notify). Free/pending requests get nothing. Booking marked cancel_reward=credit|class_pass (+cancel_credit_cents). Cancellation email/notification now states the credit/pass returned.
+- Frontend bookings.tsx: confirm dialog mentions credit/pass return; success banner shows "$X credit added" or "class pass returned".
+- Verified via API: money booking -> $18 credit; pass booking -> +1 pass. Cleaned up test data.

@@ -1511,12 +1511,46 @@ async def booking_cancel(booking_id: str, u: dict = Depends(require_user)):
         )
     await db.bookings.update_one({"booking_id": booking_id}, {"$set": {"status": "cancelled", "cancelled_at": now_utc(), "cancelled_by": "member"}})
     member_name = u.get("name") or u.get("email")
+
+    # Auto reward for cancelling within policy (>=24h before start):
+    #  - if the booking was paid with a class pass -> return the pass
+    #  - else if money was paid -> add in-app credit for the amount paid
+    was_paid = b.get("status") in ("paid", "confirmed")
+    amount = int(b.get("amount", 0) or 0)
+    reward_line = ""
+    if was_paid and b.get("paid_with_pass"):
+        fresh = await db.users.find_one({"user_id": u["user_id"]}, {"_id": 0, "class_pass_credits": 1})
+        left = int((fresh or {}).get("class_pass_credits", 0)) + 1
+        await db.users.update_one({"user_id": u["user_id"]}, {"$set": {"class_pass_credits": left}})
+        await db.pass_ledger.insert_one({
+            "pass_ledger_id": new_id("pl"), "user_id": u["user_id"], "delta": 1,
+            "reason": f"Pass returned — {b.get('class_name')} cancelled by member", "balance_after": left,
+            "created_at": now_utc(),
+        })
+        await db.bookings.update_one({"booking_id": booking_id}, {"$set": {"cancel_reward": "class_pass"}})
+        reward_line = f"Your class pass has been returned — you now have <b>{left}</b> pass{'es' if left != 1 else ''}."
+    elif was_paid and amount > 0:
+        await db.users.update_one({"user_id": u["user_id"]}, {"$inc": {"credit_cents": amount}})
+        await db.credit_ledger.insert_one({
+            "ledger_id": new_id("cl"), "user_id": u["user_id"], "delta_cents": amount,
+            "reason": f"Credit for cancelled {b.get('class_name')}", "booking_id": booking_id, "created_at": now_utc(),
+        })
+        await db.bookings.update_one({"booking_id": booking_id}, {"$set": {"cancel_reward": "credit", "cancel_credit_cents": amount}})
+        reward_line = f"We've added <b>${amount/100:.2f}</b> in account credit to use toward your next booking."
+
+    body_lines = [f"Your booking for <b>{b['class_name']}</b> has been cancelled."]
+    if reward_line:
+        body_lines.append(reward_line)
+    body_lines.append("We hope to see you back on the mats soon!")
+    notif_body = f"Your booking for {b['class_name']} has been cancelled."
+    if reward_line:
+        notif_body += " " + reward_line.replace("<b>", "").replace("</b>", "")
     await notify_user(
         u["user_id"], u.get("email"),
         "Booking cancelled",
-        f"Your booking for {b['class_name']} has been cancelled.",
+        notif_body,
         "booking",
-        email_lines=[f"Your booking for <b>{b['class_name']}</b> has been cancelled.", "We hope to see you back on the mats soon!"],
+        email_lines=body_lines,
     )
     await notify_admins(
         "Booking cancelled by member",

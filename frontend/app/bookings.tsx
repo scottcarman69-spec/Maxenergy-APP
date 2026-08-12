@@ -48,8 +48,13 @@ export default function BookingsScreen() {
   const doCancel = async (b: Booking) => {
     setActioning(b.booking_id);
     try {
-      await api.cancelBooking(b.booking_id);
-      setBanner("Booking cancelled. We've notified the gym.");
+      const res = await api.cancelBooking(b.booking_id);
+      const bk = res?.booking || {};
+      let extra = "";
+      if (bk.cancel_reward === "class_pass") extra = " Your class pass has been returned.";
+      else if (bk.cancel_reward === "credit" && bk.cancel_credit_cents)
+        extra = ` $${(bk.cancel_credit_cents / 100).toFixed(2)} credit added to your account.`;
+      setBanner("Booking cancelled." + extra + " We've notified the gym.");
       await load();
     } catch (e: any) {
       const msg = e?.message || "Could not cancel booking.";
@@ -64,7 +69,7 @@ export default function BookingsScreen() {
   const confirmCancel = (b: Booking) => {
     Alert.alert(
       "Cancel booking?",
-      `Cancel your ${b.class_name} booking?\n\nPlease note: bookings can only be cancelled at least 24 hours before the start time.`,
+      `Cancel your ${b.class_name} booking?\n\nBookings can only be cancelled at least 24 hours before the start time. If you paid, we'll add it back as account credit (or return your class pass).`,
       [
         { text: "Keep booking", style: "cancel" },
         { text: "Cancel booking", style: "destructive", onPress: () => doCancel(b) },
