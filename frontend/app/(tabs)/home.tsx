@@ -27,6 +27,7 @@ import { coachSource } from "@/src/coaches";
 import FacebookFeed from "@/src/components/FacebookFeed";
 import LiveNowBanner from "@/src/components/LiveNowBanner";
 import WelcomeTour from "@/src/components/WelcomeTour";
+import NoticePopup, { Notice } from "@/src/components/NoticePopup";
 import { storage } from "@/src/utils/storage";
 
 const CARD_W = Math.min(Dimensions.get("window").width, 480);
@@ -82,6 +83,38 @@ export default function Home() {
   const carouselRef = useRef<ScrollView>(null);
   const [slide, setSlide] = useState(0);
   const [showWelcome, setShowWelcome] = useState(false);
+  const [newNotices, setNewNotices] = useState<Notice[]>([]);
+
+  // Pop up any gym notices posted since the member last saw them (per user, persisted).
+  // On the very first run we set a silent baseline so members aren't spammed with
+  // every historical notice — only genuinely NEW notices pop up afterwards.
+  const checkNewNotices = useCallback(async () => {
+    if (!user?.user_id || user.is_admin) return;
+    try {
+      const r = await api.announcements();
+      const anns: Notice[] = r?.announcements || [];
+      if (anns.length === 0) return;
+      const newestTs = anns.reduce((m, a) => Math.max(m, new Date(a.created_at).getTime()), 0);
+      const key = `last_seen_notice_ts_${user.user_id}`;
+      const stored = await storage.getItem<number>(key, 0);
+      if (!stored) {
+        await storage.setItem(key, newestTs); // silent baseline on first run
+        return;
+      }
+      const unseen = anns
+        .filter((a) => new Date(a.created_at).getTime() > stored)
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      if (unseen.length > 0) setNewNotices(unseen);
+    } catch {}
+  }, [user?.user_id, user?.is_admin]);
+
+  const dismissNotices = useCallback(async () => {
+    if (newNotices.length && user?.user_id) {
+      const newestTs = newNotices.reduce((m, a) => Math.max(m, new Date(a.created_at).getTime()), 0);
+      await storage.setItem(`last_seen_notice_ts_${user.user_id}`, newestTs);
+    }
+    setNewNotices([]);
+  }, [newNotices, user?.user_id]);
 
   // One-time first-run walkthrough for brand-new members (per user, persisted).
   useEffect(() => {
@@ -114,7 +147,7 @@ export default function Home() {
     setLoading(false);
   }, []);
 
-  useFocusEffect(useCallback(() => { load(); refresh(); }, [load, refresh]));
+  useFocusEffect(useCallback(() => { load(); refresh(); checkNewNotices(); }, [load, refresh, checkNewNotices]));
 
   // Auto-refresh when the app is reopened (foregrounded) so content stays current.
   const appState = useRef(AppState.currentState);
@@ -226,6 +259,15 @@ export default function Home() {
             visible={showWelcome}
             onDone={dismissWelcome}
             onFinish={() => router.navigate("/(tabs)/timetable")}
+          />
+        )}
+
+        {!showWelcome && (
+          <NoticePopup
+            visible={newNotices.length > 0}
+            notices={newNotices}
+            onClose={dismissNotices}
+            onViewAll={async () => { await dismissNotices(); router.navigate("/(tabs)/events"); }}
           />
         )}
 

@@ -123,6 +123,9 @@ export const api = {
 
   events: () => req("/api/events"),
   eventDetail: (id: string) => req(`/api/events/${id}`),
+  trackNoticesView: () => req("/api/views/notices", { method: "POST" }),
+  trackEventView: (id: string) => req(`/api/views/event/${id}`, { method: "POST" }),
+  adminViews: () => req("/api/admin/views"),
   rsvp: (event_id: string) =>
     req("/api/events/rsvp", { method: "POST", body: JSON.stringify({ event_id }) }),
 

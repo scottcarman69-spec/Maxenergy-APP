@@ -49,7 +49,7 @@ export default function Notices() {
     setLoading(false);
   }, []);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => { load(); api.trackNoticesView().catch(() => {}); }, [load]));
 
   const onRefresh = async () => {
     setRefreshing(true);

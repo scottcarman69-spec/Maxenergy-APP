@@ -523,3 +523,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Admin Profile: added "Membership Applications" link (/admin/applications) to review & keep a record of sign-ups.
 - Verified via screenshots (member sees banner, admin hidden + has new link, applications shows green Approved bar).
 - Also: deleted all 61 class bookings per user request (bookings collection emptied).
+
+## Session update (Jun 2026 fork) — New-notice popup + admin Content Views (DONE)
+- New-notice popup: NEW /app/frontend/src/components/NoticePopup.tsx shown on Home. On focus, checkNewNotices() fetches /api/announcements and compares created_at against AsyncStorage key last_seen_notice_ts_<user_id>. First run sets a SILENT baseline (no spam of historical notices); afterwards any notice newer than baseline pops up ("N NEW NOTICES / Fresh from the gym"), with OPEN NOTICES (-> /events) and GOT IT. Dismiss stores newest ts so it won't reshow. Hidden for admins. Verified: popup shows for unseen, GOT IT dismisses & persists across reload.
+- Admin Content Views: backend content_views collection + _record_view() (skips admins). POST /api/views/notices (on Notices tab focus) + POST /api/views/event/{id} (on event detail load). GET /api/admin/views returns {notices:{unique_users,total_views}, events:[{event_id,title,start_at,unique_users,total_views}]}. NEW screen /app/frontend/app/admin/views.tsx (Content Views) linked from admin dashboard ("Content Views", eye icon). Verified: member views recorded, admin screen shows unique members + total views for Notices and each event.
+- Also: Notices tab titles now wrap to 2 lines when collapsed (events.tsx annTitle numberOfLines 1->2) so long titles fit the card.

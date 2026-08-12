@@ -34,6 +34,7 @@ export default function EventDetail() {
     if (!id) return;
     try {
       setEvt(await api.eventDetail(id));
+      api.trackEventView(id).catch(() => {});
     } catch (e: any) {
       setMsg(e?.message);
     }
