@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, RefreshControl } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, RefreshControl, Alert } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Swipeable } from "react-native-gesture-handler";
@@ -101,6 +101,23 @@ export default function AlertsTab() {
     setNotifs((cur) => cur.map((x) => ({ ...x, read: true })));
     api.markAllNotificationsRead().catch(() => {});
   };
+  const clearAll = () => {
+    Alert.alert(
+      "Clear all notifications?",
+      "This removes every notification from your list. You can still find them in your saved history.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear all",
+          style: "destructive",
+          onPress: () => {
+            setNotifs([]);
+            api.clearAllNotifications().catch(() => {});
+          },
+        },
+      ],
+    );
+  };
 
   const unread = notifs.filter((n) => !n.read).length;
 
@@ -112,12 +129,20 @@ export default function AlertsTab() {
           <Text style={styles.headerTitle}>Notifications</Text>
           <Text style={styles.headerSub}>{unread > 0 ? `${unread} unread` : "You're all caught up"}</Text>
         </View>
-        {unread > 0 && (
-          <Pressable testID="notif-mark-all" style={styles.markAllBtn} onPress={markAll}>
-            <Ionicons name="checkmark-done" size={16} color={colors.brand} />
-            <Text style={styles.markAllText}>Mark all read</Text>
-          </Pressable>
-        )}
+        <View style={styles.headerActions}>
+          {unread > 0 && (
+            <Pressable testID="notif-mark-all" style={styles.markAllBtn} onPress={markAll}>
+              <Ionicons name="checkmark-done" size={16} color={colors.brand} />
+              <Text style={styles.markAllText}>Mark all read</Text>
+            </Pressable>
+          )}
+          {notifs.length > 0 && (
+            <Pressable testID="notif-clear-all" style={styles.clearAllBtn} onPress={clearAll}>
+              <Ionicons name="trash-outline" size={16} color={colors.error} />
+              <Text style={styles.clearAllText}>Clear all</Text>
+            </Pressable>
+          )}
+        </View>
       </View>
 
       {loading ? (
@@ -192,6 +217,9 @@ const styles = StyleSheet.create({
   headerSub: { color: colors.onSurfaceSecondary, fontSize: 13, marginTop: 2 },
   markAllBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 8, paddingHorizontal: 12, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.brand },
   markAllText: { color: colors.brand, fontWeight: "800", fontSize: 12 },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  clearAllBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 8, paddingHorizontal: 12, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.error },
+  clearAllText: { color: colors.error, fontWeight: "800", fontSize: 12 },
   empty: { alignItems: "center", padding: 50, gap: spacing.md },
   emptyCard: { marginTop: spacing.xl, padding: spacing.xxl, backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, alignItems: "center", gap: spacing.sm },
   emptyIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center", marginBottom: spacing.sm },

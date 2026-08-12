@@ -550,3 +550,6 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 ## Session update (Jun 2026 fork) — Bottom tab bar safe-area fix (DONE)
 - (tabs)/_layout.tsx tabBarStyle used fixed heights/paddingBottom (android:8) that ignored the Android system navigation bar / iOS home indicator, causing the OS nav to overlap the tab buttons (unpressable). Now uses useSafeAreaInsets(): height = 60 + insets.bottom; paddingBottom = max(insets.bottom, 10 [14 web]). Works on both Android (gesture/nav bar) and iOS (home indicator).
 - NOTE: user's device screenshot showed the OLD "Memberships & Passes" banner + overlap = stale build; needs redeploy to pick up this + earlier banner change.
+
+## Session update (Jun 2026 fork) — Clear-all notifications (DONE)
+- alerts.tsx: added a red "Clear all" button in the Notifications header (next to "Mark all read", shown whenever notifs exist). Confirms via Alert, then clears the list and calls existing api.clearAllNotifications() (POST /notifications/clear-all, soft-clear keeps saved history). Verified button renders. Cleaned leftover test-cancel notifications for member1.
