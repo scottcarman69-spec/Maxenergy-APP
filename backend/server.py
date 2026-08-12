@@ -545,9 +545,13 @@ async def mark_booking_paid(booking_id: str) -> None:
     amount = float(b.get("amount", 0)) / 100.0
     currency = b.get("currency", "aud").upper()
     # In-app confirmation for the member
+    is_appt_b = bool(b.get("by_appointment"))
     await create_notification(
         b["user_id"],
-        "Payment verified — booking confirmed",
+        "Payment received — pending confirmation" if is_appt_b else "Payment verified — booking confirmed",
+        (f"Thanks! Your payment for {b['class_name']} ({b.get('requested_time') or when}) is received. "
+         "Your booking will be approved once the gym confirms your time — we'll notify you shortly.")
+        if is_appt_b else
         f"Your payment for {b['class_name']} is verified. See you {when}.",
         "booking",
     )
@@ -565,16 +569,18 @@ async def mark_booking_paid(booking_id: str) -> None:
     if (member or {}).get("email"):
         await send_email(
             member["email"],
-            f"Payment confirmed — {b['class_name']} at Max Energy",
+            f"Payment received — {b['class_name']} at Max Energy" if is_appt_b else f"Payment confirmed — {b['class_name']} at Max Energy",
             _email_shell(
-                "Payment Confirmed ✅",
+                "Payment Received — Pending Confirmation ⏳" if is_appt_b else "Payment Confirmed ✅",
                 [
                     f"Hi {esc(mname)},",
-                    "Great news — your payment has been <b>verified</b> and your class is booked! Here are your booking details:",
+                    ("Thanks! Your payment has been <b>received</b>. Your booking will be <b>approved once the gym confirms your time</b> — we'll be in touch shortly. Here are your details:"
+                     if is_appt_b else
+                     "Great news — your payment has been <b>verified</b> and your class is booked! Here are your booking details:"),
                     "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
                     f"<b>Class:</b> {esc(b['class_name'])}",
                     (f"<b>Coach:</b> {esc(trainer)}" if trainer else ""),
-                    f"<b>When:</b> {when}",
+                    (f"<b>Preferred time:</b> {esc(b.get('requested_time') or when)}" if is_appt_b else f"<b>When:</b> {when}"),
                     (f"<b>Duration:</b> {duration} minutes" if duration else ""),
                     f"<b>Amount paid:</b> ${amount:.2f} {currency}",
                     f"<b>Booking reference:</b> {b['booking_id']}",
@@ -1336,13 +1342,9 @@ async def booking_create(body: BookingCreate, u: dict = Depends(require_user)):
         if not body.requested_at:
             raise HTTPException(400, "Please choose a preferred time.")
         try:
-            rt = datetime.fromisoformat(body.requested_at)
+            datetime.fromisoformat(body.requested_at)
         except Exception:
             raise HTTPException(400, "Invalid preferred time.")
-        # requested_at is Queensland (UTC+10) wall-clock → convert to a UTC instant.
-        rt_utc = rt.replace(tzinfo=timezone.utc) - timedelta(hours=10)
-        if rt_utc < now_utc() + timedelta(hours=24):
-            raise HTTPException(400, "Sessions must be booked at least 24 hours in advance. Please pick a later time.")
         # Enforce day/time availability (Mon–Thu, 10:30am–4:00pm).
         check_appt_window(body.requested_at)
         # Only one appointment (PT or Program) can occupy a given day/time.
@@ -2259,6 +2261,7 @@ async def payment_receipt(booking_id: str, u: dict = Depends(require_user)):
         "trainer": cls.get("trainer"),
         "class_start": start.isoformat() if isinstance(start, datetime) else start,
         "by_appointment": bool(b.get("by_appointment")),
+        "requested_time": b.get("requested_time"),
         "amount_cents": amount_cents,
         "currency": (b.get("currency") or "aud").upper(),
         "paid_at": paid_at.isoformat() if isinstance(paid_at, datetime) else paid_at,

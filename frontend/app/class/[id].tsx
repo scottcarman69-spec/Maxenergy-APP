@@ -174,7 +174,8 @@ export default function ClassDetail() {
   };
 
   // Preferred-time picker (appointment classes): Mon–Thu only, 10:30am–4:00pm (Queensland).
-  const MIN_LEAD_MS = 24 * 60 * 60 * 1000;
+  // Members can book any listed slot; only genuinely past times are disabled.
+  const MIN_LEAD_MS = 0;
   const apptDays = React.useMemo(() => {
     const base = qldTodayUTC();
     const out: Date[] = [];
@@ -386,7 +387,7 @@ export default function ClassDetail() {
           <View style={styles.apptSheet}>
             <View style={styles.apptHeader}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.apptTitle}>Request a time</Text>
+                <Text style={styles.apptTitle}>Book your session</Text>
                 <Text style={styles.apptSub}>{cls.name} · Mon–Thu, 10:30am–4:00pm</Text>
               </View>
               <Pressable testID="appt-close" onPress={() => setApptOpen(false)} hitSlop={12}>
@@ -476,7 +477,7 @@ export default function ClassDetail() {
               </Text>
               <Ionicons name="arrow-forward" size={18} color={colors.onBrand} />
             </Pressable>
-            <Text style={styles.apptFoot}>We'll confirm your exact time after your request.</Text>
+            <Text style={styles.apptFoot}>Pay now to reserve — your booking is approved once the gym confirms your time.</Text>
           </View>
         </View>
       </Modal>

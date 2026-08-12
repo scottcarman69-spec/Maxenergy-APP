@@ -6,5 +6,9 @@ module.exports = defineConfig([
   expoConfig,
   {
     ignores: ['dist/*'],
+    rules: {
+      // Not relevant for React Native <Text> — apostrophes/quotes render fine on native.
+      'react/no-unescaped-entities': 'off',
+    },
   },
 ]);

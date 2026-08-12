@@ -18,6 +18,7 @@ type Receipt = {
   trainer?: string;
   class_start?: string;
   by_appointment?: boolean;
+  requested_time?: string;
   amount_cents: number;
   currency: string;
   paid_at?: string;
@@ -160,9 +161,16 @@ export default function ReceiptScreen() {
 
               <View style={styles.divider} />
 
+              {receipt.by_appointment && (
+                <View style={styles.pendingBox}>
+                  <Ionicons name="time-outline" size={16} color="#F59E0B" />
+                  <Text style={styles.pendingText}>Payment received — your booking will be approved once the gym confirms your time. We'll notify you shortly.</Text>
+                </View>
+              )}
+
               <Row label="Class" value={receipt.class_name} />
               {!!receipt.trainer && <Row label="Coach" value={receipt.trainer} />}
-              <Row label="When" value={receipt.by_appointment ? "By appointment" : fmtClassWhen(receipt.class_start)} />
+              <Row label="When" value={receipt.by_appointment ? (receipt.requested_time || "By appointment") : fmtClassWhen(receipt.class_start)} />
               {!!receipt.booking_no && <Row label="Booking No." value={String(receipt.booking_no)} />}
               <Row label="Paid on" value={fmtDateTime(receipt.paid_at)} />
               <Row label="Payment method" value={receipt.payment_method} />
@@ -225,6 +233,8 @@ const styles = StyleSheet.create({
   amount: { color: colors.onSurface, fontSize: 44, fontWeight: "900", marginTop: spacing.lg, letterSpacing: -1 },
   amountCur: { color: colors.onSurfaceSecondary, fontSize: 13, fontWeight: "700", marginTop: -4 },
   divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.lg },
+  pendingBox: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "rgba(245,158,11,0.12)", borderWidth: 1, borderColor: "#F59E0B", borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.lg },
+  pendingText: { flex: 1, color: colors.onSurface, fontSize: 12.5, lineHeight: 18 },
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", paddingVertical: 8, gap: spacing.lg },
   rowLabel: { color: colors.onSurfaceSecondary, fontSize: 13, fontWeight: "600" },
   rowValue: { color: colors.onSurface, fontSize: 14, fontWeight: "700", flex: 1, textAlign: "right" },
