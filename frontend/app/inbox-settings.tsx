@@ -63,7 +63,7 @@ export default function InboxSettings() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      <ScreenHeader title="Message Settings" fallback="/(tabs)/inbox" />
+      <ScreenHeader title="Notifications & Reminders" fallback="/(tabs)/inbox" />
       {loading ? (
         <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />
       ) : (

@@ -218,7 +218,7 @@ export default function Profile() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.membershipLabel}>Notifications</Text>
-              <Text style={styles.membershipSub}>Alerts, class reminders & logs</Text>
+              <Text style={styles.membershipSub}>Your alerts & notification history</Text>
             </View>
             {unread > 0 && (
               <View style={styles.navBadge}><Text style={styles.navBadgeText}>{unread}</Text></View>
@@ -261,6 +261,20 @@ export default function Profile() {
             <View style={{ flex: 1 }}>
               <Text style={styles.membershipLabel}>Receipts</Text>
               <Text style={styles.membershipSub}>View & share receipts for paid bookings</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.brand} />
+          </Pressable>
+        </View>
+
+        <Text style={styles.section}>SETTINGS</Text>
+        <View style={styles.linkGroup}>
+          <Pressable testID="profile-link-settings" style={styles.membershipRow} onPress={() => router.push("/inbox-settings")}>
+            <View style={styles.membershipIcon}>
+              <Ionicons name="options" size={20} color={colors.onBrand} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.membershipLabel}>Notifications & Reminders</Text>
+              <Text style={styles.membershipSub}>Message alerts, class reminders & quiet hours</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.brand} />
           </Pressable>
