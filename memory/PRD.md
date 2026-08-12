@@ -599,3 +599,12 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Frontend: api.ts methods added. (tabs)/inbox.tsx rebuilt = combined list (Maxenergy Team gym chat + friend threads + pending-requests banner + Add button). NEW app/chat/gym.tsx (gym chat moved), app/chat/[id].tsx (friend DM chat + block/report via header ...), app/friends.tsx (shows own account ID, search by name/ID, incoming requests accept/decline, friends list -> chat). Profile: avatar is now tappable to upload from gallery (expo-image-picker, contextual permission + Open Settings fallback), shows picture on profile + handle "ID: ...". Avatars shown in inbox/friends/chat.
 - Verified: backend e2e (handle gen, search-by-ID, request->accept, DM send/read/unread) + screenshots of Inbox/Add Friends/Profile. tsc clean.
 - Note: expo-image-picker photo upload works in Expo Go/web but is best validated on device build.
+
+
+## Session update (Jun 2026 fork) — Group Chats + Online/Last-Seen VERIFIED (DONE)
+- Group Chats: members create a small crew chat with their friends and message. Backend: POST /api/groups (name + accepted-friend member_ids; creator always added; non-friends filtered), GET /api/groups (list w/ last_body/unread/members), GET /api/groups/{gid} (detail + members + messages, marks read, 403 non-member), POST /api/groups/{gid}/messages (empty->400, non-member->403, notifies others). group_chats + group_messages collections.
+- Online/Last-Seen presence: users.last_active_at touched on /api/auth/me + DM thread loads; /api/dm/threads + /api/friends return it. Frontend src/presence.ts -> isOnline (green dot) + presenceLabel ("Active now / Xm/Xh/Xd ago"). Inbox shows dot + label on DM rows.
+- Frontend screens: (tabs)/inbox.tsx ("New Group" btn testID inbox-new-group + GROUPS section), group/new.tsx (name + friend multi-select + Create), group/[id].tsx (bubbles + send).
+- Verified by testing_agent iteration_14: backend 12/12 pytest, all frontend flows pass (create group -> send -> group listed; friend row shows green dot + "Active now"). No fixes needed.
+- Pre-existing note: first-login onboarding tour ("Skip") overlays the tab bar until dismissed (not a group/presence bug).
+

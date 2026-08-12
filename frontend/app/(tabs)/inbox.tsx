@@ -6,8 +6,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
 import ScreenBg from "@/src/components/ScreenBg";
+import { presenceLabel, isOnline } from "@/src/presence";
 
-type Thread = { user_id: string; name?: string; handle?: string; picture?: string; last_body?: string; last_at?: string; unread?: number };
+type Thread = { user_id: string; name?: string; handle?: string; picture?: string; last_body?: string; last_at?: string; unread?: number; last_active_at?: string };
+type Group = { group_id: string; name: string; members: number; last_body?: string; last_sender?: string; unread?: number };
 
 function Avatar({ uri, name, size = 46 }: { uri?: string; name?: string; size?: number }) {
   if (uri) return <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2 }} />;
@@ -22,6 +24,7 @@ function Avatar({ uri, name, size = 46 }: { uri?: string; name?: string; size?: 
 export default function InboxTab() {
   const router = useRouter();
   const [threads, setThreads] = useState<Thread[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [gymUnread, setGymUnread] = useState(0);
   const [pending, setPending] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -29,11 +32,12 @@ export default function InboxTab() {
 
   const load = useCallback(async () => {
     try {
-      const [t, g, f] = await Promise.all([api.dmThreads(), api.myMessages(), api.friends()]);
+      const [t, g, f, gr] = await Promise.all([api.dmThreads(), api.myMessages(), api.friends(), api.groups()]);
       setThreads(t.threads || []);
       const gm = (g.messages || []).filter((m: any) => m.sender_is_admin && !m.read_by_member);
       setGymUnread(gm.length);
       setPending((f.incoming || []).length);
+      setGroups(gr.groups || []);
     } catch {}
     setLoading(false);
   }, []);
@@ -52,6 +56,9 @@ export default function InboxTab() {
           <Ionicons name="person-add" size={16} color={colors.onBrand} />
           <Text style={styles.addBtnText}>Add</Text>
           {pending > 0 && <View style={styles.badge}><Text style={styles.badgeText}>{pending}</Text></View>}
+        </Pressable>
+        <Pressable testID="inbox-new-group" style={styles.groupBtn} onPress={() => router.push("/group/new")}>
+          <Ionicons name="people" size={18} color={colors.brand} />
         </Pressable>
       </View>
 
@@ -78,13 +85,29 @@ export default function InboxTab() {
             </Pressable>
           )}
 
+          {groups.length > 0 && <Text style={styles.section}>GROUPS</Text>}
+          {groups.map((g) => (
+            <Pressable key={g.group_id} testID={`inbox-group-${g.group_id}`} style={styles.row} onPress={() => router.push({ pathname: "/group/[id]", params: { id: g.group_id, name: g.name } } as any)}>
+              <View style={styles.gymIcon}><Ionicons name="people" size={22} color={colors.onBrand} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.rowName}>{g.name}</Text>
+                <Text style={styles.rowSub} numberOfLines={1}>{g.last_body ? `${g.last_sender ? g.last_sender.split(" ")[0] + ": " : ""}${g.last_body}` : `${g.members} members`}</Text>
+              </View>
+              {(g.unread || 0) > 0 && <View style={styles.badge}><Text style={styles.badgeText}>{g.unread}</Text></View>}
+              <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceSecondary} />
+            </Pressable>
+          ))}
+
           {threads.length > 0 && <Text style={styles.section}>FRIENDS</Text>}
           {threads.map((t) => (
             <Pressable key={t.user_id} testID={`inbox-friend-${t.user_id}`} style={styles.row} onPress={() => router.push({ pathname: "/chat/[id]", params: { id: t.user_id, name: t.name || "Friend" } } as any)}>
-              <Avatar uri={t.picture} name={t.name} />
+              <View>
+                <Avatar uri={t.picture} name={t.name} />
+                {isOnline(t.last_active_at) && <View style={styles.onlineDot} />}
+              </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.rowName}>{t.name}</Text>
-                <Text style={styles.rowSub} numberOfLines={1}>{t.last_body || "Say hi 👋"}</Text>
+                <Text style={styles.rowSub} numberOfLines={1}>{t.last_body || presenceLabel(t.last_active_at) || "Say hi 👋"}</Text>
               </View>
               {(t.unread || 0) > 0 && <View style={styles.badge}><Text style={styles.badgeText}>{t.unread}</Text></View>}
               <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceSecondary} />
@@ -110,6 +133,8 @@ const styles = StyleSheet.create({
   headerSub: { color: colors.onSurfaceSecondary, fontSize: 13, marginTop: 2 },
   addBtn: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: colors.brand, paddingHorizontal: 12, paddingVertical: 9, borderRadius: radius.pill },
   addBtnText: { color: colors.onBrand, fontWeight: "900", fontSize: 13 },
+  groupBtn: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, borderColor: colors.brand, alignItems: "center", justifyContent: "center" },
+  onlineDot: { position: "absolute", right: 0, bottom: 0, width: 13, height: 13, borderRadius: 7, backgroundColor: "#22C55E", borderWidth: 2, borderColor: colors.surface },
   section: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "900", letterSpacing: 1.5, marginTop: spacing.md, marginBottom: 2 },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md },
   gymIcon: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },

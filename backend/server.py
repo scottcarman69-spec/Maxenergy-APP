@@ -1069,6 +1069,7 @@ async def auth_reset_password(body: ResetPasswordReq, request: Request):
 @api.get("/auth/me")
 async def auth_me(u: dict = Depends(require_user)):
     await ensure_handle(u["user_id"], u.get("name"))
+    await _touch(u["user_id"])
     u = await db.users.find_one({"user_id": u["user_id"]}, {"_id": 0, "password_hash": 0})
     return {"user": user_public(u)}
 
@@ -1954,7 +1955,9 @@ async def _friend_status(me: str, other: str) -> str:
 
 
 def _member_card(u: dict) -> dict:
-    return {"user_id": u.get("user_id"), "name": u.get("name"), "handle": u.get("handle"), "picture": u.get("picture")}
+    la = u.get("last_active_at")
+    return {"user_id": u.get("user_id"), "name": u.get("name"), "handle": u.get("handle"), "picture": u.get("picture"),
+            "last_active_at": la.isoformat() if isinstance(la, datetime) else None}
 
 
 @api.get("/members/search")
@@ -2032,7 +2035,7 @@ async def friends_list(u: dict = Depends(require_user)):
         other = parts[0] if parts[1] == me else parts[1]
         if me not in parts:
             continue
-        ou = await db.users.find_one({"user_id": other}, {"_id": 0, "user_id": 1, "name": 1, "handle": 1, "picture": 1})
+        ou = await db.users.find_one({"user_id": other}, {"_id": 0, "user_id": 1, "name": 1, "handle": 1, "picture": 1, "last_active_at": 1})
         if not ou:
             continue
         if await db.blocks.find_one({"blocker_id": me, "blocked_id": other}) or await db.blocks.find_one({"blocker_id": other, "blocked_id": me}):
@@ -2126,7 +2129,7 @@ async def dm_threads(u: dict = Depends(require_user)):
         other = parts[0] if parts[1] == me else parts[1]
         if await db.blocks.find_one({"blocker_id": me, "blocked_id": other}) or await db.blocks.find_one({"blocker_id": other, "blocked_id": me}):
             continue
-        ou = await db.users.find_one({"user_id": other}, {"_id": 0, "user_id": 1, "name": 1, "handle": 1, "picture": 1})
+        ou = await db.users.find_one({"user_id": other}, {"_id": 0, "user_id": 1, "name": 1, "handle": 1, "picture": 1, "last_active_at": 1})
         if not ou:
             continue
         last = await db.dm_messages.find_one({"key": f["key"]}, {"_id": 0}, sort=[("created_at", -1)])
@@ -2165,6 +2168,7 @@ class DMSendReq(BaseModel):
 
 @api.post("/dm/{other_id}")
 async def dm_send(other_id: str, body: DMSendReq, u: dict = Depends(require_user)):
+    await _touch(u["user_id"])
     text = (body.body or "").strip()
     if not text:
         raise HTTPException(400, "Message cannot be empty.")
@@ -2191,6 +2195,100 @@ async def dm_send(other_id: str, body: DMSendReq, u: dict = Depends(require_user
     )
     msg.pop("_id", None)
     return {"message": msg}
+
+
+# ---- presence (last seen) ----
+async def _touch(uid: str) -> None:
+    await db.users.update_one({"user_id": uid}, {"$set": {"last_active_at": now_utc()}})
+
+
+# ==================== Group chats (training crews) ====================
+class GroupCreateReq(BaseModel):
+    name: str
+    member_ids: List[str] = []
+
+
+@api.post("/groups")
+async def group_create(body: GroupCreateReq, u: dict = Depends(require_user)):
+    name = (body.name or "").strip()
+    if not name:
+        raise HTTPException(400, "Please name your group.")
+    members = set(body.member_ids or [])
+    members.add(u["user_id"])
+    valid = {u["user_id"]}
+    for mid in members:
+        if mid == u["user_id"]:
+            continue
+        if await db.friendships.find_one({"key": _dm_key(u["user_id"], mid), "status": "accepted"}):
+            valid.add(mid)
+    gid = new_id("grp")
+    await db.group_chats.insert_one({
+        "group_id": gid, "name": name[:60], "owner_id": u["user_id"],
+        "member_ids": list(valid), "created_at": now_utc(),
+    })
+    for mid in valid:
+        if mid == u["user_id"]:
+            continue
+        m = await db.users.find_one({"user_id": mid}, {"_id": 0})
+        await notify_user(mid, (m or {}).get("email"), f"Added to group: {name[:40]}",
+                          f"{u.get('name') or 'A member'} added you to the group '{name[:40]}'.", "message",
+                          email_lines=[f"You've been added to the group <b>{esc(name)}</b> by <b>{esc(u.get('name') or 'a member')}</b>.", "Open the app → Inbox to chat."],
+                          data={"nav": "member_inbox"})
+    return {"group_id": gid}
+
+
+async def _group_or_403(gid: str, uid: str) -> dict:
+    g = await db.group_chats.find_one({"group_id": gid}, {"_id": 0})
+    if not g or uid not in g.get("member_ids", []):
+        raise HTTPException(403, "You're not in this group.")
+    return g
+
+
+@api.get("/groups")
+async def groups_list(u: dict = Depends(require_user)):
+    gs = await db.group_chats.find({"member_ids": u["user_id"]}, {"_id": 0}).to_list(200)
+    out = []
+    for g in gs:
+        last = await db.group_messages.find_one({"group_id": g["group_id"]}, {"_id": 0}, sort=[("created_at", -1)])
+        unread = await db.group_messages.count_documents({"group_id": g["group_id"], "from_id": {"$ne": u["user_id"]}, "read_by": {"$ne": u["user_id"]}})
+        out.append({"group_id": g["group_id"], "name": g["name"], "members": len(g.get("member_ids", [])),
+                    "last_body": (last or {}).get("body"), "last_sender": (last or {}).get("sender_name"),
+                    "last_at": (last or {}).get("created_at"), "unread": unread})
+    out.sort(key=lambda t: t.get("last_at") or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+    return {"groups": out}
+
+
+@api.get("/groups/{gid}")
+async def group_get(gid: str, u: dict = Depends(require_user)):
+    g = await _group_or_403(gid, u["user_id"])
+    rows = await db.group_messages.find({"group_id": gid}, {"_id": 0}).sort("created_at", 1).to_list(1000)
+    await db.group_messages.update_many({"group_id": gid, "read_by": {"$ne": u["user_id"]}}, {"$addToSet": {"read_by": u["user_id"]}})
+    mem = await db.users.find({"user_id": {"$in": g.get("member_ids", [])}}, {"_id": 0, "user_id": 1, "name": 1, "picture": 1}).to_list(100)
+    return {"group": {"group_id": gid, "name": g["name"], "owner_id": g.get("owner_id"), "members": [_member_card(m) for m in mem]}, "messages": rows}
+
+
+@api.post("/groups/{gid}/messages")
+async def group_send(gid: str, body: DMSendReq, u: dict = Depends(require_user)):
+    g = await _group_or_403(gid, u["user_id"])
+    text = (body.body or "").strip()
+    if not text:
+        raise HTTPException(400, "Message cannot be empty.")
+    msg = {"gmsg_id": new_id("gm"), "group_id": gid, "from_id": u["user_id"],
+           "sender_name": u.get("name") or u.get("email"), "body": text, "read_by": [u["user_id"]], "created_at": now_utc()}
+    await db.group_messages.insert_one(msg)
+    for mid in g.get("member_ids", []):
+        if mid == u["user_id"]:
+            continue
+        m = await db.users.find_one({"user_id": mid}, {"_id": 0})
+        await notify_user(mid, (m or {}).get("email"), f"{g['name']}: new message",
+                          f"{msg['sender_name']}: {text[:100]}", "message",
+                          email_lines=[f"New message in <b>{esc(g['name'])}</b> from <b>{esc(msg['sender_name'])}</b>:", f"\"{esc(text)}\"", "Open the app → Inbox to reply."],
+                          data={"nav": "member_inbox"})
+    msg.pop("_id", None)
+    return {"message": msg}
+
+
+@api.get("/admin/threads")
 async def admin_threads(u: dict = Depends(require_admin)):
     rows = await db.messages.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
     threads: dict = {}

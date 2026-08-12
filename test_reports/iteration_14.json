@@ -1,0 +1,39 @@
+{
+  "summary": "Verified NEW features: (1) Group chats end-to-end and (2) Online / last-seen presence. Backend pytest suite (12/12) covers auth + friendship setup, group creation with non-friend filtering, 403 for non-members, 400 for empty name/body, send/list/detail flows, read-tracking (unread decrements after GET detail), and presence propagation via /api/auth/me touching users.last_active_at and /api/dm/threads + /api/friends returning it. Frontend Playwright walk-through (mobile viewport 390x844): logged in as member1@gmail.com, dismissed onboarding tour, tapped inbox-new-group -> /group/new, filled group-name, selected friend via grp-sel-<id>, tapped group-create -> navigated to /group/[id] with '2 members' header, typed in group-input, tapped group-send, message bubble 'TEST_hello_ui' appeared. Returned to Inbox: GROUPS section shows the new group; FRIENDS row shows a green online dot + 'Active now' for member2 confirming presence UI. No red-screen, no console errors related to groups/presence. NOTE: SQUARE_ENV=production in backend/.env — did NOT trigger any payment/Square flows as instructed.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "app/(tabs)/home.tsx onboarding tour", "issues": ["Onboarding modal (Find your class / Skip) overlays the Inbox tab button and blocks tapping tab icons until dismissed. On a fresh session the user must tap 'Skip' before they can reach the inbox from the tab bar. Not a group/presence bug — reporting as UX friction only."]}
+    ],
+    "react_native_issues": [
+      {"component": "Animated (useNativeDriver on web)", "issue": "Console warning: 'Animated: useNativeDriver is not supported because the native animated module is missing. Falling back to JS-based animation.' Harmless on web preview but noisy — consider guarding useNativeDriver with Platform.OS !== 'web'."},
+      {"component": "Deprecated style props", "issue": "Console warnings: '\"shadow*\" style props are deprecated. Use \"boxShadow\".' and 'props.pointerEvents is deprecated. Use style.pointerEvents'. Not from the group/inbox screens directly but worth cleaning up in shared components/theme."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_groups_presence.py",
+    "/app/test_reports/pytest/pytest_groups_presence.xml"
+  ],
+  "action_items": [
+    "Optional: On the /group/new screen, dim/disable the 'Create group' button while no friend is selected (currently it Alerts 'Add friends' — works but a disabled state would be more discoverable).",
+    "Optional: Silence useNativeDriver warning on web and migrate remaining shadow*/pointerEvents style props to their non-deprecated forms."
+  ],
+  "critical_code_review_comments": [
+    "server.py group_create silently drops non-friend member_ids without informing the caller. Behavior is correct/safe (documented in the request) but the API returns only {group_id} so the client can't detect that some ids were filtered. Consider returning {group_id, added: [...], skipped: [...]} for UX transparency.",
+    "server.py:2222 does one DB round-trip per member_id for friendship lookup. Fine at current scale (small groups) but a single $in query would scale better.",
+    "/api/groups/{gid} both marks messages read AND returns them in a single call — clients replaying the endpoint will always see zero unread from the second call onward (this is standard, just documenting).",
+    "presence is only refreshed on /api/auth/me and DM send. Consider touching last_active_at on other frequently-hit endpoints (e.g. groups_list, dm_threads themselves) so a user browsing the inbox appears online to peers even if they don't hit /auth/me for a while.",
+    "server.py is 4838 lines — well beyond the 700-line threshold; should be split into routers (auth, social, groups, dm, admin, payments, etc.) for maintainability."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_groups_presence.py (new)"
+  ],
+  "success_rate": {"backend": "100% (12/12)", "frontend": "100% of critical flows (login -> new group -> select friend -> create -> send message -> back to inbox -> group listed -> presence dot + 'Active now' on friend row)"},
+  "seed_data_creation": "Created (or logged into) member1@gmail.com, member2@gmail.com, member3@gmail.com via /api/auth/register (or login if they already existed). Established accepted friendship between member1 and member2. Created one group 'TEST_Crew_<random>' via pytest and one 'TEST_UI_Crew' via the UI, each with a TEST_ prefix for easy cleanup. Sent TEST_ messages inside those groups. Passwords used: existing 'Password123' when login succeeded, otherwise registered with 'Password123!' (backend requires a symbol).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Groups + presence are fully functional as of iteration 14. Reusable pytest suite lives at /app/backend/tests/test_groups_presence.py (run with -n 0 due to shared xdist config). Test users member1/2/3@gmail.com should already exist and be friends (m1<->m2). Frontend flow: to reach inbox after login, dismiss the onboarding tour ('Skip' text) first, or route directly to /inbox. SQUARE_ENV=production — do NOT hit payments endpoints from tests.",
+  "rca_of_issue": "N/A — feature verification only; no bugs found."
+}
