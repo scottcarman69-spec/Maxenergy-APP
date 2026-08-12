@@ -711,3 +711,6 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Session update (Jun 2026 fork) — Facebook quick action (DONE)
 - Added a "Facebook" tile (blue logo-facebook, testID quick-facebook) to the Home Quick Actions grid → routes to /social. Verified via screenshot. tsc clean.
+
+## Session update (Jun 2026 fork) — Removed About Us from quick actions (DONE)
+- Removed the "About Us" tile from Home Quick Actions (still available in Profile → Gym Info → "About Us & Team"). Grid back to 12 tiles (3 even rows). tsc clean.
