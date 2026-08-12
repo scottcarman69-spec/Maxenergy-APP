@@ -257,14 +257,16 @@ export default function Home() {
           </Pressable>
         </View>
 
-        <Pressable testID="home-store-btn" onPress={() => router.push("/vigyr-signon")} style={[styles.verifyBanner, { marginTop: spacing.lg }]}>
-          <Ionicons name="document-text-outline" size={20} color={colors.brand} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.verifyTitle}>Complete New Membership Form</Text>
-            <Text style={styles.verifySub}>New members — sign up and join Maxenergy Fitness</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={colors.brand} />
-        </Pressable>
+        {user && !user.is_admin && !user.membership_form_completed && !user.vigyr_signup_reported && !user.membership_active && (
+          <Pressable testID="home-store-btn" onPress={() => router.push("/vigyr-signon")} style={[styles.verifyBanner, { marginTop: spacing.lg }]}>
+            <Ionicons name="document-text-outline" size={20} color={colors.brand} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.verifyTitle}>Complete New Membership Form</Text>
+              <Text style={styles.verifySub}>New members — sign up and join Maxenergy Fitness</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.brand} />
+          </Pressable>
+        )}
 
         {user && user.verified === false && (
           <Pressable

@@ -516,3 +516,10 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Class detail (/class/[id]) previously showed TWO overlapping cards: "No membership form yet — tap to complete it" (-> /membership) and "Not a member yet?" (-> /vigyr-signon). Both reflected the same in-app form (submitting /membership sets membership_form_completed AND creates an application).
 - Consolidated into ONE card: when membership_form_completed is false, shows a single "Complete your membership form — Fill out your membership form to book classes. Tap here to complete it." card (testID class-form-prompt) routing to /membership. When true, shows the green "Membership form on file" tick. Removed the redundant Vigyr "Not a member yet?" card + unused isMember state/myApplications fetch on this screen.
 - Verified: tsc clean; logged-in screenshot shows the single card only.
+
+## Session update (Jun 2026 fork) — Home membership banner + applications record (DONE)
+- Home banner renamed to "Complete New Membership Form" and now routes to /vigyr-signon. Banner now HIDDEN for admins and for members who have joined (any of: membership_form_completed / vigyr_signup_reported / membership_active). Exposed vigyr_signup_reported + membership_active in user_public (auth/me). Still shows for brand-new members.
+- Admin Applications screen: Approve/Decline buttons only show while status=pending; once decided, a colored result bar shows ("Approved" green / "Declined" red).
+- Admin Profile: added "Membership Applications" link (/admin/applications) to review & keep a record of sign-ups.
+- Verified via screenshots (member sees banner, admin hidden + has new link, applications shows green Approved bar).
+- Also: deleted all 61 class bookings per user request (bookings collection emptied).

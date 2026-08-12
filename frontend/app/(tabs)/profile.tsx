@@ -136,6 +136,16 @@ export default function Profile() {
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={colors.brand} />
               </Pressable>
+              <Pressable testID="open-admin-applications" style={[styles.membershipRow, styles.linkRowDivider]} onPress={() => router.push("/admin/applications")}>
+                <View style={styles.membershipIcon}>
+                  <Ionicons name="document-text" size={20} color={colors.onBrand} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.membershipLabel}>Membership Applications</Text>
+                  <Text style={styles.membershipSub}>Review & keep a record of sign-ups</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.brand} />
+              </Pressable>
               <Pressable testID="open-admin-inbox" style={styles.membershipRow} onPress={() => router.push("/admin/inbox")}>
                 <View style={styles.membershipIcon}>
                   <Ionicons name="chatbubbles" size={20} color={colors.onBrand} />

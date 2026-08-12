@@ -157,24 +157,45 @@ export default function AdminApplications() {
                   </Pressable>
                 )}
 
-                <View style={styles.actions}>
-                  <Pressable
-                    testID={`adminapp-approve-${a.application_id}`}
-                    style={[styles.actBtn, { backgroundColor: colors.brand }]}
-                    onPress={() => setStatus(a.application_id, "approved")}
+                {a.status === "pending" ? (
+                  <View style={styles.actions}>
+                    <Pressable
+                      testID={`adminapp-approve-${a.application_id}`}
+                      style={[styles.actBtn, { backgroundColor: colors.brand }]}
+                      onPress={() => setStatus(a.application_id, "approved")}
+                    >
+                      <Ionicons name="checkmark" size={16} color={colors.onBrand} />
+                      <Text style={[styles.actText, { color: colors.onBrand }]}>Approve</Text>
+                    </Pressable>
+                    <Pressable
+                      testID={`adminapp-decline-${a.application_id}`}
+                      style={[styles.actBtn, { backgroundColor: colors.surfaceTertiary }]}
+                      onPress={() => setStatus(a.application_id, "declined")}
+                    >
+                      <Ionicons name="close" size={16} color={colors.error} />
+                      <Text style={[styles.actText, { color: colors.error }]}>Decline</Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <View
+                    style={[
+                      styles.resultBar,
+                      {
+                        backgroundColor: (STATUS_COLORS[a.status] || colors.info) + "1A",
+                        borderColor: STATUS_COLORS[a.status] || colors.info,
+                      },
+                    ]}
                   >
-                    <Ionicons name="checkmark" size={16} color={colors.onBrand} />
-                    <Text style={[styles.actText, { color: colors.onBrand }]}>Approve</Text>
-                  </Pressable>
-                  <Pressable
-                    testID={`adminapp-decline-${a.application_id}`}
-                    style={[styles.actBtn, { backgroundColor: colors.surfaceTertiary }]}
-                    onPress={() => setStatus(a.application_id, "declined")}
-                  >
-                    <Ionicons name="close" size={16} color={colors.error} />
-                    <Text style={[styles.actText, { color: colors.error }]}>Decline</Text>
-                  </Pressable>
-                </View>
+                    <Ionicons
+                      name={a.status === "approved" ? "checkmark-circle" : "close-circle"}
+                      size={18}
+                      color={STATUS_COLORS[a.status] || colors.info}
+                    />
+                    <Text style={[styles.resultText, { color: STATUS_COLORS[a.status] || colors.info }]}>
+                      {a.status === "approved" ? "Approved" : "Declined"}
+                    </Text>
+                  </View>
+                )}
               </View>
             );
           })}
@@ -205,6 +226,8 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
   actBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 12, borderRadius: radius.md },
   actText: { fontWeight: "800", fontSize: 14 },
+  resultBar: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, borderRadius: radius.md, borderWidth: 1.5, marginTop: spacing.md },
+  resultText: { fontWeight: "900", fontSize: 14, letterSpacing: 0.5 },
   empty: { alignItems: "center", padding: 40, gap: spacing.md },
   emptyText: { color: colors.onSurfaceSecondary },
 });

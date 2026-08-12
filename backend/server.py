@@ -188,6 +188,8 @@ def user_public(u: dict) -> dict:
         "membership_plan": u.get("membership_plan"),
         "membership_expires_at": u.get("membership_expires_at").isoformat() if isinstance(u.get("membership_expires_at"), datetime) else None,
         "membership_form_completed": bool(u.get("membership_form_completed_at")),
+        "vigyr_signup_reported": bool(u.get("vigyr_signup_reported")),
+        "membership_active": bool(u.get("membership_active")),
     }
 
 
