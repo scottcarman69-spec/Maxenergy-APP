@@ -10,14 +10,14 @@ const PAGES = [
   { key: "combat", label: "Combat Club", url: "https://www.facebook.com/profile.php?id=61561343624470" },
 ];
 
-const FEED_HEIGHT = 460;
+const FEED_HEIGHT = 620;
 // We render the plugin inside our own HTML (mobile) so we control the viewport
 // and let FB adapt to the container width — otherwise the raw plugin URL renders
 // at the device's physical-pixel width and looks half-size. We ask for a tall-ish
 // plugin so a few posts load, then shrink the WebView to the measured content.
-const PLUGIN_HEIGHT = 900;
-const MIN_H = 260;
-const MAX_H = 1600;
+const PLUGIN_HEIGHT = 1100;
+const MIN_H = 520;
+const MAX_H = 1800;
 
 function pluginUri(pageUrl: string, width: number) {
   const w = Math.max(180, Math.min(500, Math.round(width))); // FB plugin supports 180-500

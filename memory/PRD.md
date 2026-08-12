@@ -703,3 +703,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Problem: the full FB page-plugin was embedded at the BOTTOM of Home (hard to find) and its tall WebView trapped scroll gestures (hard to scroll past).
 - Fix: NEW dedicated screen /app/frontend/app/social.tsx ("Our Facebook") hosting <FacebookFeed/> inside a ScrollView (feed is the main content, no scroll conflict). Home now shows a compact tappable card ("LATEST FROM FACEBOOK" header w/ Open link + card "See our latest posts …", testIDs home-facebook-card / home-see-facebook) that routes to /social. Removed the inline <FacebookFeed/> + its import from home.tsx.
 - Result: easy to find (neat card + own page) and no more scroll trap on Home. Verified via screenshots (Home card + Our Facebook screen with page tabs). tsc clean.
+
+## Session update (Jun 2026 fork) — Taller FB feed + follow message (DONE)
+- FacebookFeed sizing bumped to fill the /social page: FEED_HEIGHT 460→620, PLUGIN_HEIGHT 900→1100, MIN_H 260→520, MAX_H 1600→1800.
+- social.tsx: added a follow banner above the feed — "Please like and follow our social media to stay up to date! 💥" (heart icon, brand-tinted card).
+- Verified via screenshot (banner + tabs + taller feed area). Note: FB plugin frame renders blank in the headless web-preview sandbox but populates on real devices (unchanged plugin behaviour). tsc clean.
