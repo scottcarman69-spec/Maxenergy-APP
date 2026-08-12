@@ -643,3 +643,6 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 ## Session update (Jun 2026 fork) — Group icon polish + 502 fix (DONE)
 - Inbox group icon: combat-logo.webp is a transparent-corner PNG; removed the black circular container bg + circular clip and enlarged it (46→58, negative margins) so the badge shows cleanly with no black box. NOTE: the dark disc is part of the logo artwork itself (black circle + orange ring); a fully transparent-centre emblem would need a new source image from the user.
 - FIX (testing_agent iteration_16 flagged): member group-create + join-request could 502 at ingress when the email provider throttled serial admin notifications. Added _notify_all_admins() fired via asyncio.create_task (fire-and-forget) in group_create + group_join_request. Verified member create-group now returns in ~0.01s.
+
+## Session update (Jun 2026 fork) — Transparent group logo (DONE)
+- Generated a transparent-centre version of the combat badge (PIL: near-black pixels < ~55 set to alpha 0, dark greys feathered) → assets/images/combat-logo-transparent.webp. Removes the solid black disc so only the white ring/skull/wings/orange/green + text remain. src/groups.ts now maps muay-thai-academy → the transparent logo. Inbox groupLogo bumped to 64px. Verified via screenshot: badge floats cleanly on the dark row, no dark circle.

@@ -2,7 +2,7 @@ import { ImageSourcePropType } from "react-native";
 
 // Official/exclusive gym groups carry a bundled logo, mapped by their slug.
 const OFFICIAL_LOGOS: Record<string, ImageSourcePropType> = {
-  "muay-thai-academy": require("../assets/images/combat-logo.webp"),
+  "muay-thai-academy": require("../assets/images/combat-logo-transparent.webp"),
 };
 
 export function groupLogo(slug?: string | null): ImageSourcePropType | null {

@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
   section: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "900", letterSpacing: 1.5, marginTop: spacing.md, marginBottom: 2 },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md },
   gymIcon: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
-  groupLogo: { width: 58, height: 58, marginLeft: -4, marginVertical: -6 },
+  groupLogo: { width: 64, height: 64, marginLeft: -6, marginVertical: -9 },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   officialTag: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: colors.brandTertiary, borderRadius: radius.pill, paddingHorizontal: 6, paddingVertical: 2 },
   officialTagText: { color: colors.brand, fontSize: 8.5, fontWeight: "900", letterSpacing: 0.5 },
