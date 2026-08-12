@@ -536,3 +536,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Session update (Jun 2026 fork) — Most-Read badge (DONE)
 - admin/views.tsx: the top-viewed notice (VIEWS PER NOTICE) and top-viewed event now get an orange "🔥 MOST READ" badge + highlighted card (brand border + brandTertiary bg). Top = first item in each backend list (already sorted by unique_users desc) with unique_users>0. Verified via screenshot.
+
+## Session update (Jun 2026 fork) — 24h cancellation cutoff (DONE)
+- Members can only cancel a booking at least 24h before the scheduled start (classes & appointments). Enforced server-side in POST /api/bookings/{id}/cancel: computes Brisbane local now (utc+10) and the booking start (appointment requested_at, else class start_at fresh from classes / class_start fallback); if now >= start-24h -> HTTP 409 with message "Bookings can only be cancelled at least 24 hours before the start time. Please contact the gym on 07 4057 9005 if you need help." Admin cancel endpoint is unaffected.
+- Frontend bookings.tsx: Cancel now shows a confirm dialog stating the 24h policy; server 409 is surfaced in the banner + native Alert.
+- Verified via authenticated API: within-24h booking -> 409 blocked; beyond-24h -> 200 cancelled. tsc clean.

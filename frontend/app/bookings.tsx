@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, TextInput, RefreshControl } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, TextInput, RefreshControl, Alert } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Swipeable } from "react-native-gesture-handler";
@@ -52,9 +52,24 @@ export default function BookingsScreen() {
       setBanner("Booking cancelled. We've notified the gym.");
       await load();
     } catch (e: any) {
-      setBanner(e?.message || "Could not cancel booking.");
+      const msg = e?.message || "Could not cancel booking.";
+      setBanner(msg);
+      if (/24 hours/i.test(msg)) {
+        Alert.alert("Too close to start time", msg);
+      }
     }
     setActioning(null);
+  };
+
+  const confirmCancel = (b: Booking) => {
+    Alert.alert(
+      "Cancel booking?",
+      `Cancel your ${b.class_name} booking?\n\nPlease note: bookings can only be cancelled at least 24 hours before the start time.`,
+      [
+        { text: "Keep booking", style: "cancel" },
+        { text: "Cancel booking", style: "destructive", onPress: () => doCancel(b) },
+      ],
+    );
   };
 
   const submitReschedule = async () => {
@@ -176,7 +191,7 @@ export default function BookingsScreen() {
                         <Pressable
                           testID={`booking-cancel-${b.booking_id}`}
                           style={styles.actionBtnDanger}
-                          onPress={() => doCancel(b)}
+                          onPress={() => confirmCancel(b)}
                           disabled={actioning === b.booking_id}
                         >
                           {actioning === b.booking_id ? (
