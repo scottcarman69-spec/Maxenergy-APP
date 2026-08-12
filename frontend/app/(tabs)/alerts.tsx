@@ -90,6 +90,9 @@ export default function AlertsTab() {
       case "admin_members":
         router.push("/admin/members" as any);
         break;
+      case "admin_group_requests":
+        router.push("/admin/group-requests" as any);
+        break;
       default:
         break;
     }

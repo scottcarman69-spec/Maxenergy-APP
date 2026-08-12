@@ -1,0 +1,37 @@
+{
+  "summary": "Admin-gated group creation + exclusive 'Muay Thai Academy' join flow end-to-end tested. Backend: 10/12 tests pass (2 transient 502s caused by upstream email-provider rate-limits blocking notify_user() retries in POST /api/groups — the core logic works, and both failing tests passed in earlier runs). Frontend: verified member1 sees the 'JOIN A GROUP' section with the OFFICIAL Muay Thai Academy row + combat logo; tapping 'Join' (testID inbox-join-grp_muaythai_academy) turns into a 'Requested' pill instantly; New Group screen shows approval notice + 'Request group' label (member) and returns to Inbox. Admin dashboard shows the Group Requests card (testID admin-nav-group-requests) with a badge (=2 during test); the /admin/group-requests screen renders NEW GROUP REQUESTS + JOIN REQUESTS sections with correct greq-create-approve/decline-<id> and greq-join-approve/decline-<id> testIDs; declining a join request makes the item disappear from the list.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/groups (member request path)", "issue": "Intermittent 502 Bad Gateway when the email provider is rate-limited. notify_user() serially iterates all admins and each call retries 4x against integrations.emergentagent.com with backoff (~10s each), so the outer request can exceed the ingress 60s timeout when 2+ admins are notified. RCA: /var/log/supervisor/backend.err.log shows repeated 'email rate-limited to admin@maxenergy.com.au, retrying (attempt 1..4)' during test bursts. Fix: (1) fire notify_user() via asyncio.create_task() for admin notifications (fire-and-forget) or (2) cap retry attempts to 1 with short backoff, or (3) wrap the admin-notify loop in a background task. Feature semantics are correct — DB record is created before the notify loop runs, so the client 502 is misleading (request may actually succeed server-side)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_admin_gated_groups.py",
+    "/app/test_reports/pytest/pytest_admin_gated_groups.xml"
+  ],
+  "action_items": [
+    "Make admin notify_user() calls in POST /api/groups and POST /api/groups/{gid}/join non-blocking (asyncio.create_task or a small background worker) so slow/rate-limited email retries can't 502 the user-facing request.",
+    "Consider a shorter retry budget (1 attempt, 1-2s max) for gym-internal notifications, keeping the 4-attempt policy only for verification OTPs/password resets where deliverability matters most."
+  ],
+  "critical_code_review_comments": [
+    "server.py notify_user() is invoked serially for every admin inside the create/join request handlers (lines 2255-2260 and 2325-2330). With N admins × 4 retries × ~10s backoff on 429s, worst-case wall time is 80s+ which is above the ingress timeout — user sees 502 even though the DB write succeeded. Push notifications into a background task.",
+    "GET /api/groups/discover exposes join_status = 'pending' | 'member' | 'none' correctly, but there is no pagination limit — for future safety consider .limit(50) once official group count grows.",
+    "seed_official_groups only $addToSet admin_ids on restart; if an admin is demoted (is_admin=false) they remain in the Muay Thai Academy member_ids. Consider syncing membership on startup (add + remove non-admins if that's the intent, or leave as-is if founding admins should stay)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_admin_gated_groups.py (new)"
+  ],
+  "success_rate": {"backend": "83% (10/12) — 2 failures are transient 502s from email rate-limits, not feature bugs (both endpoints returned 200 in the initial run)", "frontend": "100% (Inbox JOIN A GROUP + OFFICIAL tag + Join→Requested pill; New Group Request-group label + approval notice; Admin dashboard Group Requests card + badge; Group Requests screen approve/decline testIDs)"},
+  "seed_data_creation": "Backend tests use pre-seeded admin@maxenergy.com.au + member1/2/3@gmail.com. Frontend test filed a pending join for member1 to Muay Thai Academy and a pending TEST_decline_ create request — BOTH cleaned up post-test (admin declined the join + create req; member1 is NOT a member of Muay Thai Academy, no groups left behind). Inbox for member1 is tidy.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Admin-gated groups + Muay Thai Academy exclusive join flow is functionally complete. If the two flaky backend tests are re-run when email provider is quiet they pass — you can gate them with a wait or retry-once wrapper. Passwords: member1 uses Password123 (no bang). All required testIDs are present and correct: inbox-join-<gid>, inbox-new-group, group-create, admin-nav-group-requests, greq-create-approve/decline-<id>, greq-join-approve/decline-<id>. NOTE: pre-existing unrelated GET /api/groups 500 (server.py:2257 tz sort) was ALREADY fixed in this iteration — sort key now normalizes tz.",
+  "rca_of_issue": "Intermittent 502 on POST /api/groups (member path): notify_user() runs synchronously inside the request handler and iterates all admin users, each notify making an HTTP POST to integrations.emergentagent.com/api/v1/email/send. When the provider returns 429 the client retries 4x with backoff. With 2+ admins this exceeds the ingress 60s timeout and the client sees 502 — even though db.group_requests.insert_one has already committed. Reproduction: hammer POST /api/groups (member) in a short window so the email provider rate-limits, then a follow-up member request will 502. Mitigation: wrap admin-fanout notifications in asyncio.create_task() (fire-and-forget) OR reduce retries to 1 for internal notifies OR queue them in a background task. Verified live: /var/log/supervisor/backend.err.log shows repeating 'email rate-limited to admin@maxenergy.com.au, retrying (attempt 1..4)' lines during the failing run."
+}

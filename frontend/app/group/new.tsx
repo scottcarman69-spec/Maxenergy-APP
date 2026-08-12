@@ -15,9 +15,11 @@ export default function NewGroup() {
   const [friends, setFriends] = useState<M[]>([]);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const load = useCallback(async () => {
     try { const f = await api.friends(); setFriends(f.friends || []); } catch {}
+    try { const me = await api.me(); setIsAdmin(!!me?.user?.is_admin); } catch {}
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -25,9 +27,17 @@ export default function NewGroup() {
 
   const create = async () => {
     if (!name.trim()) { Alert.alert("Name needed", "Give your group a name."); return; }
-    if (sel.size === 0) { Alert.alert("Add friends", "Pick at least one friend for the group."); return; }
+    if (!isAdmin && sel.size === 0) { Alert.alert("Add friends", "Pick at least one friend for the group."); return; }
     setSaving(true);
-    try { const r = await api.createGroup(name.trim(), Array.from(sel)); router.replace({ pathname: "/group/[id]", params: { id: r.group_id, name: name.trim() } } as any); }
+    try {
+      const r = await api.createGroup(name.trim(), Array.from(sel));
+      if (r.pending) {
+        Alert.alert("Request sent 🥊", "Your group request was sent to the gym staff. You'll get a notification once it's approved.",
+          [{ text: "OK", onPress: () => router.replace("/(tabs)/inbox") }]);
+      } else {
+        router.replace({ pathname: "/group/[id]", params: { id: r.group_id, name: name.trim() } } as any);
+      }
+    }
     catch (e: any) { Alert.alert("Couldn't create", e?.message || "Try again."); }
     setSaving(false);
   };
@@ -36,6 +46,12 @@ export default function NewGroup() {
     <SafeAreaView style={styles.root} edges={["top"]}>
       <ScreenHeader title="New Group" fallback="/(tabs)/inbox" />
       <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: 40 }}>
+        {!isAdmin && (
+          <View style={styles.notice}>
+            <Ionicons name="information-circle" size={18} color={colors.brand} />
+            <Text style={styles.noticeText}>New groups need a quick OK from gym staff. We'll send your request and notify you once it's approved.</Text>
+          </View>
+        )}
         <TextInput testID="group-name" value={name} onChangeText={setName} placeholder="Group name (e.g. Fight Team)" placeholderTextColor={colors.onSurfaceSecondary} style={styles.name} />
         <Text style={styles.section}>ADD FRIENDS ({sel.size})</Text>
         {friends.length === 0 ? (
@@ -52,7 +68,7 @@ export default function NewGroup() {
       </ScrollView>
       <View style={styles.footer}>
         <Pressable testID="group-create" style={styles.createBtn} onPress={create} disabled={saving}>
-          {saving ? <ActivityIndicator color={colors.onBrand} /> : <Text style={styles.createText}>Create group</Text>}
+          {saving ? <ActivityIndicator color={colors.onBrand} /> : <Text style={styles.createText}>{isAdmin ? "Create group" : "Request group"}</Text>}
         </Pressable>
       </View>
     </SafeAreaView>
@@ -62,6 +78,8 @@ export default function NewGroup() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   name: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md, color: colors.onSurface, fontSize: 16 },
+  notice: { flexDirection: "row", alignItems: "flex-start", gap: 8, backgroundColor: colors.brandTertiary, borderWidth: 1, borderColor: colors.brand, borderRadius: radius.md, padding: spacing.md },
+  noticeText: { flex: 1, color: colors.onSurface, fontSize: 13, lineHeight: 18 },
   section: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "900", letterSpacing: 1.5 },
   hint: { color: colors.onSurfaceSecondary, textAlign: "center", padding: spacing.lg },
   row: { flexDirection: "row", alignItems: "center", backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md },

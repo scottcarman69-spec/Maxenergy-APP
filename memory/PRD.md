@@ -623,3 +623,23 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Frontend: NEW /app/frontend/app/admin/booking-log.tsx — search bar (testID blog-search, live client-side filter + clear) + summary (count + $ total, total recomputes for the filtered set) + per-booking card (name, orange MAX-##### reference, class · when, payment method pill, green "$X credit" pill when credit applied, date, phone·email). Pull-to-refresh + empty states. Entry point: new "Booking Log" card (receipt icon) on Admin dashboard (admin-nav-booking-log) under Bookings Calendar. api.ts +adminBookingLog(q?).
 - Verified: endpoint 200 (external URL) returns seeded rows + q filter works; UI screenshots show 2 bookings/$25 total, credit pill, and search "MAX-10002" narrowing to 1 booking/$10. Demo seed data cleaned up (booking_logs now 0).
 
+
+## Session update (Jun 2026 fork) — Admin-gated group creation + exclusive "Muay Thai Academy" group (DONE)
+- Group creation is now staff-controlled: ADMINS create groups instantly; MEMBERS submit a request that a staff member approves. On approval the REQUESTER becomes the group OWNER (per user choice).
+  - Backend: POST /groups — admin → _create_group immediately (returns pending:false); member → inserts db.group_requests(pending) + notifies all admins (returns pending:true). New _validated_friends/_create_group helpers.
+  - Admin moderation: GET /admin/group-requests (pending create_requests + join_requests, enriched w/ names), POST /admin/group-requests/{id}/approve|decline (create → builds group w/ requester as owner), POST /admin/group-join-requests/{id}/approve|decline.
+- Exclusive "Muay Thai Academy" group (official, gym-run): seeded idempotently at startup (seed_official_groups) — group_id grp_muaythai_academy, slug muay-thai-academy, is_official=true, all admins as members. Uses bundled logo assets/images/combat-logo.webp (skull/green-beret "Combat Club" badge the user supplied).
+  - Members request to join: GET /groups/discover (official groups w/ is_member + join_status none/pending/member), POST /groups/{gid}/join (creates db.group_join_requests pending, notifies admins; 400 if already member/invite-only). Admin accepts → member added.
+- groups_list & group_get now return slug + is_official. admin_overview returns group_requests count (pending create + join).
+- Frontend: 
+  - Inbox (tabs/inbox.tsx): official groups show the combat logo + "OFFICIAL" tag; new "JOIN A GROUP" discovery section with a "Join" button (→ Requested pill while pending). src/groups.ts groupLogo(slug) maps slug→bundled logo.
+  - group/new.tsx: members see an approval notice + "Request group" button (admins see "Create group"); pending response shows "Request sent" alert → back to Inbox.
+  - NEW admin/group-requests.tsx: two sections (New group requests / Join requests) each w/ Approve/Decline. Entry: Admin dashboard "Group Requests" card (people-circle, badge from group_requests count). Alerts deep-link nav "admin_group_requests" added.
+  - api.ts: +groupsDiscover/groupJoin/adminGroupRequests/adminGroupRequestDecide/adminGroupJoinDecide; createGroup now returns {group_id, pending}.
+- Verified via curl E2E: member create-group→pending→admin approve→member owns group; member join Muay Thai Academy→pending→admin accept→member added; overview count. Inbox screenshot shows official group w/ logo+OFFICIAL badge.
+- Test members: member2@gmail.com / member3@gmail.com (Password123) exist as member1's friends.
+
+
+## Session update (Jun 2026 fork) — Group icon polish + 502 fix (DONE)
+- Inbox group icon: combat-logo.webp is a transparent-corner PNG; removed the black circular container bg + circular clip and enlarged it (46→58, negative margins) so the badge shows cleanly with no black box. NOTE: the dark disc is part of the logo artwork itself (black circle + orange ring); a fully transparent-centre emblem would need a new source image from the user.
+- FIX (testing_agent iteration_16 flagged): member group-create + join-request could 502 at ingress when the email provider throttled serial admin notifications. Added _notify_all_admins() fired via asyncio.create_task (fire-and-forget) in group_create + group_join_request. Verified member create-group now returns in ~0.01s.

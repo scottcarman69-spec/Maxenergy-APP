@@ -7,9 +7,11 @@ import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
 import ScreenBg from "@/src/components/ScreenBg";
 import { presenceLabel, isOnline } from "@/src/presence";
+import { groupLogo } from "@/src/groups";
 
 type Thread = { user_id: string; name?: string; handle?: string; picture?: string; last_body?: string; last_at?: string; unread?: number; last_active_at?: string };
-type Group = { group_id: string; name: string; members: number; last_body?: string; last_sender?: string; unread?: number };
+type Group = { group_id: string; name: string; members: number; slug?: string; is_official?: boolean; last_body?: string; last_sender?: string; unread?: number };
+type Discover = { group_id: string; name: string; slug?: string; members: number; description?: string; is_member: boolean; join_status: "none" | "pending" | "member" };
 
 function Avatar({ uri, name, size = 46 }: { uri?: string; name?: string; size?: number }) {
   if (uri) return <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2 }} />;
@@ -25,6 +27,8 @@ export default function InboxTab() {
   const router = useRouter();
   const [threads, setThreads] = useState<Thread[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
+  const [discover, setDiscover] = useState<Discover[]>([]);
+  const [joining, setJoining] = useState<string | null>(null);
   const [gymUnread, setGymUnread] = useState(0);
   const [pending, setPending] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -32,17 +36,24 @@ export default function InboxTab() {
 
   const load = useCallback(async () => {
     try {
-      const [t, g, f, gr] = await Promise.all([api.dmThreads(), api.myMessages(), api.friends(), api.groups()]);
+      const [t, g, f, gr, dc] = await Promise.all([api.dmThreads(), api.myMessages(), api.friends(), api.groups(), api.groupsDiscover()]);
       setThreads(t.threads || []);
       const gm = (g.messages || []).filter((m: any) => m.sender_is_admin && !m.read_by_member);
       setGymUnread(gm.length);
       setPending((f.incoming || []).length);
       setGroups(gr.groups || []);
+      setDiscover((dc.groups || []).filter((d: Discover) => !d.is_member));
     } catch {}
     setLoading(false);
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
   const onRefresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
+
+  const requestJoin = async (d: Discover) => {
+    setJoining(d.group_id);
+    try { await api.groupJoin(d.group_id); await load(); } catch {}
+    setJoining(null);
+  };
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
@@ -86,17 +97,53 @@ export default function InboxTab() {
           )}
 
           {groups.length > 0 && <Text style={styles.section}>GROUPS</Text>}
-          {groups.map((g) => (
+          {groups.map((g) => {
+            const logo = groupLogo(g.slug);
+            return (
             <Pressable key={g.group_id} testID={`inbox-group-${g.group_id}`} style={styles.row} onPress={() => router.push({ pathname: "/group/[id]", params: { id: g.group_id, name: g.name } } as any)}>
-              <View style={styles.gymIcon}><Ionicons name="people" size={22} color={colors.onBrand} /></View>
+              {logo ? (
+                <Image source={logo} style={styles.groupLogo} resizeMode="contain" />
+              ) : (
+                <View style={styles.gymIcon}><Ionicons name="people" size={22} color={colors.onBrand} /></View>
+              )}
               <View style={{ flex: 1 }}>
-                <Text style={styles.rowName}>{g.name}</Text>
+                <View style={styles.nameRow}>
+                  <Text style={styles.rowName} numberOfLines={1}>{g.name}</Text>
+                  {g.is_official && <View style={styles.officialTag}><Ionicons name="shield-checkmark" size={10} color={colors.brand} /><Text style={styles.officialTagText}>OFFICIAL</Text></View>}
+                </View>
                 <Text style={styles.rowSub} numberOfLines={1}>{g.last_body ? `${g.last_sender ? g.last_sender.split(" ")[0] + ": " : ""}${g.last_body}` : `${g.members} members`}</Text>
               </View>
               {(g.unread || 0) > 0 && <View style={styles.badge}><Text style={styles.badgeText}>{g.unread}</Text></View>}
               <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceSecondary} />
             </Pressable>
-          ))}
+            );
+          })}
+
+          {discover.length > 0 && <Text style={styles.section}>JOIN A GROUP</Text>}
+          {discover.map((d) => {
+            const logo = groupLogo(d.slug);
+            const isPending = d.join_status === "pending";
+            return (
+              <View key={d.group_id} testID={`inbox-discover-${d.group_id}`} style={styles.row}>
+                {logo ? (
+                  <Image source={logo} style={styles.groupLogo} resizeMode="contain" />
+                ) : (
+                  <View style={styles.gymIcon}><Ionicons name="people" size={22} color={colors.onBrand} /></View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.rowName} numberOfLines={1}>{d.name}</Text>
+                  <Text style={styles.rowSub} numberOfLines={2}>{d.description || `${d.members} members`}</Text>
+                </View>
+                {isPending ? (
+                  <View style={styles.pendingPill}><Text style={styles.pendingText}>Requested</Text></View>
+                ) : (
+                  <Pressable testID={`inbox-join-${d.group_id}`} style={styles.joinBtn} onPress={() => requestJoin(d)} disabled={joining === d.group_id}>
+                    {joining === d.group_id ? <ActivityIndicator size="small" color={colors.onBrand} /> : <Text style={styles.joinText}>Join</Text>}
+                  </Pressable>
+                )}
+              </View>
+            );
+          })}
 
           {threads.length > 0 && <Text style={styles.section}>FRIENDS</Text>}
           {threads.map((t) => (
@@ -138,6 +185,14 @@ const styles = StyleSheet.create({
   section: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "900", letterSpacing: 1.5, marginTop: spacing.md, marginBottom: 2 },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md },
   gymIcon: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
+  groupLogo: { width: 58, height: 58, marginLeft: -4, marginVertical: -6 },
+  nameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  officialTag: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: colors.brandTertiary, borderRadius: radius.pill, paddingHorizontal: 6, paddingVertical: 2 },
+  officialTagText: { color: colors.brand, fontSize: 8.5, fontWeight: "900", letterSpacing: 0.5 },
+  joinBtn: { backgroundColor: colors.brand, borderRadius: radius.pill, paddingHorizontal: 16, paddingVertical: 8, minWidth: 62, alignItems: "center" },
+  joinText: { color: colors.onBrand, fontWeight: "900", fontSize: 13 },
+  pendingPill: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 7 },
+  pendingText: { color: colors.onSurfaceSecondary, fontWeight: "800", fontSize: 12 },
   rowName: { color: colors.onSurface, fontSize: 15.5, fontWeight: "800" },
   rowSub: { color: colors.onSurfaceSecondary, fontSize: 13, marginTop: 2 },
   requestRow: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: colors.brandTertiary, borderWidth: 1, borderColor: colors.brand, borderRadius: radius.md, padding: spacing.md },

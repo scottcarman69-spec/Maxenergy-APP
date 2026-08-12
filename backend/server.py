@@ -2208,33 +2208,66 @@ class GroupCreateReq(BaseModel):
     member_ids: List[str] = []
 
 
+async def _validated_friends(owner_id: str, member_ids) -> list:
+    """Return owner_id + only those member_ids that are accepted friends of the owner."""
+    valid = {owner_id}
+    for mid in set(member_ids or []):
+        if mid == owner_id:
+            continue
+        if await db.friendships.find_one({"key": _dm_key(owner_id, mid), "status": "accepted"}):
+            valid.add(mid)
+    return list(valid)
+
+
+async def _create_group(owner_id: str, owner_name: str, name: str, member_ids: list) -> str:
+    valid = await _validated_friends(owner_id, member_ids)
+    gid = new_id("grp")
+    await db.group_chats.insert_one({
+        "group_id": gid, "name": name[:60], "owner_id": owner_id,
+        "member_ids": valid, "created_at": now_utc(),
+    })
+    for mid in valid:
+        if mid == owner_id:
+            continue
+        m = await db.users.find_one({"user_id": mid}, {"_id": 0})
+        await notify_user(mid, (m or {}).get("email"), f"Added to group: {name[:40]}",
+                          f"{owner_name or 'A member'} added you to the group '{name[:40]}'.", "message",
+                          email_lines=[f"You've been added to the group <b>{esc(name)}</b> by <b>{esc(owner_name or 'a member')}</b>.", "Open the app → Inbox to chat."],
+                          data={"nav": "member_inbox"})
+    return gid
+
+
+async def _notify_all_admins(admins: list, title: str, body: str, email_lines: list, nav: str) -> None:
+    """Fire-and-forget: notify every admin without blocking the request (avoids 502 on email throttle)."""
+    for a in admins:
+        try:
+            await notify_user(a["user_id"], a.get("email"), title, body, "message", email_lines=email_lines, data={"nav": nav})
+        except Exception as e:
+            log.warning(f"admin notify failed: {e}")
+
+
 @api.post("/groups")
 async def group_create(body: GroupCreateReq, u: dict = Depends(require_user)):
     name = (body.name or "").strip()
     if not name:
         raise HTTPException(400, "Please name your group.")
-    members = set(body.member_ids or [])
-    members.add(u["user_id"])
-    valid = {u["user_id"]}
-    for mid in members:
-        if mid == u["user_id"]:
-            continue
-        if await db.friendships.find_one({"key": _dm_key(u["user_id"], mid), "status": "accepted"}):
-            valid.add(mid)
-    gid = new_id("grp")
-    await db.group_chats.insert_one({
-        "group_id": gid, "name": name[:60], "owner_id": u["user_id"],
-        "member_ids": list(valid), "created_at": now_utc(),
+    # Admins/staff create groups instantly; members must request staff approval.
+    if u.get("is_admin"):
+        gid = await _create_group(u["user_id"], u.get("name") or u.get("email"), name, body.member_ids)
+        return {"group_id": gid, "pending": False}
+    valid = await _validated_friends(u["user_id"], body.member_ids)
+    rid = new_id("greq")
+    await db.group_requests.insert_one({
+        "request_id": rid, "requester_id": u["user_id"], "name": name[:60],
+        "member_ids": valid, "status": "pending", "created_at": now_utc(),
     })
-    for mid in valid:
-        if mid == u["user_id"]:
-            continue
-        m = await db.users.find_one({"user_id": mid}, {"_id": 0})
-        await notify_user(mid, (m or {}).get("email"), f"Added to group: {name[:40]}",
-                          f"{u.get('name') or 'A member'} added you to the group '{name[:40]}'.", "message",
-                          email_lines=[f"You've been added to the group <b>{esc(name)}</b> by <b>{esc(u.get('name') or 'a member')}</b>.", "Open the app → Inbox to chat."],
-                          data={"nav": "member_inbox"})
-    return {"group_id": gid}
+    admins = await db.users.find({"is_admin": True}, {"_id": 0, "user_id": 1, "email": 1}).to_list(50)
+    asyncio.create_task(_notify_all_admins(
+        admins, "New group request",
+        f"{u.get('name') or 'A member'} requested a group '{name[:40]}'. Tap to review.",
+        [f"<b>{esc(u.get('name') or 'A member')}</b> requested a new group: <b>{esc(name)}</b>.", "Open Admin → Group Requests to approve or decline."],
+        "admin_group_requests"))
+    return {"group_id": None, "pending": True}
 
 
 async def _group_or_403(gid: str, uid: str) -> dict:
@@ -2252,6 +2285,7 @@ async def groups_list(u: dict = Depends(require_user)):
         last = await db.group_messages.find_one({"group_id": g["group_id"]}, {"_id": 0}, sort=[("created_at", -1)])
         unread = await db.group_messages.count_documents({"group_id": g["group_id"], "from_id": {"$ne": u["user_id"]}, "read_by": {"$ne": u["user_id"]}})
         out.append({"group_id": g["group_id"], "name": g["name"], "members": len(g.get("member_ids", [])),
+                    "slug": g.get("slug"), "is_official": bool(g.get("is_official")),
                     "last_body": (last or {}).get("body"), "last_sender": (last or {}).get("sender_name"),
                     "last_at": (last or {}).get("created_at"), "unread": unread})
     def _sort_key(t):
@@ -2263,13 +2297,58 @@ async def groups_list(u: dict = Depends(require_user)):
     return {"groups": out}
 
 
+@api.get("/groups/discover")
+async def groups_discover(u: dict = Depends(require_user)):
+    """Official/exclusive gym groups a member can request to join."""
+    gs = await db.group_chats.find({"is_official": True}, {"_id": 0}).to_list(50)
+    out = []
+    for g in gs:
+        is_member = u["user_id"] in g.get("member_ids", [])
+        pending = await db.group_join_requests.find_one(
+            {"group_id": g["group_id"], "user_id": u["user_id"], "status": "pending"}, {"_id": 0})
+        out.append({
+            "group_id": g["group_id"], "name": g["name"], "slug": g.get("slug"),
+            "is_official": True, "members": len(g.get("member_ids", [])),
+            "description": g.get("description"),
+            "is_member": is_member, "join_status": "pending" if pending else ("member" if is_member else "none"),
+        })
+    return {"groups": out}
+
+
+@api.post("/groups/{gid}/join")
+async def group_join_request(gid: str, u: dict = Depends(require_user)):
+    g = await db.group_chats.find_one({"group_id": gid}, {"_id": 0})
+    if not g:
+        raise HTTPException(404, "Group not found.")
+    if not g.get("is_official"):
+        raise HTTPException(400, "This group is invite-only.")
+    if u["user_id"] in g.get("member_ids", []):
+        raise HTTPException(400, "You're already in this group.")
+    existing = await db.group_join_requests.find_one({"group_id": gid, "user_id": u["user_id"], "status": "pending"})
+    if existing:
+        return {"pending": True, "already": True}
+    rid = new_id("gjr")
+    await db.group_join_requests.insert_one({
+        "request_id": rid, "group_id": gid, "user_id": u["user_id"], "status": "pending", "created_at": now_utc(),
+    })
+    admins = await db.users.find({"is_admin": True}, {"_id": 0, "user_id": 1, "email": 1}).to_list(50)
+    asyncio.create_task(_notify_all_admins(
+        admins, "New join request",
+        f"{u.get('name') or 'A member'} wants to join '{g['name'][:40]}'. Tap to review.",
+        [f"<b>{esc(u.get('name') or 'A member')}</b> requested to join <b>{esc(g['name'])}</b>.", "Open Admin → Group Requests to accept or decline."],
+        "admin_group_requests"))
+    return {"pending": True}
+
+
 @api.get("/groups/{gid}")
 async def group_get(gid: str, u: dict = Depends(require_user)):
     g = await _group_or_403(gid, u["user_id"])
     rows = await db.group_messages.find({"group_id": gid}, {"_id": 0}).sort("created_at", 1).to_list(1000)
     await db.group_messages.update_many({"group_id": gid, "read_by": {"$ne": u["user_id"]}}, {"$addToSet": {"read_by": u["user_id"]}})
     mem = await db.users.find({"user_id": {"$in": g.get("member_ids", [])}}, {"_id": 0, "user_id": 1, "name": 1, "picture": 1}).to_list(100)
-    return {"group": {"group_id": gid, "name": g["name"], "owner_id": g.get("owner_id"), "members": [_member_card(m) for m in mem]}, "messages": rows}
+    return {"group": {"group_id": gid, "name": g["name"], "owner_id": g.get("owner_id"),
+                      "slug": g.get("slug"), "is_official": bool(g.get("is_official")),
+                      "members": [_member_card(m) for m in mem]}, "messages": rows}
 
 
 @api.post("/groups/{gid}/messages")
@@ -2376,6 +2455,102 @@ async def group_leave(gid: str, u: dict = Depends(require_user)):
         update["$set"] = {"owner_id": remaining[0]}
     await db.group_chats.update_one({"group_id": gid}, update)
     return {"group_id": gid, "left": True, "deleted": False}
+
+
+# ---- Admin moderation: group creation requests + join requests ----
+@api.get("/admin/group-requests")
+async def admin_group_requests(u: dict = Depends(require_admin)):
+    creqs = await db.group_requests.find({"status": "pending"}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    jreqs = await db.group_join_requests.find({"status": "pending"}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    uids = list({r["requester_id"] for r in creqs} | {r["user_id"] for r in jreqs})
+    users = await db.users.find({"user_id": {"$in": uids}}, {"_id": 0, "user_id": 1, "name": 1, "email": 1}).to_list(500)
+    umap = {x["user_id"]: x for x in users}
+    gids = list({r["group_id"] for r in jreqs})
+    groups = await db.group_chats.find({"group_id": {"$in": gids}}, {"_id": 0, "group_id": 1, "name": 1}).to_list(200)
+    gmap = {x["group_id"]: x for x in groups}
+    create_out = []
+    for r in creqs:
+        m = umap.get(r["requester_id"], {})
+        create_out.append({"request_id": r["request_id"], "name": r["name"],
+                           "requester_name": m.get("name") or m.get("email") or "Member",
+                           "requester_email": m.get("email"), "member_count": len(r.get("member_ids", [])),
+                           "created_at": r.get("created_at")})
+    join_out = []
+    for r in jreqs:
+        m = umap.get(r["user_id"], {})
+        g = gmap.get(r["group_id"], {})
+        join_out.append({"request_id": r["request_id"], "group_id": r["group_id"], "group_name": g.get("name") or "Group",
+                         "member_name": m.get("name") or m.get("email") or "Member",
+                         "member_email": m.get("email"), "created_at": r.get("created_at")})
+    return {"create_requests": create_out, "join_requests": join_out,
+            "count": len(create_out) + len(join_out)}
+
+
+@api.post("/admin/group-requests/{request_id}/approve")
+async def admin_group_request_approve(request_id: str, u: dict = Depends(require_admin)):
+    r = await db.group_requests.find_one({"request_id": request_id, "status": "pending"}, {"_id": 0})
+    if not r:
+        raise HTTPException(404, "Request not found or already handled.")
+    requester = await db.users.find_one({"user_id": r["requester_id"]}, {"_id": 0})
+    rname = (requester or {}).get("name") or (requester or {}).get("email")
+    gid = await _create_group(r["requester_id"], rname, r["name"], r.get("member_ids", []))
+    await db.group_requests.update_one({"request_id": request_id},
+                                       {"$set": {"status": "approved", "decided_at": now_utc(), "decided_by": u.get("name") or "Admin", "group_id": gid}})
+    await notify_user(r["requester_id"], (requester or {}).get("email"), "Group approved 🎉",
+                      f"Your group '{r['name'][:40]}' was approved — you're the owner. Open Inbox to chat.", "message",
+                      email_lines=[f"Good news — your group <b>{esc(r['name'])}</b> was approved!", "You're the group owner. Open the app → Inbox to start chatting."],
+                      data={"nav": "member_inbox"})
+    return {"ok": True, "group_id": gid}
+
+
+@api.post("/admin/group-requests/{request_id}/decline")
+async def admin_group_request_decline(request_id: str, u: dict = Depends(require_admin)):
+    r = await db.group_requests.find_one({"request_id": request_id, "status": "pending"}, {"_id": 0})
+    if not r:
+        raise HTTPException(404, "Request not found or already handled.")
+    await db.group_requests.update_one({"request_id": request_id},
+                                       {"$set": {"status": "declined", "decided_at": now_utc(), "decided_by": u.get("name") or "Admin"}})
+    requester = await db.users.find_one({"user_id": r["requester_id"]}, {"_id": 0})
+    await notify_user(r["requester_id"], (requester or {}).get("email"), "Group request declined",
+                      f"Your request for the group '{r['name'][:40]}' wasn't approved this time.", "message",
+                      data={"nav": "member_inbox"})
+    return {"ok": True}
+
+
+@api.post("/admin/group-join-requests/{request_id}/approve")
+async def admin_group_join_approve(request_id: str, u: dict = Depends(require_admin)):
+    r = await db.group_join_requests.find_one({"request_id": request_id, "status": "pending"}, {"_id": 0})
+    if not r:
+        raise HTTPException(404, "Request not found or already handled.")
+    g = await db.group_chats.find_one({"group_id": r["group_id"]}, {"_id": 0})
+    if not g:
+        raise HTTPException(404, "Group no longer exists.")
+    await db.group_chats.update_one({"group_id": r["group_id"]}, {"$addToSet": {"member_ids": r["user_id"]}})
+    await db.group_join_requests.update_one({"request_id": request_id},
+                                            {"$set": {"status": "approved", "decided_at": now_utc(), "decided_by": u.get("name") or "Admin"}})
+    member = await db.users.find_one({"user_id": r["user_id"]}, {"_id": 0})
+    await notify_user(r["user_id"], (member or {}).get("email"), f"Welcome to {g['name'][:40]} 🥊",
+                      f"You've been accepted into '{g['name'][:40]}'. Open Inbox to say hi!", "message",
+                      email_lines=[f"You're in! You've been accepted into <b>{esc(g['name'])}</b>.", "Open the app → Inbox to join the conversation."],
+                      data={"nav": "member_inbox"})
+    return {"ok": True}
+
+
+@api.post("/admin/group-join-requests/{request_id}/decline")
+async def admin_group_join_decline(request_id: str, u: dict = Depends(require_admin)):
+    r = await db.group_join_requests.find_one({"request_id": request_id, "status": "pending"}, {"_id": 0})
+    if not r:
+        raise HTTPException(404, "Request not found or already handled.")
+    g = await db.group_chats.find_one({"group_id": r["group_id"]}, {"_id": 0})
+    await db.group_join_requests.update_one({"request_id": request_id},
+                                            {"$set": {"status": "declined", "decided_at": now_utc(), "decided_by": u.get("name") or "Admin"}})
+    member = await db.users.find_one({"user_id": r["user_id"]}, {"_id": 0})
+    await notify_user(r["user_id"], (member or {}).get("email"), "Join request declined",
+                      f"Your request to join '{(g or {}).get('name', 'the group')[:40]}' wasn't approved this time.", "message",
+                      data={"nav": "member_inbox"})
+    return {"ok": True}
+
+
 
 
 
@@ -3796,7 +3971,8 @@ async def admin_overview(u: dict = Depends(require_admin)):
     trials = await db.free_trials.count_documents({})
     unread_messages = await db.messages.count_documents({"sender_is_admin": False, "read_by_admin": {"$ne": True}})
     refunds_pending = await db.bookings.count_documents({"refund_status": "pending"})
-    return {"classes": classes, "applications": apps, "pending_applications": pending, "announcements": ann, "members": members, "pending_bookings": pending_bookings, "session_requests": session_requests, "trials": trials, "unread_messages": unread_messages, "refunds_pending": refunds_pending}
+    group_requests = (await db.group_requests.count_documents({"status": "pending"})) + (await db.group_join_requests.count_documents({"status": "pending"}))
+    return {"classes": classes, "applications": apps, "pending_applications": pending, "announcements": ann, "members": members, "pending_bookings": pending_bookings, "session_requests": session_requests, "trials": trials, "unread_messages": unread_messages, "refunds_pending": refunds_pending, "group_requests": group_requests}
 
 
 @api.get("/admin/classes")
@@ -4867,9 +5043,32 @@ async def seed_data():
         log.info(f"seed complete -> {SEED_VERSION}")
 
 
+async def seed_official_groups():
+    """Create/maintain the exclusive gym-run 'Muay Thai Academy' group (idempotent)."""
+    admins = await db.users.find({"is_admin": True}, {"_id": 0, "user_id": 1}).to_list(50)
+    admin_ids = [a["user_id"] for a in admins]
+    owner = admin_ids[0] if admin_ids else None
+    existing = await db.group_chats.find_one({"slug": "muay-thai-academy"}, {"_id": 0})
+    if not existing:
+        await db.group_chats.insert_one({
+            "group_id": "grp_muaythai_academy", "name": "Muay Thai Academy",
+            "slug": "muay-thai-academy", "is_official": True,
+            "description": "The official Max Energy Muay Thai crew — for existing and new members.",
+            "owner_id": owner, "member_ids": admin_ids or [], "created_at": now_utc(),
+        })
+        log.info("Seeded official group: Muay Thai Academy")
+    else:
+        if not existing.get("owner_id") and owner:
+            await db.group_chats.update_one({"slug": "muay-thai-academy"}, {"$set": {"owner_id": owner}})
+        if admin_ids:
+            await db.group_chats.update_one({"slug": "muay-thai-academy"}, {"$addToSet": {"member_ids": {"$each": admin_ids}}})
+
+
+
 @app.on_event("startup")
 async def _startup():
     await seed_data()
+    await seed_official_groups()
     # Grandfather any pre-existing accounts (created before email verification) as verified.
     await db.users.update_many({"verified": {"$exists": False}}, {"$set": {"verified": True}})
     # Auto-expire OTP codes 10 min after issue.
