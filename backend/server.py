@@ -184,6 +184,7 @@ def user_public(u: dict) -> dict:
         "user_id": u["user_id"],
         "email": u["email"],
         "name": u.get("name"),
+        "phone": u.get("phone"),
         "picture": u.get("picture"),
         "is_admin": bool(u.get("is_admin", False)),
         "verified": bool(u.get("verified", False)),
@@ -611,7 +612,7 @@ async def mark_booking_paid(booking_id: str) -> None:
     app_doc = await db.membership_applications.find_one(
         {"user_id": b["user_id"]}, {"_id": 0, "phone": 1}, sort=[("created_at", -1)]
     )
-    phone = (app_doc or {}).get("phone") or (member or {}).get("phone") or "—"
+    phone = (member or {}).get("phone") or (app_doc or {}).get("phone") or "—"
     plan = (member or {}).get("membership_plan") or "—"
     exp = (member or {}).get("membership_expires_at")
     if isinstance(exp, datetime):
@@ -746,6 +747,7 @@ class RegisterReq(BaseModel):
     first_name: str = Field(min_length=1)
     last_name: str = Field(min_length=1)
     date_of_birth: str  # ISO date YYYY-MM-DD
+    phone: str = Field(min_length=6)
     email: EmailStr
     password: str = Field(min_length=6)
     name: Optional[str] = None
@@ -881,6 +883,9 @@ async def auth_register(body: RegisterReq, request: Request):
     if age < 5 or age > 100:
         raise HTTPException(status_code=400, detail="Please enter a valid date of birth")
     validate_password_strength(body.password)
+    phone = re.sub(r"[^\d+]", "", body.phone or "")
+    if len(re.sub(r"\D", "", phone)) < 8:
+        raise HTTPException(status_code=400, detail="Enter a valid phone number")
     first = body.first_name.strip()
     last = body.last_name.strip()
     full_name = (f"{first} {last}").strip()
@@ -892,6 +897,7 @@ async def auth_register(body: RegisterReq, request: Request):
         "first_name": first,
         "last_name": last,
         "date_of_birth": body.date_of_birth.strip(),
+        "phone": phone,
         "password_hash": hash_pw(body.password),
         "provider": "password",
         "picture": None,

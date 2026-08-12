@@ -7,6 +7,7 @@ export type User = {
   user_id: string;
   email: string;
   name?: string | null;
+  phone?: string | null;
   picture?: string | null;
   is_admin?: boolean;
   verified?: boolean;
@@ -73,7 +74,7 @@ async function req(path: string, opts: RequestInit = {}) {
 }
 
 export const api = {
-  register: (payload: { first_name: string; last_name: string; date_of_birth: string; email: string; password: string }) =>
+  register: (payload: { first_name: string; last_name: string; date_of_birth: string; phone: string; email: string; password: string }) =>
     req("/api/auth/register", { method: "POST", body: JSON.stringify(payload) }),
   login: (email: string, password: string) =>
     req("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),

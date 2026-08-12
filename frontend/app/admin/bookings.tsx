@@ -161,15 +161,17 @@ export default function AdminBookings() {
                           {busy ? <ActivityIndicator size="small" color={colors.onBrand} /> : (<><Ionicons name="checkmark-done" size={15} color={colors.onBrand} /><Text style={styles.actAcceptText}>Confirm booking</Text></>)}
                         </Pressable>
                       )}
-                      <Pressable
-                        testID={`adminbk-reschedule-${b.booking_id}`}
-                        style={[styles.actBtn, styles.actGhost]}
-                        disabled={busy}
-                        onPress={() => { setRescheduleFor(b); setNewTime(b.requested_time || ""); setNote(""); }}
-                      >
-                        <Ionicons name="time-outline" size={15} color={colors.brand} />
-                        <Text style={styles.actGhostText}>Suggest time</Text>
-                      </Pressable>
+                      {b.by_appointment && (
+                        <Pressable
+                          testID={`adminbk-reschedule-${b.booking_id}`}
+                          style={[styles.actBtn, styles.actGhost]}
+                          disabled={busy}
+                          onPress={() => { setRescheduleFor(b); setNewTime(b.requested_time || ""); setNote(""); }}
+                        >
+                          <Ionicons name="time-outline" size={15} color={colors.brand} />
+                          <Text style={styles.actGhostText}>Suggest time</Text>
+                        </Pressable>
+                      )}
                       <Pressable
                         testID={`adminbk-cancel-${b.booking_id}`}
                         style={[styles.actBtn, styles.actDanger]}

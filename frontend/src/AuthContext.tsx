@@ -6,7 +6,7 @@ type AuthState = {
   user: User | null;
   loading: boolean;
   loginEmail: (email: string, password: string) => Promise<void>;
-  registerEmail: (payload: { first_name: string; last_name: string; date_of_birth: string; email: string; password: string }) => Promise<void>;
+  registerEmail: (payload: { first_name: string; last_name: string; date_of_birth: string; phone: string; email: string; password: string }) => Promise<void>;
   applyGoogleSessionId: (sessionId: string) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await setToken(r.token);
     setUser(r.user);
   };
-  const registerEmail = async (payload: { first_name: string; last_name: string; date_of_birth: string; email: string; password: string }) => {
+  const registerEmail = async (payload: { first_name: string; last_name: string; date_of_birth: string; phone: string; email: string; password: string }) => {
     const r = await api.register(payload);
     await setToken(r.token);
     setUser(r.user);

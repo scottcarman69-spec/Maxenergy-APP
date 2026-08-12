@@ -26,6 +26,7 @@ export default function Register() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -65,6 +66,10 @@ export default function Register() {
       setErr("Please enter your email");
       return;
     }
+    if (phone.replace(/\D/g, "").length < 8) {
+      setErr("Please enter a valid phone number");
+      return;
+    }
     if (!pwOk) {
       setErr("Password needs 6+ characters, a number and a symbol");
       return;
@@ -75,6 +80,7 @@ export default function Register() {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         date_of_birth: dobIso,
+        phone: phone.trim(),
         email: email.trim(),
         password,
       });
@@ -148,6 +154,16 @@ export default function Register() {
             keyboardType="email-address"
             value={email}
             onChangeText={setEmail}
+            style={styles.input}
+          />
+
+          <TextInput
+            testID="register-phone-input"
+            placeholder="Phone number"
+            placeholderTextColor={colors.onSurfaceSecondary}
+            keyboardType="phone-pad"
+            value={phone}
+            onChangeText={setPhone}
             style={styles.input}
           />
 
