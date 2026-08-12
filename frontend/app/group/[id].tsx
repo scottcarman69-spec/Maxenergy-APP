@@ -15,6 +15,8 @@ export default function GroupChat() {
   const [msgs, setMsgs] = useState<GM[]>([]);
   const [gname, setGname] = useState(String(name || "Group"));
   const [count, setCount] = useState(0);
+  const [pinned, setPinned] = useState<string | null>(null);
+  const [pinExpanded, setPinExpanded] = useState(false);
   const [meId, setMeId] = useState("");
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState("");
@@ -25,6 +27,7 @@ export default function GroupChat() {
     try {
       const [r, me] = await Promise.all([api.groupGet(String(id)), api.me()]);
       setMsgs(r.messages || []); setGname(r.group?.name || gname); setCount((r.group?.members || []).length);
+      setPinned(r.group?.pinned_note || null);
       setMeId(me?.user?.user_id || "");
     } catch {}
     setLoading(false);
@@ -45,6 +48,16 @@ export default function GroupChat() {
       <ScreenHeader title={gname} subtitle={`${count} members`} fallback="/(tabs)/inbox"
         right={<Pressable testID="group-manage" hitSlop={10} onPress={() => router.push({ pathname: "/group/manage", params: { id: String(id) } } as any)}><Ionicons name="settings-outline" size={22} color={colors.onSurface} /></Pressable>} />
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }} keyboardVerticalOffset={80}>
+        {!!pinned && (
+          <Pressable style={styles.pinBar} onPress={() => setPinExpanded((v) => !v)}>
+            <Ionicons name="pin" size={16} color={colors.brand} style={{ marginTop: 1 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.pinTitle}>PINNED · GROUP RULES</Text>
+              <Text style={styles.pinBody} numberOfLines={pinExpanded ? undefined : 2}>{pinned}</Text>
+              <Text style={styles.pinToggle}>{pinExpanded ? "Show less" : "Read more"}</Text>
+            </View>
+          </Pressable>
+        )}
         {loading ? <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} /> : (
           <ScrollView ref={ref} contentContainerStyle={{ padding: spacing.lg, gap: spacing.sm, paddingBottom: 20 }}>
             {msgs.length === 0 ? (
@@ -75,6 +88,10 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   empty: { alignItems: "center", padding: 40, gap: spacing.md },
   emptyText: { color: colors.onSurfaceSecondary, textAlign: "center" },
+  pinBar: { flexDirection: "row", gap: 8, alignItems: "flex-start", backgroundColor: colors.brandTertiary, borderBottomWidth: 1, borderBottomColor: colors.brand, paddingHorizontal: spacing.md, paddingVertical: 10 },
+  pinTitle: { color: colors.brand, fontSize: 10, fontWeight: "900", letterSpacing: 1 },
+  pinBody: { color: colors.onSurface, fontSize: 13, lineHeight: 18, marginTop: 3 },
+  pinToggle: { color: colors.brand, fontSize: 11.5, fontWeight: "800", marginTop: 4 },
   bubble: { maxWidth: "82%", padding: spacing.md, borderRadius: radius.lg },
   me: { alignSelf: "flex-end", backgroundColor: colors.brand, borderBottomRightRadius: 4 },
   them: { alignSelf: "flex-start", backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderBottomLeftRadius: 4 },

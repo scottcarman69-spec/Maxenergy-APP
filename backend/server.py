@@ -2348,6 +2348,7 @@ async def group_get(gid: str, u: dict = Depends(require_user)):
     mem = await db.users.find({"user_id": {"$in": g.get("member_ids", [])}}, {"_id": 0, "user_id": 1, "name": 1, "picture": 1}).to_list(100)
     return {"group": {"group_id": gid, "name": g["name"], "owner_id": g.get("owner_id"),
                       "slug": g.get("slug"), "is_official": bool(g.get("is_official")),
+                      "pinned_note": g.get("pinned_note"),
                       "members": [_member_card(m) for m in mem]}, "messages": rows}
 
 
@@ -2378,6 +2379,21 @@ class GroupRenameReq(BaseModel):
 
 class GroupAddReq(BaseModel):
     member_ids: List[str] = []
+
+
+class GroupPinReq(BaseModel):
+    note: str = ""
+
+
+@api.post("/groups/{gid}/pin")
+async def group_set_pin(gid: str, body: GroupPinReq, u: dict = Depends(require_user)):
+    g = await _group_or_403(gid, u["user_id"])
+    if g.get("owner_id") != u["user_id"]:
+        raise HTTPException(403, "Only the group owner can edit the pinned note.")
+    note = (body.note or "").strip()[:1000]
+    await db.group_chats.update_one({"group_id": gid}, {"$set": {"pinned_note": note}})
+    return {"group_id": gid, "pinned_note": note}
+
 
 
 @api.patch("/groups/{gid}")
@@ -5051,6 +5067,12 @@ async def seed_data():
 
 async def seed_official_groups():
     """Create/maintain the exclusive gym-run 'Muay Thai Academy' group (idempotent)."""
+    default_note = ("👋 Welcome to the Muay Thai Academy!\n\n"
+                    "• Respect all members & coaches\n"
+                    "• Book classes early — spots fill fast\n"
+                    "• Keep the chat friendly & supportive\n"
+                    "• Questions? Message the gym anytime\n\n"
+                    "Let's train hard and have fun! 🥊")
     admins = await db.users.find({"is_admin": True}, {"_id": 0, "user_id": 1}).to_list(50)
     admin_ids = [a["user_id"] for a in admins]
     owner = admin_ids[0] if admin_ids else None
@@ -5060,12 +5082,15 @@ async def seed_official_groups():
             "group_id": "grp_muaythai_academy", "name": "Muay Thai Academy",
             "slug": "muay-thai-academy", "is_official": True,
             "description": "The official Max Energy Muay Thai crew — for existing and new members.",
+            "pinned_note": default_note,
             "owner_id": owner, "member_ids": admin_ids or [], "created_at": now_utc(),
         })
         log.info("Seeded official group: Muay Thai Academy")
     else:
         if not existing.get("owner_id") and owner:
             await db.group_chats.update_one({"slug": "muay-thai-academy"}, {"$set": {"owner_id": owner}})
+        if existing.get("pinned_note") is None:
+            await db.group_chats.update_one({"slug": "muay-thai-academy"}, {"$set": {"pinned_note": default_note}})
         if admin_ids:
             await db.group_chats.update_one({"slug": "muay-thai-academy"}, {"$addToSet": {"member_ids": {"$each": admin_ids}}})
 

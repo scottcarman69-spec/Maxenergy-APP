@@ -22,6 +22,8 @@ export default function ManageGroup() {
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [savingName, setSavingName] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [pinned, setPinned] = useState("");
+  const [savingPin, setSavingPin] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -31,6 +33,7 @@ export default function ManageGroup() {
       setMembers(g.group?.members || []);
       setMeId(me?.user?.user_id || "");
       setFriends(f.friends || []);
+      setPinned(g.group?.pinned_note || "");
     } catch (e: any) {
       Alert.alert("Couldn't load", e?.message || "Try again.");
     }
@@ -50,6 +53,13 @@ export default function ManageGroup() {
     try { await api.groupRename(gid, n); Alert.alert("Saved", "Group renamed."); }
     catch (e: any) { Alert.alert("Couldn't rename", e?.message || "Try again."); }
     setSavingName(false);
+  };
+
+  const savePin = async () => {
+    setSavingPin(true);
+    try { await api.groupSetPin(gid, pinned); Alert.alert("Saved", "Pinned note updated."); }
+    catch (e: any) { Alert.alert("Couldn't save", e?.message || "Try again."); }
+    setSavingPin(false);
   };
 
   const toggle = (uid: string) => setSel((s) => { const n = new Set(s); n.has(uid) ? n.delete(uid) : n.add(uid); return n; });
@@ -110,6 +120,17 @@ export default function ManageGroup() {
           </View>
         )}
 
+        {isOwner && (
+          <View style={{ gap: spacing.sm }}>
+            <Text style={styles.section}>PINNED NOTE / RULES</Text>
+            <Text style={styles.hint}>Shown pinned at the top of the chat for everyone.</Text>
+            <TextInput testID="manage-pin" value={pinned} onChangeText={setPinned} placeholder="Welcome message, rules, etc." placeholderTextColor={colors.onSurfaceSecondary} style={styles.pinInput} multiline />
+            <Pressable testID="manage-save-pin" style={styles.saveBtn} onPress={savePin} disabled={savingPin}>
+              {savingPin ? <ActivityIndicator color={colors.onBrand} /> : <Text style={styles.saveText}>Save pinned note</Text>}
+            </Pressable>
+          </View>
+        )}
+
         <View style={{ gap: spacing.sm }}>
           <Text style={styles.section}>MEMBERS ({members.length})</Text>
           {members.map((m) => (
@@ -163,6 +184,7 @@ const styles = StyleSheet.create({
   section: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "900", letterSpacing: 1.5 },
   gname: { color: colors.onSurface, fontSize: 18, fontWeight: "900" },
   name: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md, color: colors.onSurface, fontSize: 16 },
+  pinInput: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md, color: colors.onSurface, fontSize: 14.5, minHeight: 120, textAlignVertical: "top", lineHeight: 20 },
   saveBtn: { backgroundColor: colors.brand, borderRadius: radius.md, paddingVertical: 13, alignItems: "center" },
   saveText: { color: colors.onBrand, fontWeight: "900", fontSize: 14.5 },
   row: { flexDirection: "row", alignItems: "center", backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md },

@@ -195,6 +195,7 @@ export const api = {
   groupAddMembers: (id: string, member_ids: string[]) => req(`/api/groups/${id}/members`, { method: "POST", body: JSON.stringify({ member_ids }) }),
   groupRemoveMember: (id: string, memberId: string) => req(`/api/groups/${id}/members/${memberId}`, { method: "DELETE" }),
   groupLeave: (id: string) => req(`/api/groups/${id}/leave`, { method: "POST" }),
+  groupSetPin: (id: string, note: string) => req(`/api/groups/${id}/pin`, { method: "POST", body: JSON.stringify({ note }) }),
   groupsDiscover: () => req("/api/groups/discover"),
   groupJoin: (id: string) => req(`/api/groups/${id}/join`, { method: "POST" }),
   adminGroupRequests: () => req("/api/admin/group-requests"),

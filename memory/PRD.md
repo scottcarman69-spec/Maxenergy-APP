@@ -649,3 +649,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Session update (Jun 2026 fork) — Academy welcome auto-post (DONE)
 - When an admin ACCEPTS a join request into an official group, a friendly system message is auto-posted in that group chat: from_id="system", sender_name "Max Energy", body "🥊 Everyone welcome {first} to the {group}! Say hi 👋" (renders as a normal incoming bubble). Added in admin_group_join_approve before the member notification. Verified via curl (welcome appears in GET /groups/{gid}). Test state reset (academy back to admins only).
+
+## Session update (Jun 2026 fork) — Academy pinned rules note (DONE)
+- Groups now support a pinned note. Backend: group_chats.pinned_note; group_get returns it; NEW POST /groups/{gid}/pin (owner-only, {note}, max 1000 chars, empty clears). Muay Thai Academy seeded with a default welcome/rules note (idempotent; back-fills existing doc if missing).
+- Frontend: group/[id].tsx shows a sticky pinned banner at the top (pin icon + "PINNED · GROUP RULES" + note, 2-line preview w/ Read more/Show less toggle). group/manage.tsx (owner only) has a "PINNED NOTE / RULES" multiline editor + Save. api.ts +groupSetPin.
+- Verified: academy pinned_note seeded; banner renders at top of the Academy chat via screenshot; tsc clean.
