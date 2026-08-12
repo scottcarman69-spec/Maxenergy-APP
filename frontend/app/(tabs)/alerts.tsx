@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, RefreshControl, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, RefreshControl, Modal } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Swipeable } from "react-native-gesture-handler";
@@ -33,6 +33,7 @@ export default function AlertsTab() {
   const [notifs, setNotifs] = useState<Notif[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -101,22 +102,11 @@ export default function AlertsTab() {
     setNotifs((cur) => cur.map((x) => ({ ...x, read: true })));
     api.markAllNotificationsRead().catch(() => {});
   };
-  const clearAll = () => {
-    Alert.alert(
-      "Clear all notifications?",
-      "This removes every notification from your list. You can still find them in your saved history.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Clear all",
-          style: "destructive",
-          onPress: () => {
-            setNotifs([]);
-            api.clearAllNotifications().catch(() => {});
-          },
-        },
-      ],
-    );
+  const clearAll = () => setConfirmClear(true);
+  const doClearAll = () => {
+    setNotifs([]);
+    api.clearAllNotifications().catch(() => {});
+    setConfirmClear(false);
   };
 
   const unread = notifs.filter((n) => !n.read).length;
@@ -206,6 +196,23 @@ export default function AlertsTab() {
           {notifs.length > 0 && <Text style={styles.hint}>Swipe a notification left to clear it</Text>}
         </ScrollView>
       )}
+
+      <Modal visible={confirmClear} transparent animationType="fade" onRequestClose={() => setConfirmClear(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Clear all notifications?</Text>
+            <Text style={styles.modalBody}>This removes every notification from your list. You can still find them in your saved history.</Text>
+            <View style={styles.modalActions}>
+              <Pressable testID="notif-clear-cancel" style={[styles.modalBtn, styles.modalCancel]} onPress={() => setConfirmClear(false)}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable testID="notif-clear-confirm" style={[styles.modalBtn, styles.modalConfirm]} onPress={doClearAll}>
+                <Text style={styles.modalConfirmText}>Clear all</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -240,4 +247,14 @@ const styles = StyleSheet.create({
   delete: { backgroundColor: colors.error, justifyContent: "center", alignItems: "center", width: 84, borderRadius: radius.md, marginLeft: spacing.sm, gap: 2 },
   deleteText: { color: "#fff", fontWeight: "800", fontSize: 12 },
   hint: { color: colors.onSurfaceSecondary, fontSize: 11, textAlign: "center", marginTop: 6, opacity: 0.7 },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", alignItems: "center", justifyContent: "center", padding: spacing.xl },
+  modalCard: { width: "100%", backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg },
+  modalTitle: { color: colors.onSurface, fontSize: 18, fontFamily: font.heading, marginBottom: spacing.sm },
+  modalBody: { color: colors.onSurfaceSecondary, fontSize: 14, lineHeight: 20, marginBottom: spacing.lg },
+  modalActions: { flexDirection: "row", gap: spacing.sm },
+  modalBtn: { flex: 1, paddingVertical: 13, borderRadius: radius.md, alignItems: "center", justifyContent: "center" },
+  modalCancel: { borderWidth: 1, borderColor: colors.border },
+  modalCancelText: { color: colors.onSurface, fontWeight: "800", fontSize: 14 },
+  modalConfirm: { backgroundColor: colors.error },
+  modalConfirmText: { color: "#fff", fontWeight: "900", fontSize: 14 },
 });

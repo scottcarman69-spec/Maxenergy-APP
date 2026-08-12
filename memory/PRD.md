@@ -579,3 +579,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Phone now required at registration. Backend RegisterReq.phone (min_length 6); auth_register normalises (strip non [\d+], requires >=8 digits else 400) and stores user.phone; user_public exposes phone. Booking email/log phone now prefers member.phone then application. Verified: register without phone -> 422; with phone -> 200 (stored "0400123456"). (Minimal field add to existing JWT auth; hashing/JWT/sessions untouched.)
 - Frontend register.tsx: added required "Phone number" input (testID register-phone-input, phone-pad) + validation; api.register/AuthContext.registerEmail/User type updated with phone. Screenshot confirms field between Email and Password.
 - Admin "Suggest time" (admin/bookings.tsx) now only renders for by_appointment bookings (Personal Training/Programs) — removed for regular classes (Muay Thai/Boot Camp/Kickboxing). Used by admins to confirm/change appointment times.
+
+## Session update (Jun 2026 fork) — Fix notification Clear button not working (DONE)
+- Root cause: Clear-all used Alert.alert with buttons, which on react-native-web (web/preview) does NOT fire the destructive callback -> button appeared dead. (Also stale build on device could hide the buttons.)
+- Fix: replaced Alert.alert with an in-app confirmation Modal (testIDs notif-clear-confirm / notif-clear-cancel) in alerts.tsx -> works on web AND native. "Read all" (markAll) and per-item swipe delete were already Alert-free and fine.
+- Verified: Clear -> modal -> Clear all -> list empties to "You're all caught up" empty state. tsc clean. User must reload/redeploy on device.
