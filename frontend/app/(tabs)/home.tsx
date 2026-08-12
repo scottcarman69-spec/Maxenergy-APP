@@ -131,6 +131,8 @@ export default function Home() {
         title: n.title,
         body: n.body,
         created_at: n.created_at,
+        nav: n.data?.nav,
+        data: n.data,
       }));
       if (items.length === 0) return;
       const newestTs = items.reduce((m, a) => Math.max(m, new Date(a.created_at).getTime()), 0);
@@ -155,6 +157,34 @@ export default function Home() {
     }
     setNewAlerts([]);
   }, [newAlerts, user?.user_id]);
+
+  // Tap an update -> jump straight to the relevant screen (booking / message / etc.)
+  const openAlert = useCallback(async (item: AlertItem) => {
+    await dismissAlerts();
+    const nav = item.nav;
+    switch (nav) {
+      case "member_inbox":
+      case "admin_thread":
+        router.navigate("/(tabs)/inbox");
+        break;
+      case "member_bookings":
+        router.navigate("/bookings");
+        break;
+      case "member_membership":
+        router.navigate("/vigyr-signon");
+        break;
+      case "member_store":
+        router.navigate("/memberships");
+        break;
+      case "class_detail":
+        if (item.data?.class_id) router.navigate({ pathname: "/class/[id]", params: { id: item.data.class_id } } as any);
+        else router.navigate("/(tabs)/alerts");
+        break;
+      default:
+        router.navigate("/(tabs)/alerts");
+        break;
+    }
+  }, [dismissAlerts]);
 
   // One-time first-run walkthrough for brand-new members (per user, persisted).
   useEffect(() => {
@@ -318,6 +348,7 @@ export default function Home() {
             visible={newAlerts.length > 0}
             items={newAlerts}
             onClose={dismissAlerts}
+            onOpen={openAlert}
             onViewAll={async () => { await dismissAlerts(); router.navigate("/(tabs)/alerts"); }}
           />
         )}

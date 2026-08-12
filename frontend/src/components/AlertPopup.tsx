@@ -8,6 +8,8 @@ export type AlertItem = {
   title: string;
   body: string;
   created_at: string;
+  nav?: string;
+  data?: { user_id?: string; name?: string; class_id?: string };
 };
 
 type Props = {
@@ -15,9 +17,10 @@ type Props = {
   items: AlertItem[];
   onClose: () => void;
   onViewAll: () => void;
+  onOpen: (item: AlertItem) => void;
 };
 
-export default function AlertPopup({ visible, items, onClose, onViewAll }: Props) {
+export default function AlertPopup({ visible, items, onClose, onViewAll, onOpen }: Props) {
   const count = items.length;
   if (count === 0) return null;
   return (
@@ -30,7 +33,7 @@ export default function AlertPopup({ visible, items, onClose, onViewAll }: Props
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.eyebrow}>{count > 1 ? `${count} NEW UPDATES` : "NEW UPDATE"}</Text>
-              <Text style={styles.headerTitle}>You have a new update waiting!</Text>
+              <Text style={styles.headerTitle}>New Notifications</Text>
             </View>
             <Pressable testID="alert-popup-close" onPress={onClose} hitSlop={12}>
               <Ionicons name="close" size={24} color={colors.onSurfaceSecondary} />
@@ -39,10 +42,18 @@ export default function AlertPopup({ visible, items, onClose, onViewAll }: Props
 
           <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
             {items.map((n) => (
-              <View key={n.notification_id} style={styles.item}>
-                <Text style={styles.itemTitle}>{n.title}</Text>
-                {!!n.body && <Text style={styles.itemBody}>{n.body}</Text>}
-              </View>
+              <Pressable
+                key={n.notification_id}
+                testID={`alert-popup-item-${n.notification_id}`}
+                style={styles.item}
+                onPress={() => onOpen(n)}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.itemTitle}>{n.title}</Text>
+                  {!!n.body && <Text style={styles.itemBody}>{n.body}</Text>}
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.brand} />
+              </Pressable>
             ))}
           </ScrollView>
 
@@ -66,7 +77,7 @@ const styles = StyleSheet.create({
   iconChip: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
   eyebrow: { color: colors.brand, fontSize: 11, fontFamily: font.heading, letterSpacing: 1.5 },
   headerTitle: { color: colors.onSurface, fontSize: 17, fontFamily: font.heading, marginTop: 1 },
-  item: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm },
+  item: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm },
   itemTitle: { color: colors.onSurface, fontSize: 15, fontFamily: font.heading, marginBottom: 3 },
   itemBody: { color: colors.onSurfaceSecondary, fontSize: 13.5, lineHeight: 19 },
   viewAllBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.brand, paddingVertical: 14, borderRadius: radius.md, marginTop: spacing.md },
