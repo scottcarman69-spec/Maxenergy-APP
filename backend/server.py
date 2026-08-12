@@ -91,6 +91,29 @@ def booking_ref_code(booking_id: str) -> str:
     return f"MAX-{booking_ref_no(booking_id)}"
 
 
+import random as _random
+
+
+async def ensure_handle(user_id: str, name: Optional[str]) -> str:
+    """Give each member a unique account ID (handle) they can share to be added as a friend."""
+    u = await db.users.find_one({"user_id": user_id}, {"_id": 0, "handle": 1})
+    if u and u.get("handle"):
+        return u["handle"]
+    base = re.sub(r"[^A-Za-z]", "", (name or "MX"))[:6].upper() or "MX"
+    for _ in range(25):
+        cand = f"{base}{_random.randint(100, 9999)}"
+        if not await db.users.find_one({"handle": cand}):
+            await db.users.update_one({"user_id": user_id}, {"$set": {"handle": cand}})
+            return cand
+    cand = user_id[-6:].upper()
+    await db.users.update_one({"user_id": user_id}, {"$set": {"handle": cand}})
+    return cand
+
+
+def _dm_key(a: str, b: str) -> str:
+    return "|".join(sorted([a, b]))
+
+
 def hash_pw(pw: str) -> str:
     return bcrypt.hashpw(pw.encode(), bcrypt.gensalt()).decode()
 
@@ -184,6 +207,7 @@ def user_public(u: dict) -> dict:
         "user_id": u["user_id"],
         "email": u["email"],
         "name": u.get("name"),
+        "handle": u.get("handle"),
         "phone": u.get("phone"),
         "picture": u.get("picture"),
         "is_admin": bool(u.get("is_admin", False)),
@@ -1044,6 +1068,8 @@ async def auth_reset_password(body: ResetPasswordReq, request: Request):
 
 @api.get("/auth/me")
 async def auth_me(u: dict = Depends(require_user)):
+    await ensure_handle(u["user_id"], u.get("name"))
+    u = await db.users.find_one({"user_id": u["user_id"]}, {"_id": 0, "password_hash": 0})
     return {"user": user_public(u)}
 
 
@@ -1898,7 +1924,273 @@ async def messages_send(body: MessageReq, request: Request, u: dict = Depends(re
     return {"message": msg}
 
 
-@api.get("/admin/threads")
+# ==================== Member profile photo, friends & direct messages ====================
+class PhotoReq(BaseModel):
+    image: str
+
+
+@api.post("/me/photo")
+async def set_my_photo(body: PhotoReq, u: dict = Depends(require_user)):
+    img = (body.image or "").strip()
+    if not img.startswith("data:image"):
+        raise HTTPException(400, "Invalid image.")
+    if len(img) > 2_800_000:
+        raise HTTPException(400, "Image is too large. Please choose a smaller photo.")
+    await db.users.update_one({"user_id": u["user_id"]}, {"$set": {"picture": img}})
+    return {"ok": True, "picture": img}
+
+
+async def _friend_status(me: str, other: str) -> str:
+    if await db.blocks.find_one({"blocker_id": me, "blocked_id": other}):
+        return "blocked"
+    if await db.blocks.find_one({"blocker_id": other, "blocked_id": me}):
+        return "blocked_by"
+    f = await db.friendships.find_one({"key": _dm_key(me, other)}, {"_id": 0})
+    if not f:
+        return "none"
+    if f["status"] == "accepted":
+        return "friends"
+    return "pending_out" if f.get("requester_id") == me else "pending_in"
+
+
+def _member_card(u: dict) -> dict:
+    return {"user_id": u.get("user_id"), "name": u.get("name"), "handle": u.get("handle"), "picture": u.get("picture")}
+
+
+@api.get("/members/search")
+async def members_search(q: str, u: dict = Depends(require_user)):
+    q = (q or "").strip()
+    if len(q) < 2:
+        return {"results": []}
+    query = {
+        "user_id": {"$ne": u["user_id"]},
+        "$or": [
+            {"name": {"$regex": re.escape(q), "$options": "i"}},
+            {"handle": {"$regex": f"^{re.escape(q)}$", "$options": "i"}},
+        ],
+    }
+    rows = await db.users.find(query, {"_id": 0, "user_id": 1, "name": 1, "handle": 1, "picture": 1}).limit(20).to_list(20)
+    out = []
+    for r in rows:
+        st = await _friend_status(u["user_id"], r["user_id"])
+        if st in ("blocked", "blocked_by"):
+            continue
+        out.append({**_member_card(r), "friend_status": st})
+    return {"results": out}
+
+
+class FriendReq(BaseModel):
+    user_id: Optional[str] = None
+    handle: Optional[str] = None
+
+
+@api.post("/friends/request")
+async def friend_request(body: FriendReq, u: dict = Depends(require_user)):
+    await ensure_handle(u["user_id"], u.get("name"))
+    target = None
+    if body.user_id:
+        target = await db.users.find_one({"user_id": body.user_id}, {"_id": 0})
+    elif body.handle:
+        target = await db.users.find_one({"handle": {"$regex": f"^{re.escape(body.handle.strip())}$", "$options": "i"}}, {"_id": 0})
+    if not target:
+        raise HTTPException(404, "No member found with that name or account ID.")
+    if target["user_id"] == u["user_id"]:
+        raise HTTPException(400, "You can't add yourself.")
+    st = await _friend_status(u["user_id"], target["user_id"])
+    if st == "blocked_by":
+        raise HTTPException(403, "You can't add this member.")
+    if st == "friends":
+        raise HTTPException(409, "You're already friends.")
+    if st in ("pending_out", "pending_in"):
+        raise HTTPException(409, "There's already a pending request.")
+    key = _dm_key(u["user_id"], target["user_id"])
+    await db.friendships.update_one(
+        {"key": key},
+        {"$set": {"key": key, "status": "pending", "requester_id": u["user_id"],
+                  "addressee_id": target["user_id"], "created_at": now_utc()}},
+        upsert=True,
+    )
+    await notify_user(
+        target["user_id"], target.get("email"),
+        "New friend request",
+        f"{u.get('name') or 'A member'} wants to connect with you on the Max Energy app.",
+        "friend",
+        email_lines=[f"<b>{esc(u.get('name') or 'A member')}</b> sent you a friend request.",
+                     "Open the app → Inbox → Add friends to accept and start chatting."],
+        data={"nav": "member_inbox"},
+    )
+    return {"ok": True}
+
+
+@api.get("/friends")
+async def friends_list(u: dict = Depends(require_user)):
+    me = u["user_id"]
+    docs = await db.friendships.find({"key": {"$regex": re.escape(me)}}, {"_id": 0}).to_list(500)
+    friends, incoming, outgoing = [], [], []
+    for f in docs:
+        parts = f["key"].split("|")
+        other = parts[0] if parts[1] == me else parts[1]
+        if me not in parts:
+            continue
+        ou = await db.users.find_one({"user_id": other}, {"_id": 0, "user_id": 1, "name": 1, "handle": 1, "picture": 1})
+        if not ou:
+            continue
+        if await db.blocks.find_one({"blocker_id": me, "blocked_id": other}) or await db.blocks.find_one({"blocker_id": other, "blocked_id": me}):
+            continue
+        card = _member_card(ou)
+        if f["status"] == "accepted":
+            friends.append(card)
+        elif f.get("requester_id") == me:
+            outgoing.append(card)
+        else:
+            incoming.append({**card, "friendship_key": f["key"]})
+    return {"friends": friends, "incoming": incoming, "outgoing": outgoing}
+
+
+class RespondReq(BaseModel):
+    user_id: str
+    accept: bool
+
+
+@api.post("/friends/respond")
+async def friend_respond(body: RespondReq, u: dict = Depends(require_user)):
+    key = _dm_key(u["user_id"], body.user_id)
+    f = await db.friendships.find_one({"key": key})
+    if not f or f["status"] != "pending" or f.get("addressee_id") != u["user_id"]:
+        raise HTTPException(404, "No pending request found.")
+    if body.accept:
+        await db.friendships.update_one({"key": key}, {"$set": {"status": "accepted", "accepted_at": now_utc()}})
+        requester = await db.users.find_one({"user_id": body.user_id}, {"_id": 0})
+        await notify_user(
+            body.user_id, (requester or {}).get("email"),
+            "Friend request accepted",
+            f"{u.get('name') or 'A member'} accepted your friend request. Say hi!",
+            "friend",
+            email_lines=[f"<b>{esc(u.get('name') or 'A member')}</b> accepted your friend request.",
+                         "Open the app → Inbox to start chatting."],
+            data={"nav": "member_inbox"},
+        )
+    else:
+        await db.friendships.delete_one({"key": key})
+    return {"ok": True}
+
+
+class BlockReq(BaseModel):
+    user_id: str
+    reason: Optional[str] = None
+
+
+@api.post("/friends/block")
+async def friend_block(body: BlockReq, u: dict = Depends(require_user)):
+    await db.blocks.update_one(
+        {"blocker_id": u["user_id"], "blocked_id": body.user_id},
+        {"$set": {"blocker_id": u["user_id"], "blocked_id": body.user_id, "created_at": now_utc()}},
+        upsert=True,
+    )
+    await db.friendships.delete_one({"key": _dm_key(u["user_id"], body.user_id)})
+    return {"ok": True}
+
+
+@api.post("/friends/unblock")
+async def friend_unblock(body: BlockReq, u: dict = Depends(require_user)):
+    await db.blocks.delete_one({"blocker_id": u["user_id"], "blocked_id": body.user_id})
+    return {"ok": True}
+
+
+@api.post("/friends/report")
+async def friend_report(body: BlockReq, u: dict = Depends(require_user)):
+    reported = await db.users.find_one({"user_id": body.user_id}, {"_id": 0})
+    await db.reports.insert_one({
+        "report_id": new_id("rep"), "reporter_id": u["user_id"], "reported_id": body.user_id,
+        "reason": (body.reason or "").strip(), "created_at": now_utc(),
+    })
+    await notify_admins(
+        "Member reported",
+        f"{u.get('name') or 'A member'} reported {(reported or {}).get('name') or body.user_id}. Reason: {(body.reason or '—')[:200]}",
+        "report",
+        email_lines=[f"<b>{esc(u.get('name') or 'A member')}</b> reported <b>{esc((reported or {}).get('name') or body.user_id)}</b>.",
+                     f"Reason: {esc(body.reason or '—')}"],
+    )
+    return {"ok": True}
+
+
+@api.get("/dm/threads")
+async def dm_threads(u: dict = Depends(require_user)):
+    me = u["user_id"]
+    fdocs = await db.friendships.find({"key": {"$regex": re.escape(me)}, "status": "accepted"}, {"_id": 0}).to_list(500)
+    threads = []
+    for f in fdocs:
+        parts = f["key"].split("|")
+        if me not in parts:
+            continue
+        other = parts[0] if parts[1] == me else parts[1]
+        if await db.blocks.find_one({"blocker_id": me, "blocked_id": other}) or await db.blocks.find_one({"blocker_id": other, "blocked_id": me}):
+            continue
+        ou = await db.users.find_one({"user_id": other}, {"_id": 0, "user_id": 1, "name": 1, "handle": 1, "picture": 1})
+        if not ou:
+            continue
+        last = await db.dm_messages.find_one({"key": f["key"]}, {"_id": 0}, sort=[("created_at", -1)])
+        unread = await db.dm_messages.count_documents({"key": f["key"], "to_id": me, "read": {"$ne": True}})
+        threads.append({
+            **_member_card(ou),
+            "last_body": (last or {}).get("body"),
+            "last_at": (last or {}).get("created_at"),
+            "unread": unread,
+        })
+    threads.sort(key=lambda t: t.get("last_at") or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+    return {"threads": threads}
+
+
+@api.get("/dm/unread")
+async def dm_unread(u: dict = Depends(require_user)):
+    count = await db.dm_messages.count_documents({"to_id": u["user_id"], "read": {"$ne": True}})
+    return {"count": count}
+
+
+@api.get("/dm/{other_id}")
+async def dm_messages_get(other_id: str, u: dict = Depends(require_user)):
+    key = _dm_key(u["user_id"], other_id)
+    f = await db.friendships.find_one({"key": key, "status": "accepted"})
+    if not f:
+        raise HTTPException(403, "You can only message your friends.")
+    other = await db.users.find_one({"user_id": other_id}, {"_id": 0, "user_id": 1, "name": 1, "handle": 1, "picture": 1})
+    rows = await db.dm_messages.find({"key": key}, {"_id": 0}).sort("created_at", 1).to_list(1000)
+    await db.dm_messages.update_many({"key": key, "to_id": u["user_id"], "read": {"$ne": True}}, {"$set": {"read": True}})
+    return {"messages": rows, "friend": _member_card(other or {})}
+
+
+class DMSendReq(BaseModel):
+    body: str
+
+
+@api.post("/dm/{other_id}")
+async def dm_send(other_id: str, body: DMSendReq, u: dict = Depends(require_user)):
+    text = (body.body or "").strip()
+    if not text:
+        raise HTTPException(400, "Message cannot be empty.")
+    key = _dm_key(u["user_id"], other_id)
+    f = await db.friendships.find_one({"key": key, "status": "accepted"})
+    if not f:
+        raise HTTPException(403, "You can only message your friends.")
+    if await db.blocks.find_one({"blocker_id": other_id, "blocked_id": u["user_id"]}):
+        raise HTTPException(403, "You can't message this member.")
+    msg = {
+        "dm_id": new_id("dm"), "key": key, "from_id": u["user_id"], "to_id": other_id,
+        "sender_name": u.get("name") or u.get("email"), "body": text, "read": False, "created_at": now_utc(),
+    }
+    await db.dm_messages.insert_one(msg)
+    other = await db.users.find_one({"user_id": other_id}, {"_id": 0})
+    await notify_user(
+        other_id, (other or {}).get("email"),
+        f"New message from {msg['sender_name']}",
+        f"{msg['sender_name']}: {text[:120]}",
+        "message",
+        email_lines=[f"<b>{esc(msg['sender_name'])}</b> sent you a message:", f"\"{esc(text)}\"",
+                     "Open the app → Inbox to reply."],
+        data={"nav": "member_inbox"},
+    )
+    msg.pop("_id", None)
+    return {"message": msg}
 async def admin_threads(u: dict = Depends(require_admin)):
     rows = await db.messages.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
     threads: dict = {}

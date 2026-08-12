@@ -7,6 +7,7 @@ export type User = {
   user_id: string;
   email: string;
   name?: string | null;
+  handle?: string | null;
   phone?: string | null;
   picture?: string | null;
   is_admin?: boolean;
@@ -174,6 +175,18 @@ export const api = {
     req("/api/membership/vigyr-report", { method: "POST", body: JSON.stringify({ completed }) }),
 
   notifications: () => req("/api/notifications"),
+  setMyPhoto: (image: string) => req("/api/me/photo", { method: "POST", body: JSON.stringify({ image }) }),
+  searchMembers: (q: string) => req(`/api/members/search?q=${encodeURIComponent(q)}`),
+  friendRequest: (payload: { user_id?: string; handle?: string }) => req("/api/friends/request", { method: "POST", body: JSON.stringify(payload) }),
+  friends: () => req("/api/friends"),
+  friendRespond: (user_id: string, accept: boolean) => req("/api/friends/respond", { method: "POST", body: JSON.stringify({ user_id, accept }) }),
+  friendBlock: (user_id: string) => req("/api/friends/block", { method: "POST", body: JSON.stringify({ user_id }) }),
+  friendUnblock: (user_id: string) => req("/api/friends/unblock", { method: "POST", body: JSON.stringify({ user_id }) }),
+  friendReport: (user_id: string, reason: string) => req("/api/friends/report", { method: "POST", body: JSON.stringify({ user_id, reason }) }),
+  dmThreads: () => req("/api/dm/threads"),
+  dmUnread: () => req("/api/dm/unread"),
+  dmMessages: (otherId: string) => req(`/api/dm/${otherId}`),
+  dmSend: (otherId: string, body: string) => req(`/api/dm/${otherId}`, { method: "POST", body: JSON.stringify({ body }) }),
   notificationsHistory: () => req("/api/notifications/history"),
   markRead: (id: string) => req(`/api/notifications/${id}/read`, { method: "POST" }),
   deleteNotification: (id: string) => req(`/api/notifications/${id}`, { method: "DELETE" }),

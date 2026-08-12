@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, Image, Alert, Linking } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -12,8 +13,31 @@ type Notif = { notification_id: string; title: string; body: string; read: boole
 type Booking = { booking_id: string; class_name: string; status: string; amount: number; by_appointment?: boolean; requested_time?: string; scheduled_time?: string; attended?: boolean };
 
 export default function Profile() {
-  const { user, logout } = useAuth();
+  const { user, logout, refresh } = useAuth();
   const router = useRouter();
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  const pickPhoto = async () => {
+    let perm = await ImagePicker.getMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      if (!perm.canAskAgain) {
+        Alert.alert("Photo access needed", "Enable photo access to set your profile picture.", [
+          { text: "Cancel", style: "cancel" },
+          { text: "Open Settings", onPress: () => Linking.openSettings() },
+        ]);
+        return;
+      }
+      perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) return;
+    }
+    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: true, aspect: [1, 1], quality: 0.6, base64: true });
+    if (res.canceled || !res.assets?.[0]?.base64) return;
+    const dataUri = `data:image/jpeg;base64,${res.assets[0].base64}`;
+    setUploadingPhoto(true);
+    try { await api.setMyPhoto(dataUri); await refresh(); }
+    catch (e: any) { Alert.alert("Couldn't update photo", e?.message || "Please try a smaller image."); }
+    setUploadingPhoto(false);
+  };
   const [notifs, setNotifs] = useState<Notif[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isMember, setIsMember] = useState(false);
@@ -76,10 +100,20 @@ export default function Profile() {
       <ScreenBg />
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         <View style={styles.header}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{(user?.name || user?.email || "?").slice(0, 1).toUpperCase()}</Text>
-          </View>
+          <Pressable style={styles.avatarWrap} onPress={pickPhoto} testID="profile-avatar">
+            {user?.picture ? (
+              <Image source={{ uri: user.picture }} style={styles.avatarImg} />
+            ) : (
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{(user?.name || user?.email || "?").slice(0, 1).toUpperCase()}</Text>
+              </View>
+            )}
+            <View style={styles.avatarEdit}>
+              {uploadingPhoto ? <ActivityIndicator size="small" color={colors.onBrand} /> : <Ionicons name="camera" size={14} color={colors.onBrand} />}
+            </View>
+          </Pressable>
           <Text style={styles.name}>{user?.name || "Member"}</Text>
+          {!!user?.handle && <Text style={styles.handleText}>ID: {user.handle}</Text>}
           <Text style={styles.email}>{user?.email}</Text>
           <View style={styles.badgeRow}>
             {isMember && (
@@ -300,8 +334,12 @@ export default function Profile() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "transparent" },
   header: { alignItems: "center", padding: spacing.xl, gap: spacing.xs },
-  avatar: { width: 88, height: 88, borderRadius: 44, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center", marginBottom: spacing.md },
+  avatar: { width: 88, height: 88, borderRadius: 44, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
+  avatarWrap: { width: 88, height: 88, marginBottom: spacing.md },
+  avatarImg: { width: 88, height: 88, borderRadius: 44, borderWidth: 2, borderColor: colors.brand },
+  avatarEdit: { position: "absolute", right: -2, bottom: -2, width: 30, height: 30, borderRadius: 15, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: colors.surface },
   avatarText: { color: colors.onBrand, fontSize: 34, fontWeight: "900" },
+  handleText: { color: colors.onSurfaceSecondary, fontSize: 12.5, fontWeight: "700", marginTop: 2 },
   name: { ...type.h2 },
   email: { ...type.bodyDim, marginTop: 2 },
   adminBadge: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.brand, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
