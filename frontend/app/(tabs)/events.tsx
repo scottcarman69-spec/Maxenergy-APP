@@ -126,7 +126,7 @@ export default function Notices() {
                     <Text style={styles.annTime}>{timeAgo(a.created_at)}</Text>
                   </View>
                   <View style={styles.annTitleRow}>
-                    <Text style={styles.annTitle} numberOfLines={isOpen ? undefined : 1}>{a.title}</Text>
+                    <Text style={styles.annTitle} numberOfLines={isOpen ? undefined : 2}>{a.title}</Text>
                     <View style={styles.chevronCircle}>
                       <Ionicons name={isOpen ? "chevron-up" : "chevron-down"} size={16} color={colors.brand} />
                     </View>
