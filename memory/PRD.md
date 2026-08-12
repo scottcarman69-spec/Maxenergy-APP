@@ -684,3 +684,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Group screen: non-members opening a group (e.g. tapping the Academy shortcut before joining) now auto-redirect to the Inbox (group_get 403 → router.replace inbox) instead of a dead empty chat.
 - NEW Academy/group members list: people icon in group header (testID group-members) → /app/frontend/app/group/members.tsx (read-only list of everyone: avatar, name, Owner badge, handle + online dot/last-seen with "Offline" fallback). Header now shows people + gear icons.
 - Verified via screenshots: grid shows Class Pass + Muay Thai Academy (Our Services gone); members list shows "3 in Muay Thai Academy" with owner badge. tsc clean.
+
+## Session update (Jun 2026 fork) — Academy quick-action logo + members-only gate (DONE)
+- Home Quick Actions "Muay Thai Academy" tile now shows the combat badge logo (expo-image + groupLogo("muay-thai-academy") inside the gradient circle; quickLogo style) instead of a generic icon.
+- Group screen: replaced the silent inbox redirect with a proper "Members only" state — non-members opening a group see a lock screen: "Only group members can access this group" + "Head to your Inbox to request to join, then an admin can add you." + Go to Inbox button (testID group-denied / group-denied-inbox). Header collapses to just the title for the denied state.
+- Verified via screenshots (member1, not in academy): tile shows logo; tapping shows the members-only screen.

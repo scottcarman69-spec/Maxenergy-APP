@@ -15,6 +15,7 @@ import {
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
+import { groupLogo } from "@/src/groups";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAuth } from "@/src/AuthContext";
@@ -475,7 +476,11 @@ export default function Home() {
                       end={{ x: 1, y: 1 }}
                       style={styles.quickIcon}
                     >
-                      <Ionicons name={a.icon as any} size={18} color="#fff" />
+                      {a.key === "academy" ? (
+                        <Image source={groupLogo("muay-thai-academy") as any} style={styles.quickLogo} contentFit="contain" />
+                      ) : (
+                        <Ionicons name={a.icon as any} size={18} color="#fff" />
+                      )}
                     </LinearGradient>
                     <Ionicons name="chevron-forward" size={14} color={colors.onSurfaceSecondary} />
                   </View>
@@ -745,6 +750,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   quickLabel: { color: colors.onSurface, fontFamily: font.heading, fontSize: 12, marginTop: 9, lineHeight: 15 },
+  quickLogo: { width: 38, height: 38 },
   classRow: {
     flexDirection: "row",
     alignItems: "center",

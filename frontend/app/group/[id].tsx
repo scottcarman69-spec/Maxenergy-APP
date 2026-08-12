@@ -29,6 +29,7 @@ export default function GroupChat() {
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [denied, setDenied] = useState(false);
   const ref = useRef<ScrollView>(null);
 
   const load = useCallback(async () => {
@@ -38,8 +39,9 @@ export default function GroupChat() {
       setPinned(r.group?.pinned_note || null);
       setMeId(me?.user?.user_id || "");
     } catch {
-      // Not a member (e.g. tapped the Academy shortcut without joining) → send them to the Inbox to request access.
-      router.replace("/(tabs)/inbox");
+      // Not a member (e.g. tapped the Academy shortcut without joining).
+      setDenied(true);
+      setLoading(false);
       return;
     }
     setLoading(false);
@@ -57,13 +59,23 @@ export default function GroupChat() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      <ScreenHeader title={gname} subtitle={`${count} members`} fallback="/(tabs)/inbox"
-        right={
+      <ScreenHeader title={denied ? "Members only" : gname} subtitle={denied ? undefined : `${count} members`} fallback="/(tabs)/inbox"
+        right={denied ? undefined :
           <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
             <Pressable testID="group-members" hitSlop={10} onPress={() => router.push({ pathname: "/group/members", params: { id: String(id) } } as any)}><Ionicons name="people" size={22} color={colors.onSurface} /></Pressable>
             <Pressable testID="group-manage" hitSlop={10} onPress={() => router.push({ pathname: "/group/manage", params: { id: String(id) } } as any)}><Ionicons name="settings-outline" size={22} color={colors.onSurface} /></Pressable>
           </View>
         } />
+      {denied ? (
+        <View style={styles.denied} testID="group-denied">
+          <Ionicons name="lock-closed" size={44} color={colors.onSurfaceSecondary} />
+          <Text style={styles.deniedTitle}>Only group members can access this group</Text>
+          <Text style={styles.deniedSub}>Head to your Inbox to request to join, then an admin can add you.</Text>
+          <Pressable testID="group-denied-inbox" style={styles.deniedBtn} onPress={() => router.replace("/(tabs)/inbox")}>
+            <Text style={styles.deniedBtnText}>Go to Inbox</Text>
+          </Pressable>
+        </View>
+      ) : (
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }} keyboardVerticalOffset={80}>
         {!!pinned && (
           <Pressable style={styles.pinBar} onPress={() => setPinExpanded((v) => !v)}>
@@ -109,6 +121,7 @@ export default function GroupChat() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+      )}
     </SafeAreaView>
   );
 }
@@ -117,6 +130,11 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   empty: { alignItems: "center", padding: 40, gap: spacing.md },
   emptyText: { color: colors.onSurfaceSecondary, textAlign: "center" },
+  denied: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: spacing.md },
+  deniedTitle: { color: colors.onSurface, fontSize: 18, fontWeight: "900", textAlign: "center" },
+  deniedSub: { color: colors.onSurfaceSecondary, fontSize: 14, textAlign: "center", lineHeight: 20 },
+  deniedBtn: { backgroundColor: colors.brand, borderRadius: radius.md, paddingHorizontal: 24, paddingVertical: 13, marginTop: spacing.sm },
+  deniedBtnText: { color: colors.onBrand, fontWeight: "900", fontSize: 15 },
   pinBar: { flexDirection: "row", gap: 8, alignItems: "flex-start", backgroundColor: colors.brandTertiary, borderBottomWidth: 1, borderBottomColor: colors.brand, paddingHorizontal: spacing.md, paddingVertical: 10 },
   pinTitle: { color: colors.brand, fontSize: 10, fontWeight: "900", letterSpacing: 1 },
   pinBody: { color: colors.onSurface, fontSize: 13, lineHeight: 18, marginTop: 3 },
