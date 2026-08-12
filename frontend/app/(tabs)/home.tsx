@@ -224,8 +224,10 @@ export default function Home() {
               <Text style={styles.creditChipText}>${((user?.credit_cents || 0) / 100).toFixed(0)}</Text>
             </Pressable>
             <Pressable testID="home-calendar-btn" onPress={() => router.push(user?.is_admin ? "/admin/calendar" : "/calendar")} style={styles.calChip} hitSlop={8}>
-              <Text style={styles.calChipMonth}>{qldTodayUTC().toLocaleDateString("en-AU", { month: "short", timeZone: "UTC" }).toUpperCase()}</Text>
-              <Text style={styles.calChipDay}>{qldTodayUTC().getUTCDate()}</Text>
+              <Text allowFontScaling={false} style={styles.calChipMonth}>{qldTodayUTC().toLocaleDateString("en-AU", { month: "short", timeZone: "UTC" }).toUpperCase()}</Text>
+              <View style={styles.calChipDayWrap}>
+                <Text allowFontScaling={false} style={styles.calChipDay}>{qldTodayUTC().getUTCDate()}</Text>
+              </View>
             </Pressable>
             <Pressable testID="home-profile-btn" onPress={() => router.navigate("/(tabs)/profile")} style={styles.avatarWrap}>
               <View style={styles.avatar}>
@@ -532,11 +534,12 @@ const styles = StyleSheet.create({
   headerLogo: { width: 150, height: 84 },
   headerActions: { position: "absolute", right: spacing.lg, top: spacing.md, flexDirection: "row", alignItems: "center", gap: spacing.sm },
   iconBtn: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border },
-  calChip: { width: 44, height: 44, borderRadius: 12, overflow: "hidden", backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.brand, alignItems: "stretch" },
   creditChip: { flexDirection: "row", alignItems: "center", gap: 4, height: 44, paddingHorizontal: 12, borderRadius: 12, backgroundColor: colors.brandTertiary, borderWidth: 1, borderColor: colors.brand },
   creditChipText: { color: colors.brand, fontWeight: "900", fontSize: 14 },
-  calChipMonth: { backgroundColor: colors.brand, color: colors.onBrand, fontSize: 9, fontWeight: "900", letterSpacing: 1, textAlign: "center", paddingVertical: 2 },
-  calChipDay: { flex: 1, color: colors.onSurface, fontSize: 18, fontWeight: "900", textAlign: "center", textAlignVertical: "center", lineHeight: 24 },
+  calChip: { width: 44, height: 44, borderRadius: 12, overflow: "hidden", backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.brand, alignItems: "stretch" },
+  calChipMonth: { backgroundColor: colors.brand, color: colors.onBrand, fontSize: 9, fontWeight: "900", letterSpacing: 1, textAlign: "center", height: 15, lineHeight: 15 },
+  calChipDayWrap: { flex: 1, alignItems: "center", justifyContent: "center" },
+  calChipDay: { color: colors.onSurface, fontSize: 17, fontWeight: "900", textAlign: "center", includeFontPadding: false },
   avatarWrap: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   avatar: {
     width: 44,

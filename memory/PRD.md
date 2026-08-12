@@ -553,3 +553,10 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Session update (Jun 2026 fork) — Clear-all notifications (DONE)
 - alerts.tsx: added a red "Clear all" button in the Notifications header (next to "Mark all read", shown whenever notifs exist). Confirms via Alert, then clears the list and calls existing api.clearAllNotifications() (POST /notifications/clear-all, soft-clear keeps saved history). Verified button renders. Cleaned leftover test-cancel notifications for member1.
+
+## Session update (Jun 2026 fork) — Header/tab layout robustness on large-font devices (DONE)
+- Alerts header overflow: "Clear all" was clipping off the right edge. Header title now flexShrink+numberOfLines1; action pills compacted (paddingH 10, fontSize 11, allowFontScaling=false) and relabelled "Read all"/"Clear"; headerActions flexShrink:0. Fits on all widths.
+- Home calendar date badge (calChip): restructured month band (fixed height 15) + day in a centered wrap (includeFontPadding:false), both Text allowFontScaling={false}, so it never clips on large system font scale. Removed duplicate calChip style key.
+- Bottom tab bar: labels now rendered via custom tabBarLabel with allowFontScaling={false}, fontSize 10, shorter names (Timetable->"Classes") to stop truncation; retained useSafeAreaInsets() height/paddingBottom fix for Android nav bar / iOS home indicator overlap.
+- Cleaned 31 leftover test-cancel notifications (Pass/Money/PT tests, "Booking cancelled by me").
+- NOTE: user must reload app / redeploy to see these on device.

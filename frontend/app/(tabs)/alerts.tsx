@@ -125,21 +125,21 @@ export default function AlertsTab() {
     <SafeAreaView style={styles.root} edges={["top"]}>
       <ScreenBg />
       <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>Notifications</Text>
-          <Text style={styles.headerSub}>{unread > 0 ? `${unread} unread` : "You're all caught up"}</Text>
+        <View style={styles.headerTitleWrap}>
+          <Text style={styles.headerTitle} numberOfLines={1} allowFontScaling={false}>Notifications</Text>
+          <Text style={styles.headerSub} numberOfLines={1}>{unread > 0 ? `${unread} unread` : "You're all caught up"}</Text>
         </View>
         <View style={styles.headerActions}>
           {unread > 0 && (
             <Pressable testID="notif-mark-all" style={styles.markAllBtn} onPress={markAll}>
-              <Ionicons name="checkmark-done" size={16} color={colors.brand} />
-              <Text style={styles.markAllText}>Mark all read</Text>
+              <Ionicons name="checkmark-done" size={15} color={colors.brand} />
+              <Text style={styles.markAllText} allowFontScaling={false}>Read all</Text>
             </Pressable>
           )}
           {notifs.length > 0 && (
             <Pressable testID="notif-clear-all" style={styles.clearAllBtn} onPress={clearAll}>
-              <Ionicons name="trash-outline" size={16} color={colors.error} />
-              <Text style={styles.clearAllText}>Clear all</Text>
+              <Ionicons name="trash-outline" size={15} color={colors.error} />
+              <Text style={styles.clearAllText} allowFontScaling={false}>Clear</Text>
             </Pressable>
           )}
         </View>
@@ -212,14 +212,15 @@ export default function AlertsTab() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "transparent" },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
+  headerTitleWrap: { flexShrink: 1, minWidth: 0 },
   headerTitle: { color: colors.onSurface, fontSize: 22, fontWeight: "900", letterSpacing: 0.3 },
   headerSub: { color: colors.onSurfaceSecondary, fontSize: 13, marginTop: 2 },
-  markAllBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 8, paddingHorizontal: 12, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.brand },
-  markAllText: { color: colors.brand, fontWeight: "800", fontSize: 12 },
-  headerActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  clearAllBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 8, paddingHorizontal: 12, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.error },
-  clearAllText: { color: colors.error, fontWeight: "800", fontSize: 12 },
+  markAllBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 8, paddingHorizontal: 10, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.brand },
+  markAllText: { color: colors.brand, fontWeight: "800", fontSize: 11 },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm, flexShrink: 0 },
+  clearAllBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 8, paddingHorizontal: 10, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.error },
+  clearAllText: { color: colors.error, fontWeight: "800", fontSize: 11 },
   empty: { alignItems: "center", padding: 50, gap: spacing.md },
   emptyCard: { marginTop: spacing.xl, padding: spacing.xxl, backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, alignItems: "center", gap: spacing.sm },
   emptyIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center", marginBottom: spacing.sm },

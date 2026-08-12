@@ -2,10 +2,19 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Tabs, useSegments } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "@/src/theme";
-import { Platform, AppState } from "react-native";
+import { Platform, AppState, Text } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
 import { useAuth } from "@/src/AuthContext";
+
+// Fixed-size, non-scaling tab labels so they never truncate on devices with a
+// large system font scale.
+const tabLabel = (text: string) =>
+  ({ color }: { color: string }) => (
+    <Text allowFontScaling={false} numberOfLines={1} style={{ fontSize: 10, fontWeight: "700", letterSpacing: 0.2, color, marginTop: 1 }}>
+      {text}
+    </Text>
+  );
 
 export default function TabsLayout() {
   const { user } = useAuth();
@@ -52,13 +61,13 @@ export default function TabsLayout() {
         },
         tabBarActiveTintColor: colors.brand,
         tabBarInactiveTintColor: colors.onSurfaceSecondary,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: "700", letterSpacing: 0.5, marginTop: 2 },
       }}
     >
       <Tabs.Screen
         name="home"
         options={{
           title: "Home",
+          tabBarLabel: tabLabel("Home"),
           tabBarIcon: ({ color, size }) => <Ionicons name="flash" size={size} color={color} />,
         }}
       />
@@ -66,6 +75,7 @@ export default function TabsLayout() {
         name="timetable"
         options={{
           title: "Timetable",
+          tabBarLabel: tabLabel("Classes"),
           tabBarIcon: ({ color, size }) => <Ionicons name="calendar" size={size} color={color} />,
         }}
       />
@@ -73,6 +83,7 @@ export default function TabsLayout() {
         name="events"
         options={{
           title: "Notices",
+          tabBarLabel: tabLabel("Notices"),
           tabBarIcon: ({ color, size }) => <Ionicons name="megaphone" size={size} color={color} />,
         }}
       />
@@ -80,6 +91,7 @@ export default function TabsLayout() {
         name="inbox"
         options={{
           title: "Inbox",
+          tabBarLabel: tabLabel("Inbox"),
           tabBarIcon: ({ color, size }) => <Ionicons name="chatbubbles" size={size} color={color} />,
           tabBarBadge: unread > 0 ? unread : undefined,
           tabBarBadgeStyle: { backgroundColor: colors.brand, color: colors.onBrand, fontSize: 10, fontWeight: "900" },
@@ -89,6 +101,7 @@ export default function TabsLayout() {
         name="alerts"
         options={{
           title: "Alerts",
+          tabBarLabel: tabLabel("Alerts"),
           tabBarIcon: ({ color, size }) => <Ionicons name="notifications" size={size} color={color} />,
           tabBarBadge: alerts > 0 ? alerts : undefined,
           tabBarBadgeStyle: { backgroundColor: colors.brand, color: colors.onBrand, fontSize: 10, fontWeight: "900" },
@@ -102,6 +115,7 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: "Profile",
+          tabBarLabel: tabLabel("Profile"),
           tabBarIcon: ({ color, size }) => <Ionicons name="person-circle" size={size} color={color} />,
         }}
       />
