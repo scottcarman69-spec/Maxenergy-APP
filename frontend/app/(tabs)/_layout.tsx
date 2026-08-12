@@ -3,11 +3,13 @@ import { Tabs, useSegments } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "@/src/theme";
 import { Platform, AppState } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
 import { useAuth } from "@/src/AuthContext";
 
 export default function TabsLayout() {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const segments = useSegments();
   const [unread, setUnread] = useState(0);
   const [alerts, setAlerts] = useState(0);
@@ -42,9 +44,11 @@ export default function TabsLayout() {
           backgroundColor: colors.surfaceSecondary,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          height: Platform.select({ ios: 84, android: 64, web: 74 }),
+          // Add the device's bottom safe-area inset so the tab bar sits ABOVE the
+          // Android system navigation bar / iOS home indicator (prevents overlap).
+          height: (Platform.OS === "web" ? 60 : 60) + insets.bottom,
           paddingTop: 8,
-          paddingBottom: Platform.select({ ios: 24, android: 8, web: 14 }),
+          paddingBottom: Math.max(insets.bottom, Platform.OS === "web" ? 14 : 10),
         },
         tabBarActiveTintColor: colors.brand,
         tabBarInactiveTintColor: colors.onSurfaceSecondary,

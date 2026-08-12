@@ -546,3 +546,7 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - When a member cancels a PAID/CONFIRMED booking (within the 24h policy), they now automatically get compensation in POST /api/bookings/{id}/cancel: if paid_with_pass -> return 1 class pass (pass_ledger + notify); else if amount>0 -> add credit_cents = amount (credit_ledger + notify). Free/pending requests get nothing. Booking marked cancel_reward=credit|class_pass (+cancel_credit_cents). Cancellation email/notification now states the credit/pass returned.
 - Frontend bookings.tsx: confirm dialog mentions credit/pass return; success banner shows "$X credit added" or "class pass returned".
 - Verified via API: money booking -> $18 credit; pass booking -> +1 pass. Cleaned up test data.
+
+## Session update (Jun 2026 fork) — Bottom tab bar safe-area fix (DONE)
+- (tabs)/_layout.tsx tabBarStyle used fixed heights/paddingBottom (android:8) that ignored the Android system navigation bar / iOS home indicator, causing the OS nav to overlap the tab buttons (unpressable). Now uses useSafeAreaInsets(): height = 60 + insets.bottom; paddingBottom = max(insets.bottom, 10 [14 web]). Works on both Android (gesture/nav bar) and iOS (home indicator).
+- NOTE: user's device screenshot showed the OLD "Memberships & Passes" banner + overlap = stale build; needs redeploy to pick up this + earlier banner change.
