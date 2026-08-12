@@ -34,6 +34,15 @@ export default function AdminViews() {
 
   const events = data?.events || [];
   const announcements = data?.announcements || [];
+  const topAnnId = announcements.length && announcements[0].unique_users > 0 ? announcements[0].announcement_id : null;
+  const topEventId = events.length && events[0].unique_users > 0 ? events[0].event_id : null;
+
+  const MostRead = () => (
+    <View style={styles.mostBadge}>
+      <Ionicons name="flame" size={11} color="#fff" />
+      <Text style={styles.mostBadgeText}>MOST READ</Text>
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
@@ -72,12 +81,15 @@ export default function AdminViews() {
               <Text style={styles.emptyText}>No notice reads recorded yet.</Text>
             </View>
           ) : (
-            announcements.map((a) => (
-              <View key={a.announcement_id} style={styles.card}>
+            announcements.map((a) => {
+              const isTop = a.announcement_id === topAnnId;
+              return (
+              <View key={a.announcement_id} style={[styles.card, isTop && styles.cardTop]}>
                 <View style={styles.cardIcon}>
                   <Ionicons name={a.pinned ? "pin" : "megaphone"} size={22} color={colors.brand} />
                 </View>
                 <View style={{ flex: 1 }}>
+                  {isTop && <MostRead />}
                   <Text style={styles.cardTitle} numberOfLines={2}>{a.title}</Text>
                   {!!a.created_at && (
                     <Text style={styles.cardSub}>
@@ -91,7 +103,8 @@ export default function AdminViews() {
                   <Text style={styles.statLabel}>members</Text>
                 </View>
               </View>
-            ))
+              );
+            })
           )}
 
           {/* Events */}
@@ -102,12 +115,15 @@ export default function AdminViews() {
               <Text style={styles.emptyText}>No event views recorded yet.</Text>
             </View>
           ) : (
-            events.map((e) => (
-              <View key={e.event_id} style={styles.card}>
+            events.map((e) => {
+              const isTop = e.event_id === topEventId;
+              return (
+              <View key={e.event_id} style={[styles.card, isTop && styles.cardTop]}>
                 <View style={styles.cardIcon}>
                   <Ionicons name="calendar" size={22} color={colors.brand} />
                 </View>
                 <View style={{ flex: 1 }}>
+                  {isTop && <MostRead />}
                   <Text style={styles.cardTitle} numberOfLines={2}>{e.title}</Text>
                   {!!e.start_at && (
                     <Text style={styles.cardSub}>
@@ -121,7 +137,8 @@ export default function AdminViews() {
                   <Text style={styles.statLabel}>members</Text>
                 </View>
               </View>
-            ))
+              );
+            })
           )}
         </ScrollView>
       )}
@@ -134,6 +151,9 @@ const styles = StyleSheet.create({
   hint: { color: colors.onSurfaceSecondary, fontSize: 13, lineHeight: 19, marginBottom: spacing.lg },
   section: { color: colors.onSurfaceSecondary, fontSize: 12, fontFamily: font.heading, letterSpacing: 1.5, marginBottom: spacing.md },
   card: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm },
+  cardTop: { borderColor: colors.brand, borderWidth: 1.5, backgroundColor: colors.brandTertiary },
+  mostBadge: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 4, backgroundColor: colors.brand, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill, marginBottom: 5 },
+  mostBadgeText: { color: "#fff", fontSize: 9.5, fontFamily: font.heading, letterSpacing: 0.6 },
   cardIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center" },
   cardTitle: { color: colors.onSurface, fontSize: 15.5, fontFamily: font.heading },
   cardSub: { color: colors.onSurfaceSecondary, fontSize: 12.5, marginTop: 2 },

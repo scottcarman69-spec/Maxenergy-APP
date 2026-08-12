@@ -533,3 +533,6 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Extended Content Views to per-announcement. Backend: view_type "announcement" + POST /api/views/announcement/{id}; GET /admin/views now also returns `announcements` [{announcement_id,title,pinned,created_at,unique_users,total_views}] sorted by unique_users desc.
 - Frontend: events.tsx records a read when a member EXPANDS an announcement card (toggle open -> trackAnnouncementView). home.tsx also records reads for each notice shown in the new-notice popup on dismiss. admin/views.tsx adds a "VIEWS PER NOTICE" section (icon pin/megaphone, posted date, total views, unique members) between the overall Notices card and Events.
 - Verified: member expanded 2 notices -> admin screen shows each with 1 member; overall Notices card shows 2 opens.
+
+## Session update (Jun 2026 fork) — Most-Read badge (DONE)
+- admin/views.tsx: the top-viewed notice (VIEWS PER NOTICE) and top-viewed event now get an orange "🔥 MOST READ" badge + highlighted card (brand border + brandTertiary bg). Top = first item in each backend list (already sorted by unique_users desc) with unique_users>0. Verified via screenshot.
