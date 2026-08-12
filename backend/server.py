@@ -214,6 +214,7 @@ def user_public(u: dict) -> dict:
         "verified": bool(u.get("verified", False)),
         "reminder_hours": int(u.get("reminder_hours", 3)),
         "message_notifications": bool(u.get("message_notifications", True)),
+        "quiet_hours": u.get("quiet_hours") or {"enabled": False, "start": "22:00", "end": "07:00"},
         "credit_cents": int(u.get("credit_cents", 0)),
         "class_pass_credits": int(u.get("class_pass_credits", 0)),
         "key_tag": bool(u.get("key_tag", False)),
@@ -496,9 +497,9 @@ async def create_notification(user_id: str, title: str, body: str, ntype: str = 
 
 
 async def notify_user(user_id: str, email: Optional[str], title: str, body: str, ntype: str = "booking", email_lines: Optional[list] = None, data: Optional[dict] = None) -> None:
-    """In-app notification + email to a specific member."""
+    """In-app notification + email to a specific member (email suppressed during the member's quiet hours)."""
     await create_notification(user_id, title, body, ntype, data)
-    if email:
+    if email and not await _in_quiet_now(user_id):
         await send_email(email, title, _email_shell(title, email_lines or [body]))
 
 
@@ -1101,6 +1102,48 @@ async def _msg_notifs_on(user_id: str) -> bool:
     """Whether a member wants message notifications (default on)."""
     doc = await db.users.find_one({"user_id": user_id}, {"_id": 0, "message_notifications": 1})
     return bool((doc or {}).get("message_notifications", True))
+
+
+def _hm(s: str) -> int:
+    h, m = str(s).split(":")
+    return int(h) * 60 + int(m)
+
+
+def _quiet_window(start: str, end: str) -> bool:
+    """Is the current Brisbane time inside [start, end) (handles overnight wrap)?"""
+    try:
+        now = now_utc() + timedelta(hours=10)  # QLD local (no DST)
+        nm = now.hour * 60 + now.minute
+        s, e = _hm(start), _hm(end)
+    except Exception:
+        return False
+    if s == e:
+        return False
+    return (s <= nm < e) if s < e else (nm >= s or nm < e)
+
+
+async def _in_quiet_now(user_id: str) -> bool:
+    doc = await db.users.find_one({"user_id": user_id}, {"_id": 0, "quiet_hours": 1})
+    qh = (doc or {}).get("quiet_hours")
+    if not qh or not qh.get("enabled"):
+        return False
+    return _quiet_window(qh.get("start", "22:00"), qh.get("end", "07:00"))
+
+
+class QuietHoursReq(BaseModel):
+    enabled: bool
+    start: str = "22:00"
+    end: str = "07:00"
+
+
+@api.put("/me/quiet-hours")
+async def set_quiet_hours(body: QuietHoursReq, u: dict = Depends(require_user)):
+    import re as _re
+    if not _re.match(r"^([01]\d|2[0-3]):[0-5]\d$", body.start or "") or not _re.match(r"^([01]\d|2[0-3]):[0-5]\d$", body.end or ""):
+        raise HTTPException(400, "Times must be in HH:MM (24h) format.")
+    qh = {"enabled": bool(body.enabled), "start": body.start, "end": body.end}
+    await db.users.update_one({"user_id": u["user_id"]}, {"$set": {"quiet_hours": qh}})
+    return {"ok": True, "quiet_hours": qh}
 
 
 

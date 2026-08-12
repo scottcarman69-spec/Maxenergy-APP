@@ -670,3 +670,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Session update (Jun 2026 fork) — Class reminder toggle in Message Settings (DONE)
 - Added a "CLASS REMINDERS" section to the Inbox Message Settings screen (inbox-settings.tsx): a Switch (testID toggle-class-reminders; on→3h default, off→0) + lead-time chips [1 hr, 3 hrs, 12 hrs] (testID reminder-lead-{h}) shown when on. Uses existing users.reminder_hours (0/1/3/12) via api.me() + api.setReminderPreference — stays in sync with the Profile reminder chips (same backend field). Verified via screenshot (toggle on, 3 hrs selected). tsc clean. No backend change needed.
+
+## Session update (Jun 2026 fork) — Quiet Hours (DONE)
+- Members can mute ALL notifications during a set window (e.g. overnight). Backend: users.quiet_hours {enabled,start,end} (HH:MM, Queensland local) in user_public; NEW PUT /api/me/quiet-hours (validates HH:MM 24h). Helpers _quiet_window (handles overnight wrap) + _in_quiet_now. notify_user now SKIPS the email when the recipient is inside their quiet window (in-app notification still created, so it's waiting in the Inbox/Alerts). Transactional emails sent via send_email directly (receipts, OTP, membership) are unaffected.
+- Frontend inbox-settings.tsx: new "QUIET HOURS" section — toggle (testID toggle-quiet-hours) + From/Until time buttons (quiet-start/quiet-end) opening a 30-min-increment time sheet (quiet-opt-HH:MM), 12h labels, explanatory note. api.ts +setQuietHours.
+- Verified: endpoint validates + persists (bad format 400); overnight-wrap logic unit-checked (22:00–07:00 true at 23:00/03:00/06:59, false at 07:00/12:00); UI screenshot shows all three settings (messages, reminders, quiet hours) in one screen. tsc clean. Test account reset to off.

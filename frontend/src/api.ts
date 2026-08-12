@@ -86,6 +86,8 @@ export const api = {
     req("/api/me/reminder-preference", { method: "PUT", body: JSON.stringify({ hours }) }),
   setMessageNotifications: (enabled: boolean) =>
     req("/api/me/message-notifications", { method: "PUT", body: JSON.stringify({ enabled }) }),
+  setQuietHours: (payload: { enabled: boolean; start: string; end: string }) =>
+    req("/api/me/quiet-hours", { method: "PUT", body: JSON.stringify(payload) }),
   logout: () => req("/api/auth/logout", { method: "POST" }),
   deleteAccount: () => req("/api/auth/account", { method: "DELETE" }),
   verifyOtp: (email: string, code: string) =>
