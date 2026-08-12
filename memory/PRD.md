@@ -695,3 +695,6 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Typing indicator: NEW POST /api/dm/{other}/typing (friends-only; upserts db.dm_typing {key,user_id,until_ts=now+6s}). GET /api/dm/{other} now returns friend_typing (true if the OTHER user's until_ts>now). Frontend: onChangeText throttles api.dmTyping (max 1/3s); a "<name> is typing…" bubble shows at the bottom.
 - Live feel: DM screen now POLLS every 3s (useFocusEffect setInterval + cleanup) to refresh messages, Seen status, and typing; auto-scrolls on new messages (lenRef guard).
 - Verified via curl E2E (send→read False; recipient opens→read True "Seen"; recipient typing→friend_typing True) and UI screenshot showing "Seen" under a sent bubble. Test data cleaned. tsc clean.
+
+## Session update (Jun 2026 fork) — Welcome tour ends on Home (DONE)
+- WelcomeTour "Get started" (onFinish) changed from router.navigate("/(tabs)/timetable") → "/(tabs)/home" so after the navigation walkthrough the member lands back on the logged-in Home screen instead of the schedules. home.tsx line ~337. tsc clean.

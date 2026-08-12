@@ -334,7 +334,7 @@ export default function Home() {
           <WelcomeTour
             visible={showWelcome}
             onDone={dismissWelcome}
-            onFinish={() => router.navigate("/(tabs)/timetable")}
+            onFinish={() => router.navigate("/(tabs)/home")}
           />
         )}
 
