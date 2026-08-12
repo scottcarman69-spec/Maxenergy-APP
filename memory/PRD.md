@@ -616,3 +616,10 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
   - Verified by testing_agent iteration_15: backend 17/17, frontend owner + non-owner gating pass.
 - BUG FIX (found in iteration_15, pre-existing): GET /api/groups returned 500 — "can't compare offset-naive and offset-aware datetimes" in the sort. Motor returns naive last_at while fallback was tz-aware. Fixed groups_list sort with a _sort_key that normalizes datetimes to naive (fallback datetime.min). Verified: /api/groups now 200, groups sorted newest-first.
 
+
+## Session update (Jun 2026 fork) — Admin Booking Log screen (searchable) (DONE)
+- New admin screen to view/search every PAID booking (name, reference, payment). Backed by the existing db.booking_logs snapshots (written in mark_booking_paid).
+- Backend: NEW GET /api/admin/booking-log?q= (require_admin) — returns log[] (newest first, limit 1000) enriched with member full name/email from users (log stores first_name only), plus count + total_cents. Optional q filters server-side across member_name/first_name/email/reference/class_name/phone/payment_method/membership_plan.
+- Frontend: NEW /app/frontend/app/admin/booking-log.tsx — search bar (testID blog-search, live client-side filter + clear) + summary (count + $ total, total recomputes for the filtered set) + per-booking card (name, orange MAX-##### reference, class · when, payment method pill, green "$X credit" pill when credit applied, date, phone·email). Pull-to-refresh + empty states. Entry point: new "Booking Log" card (receipt icon) on Admin dashboard (admin-nav-booking-log) under Bookings Calendar. api.ts +adminBookingLog(q?).
+- Verified: endpoint 200 (external URL) returns seeded rows + q filter works; UI screenshots show 2 bookings/$25 total, credit pill, and search "MAX-10002" narrowing to 1 booking/$10. Demo seed data cleaned up (booking_logs now 0).
+

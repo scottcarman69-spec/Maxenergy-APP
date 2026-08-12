@@ -225,11 +225,11 @@ export const api = {
   adminDeleteAnnouncement: (id: string) =>
     req(`/api/admin/announcements/${id}`, { method: "DELETE" }),
   adminApplications: () => req("/api/admin/applications"),
-  adminMembershipLog: () => req("/api/admin/membership-log"),
-  membershipFormUrl: (application_id: string) => req(`/api/membership/forms/${application_id}/url`),
+  adminMembershipLog: () => req("/api/admin/membership-log"),  membershipFormUrl: (application_id: string) => req(`/api/membership/forms/${application_id}/url`),
   adminSetApplicationStatus: (id: string, status: string) =>
     req(`/api/admin/applications/${id}/status`, { method: "POST", body: JSON.stringify({ status }) }),
   adminBookings: () => req("/api/admin/bookings"),
+  adminBookingLog: (q?: string) => req(`/api/admin/booking-log${q ? `?q=${encodeURIComponent(q)}` : ""}`),
   adminMembers: () => req("/api/admin/members"),
   exportMembers: () => req("/api/admin/members/export", { method: "POST" }),
   adminAcceptBooking: (id: string) => req(`/api/admin/bookings/${id}/accept`, { method: "POST" }),

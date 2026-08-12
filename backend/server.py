@@ -4415,6 +4415,33 @@ async def admin_bookings(u: dict = Depends(require_admin)):
     return {"bookings": rows}
 
 
+@api.get("/admin/booking-log")
+async def admin_booking_log(q: str = "", u: dict = Depends(require_admin)):
+    rows = await db.booking_logs.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    # enrich with the member's full name / email (log stores first_name only)
+    uids = list({r.get("user_id") for r in rows if r.get("user_id")})
+    users = await db.users.find({"user_id": {"$in": uids}}, {"_id": 0, "user_id": 1, "name": 1, "email": 1}).to_list(1000)
+    umap = {x["user_id"]: x for x in users}
+    out = []
+    total_cents = 0
+    for r in rows:
+        m = umap.get(r.get("user_id"), {})
+        r["member_name"] = m.get("name") or r.get("first_name") or m.get("email") or "Member"
+        r["member_email"] = m.get("email")
+        total_cents += int(r.get("amount_cents", 0) or 0)
+        out.append(r)
+    term = (q or "").strip().lower()
+    if term:
+        def _match(r: dict) -> bool:
+            hay = " ".join(str(r.get(k, "") or "") for k in
+                           ("member_name", "first_name", "member_email", "reference",
+                            "class_name", "phone", "payment_method", "membership_plan")).lower()
+            return term in hay
+        out = [r for r in out if _match(r)]
+    return {"log": out, "count": len(out), "total_cents": total_cents}
+
+
+
 async def _admin_get_booking(booking_id: str) -> dict:
     b = await db.bookings.find_one({"booking_id": booking_id}, {"_id": 0})
     if not b:
