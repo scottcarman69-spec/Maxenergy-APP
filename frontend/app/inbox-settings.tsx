@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, Switch, ActivityIndicator, ScrollView } from "react-native";
+import { View, Text, StyleSheet, Switch, ActivityIndicator, ScrollView, Pressable } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -9,6 +9,7 @@ import ScreenHeader from "@/src/components/ScreenHeader";
 
 export default function InboxSettings() {
   const [enabled, setEnabled] = useState(true);
+  const [remHours, setRemHours] = useState(3);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -16,6 +17,7 @@ export default function InboxSettings() {
     try {
       const me = await api.me();
       setEnabled(me?.user?.message_notifications !== false);
+      setRemHours(typeof me?.user?.reminder_hours === "number" ? me.user.reminder_hours : 3);
     } catch {}
     setLoading(false);
   }, []);
@@ -28,6 +30,15 @@ export default function InboxSettings() {
     catch { setEnabled(!val); }
     setSaving(false);
   };
+
+  const setReminderHours = async (hours: number) => {
+    const prev = remHours;
+    setRemHours(hours);
+    try { await api.setReminderPreference(hours); }
+    catch { setRemHours(prev); }
+  };
+
+  const remOn = remHours > 0;
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
@@ -57,6 +68,39 @@ export default function InboxSettings() {
               ? "You'll be notified about new messages in your Inbox."
               : "Message notifications are off. You won't get alerts — new messages still appear in your Inbox."}
           </Text>
+
+          <Text style={[styles.section, { marginTop: spacing.lg }]}>CLASS REMINDERS</Text>
+          <View style={styles.card}>
+            <View style={styles.iconWrap}><Ionicons name="alarm" size={20} color={colors.brand} /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.title}>Class reminders</Text>
+              <Text style={styles.sub}>Get a reminder before a class you've booked.</Text>
+            </View>
+            <Switch
+              testID="toggle-class-reminders"
+              value={remOn}
+              onValueChange={(val) => setReminderHours(val ? 3 : 0)}
+              trackColor={{ false: colors.border, true: colors.brand }}
+              thumbColor={"#fff"}
+            />
+          </View>
+          {remOn && (
+            <View style={styles.chipRow}>
+              {[1, 3, 12].map((h) => {
+                const on = remHours === h;
+                return (
+                  <Pressable key={h} testID={`reminder-lead-${h}`} style={[styles.chip, on && styles.chipOn]} onPress={() => setReminderHours(h)}>
+                    <Text style={[styles.chipText, on && styles.chipTextOn]}>{h} hr{h > 1 ? "s" : ""} before</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+          <Text style={styles.note}>
+            {remOn
+              ? `We'll remind you about ${remHours} hour${remHours > 1 ? "s" : ""} before each booked class.`
+              : "Class reminders are off. You won't be reminded before your booked classes."}
+          </Text>
         </ScrollView>
       )}
     </SafeAreaView>
@@ -71,4 +115,9 @@ const styles = StyleSheet.create({
   title: { color: colors.onSurface, fontSize: 15.5, fontWeight: "800" },
   sub: { color: colors.onSurfaceSecondary, fontSize: 12.5, marginTop: 2 },
   note: { color: colors.onSurfaceSecondary, fontSize: 12.5, lineHeight: 18, paddingHorizontal: 4 },
+  chipRow: { flexDirection: "row", gap: spacing.sm, flexWrap: "wrap" },
+  chip: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 9, backgroundColor: colors.surfaceSecondary },
+  chipOn: { borderColor: colors.brand, backgroundColor: colors.brandTertiary },
+  chipText: { color: colors.onSurfaceSecondary, fontWeight: "800", fontSize: 13 },
+  chipTextOn: { color: colors.brand },
 });
