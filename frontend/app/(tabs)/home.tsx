@@ -25,7 +25,6 @@ import { classTime, classDate, qldHour, scheduleDay, qldTodayUTC } from "@/src/d
 import ScreenBg from "@/src/components/ScreenBg";
 import { gymPhotos } from "@/src/gymPhotos";
 import { coachSource } from "@/src/coaches";
-import FacebookFeed from "@/src/components/FacebookFeed";
 import LiveNowBanner from "@/src/components/LiveNowBanner";
 import WelcomeTour from "@/src/components/WelcomeTour";
 import NoticePopup, { Notice } from "@/src/components/NoticePopup";
@@ -573,8 +572,25 @@ export default function Home() {
               ))}
             </ScrollView>
 
-            <Text style={[styles.sectionTitle, { marginTop: spacing.xl }]}>LATEST FROM FACEBOOK</Text>
-            <FacebookFeed />
+            <View style={[styles.sectionHeader, { marginTop: spacing.xl }]}>
+              <Text style={styles.sectionTitle}>LATEST FROM FACEBOOK</Text>
+              <Pressable testID="home-see-facebook" onPress={() => router.push("/social")} style={styles.linkRow}>
+                <Text style={styles.linkText}>Open</Text>
+                <Ionicons name="arrow-forward" size={13} color={colors.brand} />
+              </Pressable>
+            </View>
+            <View style={{ paddingHorizontal: spacing.lg }}>
+              <Pressable testID="home-facebook-card" style={styles.fbCard} onPress={() => router.push("/social")}>
+                <View style={styles.fbIcon}>
+                  <Ionicons name="logo-facebook" size={26} color="#fff" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.fbTitle}>See our latest posts</Text>
+                  <Text style={styles.fbSub} numberOfLines={2}>News, events & photos from Max Energy Fitness and Combat Club</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={colors.brand} />
+              </Pressable>
+            </View>
           </>
         )}
       </ScrollView>
@@ -751,6 +767,10 @@ const styles = StyleSheet.create({
   },
   quickLabel: { color: colors.onSurface, fontFamily: font.heading, fontSize: 12, marginTop: 9, lineHeight: 15 },
   quickLogo: { width: 38, height: 38 },
+  fbCard: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md },
+  fbIcon: { width: 46, height: 46, borderRadius: 12, backgroundColor: "#1877F2", alignItems: "center", justifyContent: "center" },
+  fbTitle: { color: colors.onSurface, fontSize: 15.5, fontWeight: "900" },
+  fbSub: { color: colors.onSurfaceSecondary, fontSize: 12.5, marginTop: 2, lineHeight: 17 },
   classRow: {
     flexDirection: "row",
     alignItems: "center",
