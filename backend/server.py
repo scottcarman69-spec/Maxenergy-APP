@@ -2254,7 +2254,12 @@ async def groups_list(u: dict = Depends(require_user)):
         out.append({"group_id": g["group_id"], "name": g["name"], "members": len(g.get("member_ids", [])),
                     "last_body": (last or {}).get("body"), "last_sender": (last or {}).get("sender_name"),
                     "last_at": (last or {}).get("created_at"), "unread": unread})
-    out.sort(key=lambda t: t.get("last_at") or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+    def _sort_key(t):
+        la = t.get("last_at")
+        if isinstance(la, datetime):
+            return la.replace(tzinfo=None)
+        return datetime.min
+    out.sort(key=_sort_key, reverse=True)
     return {"groups": out}
 
 

@@ -608,3 +608,11 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Verified by testing_agent iteration_14: backend 12/12 pytest, all frontend flows pass (create group -> send -> group listed; friend row shows green dot + "Active now"). No fixes needed.
 - Pre-existing note: first-login onboarding tour ("Skip") overlays the tab bar until dismissed (not a group/presence bug).
 
+
+## Session update (Jun 2026 fork) — Group Extras (owner manage + leave) + /api/groups 500 fix (DONE)
+- Group Extras: group OWNER can rename, add friends, remove members; ANY member can leave. Owner leaving transfers ownership to remaining[0]; last member leaving deletes the group + its messages.
+  - Backend (server.py after group_send): PATCH /groups/{gid} (owner-only rename, empty->400, non-owner->403, notifies), POST /groups/{gid}/members (owner-only add; only accepted friends added, non-friends/already-members skipped; returns {added}), DELETE /groups/{gid}/members/{mid} (owner-only; self->400, non-member->404), POST /groups/{gid}/leave (transfer/delete logic).
+  - Frontend: group/[id].tsx header gear (testID group-manage) -> new group/manage.tsx. Owner sees editable name (manage-name/manage-save-name) + members list w/ remove (manage-remove-<uid>) + add-friends (manage-add-<uid>/manage-add-confirm) + Leave (manage-leave). Non-owner sees read-only name + members + Leave only. api.ts +groupRename/groupAddMembers/groupRemoveMember/groupLeave.
+  - Verified by testing_agent iteration_15: backend 17/17, frontend owner + non-owner gating pass.
+- BUG FIX (found in iteration_15, pre-existing): GET /api/groups returned 500 — "can't compare offset-naive and offset-aware datetimes" in the sort. Motor returns naive last_at while fallback was tz-aware. Fixed groups_list sort with a _sort_key that normalizes datetimes to naive (fallback datetime.min). Verified: /api/groups now 200, groups sorted newest-first.
+
