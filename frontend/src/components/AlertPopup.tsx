@@ -33,7 +33,7 @@ export default function AlertPopup({ visible, items, onClose, onViewAll, onOpen 
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.eyebrow}>{count > 1 ? `${count} NEW UPDATES` : "NEW UPDATE"}</Text>
-              <Text style={styles.headerTitle}>New Notifications</Text>
+              <Text style={styles.headerTitle}>Notifications</Text>
             </View>
             <Pressable testID="alert-popup-close" onPress={onClose} hitSlop={12}>
               <Ionicons name="close" size={24} color={colors.onSurfaceSecondary} />
