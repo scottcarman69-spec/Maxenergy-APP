@@ -64,6 +64,17 @@ export default function GroupChat() {
               <View style={styles.empty}><Ionicons name="people-outline" size={38} color={colors.onSurfaceSecondary} /><Text style={styles.emptyText}>Start the conversation with your crew 🥊</Text></View>
             ) : msgs.map((m) => {
               const mine = m.from_id === meId;
+              if (m.from_id === "system") {
+                return (
+                  <View key={m.gmsg_id} style={styles.announce}>
+                    <View style={styles.announceHead}>
+                      <Ionicons name="megaphone" size={14} color={colors.brand} />
+                      <Text style={styles.announceLabel}>GYM ANNOUNCEMENT</Text>
+                    </View>
+                    <Text style={styles.announceBody}>{m.body}</Text>
+                  </View>
+                );
+              }
               return (
                 <View key={m.gmsg_id} style={[styles.bubble, mine ? styles.me : styles.them]}>
                   {!mine && <Text style={styles.sender}>{m.sender_name}</Text>}
@@ -96,6 +107,10 @@ const styles = StyleSheet.create({
   me: { alignSelf: "flex-end", backgroundColor: colors.brand, borderBottomRightRadius: 4 },
   them: { alignSelf: "flex-start", backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderBottomLeftRadius: 4 },
   sender: { color: colors.brand, fontSize: 11, fontWeight: "800", marginBottom: 3 },
+  announce: { alignSelf: "stretch", backgroundColor: colors.brandTertiary, borderWidth: 1, borderColor: colors.brand, borderRadius: radius.lg, padding: spacing.md, gap: 5 },
+  announceHead: { flexDirection: "row", alignItems: "center", gap: 6 },
+  announceLabel: { color: colors.brand, fontSize: 10.5, fontWeight: "900", letterSpacing: 1 },
+  announceBody: { color: colors.onSurface, fontSize: 14.5, lineHeight: 20 },
   msg: { color: colors.onSurface, fontSize: 15, lineHeight: 20 },
   bar: { flexDirection: "row", alignItems: "flex-end", gap: spacing.sm, padding: spacing.md, borderTopWidth: 1, borderTopColor: colors.border },
   input: { flex: 1, maxHeight: 120, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: 10, color: colors.onSurface, fontSize: 15 },

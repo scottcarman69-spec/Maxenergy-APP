@@ -654,3 +654,7 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Groups now support a pinned note. Backend: group_chats.pinned_note; group_get returns it; NEW POST /groups/{gid}/pin (owner-only, {note}, max 1000 chars, empty clears). Muay Thai Academy seeded with a default welcome/rules note (idempotent; back-fills existing doc if missing).
 - Frontend: group/[id].tsx shows a sticky pinned banner at the top (pin icon + "PINNED · GROUP RULES" + note, 2-line preview w/ Read more/Show less toggle). group/manage.tsx (owner only) has a "PINNED NOTE / RULES" multiline editor + Save. api.ts +groupSetPin.
 - Verified: academy pinned_note seeded; banner renders at top of the Academy chat via screenshot; tsc clean.
+
+## Session update (Jun 2026 fork) — Gym notices auto-post to Academy chat (DONE)
+- When an admin posts a Gym Notice (POST /admin/announcements), it now also auto-posts into every official group chat (Muay Thai Academy) as a system message ("📢 <title>\n\n<body>", from_id="system", sender "Max Energy", read_by=[author] so it shows unread for everyone else → Inbox unread badge). Fire-and-forget via _post_official_announcement + asyncio.create_task. (Events are seed-only, no admin event-create endpoint; notices are the admin content path.)
+- Frontend group/[id].tsx: system messages render as a distinct "GYM ANNOUNCEMENT" card (megaphone icon, brand border) instead of a chat bubble. Verified via screenshot. tsc clean. Test notice cleaned up.

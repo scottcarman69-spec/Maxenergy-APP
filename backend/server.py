@@ -4317,6 +4317,20 @@ async def admin_refund_resolve(booking_id: str, body: RefundResolveReq, u: dict 
     return {"ok": True, "refund_status": body.method if body.method != "refunded" else "refunded"}
 
 
+async def _post_official_announcement(author_id: str, title: str, body_text: str) -> None:
+    """Auto-post a gym notice into every official group chat so members see it in chat."""
+    groups = await db.group_chats.find({"is_official": True}, {"_id": 0, "group_id": 1}).to_list(50)
+    text = f"📢 {title}".strip()
+    if body_text:
+        text += f"\n\n{body_text.strip()}"
+    for g in groups:
+        await db.group_messages.insert_one({
+            "gmsg_id": new_id("gm"), "group_id": g["group_id"], "from_id": "system",
+            "sender_name": "Max Energy", "body": text[:2000],
+            "read_by": [author_id] if author_id else [], "created_at": now_utc(),
+        })
+
+
 @api.post("/admin/announcements")
 async def admin_announcement_create(body: AnnouncementCreate, u: dict = Depends(require_admin)):
     doc = {
@@ -4329,6 +4343,8 @@ async def admin_announcement_create(body: AnnouncementCreate, u: dict = Depends(
     }
     await db.announcements.insert_one(doc)
     doc.pop("_id", None)
+    # Also drop it into the Academy / official group chats.
+    asyncio.create_task(_post_official_announcement(u["user_id"], body.title, body.body))
     return {"announcement": doc}
 
 
