@@ -2288,6 +2288,93 @@ async def group_send(gid: str, body: DMSendReq, u: dict = Depends(require_user))
     return {"message": msg}
 
 
+class GroupRenameReq(BaseModel):
+    name: str
+
+
+class GroupAddReq(BaseModel):
+    member_ids: List[str] = []
+
+
+@api.patch("/groups/{gid}")
+async def group_rename(gid: str, body: GroupRenameReq, u: dict = Depends(require_user)):
+    g = await _group_or_403(gid, u["user_id"])
+    if g.get("owner_id") != u["user_id"]:
+        raise HTTPException(403, "Only the group owner can rename this group.")
+    name = (body.name or "").strip()
+    if not name:
+        raise HTTPException(400, "Please name your group.")
+    await db.group_chats.update_one({"group_id": gid}, {"$set": {"name": name[:60]}})
+    for mid in g.get("member_ids", []):
+        if mid == u["user_id"]:
+            continue
+        m = await db.users.find_one({"user_id": mid}, {"_id": 0})
+        await notify_user(mid, (m or {}).get("email"), "Group renamed",
+                          f"{u.get('name') or 'The owner'} renamed a group to '{name[:40]}'.", "message",
+                          data={"nav": "member_inbox"})
+    return {"group_id": gid, "name": name[:60]}
+
+
+@api.post("/groups/{gid}/members")
+async def group_add_members(gid: str, body: GroupAddReq, u: dict = Depends(require_user)):
+    g = await _group_or_403(gid, u["user_id"])
+    if g.get("owner_id") != u["user_id"]:
+        raise HTTPException(403, "Only the group owner can add members.")
+    existing = set(g.get("member_ids", []))
+    added = []
+    for mid in set(body.member_ids or []):
+        if mid in existing:
+            continue
+        if not await db.friendships.find_one({"key": _dm_key(u["user_id"], mid), "status": "accepted"}):
+            continue
+        added.append(mid)
+    if added:
+        await db.group_chats.update_one({"group_id": gid}, {"$addToSet": {"member_ids": {"$each": added}}})
+        for mid in added:
+            m = await db.users.find_one({"user_id": mid}, {"_id": 0})
+            await notify_user(mid, (m or {}).get("email"), f"Added to group: {g['name'][:40]}",
+                              f"{u.get('name') or 'A member'} added you to the group '{g['name'][:40]}'.", "message",
+                              email_lines=[f"You've been added to the group <b>{esc(g['name'])}</b> by <b>{esc(u.get('name') or 'a member')}</b>.", "Open the app → Inbox to chat."],
+                              data={"nav": "member_inbox"})
+    return {"group_id": gid, "added": added}
+
+
+@api.delete("/groups/{gid}/members/{mid}")
+async def group_remove_member(gid: str, mid: str, u: dict = Depends(require_user)):
+    g = await _group_or_403(gid, u["user_id"])
+    if g.get("owner_id") != u["user_id"]:
+        raise HTTPException(403, "Only the group owner can remove members.")
+    if mid == u["user_id"]:
+        raise HTTPException(400, "You can't remove yourself — leave the group instead.")
+    if mid not in g.get("member_ids", []):
+        raise HTTPException(404, "That member isn't in this group.")
+    await db.group_chats.update_one({"group_id": gid}, {"$pull": {"member_ids": mid}})
+    m = await db.users.find_one({"user_id": mid}, {"_id": 0})
+    await notify_user(mid, (m or {}).get("email"), f"Removed from group: {g['name'][:40]}",
+                      f"You were removed from the group '{g['name'][:40]}'.", "message",
+                      data={"nav": "member_inbox"})
+    return {"group_id": gid, "removed": mid}
+
+
+@api.post("/groups/{gid}/leave")
+async def group_leave(gid: str, u: dict = Depends(require_user)):
+    g = await _group_or_403(gid, u["user_id"])
+    remaining = [x for x in g.get("member_ids", []) if x != u["user_id"]]
+    if not remaining:
+        # last person out -> delete the group + its messages
+        await db.group_chats.delete_one({"group_id": gid})
+        await db.group_messages.delete_many({"group_id": gid})
+        return {"group_id": gid, "left": True, "deleted": True}
+    update: dict = {"$pull": {"member_ids": u["user_id"]}}
+    # if the owner leaves, hand ownership to the next remaining member
+    if g.get("owner_id") == u["user_id"]:
+        update["$set"] = {"owner_id": remaining[0]}
+    await db.group_chats.update_one({"group_id": gid}, update)
+    return {"group_id": gid, "left": True, "deleted": False}
+
+
+
+
 @api.get("/admin/threads")
 async def admin_threads(u: dict = Depends(require_admin)):
     rows = await db.messages.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)

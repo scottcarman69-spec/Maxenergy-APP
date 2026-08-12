@@ -1,0 +1,36 @@
+{
+  "summary": "Group Extras (rename/add/remove/leave) end-to-end tested. Backend: 17/17 pytest tests pass covering owner-only permissions, friend-only add filter, self-remove 400, non-member 404, non-owner 403, ownership transfer on owner leave, and full deletion of group + messages on last leave. Frontend: verified both owner and non-owner views of /group/manage — gear icon (testID group-manage) navigates correctly, owner sees editable name + Save + Add friends + Remove X + Leave, non-owner sees read-only name + members list + Leave only. Rename persisted end-to-end and add-friend flow updated MEMBERS count in UI. NOTE: Discovered a pre-existing (unrelated) 500 bug in GET /api/groups — 'can't compare offset-naive and offset-aware datetimes' at server.py:2257 — this is NOT part of the new extras feature but is user-visible on the inbox groups list; reporting for main agent.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "GET /api/groups", "issue": "500 Internal Server Error — TypeError: can't compare offset-naive and offset-aware datetimes at server.py:2257 (out.sort key uses group_messages.last_at which may be naive while datetime.min is aware). Triggered when member1 has groups with messages. Pre-existing bug, unrelated to Group Extras feature but blocks the groups tab in Inbox. RCA: some group_messages.created_at values were stored offset-naive; sort lambda 't.get(\"last_at\") or datetime.min.replace(tzinfo=timezone.utc)' fails when last_at is naive. Fix: wrap last_at with a normalizer that forces tzinfo=timezone.utc before sorting, or store all created_at as aware UTC.", "priority": "HIGH"}
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_group_extras.py",
+    "/app/test_reports/pytest/pytest_group_extras.xml"
+  ],
+  "action_items": [
+    "Fix GET /api/groups 500 — normalize last_at tz before sort at /app/backend/server.py:2257 (also consider ensuring all group_messages.created_at are stored aware UTC via now_utc())."
+  ],
+  "critical_code_review_comments": [
+    "manage.tsx uses `n.has(uid) ? n.delete(uid) : n.add(uid)` inside setState updater — works but eslint no-unused-expressions may flag it; consider explicit if/else.",
+    "group_leave() does not notify remaining members when the owner transfers ownership; consider notify_user() to new owner for UX parity with rename/add/remove.",
+    "PATCH /groups/{gid} silently truncates name to 60 chars — either enforce max_length via Pydantic (return 400) or surface truncation to client."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_group_extras.py (new)"
+  ],
+  "success_rate": {"backend": "100% (17/17 tests for group extras)", "frontend": "100% (owner + non-owner testIDs + rename + add-member flows verified)"},
+  "seed_data_creation": "Registered member1@gmail.com/Password123, member2@gmail.com/Password123!, member3@gmail.com/Password123!, plus a random non-friend for filter tests. Established pairwise friendships m1↔m2, m1↔m3, m2↔m3 (idempotent). Left group grp_35e4392f3116 named 'TEST_UI_Renamed' with 3 members after UI testing.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Group Extras feature is fully working. If retesting, note the /api/groups list 500 bug — either fix it first or bypass by using GET /api/groups/{gid} directly. Passwords: member1 uses Password123 (no bang), member2 & member3 use Password123!. Parallel pytest workers can 429 login endpoints; use -o addopts=\"\" (sequential) if flaky.",
+  "rca_of_issue": "The 500 on /api/groups is caused by sort key `t.get('last_at') or datetime.min.replace(tzinfo=timezone.utc)` at server.py:2257 mixing offset-naive and offset-aware datetimes. Some group_messages documents have `created_at` without tzinfo, so their last_at flows through the sort naive and comparison against the aware fallback throws TypeError. Reproduction: login as any member with an existing group+messages, GET /api/groups → 500. Fix: (1) normalize last_at in the sort key, e.g. `lambda t: (t.get('last_at').astimezone(timezone.utc) if t.get('last_at') and t['last_at'].tzinfo else (t.get('last_at').replace(tzinfo=timezone.utc) if t.get('last_at') else datetime.min.replace(tzinfo=timezone.utc)))`, and (2) ensure every insert to group_messages uses now_utc() (already does — but likely older seed docs are naive). Backfill: `db.group_messages.update_many({'created_at': {'$type': 'date'}}, ...)` to add tzinfo, or coerce in the read path."
+}

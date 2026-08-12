@@ -1,6 +1,6 @@
 import React, { useCallback, useRef, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform } from "react-native";
-import { useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
@@ -11,6 +11,7 @@ type GM = { gmsg_id: string; from_id: string; sender_name: string; body: string;
 
 export default function GroupChat() {
   const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
+  const router = useRouter();
   const [msgs, setMsgs] = useState<GM[]>([]);
   const [gname, setGname] = useState(String(name || "Group"));
   const [count, setCount] = useState(0);
@@ -41,7 +42,8 @@ export default function GroupChat() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      <ScreenHeader title={gname} subtitle={`${count} members`} fallback="/(tabs)/inbox" />
+      <ScreenHeader title={gname} subtitle={`${count} members`} fallback="/(tabs)/inbox"
+        right={<Pressable testID="group-manage" hitSlop={10} onPress={() => router.push({ pathname: "/group/manage", params: { id: String(id) } } as any)}><Ionicons name="settings-outline" size={22} color={colors.onSurface} /></Pressable>} />
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }} keyboardVerticalOffset={80}>
         {loading ? <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} /> : (
           <ScrollView ref={ref} contentContainerStyle={{ padding: spacing.lg, gap: spacing.sm, paddingBottom: 20 }}>
