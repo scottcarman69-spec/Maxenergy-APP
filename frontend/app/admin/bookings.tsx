@@ -15,6 +15,7 @@ type Booking = {
   by_appointment?: boolean;
   requested_time?: string;
   scheduled_time?: string;
+  proposed_time?: string;
   member_name?: string;
   member_email?: string;
   booking_no?: number;
@@ -27,6 +28,7 @@ const STATUS_META: Record<string, { label: string; bg: string; fg: string }> = {
   confirmed: { label: "CONFIRMED", bg: colors.brand, fg: colors.onBrand },
   pending: { label: "PENDING", bg: colors.surfaceTertiary, fg: colors.onSurface },
   reschedule_requested: { label: "RESCHEDULE ASK", bg: "#B45309", fg: "#fff" },
+  admin_proposed: { label: "AWAITING MEMBER", bg: "#F59E0B", fg: "#1A1A1A" },
   cancelled: { label: "CANCELLED", bg: colors.surfaceTertiary, fg: colors.onSurfaceSecondary },
 };
 
@@ -132,6 +134,7 @@ export default function AdminBookings() {
                         {b.by_appointment ? "By appointment" : `$${(b.amount / 100).toFixed(0)}`}
                         {b.scheduled_time ? ` · confirmed: ${b.scheduled_time}` : ""}
                         {!b.scheduled_time && b.requested_time ? ` · preferred: ${b.requested_time}` : ""}
+                        {b.status === "admin_proposed" && b.proposed_time ? ` · proposed: ${b.proposed_time}` : ""}
                       </Text>
                     </View>
                     <View style={[styles.statusPill, { backgroundColor: meta.bg }]}>

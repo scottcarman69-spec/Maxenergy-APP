@@ -1,0 +1,26 @@
+{
+  "summary": "Verified admin↔member appointment booking confirm/propose flow end-to-end via mobile web preview (390x844). ALL THREE UI flows PASS. FLOW A: Logged in as admin@maxenergy.com.au → /admin/bookings → seeded PAID Personal Training booking ptA_90801 (Member One · member1@gmail.com · preferred: Wed 20 Aug · 11:00 am) shows Confirm booking button (testID adminbk-confirm-ptA_90801). Tapped → status pill switched from PAID to CONFIRMED and 'Confirmed & member notified.' banner appeared. FLOW B (admin side): Tapped Suggest time on ptB_dfb6d (testID adminbk-reschedule-ptB_dfb6d) → modal opened → entered 'Fri 22 Aug · 10:30 am' in adminbk-newtime → submitted via adminbk-reschedule-submit → status pill switched to AWAITING MEMBER (amber) and meta line shows 'preferred: Thu 21 Aug · 2:00 pm · proposed: Fri 22 Aug · 10:30 am'. Banner 'Rescheduled & member notified.' shown. FLOW B (member side): Logged in as member1@gmail.com/Password123 → /bookings → Custom Programs card shows NEW TIME PROPOSED (amber pill), 'proposed: Fri 22 Aug · 10:30 am' text, and 'The gym proposed a new time: Fri 22 Aug · 10:30 am. Does this suit you?' with 'This time works' button (testID booking-confirm-time-ptB_dfb6d). Tapped → status became CONFIRMED, card meta now shows 'By appointment · Fri 22 Aug · 10:30 am', and success banner 'Great! Your session time is confirmed.' rendered. NEGATIVE CHECK: Regular Muay Thai class booking (bk_56233c31af…, $15, PAID, member Scott Carman) correctly does NOT render a Suggest time button — only ptA_90801 and ptB_dfb6d (both by_appointment) show it. No JS errors, no red screens. Welcome tour dismissed via tour-skip. Backend confirm/reschedule/confirm-time endpoints all responded 200 as evidenced by state changes.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/iteration_13.json"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Same as previous iteration: /app/backend/server.py is ~4164 lines; admin booking endpoints (accept/confirm/reschedule/confirm-time/cancel/refund) should be extracted to an admin_bookings router (>700-line guideline).",
+    "Duplicate accept vs confirm paths still coexist (/api/admin/bookings/{id}/accept vs /confirm) — a member could receive two notifications if admin uses both on the same booking. Consider consolidating semantics.",
+    "The reschedule modal submit label is 'CONFIRM & NOTIFY' but the action now sets status=admin_proposed (awaiting member) rather than immediately confirming. Consider renaming the button to 'PROPOSE & NOTIFY' to match the new semantics and avoid admin confusion."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only per request)", "frontend": "100% (3/3 flows: admin-confirm, admin-propose, member-confirm-time; plus negative check that Suggest time is hidden on non-appointment class bookings)"},
+  "seed_data_creation": "None created. Consumed the two seeded PAID appointment bookings (ptA_90801, ptB_dfb6d). Post-test state: ptA_90801=confirmed (no scheduled_time set — Flow A confirms at requested time only), ptB_dfb6d=confirmed with scheduled_time='Fri 22 Aug · 10:30 am'. If re-testing is needed, reset both booking docs' status back to 'paid' and clear proposed_time/scheduled_time in mongo (db=maxenergy_db, collection=bookings, user_id=user_936beba757e7).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Seeded PAID appointment bookings live in mongo db 'maxenergy_db' collection 'bookings' under user_id='user_936beba757e7' which maps to member1@gmail.com (Password123). Booking IDs: ptA_90801 (Personal Training) and ptB_dfb6d (Custom Programs). Admin creds admin@maxenergy.com.au / MaxAdmin123!. Frontend .env EXPO_PUBLIC_BACKEND_URL=https://class-notify-8.preview.emergentagent.com. Key testIDs: adminbk-confirm-<id>, adminbk-reschedule-<id>, adminbk-newtime, adminbk-note, adminbk-reschedule-submit, booking-confirm-time-<id>. WelcomeTour modal has testID tour-skip. Login testIDs: login-email-input, login-password-input, login-submit-button. To reset the seeded bookings back to paid: db.bookings.update_many({booking_id:{$in:['ptA_90801','ptB_dfb6d']}},{$set:{status:'paid'},$unset:{scheduled_time:'',proposed_time:'',confirmed_at:'',reschedule_note:''}}).",
+  "rca_of_issue": "N/A — feature verification, no bug."
+}

@@ -8,13 +8,14 @@ import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
 import ScreenHeader from "@/src/components/ScreenHeader";
 
-type Booking = { booking_id: string; class_name: string; status: string; amount: number; by_appointment?: boolean; requested_time?: string; scheduled_time?: string; attended?: boolean };
+type Booking = { booking_id: string; class_name: string; status: string; amount: number; by_appointment?: boolean; requested_time?: string; scheduled_time?: string; proposed_time?: string; attended?: boolean };
 
 const STATUS_META: Record<string, { label: string; bg: string; fg: string }> = {
   paid: { label: "PAID", bg: colors.brand, fg: colors.onBrand },
   confirmed: { label: "CONFIRMED", bg: colors.brand, fg: colors.onBrand },
   pending: { label: "PENDING", bg: colors.surfaceTertiary, fg: colors.onSurface },
   reschedule_requested: { label: "RESCHEDULE REQUESTED", bg: colors.surfaceTertiary, fg: colors.onSurface },
+  admin_proposed: { label: "NEW TIME PROPOSED", bg: "#F59E0B", fg: "#1A1A1A" },
   cancelled: { label: "CANCELLED", bg: colors.surfaceTertiary, fg: colors.onSurfaceSecondary },
 };
 
@@ -75,6 +76,18 @@ export default function BookingsScreen() {
         { text: "Cancel booking", style: "destructive", onPress: () => doCancel(b) },
       ],
     );
+  };
+
+  const confirmProposed = async (b: Booking) => {
+    setActioning(b.booking_id);
+    try {
+      await api.confirmProposedTime(b.booking_id);
+      setBanner("Great! Your session time is confirmed.");
+      await load();
+    } catch (e: any) {
+      setBanner(e?.message || "Could not confirm the time.");
+    }
+    setActioning(null);
   };
 
   const submitReschedule = async () => {
@@ -176,12 +189,35 @@ export default function BookingsScreen() {
                           {b.by_appointment ? "By appointment" : `$${(b.amount / 100).toFixed(0)}`}
                           {b.scheduled_time ? ` · ${b.scheduled_time}` : ""}
                           {b.status === "reschedule_requested" && b.requested_time ? ` · asked: ${b.requested_time}` : ""}
+                          {b.status === "admin_proposed" && b.proposed_time ? ` · proposed: ${b.proposed_time}` : ""}
                         </Text>
                       </View>
                       <View style={[styles.statusPill, { backgroundColor: meta.bg }]}>
                         <Text style={[styles.statusText, { color: meta.fg }]}>{meta.label}</Text>
                       </View>
                     </View>
+                    {b.status === "admin_proposed" && (
+                      <View style={styles.proposeBox}>
+                        <Text style={styles.proposeText}>
+                          The gym proposed a new time{b.proposed_time ? `: ${b.proposed_time}` : ""}. Does this suit you?
+                        </Text>
+                        <Pressable
+                          testID={`booking-confirm-time-${b.booking_id}`}
+                          style={styles.proposeConfirmBtn}
+                          onPress={() => confirmProposed(b)}
+                          disabled={actioning === b.booking_id}
+                        >
+                          {actioning === b.booking_id ? (
+                            <ActivityIndicator size="small" color={colors.onBrand} />
+                          ) : (
+                            <>
+                              <Ionicons name="checkmark-circle" size={16} color={colors.onBrand} />
+                              <Text style={styles.proposeConfirmText}>This time works</Text>
+                            </>
+                          )}
+                        </Pressable>
+                      </View>
+                    )}
                     {canManage && (
                       <View style={styles.bookingActions}>
                         <Pressable
@@ -323,6 +359,10 @@ const styles = StyleSheet.create({
   actionBtnDanger: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 12 },
   actionDangerText: { color: colors.error, fontWeight: "800", fontSize: 13 },
   statusPill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill },
+  proposeBox: { marginTop: spacing.sm, backgroundColor: "#F59E0B22", borderWidth: 1, borderColor: "#F59E0B", borderRadius: radius.md, padding: spacing.md, gap: spacing.sm },
+  proposeText: { color: colors.onSurface, fontSize: 13.5, lineHeight: 19 },
+  proposeConfirmBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, backgroundColor: colors.brand, paddingVertical: 12, borderRadius: radius.md },
+  proposeConfirmText: { color: colors.onBrand, fontWeight: "900", fontSize: 14, letterSpacing: 0.3 },
   statusText: { fontSize: 10, fontWeight: "900", letterSpacing: 1 },
   notifDelete: { backgroundColor: colors.error, justifyContent: "center", alignItems: "center", width: 84, borderRadius: radius.md, marginLeft: spacing.sm, gap: 2 },
   notifDeleteText: { color: "#fff", fontWeight: "800", fontSize: 12 },

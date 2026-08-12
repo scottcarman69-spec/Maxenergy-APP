@@ -28,6 +28,7 @@ import FacebookFeed from "@/src/components/FacebookFeed";
 import LiveNowBanner from "@/src/components/LiveNowBanner";
 import WelcomeTour from "@/src/components/WelcomeTour";
 import NoticePopup, { Notice } from "@/src/components/NoticePopup";
+import AlertPopup, { AlertItem } from "@/src/components/AlertPopup";
 import { storage } from "@/src/utils/storage";
 
 const CARD_W = Math.min(Dimensions.get("window").width, 480);
@@ -84,6 +85,7 @@ export default function Home() {
   const [slide, setSlide] = useState(0);
   const [showWelcome, setShowWelcome] = useState(false);
   const [newNotices, setNewNotices] = useState<Notice[]>([]);
+  const [newAlerts, setNewAlerts] = useState<AlertItem[]>([]);
 
   // Pop up any gym notices posted since the member last saw them (per user, persisted).
   // On the very first run we set a silent baseline so members aren't spammed with
@@ -118,6 +120,42 @@ export default function Home() {
     setNewNotices([]);
   }, [newNotices, user?.user_id]);
 
+  // Pop up new personal updates (booking approved/confirmed, new time proposed,
+  // gym replies) so members respond faster. Silent baseline on first run.
+  const checkNewAlerts = useCallback(async () => {
+    if (!user?.user_id || user.is_admin) return;
+    try {
+      const r = await api.notifications();
+      const items: AlertItem[] = (r?.notifications || []).map((n: any) => ({
+        notification_id: n.notification_id,
+        title: n.title,
+        body: n.body,
+        created_at: n.created_at,
+      }));
+      if (items.length === 0) return;
+      const newestTs = items.reduce((m, a) => Math.max(m, new Date(a.created_at).getTime()), 0);
+      const key = `last_seen_alert_ts_${user.user_id}`;
+      const stored = await storage.getItem<number>(key, 0);
+      if (!stored) {
+        await storage.setItem(key, newestTs); // silent baseline on first run
+        return;
+      }
+      const unseen = items
+        .filter((a) => new Date(a.created_at).getTime() > stored)
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 5);
+      if (unseen.length > 0) setNewAlerts(unseen);
+    } catch {}
+  }, [user?.user_id, user?.is_admin]);
+
+  const dismissAlerts = useCallback(async () => {
+    if (newAlerts.length && user?.user_id) {
+      const newestTs = newAlerts.reduce((m, a) => Math.max(m, new Date(a.created_at).getTime()), 0);
+      await storage.setItem(`last_seen_alert_ts_${user.user_id}`, newestTs);
+    }
+    setNewAlerts([]);
+  }, [newAlerts, user?.user_id]);
+
   // One-time first-run walkthrough for brand-new members (per user, persisted).
   useEffect(() => {
     if (!user?.user_id) return;
@@ -149,7 +187,7 @@ export default function Home() {
     setLoading(false);
   }, []);
 
-  useFocusEffect(useCallback(() => { load(); refresh(); checkNewNotices(); }, [load, refresh, checkNewNotices]));
+  useFocusEffect(useCallback(() => { load(); refresh(); checkNewNotices(); checkNewAlerts(); }, [load, refresh, checkNewNotices, checkNewAlerts]));
 
   // Auto-refresh when the app is reopened (foregrounded) so content stays current.
   const appState = useRef(AppState.currentState);
@@ -272,6 +310,15 @@ export default function Home() {
             notices={newNotices}
             onClose={dismissNotices}
             onViewAll={async () => { await dismissNotices(); router.navigate("/(tabs)/events"); }}
+          />
+        )}
+
+        {!showWelcome && newNotices.length === 0 && (
+          <AlertPopup
+            visible={newAlerts.length > 0}
+            items={newAlerts}
+            onClose={dismissAlerts}
+            onViewAll={async () => { await dismissAlerts(); router.navigate("/(tabs)/alerts"); }}
           />
         )}
 

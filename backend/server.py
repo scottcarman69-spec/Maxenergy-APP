@@ -1321,7 +1321,7 @@ async def class_detail(class_id: str):
 
 
 # Active statuses that occupy an appointment slot (trainer can only take one at a time).
-APPT_ACTIVE_STATUSES = ["pending", "paid", "confirmed", "reschedule_requested"]
+APPT_ACTIVE_STATUSES = ["pending", "paid", "confirmed", "reschedule_requested", "admin_proposed"]
 # Appointment availability: Monday–Thursday, 10:30am–4:00pm (Queensland time), 30-min grid.
 APPT_ALLOWED_WEEKDAYS = {0, 1, 2, 3}  # Mon=0 .. Thu=3 (Python weekday())
 APPT_MIN_MINUTES = 10 * 60 + 30       # 10:30am
@@ -3982,20 +3982,59 @@ async def admin_booking_cancel(booking_id: str, u: dict = Depends(require_admin)
 @api.post("/admin/bookings/{booking_id}/reschedule")
 async def admin_booking_reschedule(booking_id: str, body: AdminRescheduleReq, u: dict = Depends(require_admin)):
     b = await _admin_get_booking(booking_id)
+    # The gym PROPOSES a new time — the member must confirm it suits them.
     await db.bookings.update_one(
         {"booking_id": booking_id},
-        {"$set": {"status": "confirmed", "scheduled_time": body.new_time, "requested_time": None, "confirmed_at": now_utc()}},
+        {"$set": {"status": "admin_proposed", "proposed_time": body.new_time,
+                  "proposed_note": body.note, "proposed_at": now_utc()}},
     )
     member = await db.users.find_one({"user_id": b["user_id"]}, {"_id": 0})
     note_txt = f" Note: {body.note}" if body.note else ""
     await notify_user(
         b["user_id"], (member or {}).get("email"),
-        "Booking rescheduled & confirmed",
-        f"Your {b['class_name']} session is confirmed for: {body.new_time}.{note_txt}",
+        "New time proposed — please confirm",
+        f"The gym proposed a new time for your {b['class_name']} session: {body.new_time}. Open the app to confirm it suits you.{note_txt}",
         "booking",
-        email_lines=[f"Your <b>{b['class_name']}</b> session has been confirmed for:", f"<b>{body.new_time}</b>", (f"Note: {body.note}" if body.note else ""), "See you there!"],
+        email_lines=[
+            f"The gym has proposed a new time for your <b>{esc(b['class_name'])}</b> session:",
+            f"<b>{esc(body.new_time)}</b>",
+            (f"Note: {esc(body.note)}" if body.note else ""),
+            "Please open the Max Energy app → Profile → My Bookings and tap <b>This time works</b> to confirm, or suggest another time.",
+        ],
+        data={"nav": "member_bookings"},
     )
     return {"ok": True}
+
+
+@api.post("/bookings/{booking_id}/confirm-time")
+async def booking_confirm_proposed_time(booking_id: str, u: dict = Depends(require_user)):
+    """Member confirms the time the gym proposed for their appointment."""
+    b = await db.bookings.find_one({"booking_id": booking_id, "user_id": u["user_id"]}, {"_id": 0})
+    if not b:
+        raise HTTPException(404, "Booking not found")
+    if b.get("status") != "admin_proposed":
+        raise HTTPException(409, "There's no proposed time to confirm for this booking.")
+    when = b.get("proposed_time")
+    await db.bookings.update_one(
+        {"booking_id": booking_id},
+        {"$set": {"status": "confirmed", "scheduled_time": when, "requested_time": None, "confirmed_at": now_utc()}},
+    )
+    member_name = u.get("name") or u.get("email") or "A member"
+    await notify_user(
+        u["user_id"], u.get("email"),
+        "Session confirmed",
+        f"Your {b['class_name']} session is confirmed for {when}. See you there!",
+        "booking",
+        email_lines=[f"You're all set! Your <b>{esc(b['class_name'])}</b> session is confirmed for:", f"<b>{esc(str(when))}</b>", "See you on the mats! 🥊"],
+    )
+    await notify_admins(
+        "Member confirmed a proposed time",
+        f"{member_name} confirmed the proposed time for {b['class_name']}: {when}.",
+        "booking",
+        email_lines=[f"<b>{esc(member_name)}</b> confirmed the proposed time for <b>{esc(b['class_name'])}</b>.", f"Time: <b>{esc(str(when))}</b>"],
+    )
+    b = await db.bookings.find_one({"booking_id": booking_id}, {"_id": 0})
+    return {"booking": b}
 
 
 @api.post("/admin/bookings/{booking_id}/attendance")
