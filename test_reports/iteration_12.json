@@ -1,0 +1,29 @@
+{
+  "summary": "Verified admin confirm-booking feature end-to-end (backend + frontend). Backend: 7/7 pytest cases pass in test_admin_confirm_booking.py — (1) GET /api/classes returns 'Custom Programs' by_appointment class with price_cents=6000, duration_min=30, and appt_durations=[{minutes:30, price_cents:6000}]; (2) POST /api/admin/bookings/test_6b0d1cda/confirm as admin returns 200 with {booking:{status:'confirmed', confirmed_at:...}}; (3) status persists via GET /api/admin/bookings; (4) second call on already-confirmed booking returns 409; (5) unknown booking_id returns 404; (6) non-admin member Bearer token returns 403; (7) no-auth returns 401/403. Frontend (mobile 390x844): logged in as admin@maxenergy.com.au, navigated to /admin/bookings — seeded paid Custom Programs appointment booking appears under both Active and Requests filters. The Confirm booking button (testID adminbk-confirm-test_6b0d1cda) is visible only for by_appointment+paid bookings; tapping it triggers api.adminConfirmBooking, banner 'Confirmed & member notified.' renders, status pill switches from PAID to CONFIRMED, and the Confirm booking button is removed on refresh. No bugs found. Tests leave the seeded booking back in 'paid' status via teardown_module for future re-runs.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_admin_confirm_booking.py",
+    "/app/test_reports/pytest/pytest_admin_confirm_booking.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is now 4164 lines — admin booking endpoints (accept, confirm, cancel, reschedule, refund) are all inline; consider splitting into an admin_bookings router as the file has grown well past the 700-line guideline.",
+    "There are effectively two admin confirmation paths — POST /admin/bookings/{id}/accept (line 3705, also sets status='confirmed', supports pending/reschedule_requested) and POST /admin/bookings/{id}/confirm (line 3298, for paid appointments). The two flows send slightly different notifications and email copy, but a member could receive both if an admin uses Accept then later Confirm on the same booking. Consider consolidating or documenting the semantics.",
+    "admin_confirm_booking allows status transition from 'pending' as well as 'paid'/'reschedule_requested' — that's fine but the endpoint docstring says 'paid appointment booking'. Docstring vs. implementation drift."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_admin_confirm_booking.py (new)"
+  ],
+  "success_rate": {"backend": "100% (7/7)", "frontend": "100% (login → Requests filter → tap Confirm booking → banner + CONFIRMED pill verified)"},
+  "seed_data_creation": "Reset seed booking test_6b0d1cda to status='paid' before and after each backend test via _reset_seed_booking_to_paid() and teardown_module. After frontend UI test the booking ended in 'confirmed'; if a subsequent test needs it as paid again, reset via mongo or re-run the pytest module (its teardown puts it back to paid).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Seeded PAID Custom Programs appointment booking: booking_id='test_6b0d1cda', user_id='user_03f8f4dd09d9' (email test_user_aeeecd3ddb@example.com). It gets flipped to 'confirmed' by the frontend test; run /app/backend/tests/test_admin_confirm_booking.py to reset (teardown resets to paid). Admin creds admin@maxenergy.com.au / MaxAdmin123!. Frontend .env key is EXPO_PUBLIC_BACKEND_URL. Confirm button testID = adminbk-confirm-<booking_id>. In admin bookings UI, Requests filter now includes by_appointment bookings with status='pending' OR 'paid' — this is what surfaces the Confirm booking button; Active filter shows everything except cancelled, so it's also visible there.",
+  "rca_of_issue": "N/A — feature verification, no bug."
+}

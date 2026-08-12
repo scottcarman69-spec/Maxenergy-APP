@@ -506,3 +506,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Register DOB is now a tap-to-scroll Day/Month/Year picker modal (no manual typing); builds YYYY-MM-DD. Day list adjusts to month/year; invalid day cleared on month change.
 - Password rule: min 6 chars + at least one number + at least one symbol. Frontend shows live rule checklist + show/hide toggle and gates submit. Backend validate_password_strength() enforced on /auth/register and /auth/reset-password (400 with specific message).
 - Verified: no-symbol/no-number -> 400; strong pw -> token. Screenshots confirm picker + live rules.
+
+## Session update (Jun 2026 fork) — Admin Confirm paid appointment + Custom Programs pricing (DONE)
+- Admin Confirm booking: paid Personal Training / Custom Programs appointment bookings (status "paid") now show a "Confirm booking" button in Admin -> Bookings (testID adminbk-confirm-<id>) wired to existing POST /api/admin/bookings/{id}/confirm (added api.adminConfirmBooking). Confirming sets status->confirmed and notifies the member (in-app + email). The "Requests" filter now also surfaces paid appointments awaiting confirmation.
+- Custom Programs pricing changed to $60 / 30 min single session (was $80 / 60 min), matching Personal Training. Updated seed_data() + the live DB doc: price_cents=6000, duration_min=30, appt_durations=[{minutes:30,price_cents:6000}]. Availability unchanged (Mon-Thu 10:30am-4:00pm, already enforced).
+- Verified by testing_agent iteration_12: backend 7/7 pytest (confirm 200/409/404/403/401, classes pricing), frontend admin confirm flow (PAID->CONFIRMED + banner). Seeded test booking removed afterwards.

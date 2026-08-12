@@ -593,11 +593,19 @@ async def mark_booking_paid(booking_id: str) -> None:
             ),
         )
     # Notify gym admins
+    _appt_when = b.get("requested_time") or when
     await notify_admins(
-        "New paid booking",
-        f"{mname} booked and paid for {b['class_name']} ({when}).",
+        "New PT/Program booking — needs confirmation" if is_appt_b else "New paid booking",
+        (f"{mname} booked and paid for {b['class_name']} — preferred {_appt_when}. Confirm it in Admin → Bookings."
+         if is_appt_b else f"{mname} booked and paid for {b['class_name']} ({when})."),
         "booking",
-        email_lines=[f"<b>{esc(mname)}</b> booked and paid for <b>{esc(b['class_name'])}</b>.", f"When: {when}", f"Amount: ${amount:.2f} {currency}"],
+        email_lines=(
+            [f"<b>{esc(mname)}</b> booked and paid for <b>{esc(b['class_name'])}</b>.",
+             f"Preferred time: <b>{esc(_appt_when)}</b>", f"Amount: ${amount:.2f} {currency}",
+             "Open the app → Admin → Bookings to <b>confirm</b> this session."]
+            if is_appt_b else
+            [f"<b>{esc(mname)}</b> booked and paid for <b>{esc(b['class_name'])}</b>.", f"When: {when}", f"Amount: ${amount:.2f} {currency}"]
+        ),
     )
 
 
@@ -3287,6 +3295,40 @@ class RefundResolveReq(BaseModel):
     method: str  # "credit" | "refunded" | "class_pass"
 
 
+@api.post("/admin/bookings/{booking_id}/confirm")
+async def admin_confirm_booking(booking_id: str, u: dict = Depends(require_admin)):
+    """Admin confirms a paid appointment booking; notifies the member."""
+    b = await db.bookings.find_one({"booking_id": booking_id}, {"_id": 0})
+    if not b:
+        raise HTTPException(404, "Booking not found")
+    if b.get("status") not in ("paid", "pending", "reschedule_requested"):
+        raise HTTPException(409, "This booking can't be confirmed.")
+    await db.bookings.update_one(
+        {"booking_id": booking_id},
+        {"$set": {"status": "confirmed", "confirmed_at": now_utc(), "confirmed_by": u["user_id"]}},
+    )
+    pref = b.get("requested_time") or "your booked time"
+    await create_notification(
+        b["user_id"],
+        "Booking confirmed ✅",
+        f"Good news! Your {b['class_name']} on {pref} has been confirmed. See you then!",
+        "booking",
+    )
+    member = await db.users.find_one({"user_id": b["user_id"]}, {"_id": 0})
+    if member and member.get("email"):
+        await send_email(
+            member["email"],
+            f"Booking confirmed — {b['class_name']}",
+            _email_shell("Your booking is confirmed ✅", [
+                f"Hi {esc(member.get('name') or 'there')},",
+                f"Your <b>{esc(b['class_name'])}</b> session on <b>{esc(pref)}</b> has been <b>confirmed</b> by Maxenergy Fitness.",
+                "We look forward to seeing you!",
+            ]),
+        )
+    updated = await db.bookings.find_one({"booking_id": booking_id}, {"_id": 0})
+    return {"booking": updated}
+
+
 @api.post("/admin/refunds/{booking_id}/resolve")
 async def admin_refund_resolve(booking_id: str, body: RefundResolveReq, u: dict = Depends(require_admin)):
     b = await db.bookings.find_one({"booking_id": booking_id}, {"_id": 0})
@@ -3993,11 +4035,14 @@ async def seed_data():
                 "category": "Adults",
                 "trainer": "Coach Alex",
                 "level": "Any level",
-                "duration_min": 60,
-                "price_cents": 8000,
+                "duration_min": 30,
+                "price_cents": 6000,
                 "currency": "aud",
+                "appt_durations": [
+                    {"minutes": 30, "price_cents": 6000},
+                ],
                 "image": "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200&q=80",
-                "description": "A training program built around your goals — strength, conditioning, weight loss or fight prep. Booked by appointment; we'll reach out to design your plan and arrange times that suit you.",
+                "description": "A training program built around your goals — strength, conditioning, weight loss or fight prep. Booked by appointment (Mon–Thu, 10:30am–4:00pm); we'll confirm your time.",
                 "program": "",
                 "color": "#FF7A00",
                 "start_at": now_utc(),

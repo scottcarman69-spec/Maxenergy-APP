@@ -85,7 +85,7 @@ export default function AdminBookings() {
 
   const filtered = rows.filter((b) => {
     if (filter === "All") return true;
-    if (filter === "Requests") return b.status === "reschedule_requested" || (b.by_appointment && b.status === "pending");
+    if (filter === "Requests") return b.status === "reschedule_requested" || (b.by_appointment && (b.status === "pending" || b.status === "paid"));
     return b.status !== "cancelled"; // Active
   });
 
@@ -149,6 +149,16 @@ export default function AdminBookings() {
                           onPress={() => act(b.booking_id, () => api.adminAcceptBooking(b.booking_id), "Accepted & member notified.")}
                         >
                           {busy ? <ActivityIndicator size="small" color={colors.onBrand} /> : (<><Ionicons name="checkmark" size={15} color={colors.onBrand} /><Text style={styles.actAcceptText}>Accept</Text></>)}
+                        </Pressable>
+                      )}
+                      {b.by_appointment && b.status === "paid" && (
+                        <Pressable
+                          testID={`adminbk-confirm-${b.booking_id}`}
+                          style={[styles.actBtn, styles.actAccept]}
+                          disabled={busy}
+                          onPress={() => act(b.booking_id, () => api.adminConfirmBooking(b.booking_id), "Confirmed & member notified.")}
+                        >
+                          {busy ? <ActivityIndicator size="small" color={colors.onBrand} /> : (<><Ionicons name="checkmark-done" size={15} color={colors.onBrand} /><Text style={styles.actAcceptText}>Confirm booking</Text></>)}
                         </Pressable>
                       )}
                       <Pressable
