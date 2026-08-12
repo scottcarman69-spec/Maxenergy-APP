@@ -85,6 +85,12 @@ def booking_ref_no(booking_id: str) -> int:
     return 10000 + (n % 90000)
 
 
+def booking_ref_code(booking_id: str) -> str:
+    """Professional, human-friendly booking reference shown to members and used on
+    Square payments so the references match everywhere (e.g. MAX-56233)."""
+    return f"MAX-{booking_ref_no(booking_id)}"
+
+
 def hash_pw(pw: str) -> str:
     return bcrypt.hashpw(pw.encode(), bcrypt.gensalt()).decode()
 
@@ -470,7 +476,7 @@ async def notify_user(user_id: str, email: Optional[str], title: str, body: str,
         await send_email(email, title, _email_shell(title, email_lines or [body]))
 
 
-async def low_pass_nudge(user_id: str, email: Optional[str], left: int) -> None:
+async def low_pass_nudge(user_id: str, email: Optional[str], left: int, base_url: Optional[str] = None) -> None:
     """Nudge the member to top up when they're down to their last class pass (or out)."""
     if left == 1:
         title = "You're on your last class pass ⏳"
@@ -480,8 +486,11 @@ async def low_pass_nudge(user_id: str, email: Optional[str], left: int) -> None:
         body = "Buy a Single or 10 Class Pass to keep booking classes at the gym."
     else:
         return
+    lines = [body, "Tap below to buy more passes."]
+    if base_url:
+        lines.append(_download_button(f"{base_url.rstrip('/')}/memberships", "Buy class passes"))
     await notify_user(user_id, email, title, body, "booking",
-                      email_lines=[body, "Tap below to buy more passes."],
+                      email_lines=lines,
                       data={"nav": "member_store"})
 
 
@@ -564,7 +573,7 @@ async def mark_booking_paid(booking_id: str) -> None:
             start,
             duration or 60,
             GYM_INFO["address"],
-            f"{b['class_name']} at Maxenergy Fitness. Booking ref: {b['booking_id']}.",
+            f"{b['class_name']} at Maxenergy Fitness. Booking ref: {booking_ref_code(b['booking_id'])}.",
         )
         cal_line = f"<a href='{cal_url}' style='color:#FF7A00;font-weight:bold'>➕ Add this class to your calendar</a>"
     # Full-detail confirmation email to the member
@@ -585,7 +594,7 @@ async def mark_booking_paid(booking_id: str) -> None:
                     (f"<b>Preferred time:</b> {esc(b.get('requested_time') or when)}" if is_appt_b else f"<b>When:</b> {when}"),
                     (f"<b>Duration:</b> {duration} minutes" if duration else ""),
                     f"<b>Amount paid:</b> ${amount:.2f} {currency}",
-                    f"<b>Booking reference:</b> {b['booking_id']}",
+                    f"<b>Booking reference:</b> {booking_ref_code(b['booking_id'])}",
                     f"<b>Location:</b> {GYM_INFO['address']}",
                     cal_line,
                     "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
@@ -596,17 +605,87 @@ async def mark_booking_paid(booking_id: str) -> None:
         )
     # Notify gym admins
     _appt_when = b.get("requested_time") or when
+
+    # ----- Full booker details for the gym email + booking log -----
+    fname = ((member or {}).get("name") or mname or "").strip().split(" ")[0] or mname
+    app_doc = await db.membership_applications.find_one(
+        {"user_id": b["user_id"]}, {"_id": 0, "phone": 1}, sort=[("created_at", -1)]
+    )
+    phone = (app_doc or {}).get("phone") or (member or {}).get("phone") or "—"
+    plan = (member or {}).get("membership_plan") or "—"
+    exp = (member or {}).get("membership_expires_at")
+    if isinstance(exp, datetime):
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=timezone.utc)
+        exp_str = exp.strftime("%d %b %Y")
+        mem_status = "Active" if exp >= now_utc() else "Expired"
+    else:
+        exp_str = "—"
+        mem_status = "Active" if (member or {}).get("membership_active") else "—"
+    key_tag = (member or {}).get("key_tag") or "—"
+    credit_used = int(b.get("credit_applied_cents", 0))
+    if b.get("paid_with_pass"):
+        pay_method = "Class pass"
+        amount_str = "Class pass (no card charge)"
+    elif amount <= 0 and credit_used > 0:
+        pay_method = "Account credit"
+        amount_str = f"${credit_used / 100:.2f} account credit (no card charge)"
+    elif credit_used > 0:
+        pay_method = "Card + account credit"
+        amount_str = f"${amount:.2f} {currency} card + ${credit_used / 100:.2f} credit"
+    else:
+        pay_method = "Card (Square)"
+        amount_str = f"${amount:.2f} {currency}"
+    ref_code = booking_ref_code(b["booking_id"])
+
+    # Save a snapshot into the booking log so the gym keeps full records.
+    await db.booking_logs.insert_one({
+        "log_id": new_id("blog"),
+        "booking_id": b["booking_id"],
+        "reference": ref_code,
+        "user_id": b["user_id"],
+        "first_name": fname,
+        "phone": phone,
+        "membership_plan": plan,
+        "membership_status": mem_status,
+        "membership_expires": exp_str,
+        "key_tag": key_tag,
+        "class_name": b["class_name"],
+        "when": _appt_when if is_appt_b else when,
+        "duration_min": duration,
+        "payment_method": pay_method,
+        "amount_cents": int(b.get("amount", 0)),
+        "credit_applied_cents": credit_used,
+        "created_at": now_utc(),
+    })
+
+    booker_lines = [
+        "<hr style='border:none;border-top:1px solid #eee;margin:12px 0'>",
+        "<b>Booker details</b>",
+        f"First name: <b>{esc(fname)}</b>",
+        f"Phone: {esc(str(phone))}",
+        f"Membership: {esc(str(plan))} ({esc(mem_status)}{' · expires ' + esc(exp_str) if exp_str != '—' else ''})",
+        f"Key tag: {esc(str(key_tag))}",
+        "<hr style='border:none;border-top:1px solid #eee;margin:12px 0'>",
+        "<b>Booking</b>",
+        f"Class: <b>{esc(b['class_name'])}</b>",
+        f"When: {esc(_appt_when if is_appt_b else when)}",
+        (f"Duration: {duration} minutes" if duration else ""),
+        f"Reference: <b>{ref_code}</b>",
+        f"Payment: {esc(pay_method)} — {esc(amount_str)}",
+    ]
+
     await notify_admins(
         "New PT/Program booking — needs confirmation" if is_appt_b else "New paid booking",
-        (f"{mname} booked and paid for {b['class_name']} — preferred {_appt_when}. Confirm it in Admin → Bookings."
-         if is_appt_b else f"{mname} booked and paid for {b['class_name']} ({when})."),
+        (f"{fname} booked and paid for {b['class_name']} — preferred {_appt_when}. Confirm it in Admin → Bookings."
+         if is_appt_b else f"{fname} booked and paid for {b['class_name']} ({when})."),
         "booking",
         email_lines=(
-            [f"<b>{esc(mname)}</b> booked and paid for <b>{esc(b['class_name'])}</b>.",
-             f"Preferred time: <b>{esc(_appt_when)}</b>", f"Amount: ${amount:.2f} {currency}",
+            [f"<b>{esc(fname)}</b> booked and paid for <b>{esc(b['class_name'])}</b>.",
+             *booker_lines,
              "Open the app → Admin → Bookings to <b>confirm</b> this session."]
             if is_appt_b else
-            [f"<b>{esc(mname)}</b> booked and paid for <b>{esc(b['class_name'])}</b>.", f"When: {when}", f"Amount: ${amount:.2f} {currency}"]
+            [f"<b>{esc(fname)}</b> booked and paid for <b>{esc(b['class_name'])}</b>.", *booker_lines]
         ),
     )
 
@@ -1654,7 +1733,7 @@ class ScanCheckinReq(BaseModel):
 
 
 @api.post("/admin/checkin/scan")
-async def admin_checkin_scan(body: ScanCheckinReq, u: dict = Depends(require_admin)):
+async def admin_checkin_scan(body: ScanCheckinReq, request: Request, u: dict = Depends(require_admin)):
     """Admin scans a member's QR to check them in — only on the class day."""
     try:
         data = jwt.decode(body.code, JWT_SECRET, algorithms=[JWT_ALGO])
@@ -1696,7 +1775,7 @@ async def admin_checkin_scan(body: ScanCheckinReq, u: dict = Depends(require_adm
             f"You checked in with a class pass. {left} pass{'es' if left != 1 else ''} left.",
             "booking",
         )
-        await low_pass_nudge(uid, (member or {}).get("email"), left)
+        await low_pass_nudge(uid, (member or {}).get("email"), left, base_url=_public_base(request))
         return {
             "ok": True,
             "member_name": mname,
@@ -2085,7 +2164,7 @@ async def payments_checkout(body: CheckoutCreate, request: Request, u: dict = De
             "created_at": now,
         })
         await mark_booking_paid(booking["booking_id"])
-        await low_pass_nudge(u["user_id"], u.get("email"), left)
+        await low_pass_nudge(u["user_id"], u.get("email"), left, base_url=_public_base(request))
         return {"paid_with_pass": True, "passes_left": left, "booking_id": booking["booking_id"]}
 
     # ----- Apply in-app credit if requested -----
@@ -2126,7 +2205,7 @@ async def payments_checkout(body: CheckoutCreate, request: Request, u: dict = De
             "price_money": {"amount": amount_cents, "currency": currency},
             "location_id": SQUARE_LOCATION_ID,
         },
-        "payment_note": f"{booking['class_name']} — Booking No. {booking_ref_no(booking['booking_id'])} — {u.get('name') or u.get('email') or 'Member'} (App Booking)",
+        "payment_note": f"{booking['class_name']} — {booking_ref_code(booking['booking_id'])} — {u.get('name') or u.get('email') or 'Member'} (App Booking)",
         "pre_populated_data": {"buyer_email": u.get("email", "")},
         "checkout_options": {"redirect_url": redirect_url},
     }
@@ -4279,18 +4358,25 @@ async def send_due_reminders() -> int:
         # Only send once the class is within the member's chosen lead time.
         if start_utc > now + timedelta(hours=lead):
             continue
-        when = s_local.strftime("%A %d %B at %-I:%M %p")
+        date_str = s_local.strftime("%A, %-d %B")
+        time_str = s_local.strftime("%-I:%M %p")
         mins = int((start_utc - now).total_seconds() // 60)
-        soon = "in about an hour" if mins <= 75 else f"in about {round(mins / 60)} hours"
+        soon = "in about 1 hour" if mins <= 75 else f"in about {round(mins / 60)} hours"
         await notify_user(
             b["user_id"], (member or {}).get("email"),
-            "Class starting soon ⏰",
-            f"Your {b['class_name']} class starts {soon} — {when}. See you there!",
+            f"Your {b['class_name']} Class Starts Soon!",
+            f"Your {b['class_name']} class starts {soon} — {date_str} at {time_str}. See you there!",
             "reminder",
             email_lines=[
-                f"Heads up! Your <b>{b['class_name']}</b> class starts <b>{soon}</b>:",
-                f"<b>{when}</b>",
-                "See you on the mats! 🥊",
+                f"Just a reminder that your <b>{esc(b['class_name'])}</b> class starts <b>{soon}</b>.",
+                "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
+                f"<b>{date_str}</b>",
+                f"Class Time: <b>{time_str}</b>",
+                "Location: <b>MaxEnergy Fitness, Smithfield</b>",
+                "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
+                "Please arrive 10 minutes before the class starts so you have plenty of time to get ready and prepare for your session.",
+                "The gym door will be open before class, so you can come straight in when you arrive.",
+                "We look forward to seeing you on the mats! 🥊",
             ],
         )
         await db.bookings.update_one({"booking_id": b["booking_id"]}, {"$set": {"reminder_sent": True, "reminder_sent_at": now}})
