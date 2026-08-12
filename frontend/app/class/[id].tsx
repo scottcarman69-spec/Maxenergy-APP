@@ -30,6 +30,7 @@ type Cls = {
   booked?: number;
   spots_left?: number;
   by_appointment?: boolean;
+  appt_durations?: { minutes: number; price_cents: number }[];
 };
 
 function fmt(iso: string) {
@@ -48,6 +49,8 @@ export default function ClassDetail() {
   const [apptOpen, setApptOpen] = useState(false);
   const [apptDay, setApptDay] = useState(0);
   const [apptHour, setApptHour] = useState<number | null>(null);
+  const [apptDuration, setApptDuration] = useState<number | null>(null);
+  const [takenSlots, setTakenSlots] = useState<Set<string>>(new Set());
   const [credit, setCredit] = useState(0);
   const [passes, setPasses] = useState(0);
   const [creditOpen, setCreditOpen] = useState(false);
@@ -76,13 +79,13 @@ export default function ClassDetail() {
 
   useFocusEffect(useCallback(() => { load(); refresh(); }, [load, refresh]));
 
-  const proceedBooking = async (requestedTime?: string, requestedAt?: string, useCredit?: boolean, useClassPass?: boolean) => {
+  const proceedBooking = async (requestedTime?: string, requestedAt?: string, useCredit?: boolean, useClassPass?: boolean, durationMin?: number) => {
     if (!cls) return;
     setCreditOpen(false);
     setBusy(true);
     setMsg(null);
     try {
-      const { booking } = await api.createBooking(cls.class_id, requestedTime, requestedAt);
+      const { booking } = await api.createBooking(cls.class_id, requestedTime, requestedAt, durationMin);
 
       if (booking.status === "paid") {
         setMsg("Already booked. See you there!");
@@ -155,7 +158,12 @@ export default function ClassDetail() {
     if (cls?.by_appointment) {
       setApptDay(0);
       setApptHour(null);
+      const opts = cls.appt_durations || [];
+      setApptDuration(opts.length ? opts[0].minutes : null);
       setMsg(null);
+      api.appointmentsTaken()
+        .then((r) => setTakenSlots(new Set(r.taken || [])))
+        .catch(() => {});
       setApptOpen(true);
     } else if (credit > 0 || passes > 0) {
       setMsg(null);
@@ -165,27 +173,39 @@ export default function ClassDetail() {
     }
   };
 
-  // Preferred-time picker (appointment classes): next 14 Queensland days + hourly slots.
+  // Preferred-time picker (appointment classes): Mon–Thu only, 10:30am–4:00pm (Queensland).
   const MIN_LEAD_MS = 24 * 60 * 60 * 1000;
   const apptDays = React.useMemo(() => {
     const base = qldTodayUTC();
-    return Array.from({ length: 14 }, (_, i) =>
-      new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate() + i))
-    );
+    const out: Date[] = [];
+    for (let i = 0; i < 28 && out.length < 8; i++) {
+      const d = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate() + i));
+      const wd = d.getUTCDay(); // Sun=0 .. Sat=6
+      if (wd >= 1 && wd <= 4) out.push(d); // Mon–Thu
+    }
+    return out;
   }, []);
-  const APPT_HOURS = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
-  const slotInstant = (d: Date, h: number) =>
-    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), h) - 10 * 3600 * 1000;
-  const slotIso = (d: Date, h: number) =>
-    `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}T${String(h).padStart(2, "0")}:00:00`;
+  const APPT_SLOTS: { h: number; m: number }[] = [
+    { h: 10, m: 30 }, { h: 11, m: 0 }, { h: 11, m: 30 }, { h: 12, m: 0 }, { h: 12, m: 30 },
+    { h: 13, m: 0 }, { h: 13, m: 30 }, { h: 14, m: 0 }, { h: 14, m: 30 },
+    { h: 15, m: 0 }, { h: 15, m: 30 }, { h: 16, m: 0 },
+  ];
+  const slotInstant = (d: Date, h: number, m: number) =>
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), h, m) - 10 * 3600 * 1000;
+  const slotIso = (d: Date, h: number, m: number) =>
+    `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`;
 
   const confirmAppt = () => {
     if (apptHour === null) return;
+    const opts = cls?.appt_durations || [];
+    if (opts.length && apptDuration === null) return;
     const d = apptDays[apptDay];
-    const iso = slotIso(d, apptHour);
+    const h = Math.floor(apptHour / 60);
+    const m = apptHour % 60;
+    const iso = slotIso(d, h, m);
     const label = `${classDate(iso, { weekday: "short", day: "2-digit", month: "short" })} · ${classTime(iso)}`;
     setApptOpen(false);
-    proceedBooking(label, iso);
+    proceedBooking(label, iso, undefined, undefined, apptDuration ?? undefined);
   };
 
   if (loading) {
@@ -336,7 +356,11 @@ export default function ClassDetail() {
       <View style={styles.footer}>
         <View>
           <Text style={styles.priceLabel}>PRICE</Text>
-          <Text style={styles.priceVal}>${(cls.price_cents / 100).toFixed(0)} AUD</Text>
+          <Text style={styles.priceVal}>
+            {cls.by_appointment && cls.appt_durations && cls.appt_durations.length > 1
+              ? `from $${(Math.min(...cls.appt_durations.map((o) => o.price_cents)) / 100).toFixed(0)} AUD`
+              : `$${(cls.price_cents / 100).toFixed(0)} AUD`}
+          </Text>
         </View>
         <Pressable
           testID="book-and-pay-button"
@@ -363,12 +387,35 @@ export default function ClassDetail() {
             <View style={styles.apptHeader}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.apptTitle}>Request a time</Text>
-                <Text style={styles.apptSub}>{cls.name} · at least 24 hours ahead</Text>
+                <Text style={styles.apptSub}>{cls.name} · Mon–Thu, 10:30am–4:00pm</Text>
               </View>
               <Pressable testID="appt-close" onPress={() => setApptOpen(false)} hitSlop={12}>
                 <Ionicons name="close" size={24} color={colors.onSurface} />
               </Pressable>
             </View>
+
+            {(cls.appt_durations && cls.appt_durations.length > 1) && (
+              <>
+                <Text style={styles.apptLabel}>SESSION LENGTH</Text>
+                <View style={styles.durRow}>
+                  {cls.appt_durations.map((o) => {
+                    const active = apptDuration === o.minutes;
+                    return (
+                      <Pressable
+                        key={o.minutes}
+                        testID={`appt-dur-${o.minutes}`}
+                        onPress={() => setApptDuration(o.minutes)}
+                        style={[styles.durChip, active && styles.apptChipActive]}
+                      >
+                        <Text style={[styles.durMins, active && styles.apptChipTextActive]}>{o.minutes} min</Text>
+                        <Text style={[styles.durPrice, active && styles.apptChipTextActive]}>${(o.price_cents / 100).toFixed(0)}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                <View style={{ height: spacing.lg }} />
+              </>
+            )}
 
             <Text style={styles.apptLabel}>PREFERRED DAY</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm, paddingVertical: 4 }}>
@@ -382,7 +429,7 @@ export default function ClassDetail() {
                     style={[styles.apptDayChip, active && styles.apptChipActive]}
                   >
                     <Text style={[styles.apptDayLabel, active && styles.apptChipTextActive]}>
-                      {classDate(slotIso(d, 12), { weekday: "short" }).toUpperCase()}
+                      {classDate(slotIso(d, 12, 0), { weekday: "short" }).toUpperCase()}
                     </Text>
                     <Text style={[styles.apptDayNum, active && styles.apptChipTextActive]}>{d.getUTCDate()}</Text>
                   </Pressable>
@@ -392,21 +439,25 @@ export default function ClassDetail() {
 
             <Text style={[styles.apptLabel, { marginTop: spacing.lg }]}>PREFERRED TIME</Text>
             <View style={styles.apptTimeWrap}>
-              {APPT_HOURS.map((h) => {
+              {APPT_SLOTS.map(({ h, m }) => {
                 const d = apptDays[apptDay];
-                const disabled = slotInstant(d, h) < Date.now() + MIN_LEAD_MS;
-                const active = apptHour === h;
+                const iso = slotIso(d, h, m);
+                const mins = h * 60 + m;
+                const isTaken = takenSlots.has(iso);
+                const disabled = isTaken || slotInstant(d, h, m) < Date.now() + MIN_LEAD_MS;
+                const active = apptHour === mins;
                 return (
                   <Pressable
-                    key={h}
-                    testID={`appt-time-${h}`}
+                    key={mins}
+                    testID={`appt-time-${mins}`}
                     disabled={disabled}
-                    onPress={() => setApptHour(h)}
-                    style={[styles.apptTimeChip, active && styles.apptChipActive, disabled && styles.apptTimeDisabled]}
+                    onPress={() => setApptHour(mins)}
+                    style={[styles.apptTimeChip, active && styles.apptChipActive, disabled && styles.apptTimeDisabled, isTaken && styles.apptTimeTaken]}
                   >
                     <Text style={[styles.apptTimeText, active && styles.apptChipTextActive, disabled && styles.apptTimeTextDisabled]}>
-                      {classTime(slotIso(d, h))}
+                      {classTime(iso)}
                     </Text>
+                    {isTaken && <Text style={styles.apptTakenTag}>Booked</Text>}
                   </Pressable>
                 );
               })}
@@ -414,11 +465,15 @@ export default function ClassDetail() {
 
             <Pressable
               testID="appt-confirm"
-              style={[styles.apptConfirm, (apptHour === null || busy) && { opacity: 0.5 }]}
+              style={[styles.apptConfirm, (apptHour === null || busy || ((cls.appt_durations?.length ?? 0) > 0 && apptDuration === null)) && { opacity: 0.5 }]}
               onPress={confirmAppt}
-              disabled={apptHour === null || busy}
+              disabled={apptHour === null || busy || ((cls.appt_durations?.length ?? 0) > 0 && apptDuration === null)}
             >
-              <Text style={styles.apptConfirmText}>CONTINUE TO PAYMENT</Text>
+              <Text style={styles.apptConfirmText}>
+                {apptDuration !== null && cls.appt_durations?.length
+                  ? `CONTINUE · $${((cls.appt_durations.find((o) => o.minutes === apptDuration)?.price_cents ?? 0) / 100).toFixed(0)}`
+                  : "CONTINUE TO PAYMENT"}
+              </Text>
               <Ionicons name="arrow-forward" size={18} color={colors.onBrand} />
             </Pressable>
             <Text style={styles.apptFoot}>We'll confirm your exact time after your request.</Text>
@@ -599,15 +654,21 @@ const styles = StyleSheet.create({
   apptTitle: { color: colors.onSurface, fontSize: 22, fontWeight: "900" },
   apptSub: { color: colors.onSurfaceSecondary, fontSize: 13, marginTop: 2 },
   apptLabel: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "800", letterSpacing: 1.5, marginBottom: spacing.sm },
+  durRow: { flexDirection: "row", gap: spacing.md },
+  durChip: { flex: 1, paddingVertical: 12, borderRadius: radius.md, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, alignItems: "center", gap: 2 },
+  durMins: { color: colors.onSurface, fontSize: 15, fontWeight: "800" },
+  durPrice: { color: colors.onSurfaceSecondary, fontSize: 13, fontWeight: "700" },
   apptDayChip: { width: 56, height: 66, borderRadius: radius.md, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
   apptDayLabel: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "800", letterSpacing: 1 },
   apptDayNum: { color: colors.onSurface, fontSize: 18, fontWeight: "800", marginTop: 3 },
   apptChipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
   apptChipTextActive: { color: colors.onBrand },
   apptTimeWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  apptTimeChip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border },
+  apptTimeChip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, alignItems: "center" },
   apptTimeText: { color: colors.onSurface, fontSize: 13, fontWeight: "800" },
   apptTimeDisabled: { opacity: 0.35 },
+  apptTimeTaken: { opacity: 1, borderColor: "#EF4444", backgroundColor: "rgba(239,68,68,0.10)" },
+  apptTakenTag: { color: "#EF4444", fontSize: 9, fontWeight: "800", marginTop: 1, letterSpacing: 0.3 },
   apptTimeTextDisabled: { color: colors.onSurfaceSecondary },
   apptConfirm: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.brand, paddingVertical: 16, borderRadius: radius.pill, marginTop: spacing.xl },
   apptConfirmText: { color: colors.onBrand, fontWeight: "900", letterSpacing: 1 },

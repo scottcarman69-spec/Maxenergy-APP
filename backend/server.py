@@ -688,6 +688,7 @@ class BookingCreate(BaseModel):
     class_id: str
     requested_time: Optional[str] = None  # human-readable preferred time (appointment)
     requested_at: Optional[str] = None     # ISO naive Queensland wall-clock (appointment)
+    duration_min: Optional[int] = None      # chosen session length (appointment classes with options)
 
 
 class CheckoutCreate(BaseModel):
@@ -1218,6 +1219,84 @@ async def class_detail(class_id: str):
     return with_coach(c)
 
 
+# Active statuses that occupy an appointment slot (trainer can only take one at a time).
+APPT_ACTIVE_STATUSES = ["pending", "paid", "confirmed", "reschedule_requested"]
+# Appointment availability: Monday–Thursday, 10:30am–4:00pm (Queensland time), 30-min grid.
+APPT_ALLOWED_WEEKDAYS = {0, 1, 2, 3}  # Mon=0 .. Thu=3 (Python weekday())
+APPT_MIN_MINUTES = 10 * 60 + 30       # 10:30am
+APPT_MAX_MINUTES = 16 * 60            # 4:00pm
+
+
+def check_appt_window(requested_at: str):
+    """Validate a preferred appointment time falls inside the bookable window."""
+    try:
+        rt = datetime.fromisoformat(requested_at)
+    except Exception:
+        raise HTTPException(400, "Invalid preferred time.")
+    if rt.weekday() not in APPT_ALLOWED_WEEKDAYS:
+        raise HTTPException(400, "Personal Training and Programs are available Monday to Thursday only.")
+    mins = rt.hour * 60 + rt.minute
+    if mins < APPT_MIN_MINUTES or mins > APPT_MAX_MINUTES or (mins % 30 != 0):
+        raise HTTPException(400, "Please choose a time between 10:30am and 4:00pm.")
+    return rt
+
+
+@api.get("/appointments/taken")
+async def appointments_taken(u: dict = Depends(require_user)):
+    """Preferred-time slots already taken across ALL by-appointment bookings (PT + Programs)."""
+    rows = await db.bookings.find(
+        {"by_appointment": True, "requested_at": {"$ne": None}, "status": {"$in": APPT_ACTIVE_STATUSES}},
+        {"_id": 0, "requested_at": 1},
+    ).to_list(3000)
+    slots = sorted({r["requested_at"] for r in rows if r.get("requested_at")})
+    return {"taken": slots}
+
+
+class AdminApptCreate(BaseModel):
+    class_id: str
+    requested_at: str            # ISO naive Queensland wall-clock
+    requested_time: Optional[str] = None
+    duration_min: Optional[int] = None
+    note: Optional[str] = None
+
+
+@api.post("/admin/appointments")
+async def admin_create_appointment(body: AdminApptCreate, u: dict = Depends(require_admin)):
+    """Staff blocks/books an appointment slot themselves (shows on the admin calendar, marks slot taken)."""
+    cls = await db.classes.find_one({"class_id": body.class_id}, {"_id": 0})
+    if not cls or not cls.get("by_appointment"):
+        raise HTTPException(404, "Appointment class not found")
+    check_appt_window(body.requested_at)
+    taken = await db.bookings.find_one({
+        "by_appointment": True, "requested_at": body.requested_at, "status": {"$in": APPT_ACTIVE_STATUSES},
+    })
+    if taken:
+        raise HTTPException(409, "That time is already booked.")
+    minutes = int(body.duration_min or cls.get("duration_min") or 30)
+    display_name = f"{cls['name']} ({minutes} min)"
+    doc = {
+        "booking_id": new_id("bk"),
+        "user_id": u["user_id"],
+        "class_id": body.class_id,
+        "class_name": display_name,
+        "amount": 0,
+        "currency": cls.get("currency", "aud"),
+        "by_appointment": True,
+        "duration_min": minutes,
+        "status": "confirmed",
+        "admin_block": True,
+        "member_name": (u.get("name") or "Staff"),
+        "requested_time": body.requested_time,
+        "requested_at": body.requested_at,
+        "note": body.note or "",
+        "created_at": now_utc(),
+    }
+    await db.bookings.insert_one(doc)
+    doc.pop("_id", None)
+    return {"booking": doc}
+
+
+
 # -------------------- bookings --------------------
 @api.post("/bookings")
 async def booking_create(body: BookingCreate, u: dict = Depends(require_user)):
@@ -1235,6 +1314,18 @@ async def booking_create(body: BookingCreate, u: dict = Depends(require_user)):
         return {"booking": existing}
     booking_id = new_id("bk")
     is_appt = bool(cls.get("by_appointment"))
+    # Appointment classes may offer multiple session lengths (e.g. 30 / 60 min).
+    appt_options = cls.get("appt_durations") or []
+    chosen_amount = cls["price_cents"]
+    chosen_minutes = cls.get("duration_min")
+    display_name = cls["name"]
+    if is_appt and appt_options:
+        opt = next((o for o in appt_options if int(o.get("minutes")) == int(body.duration_min or 0)), None)
+        if not opt:
+            raise HTTPException(400, "Please choose a session length.")
+        chosen_amount = int(opt["price_cents"])
+        chosen_minutes = int(opt["minutes"])
+        display_name = f"{cls['name']} ({chosen_minutes} min)"
     if not is_appt:
         cap = cls.get("capacity") or 0
         if cap > 0:
@@ -1252,14 +1343,25 @@ async def booking_create(body: BookingCreate, u: dict = Depends(require_user)):
         rt_utc = rt.replace(tzinfo=timezone.utc) - timedelta(hours=10)
         if rt_utc < now_utc() + timedelta(hours=24):
             raise HTTPException(400, "Sessions must be booked at least 24 hours in advance. Please pick a later time.")
+        # Enforce day/time availability (Mon–Thu, 10:30am–4:00pm).
+        check_appt_window(body.requested_at)
+        # Only one appointment (PT or Program) can occupy a given day/time.
+        slot_taken = await db.bookings.find_one({
+            "by_appointment": True,
+            "requested_at": body.requested_at,
+            "status": {"$in": APPT_ACTIVE_STATUSES},
+        })
+        if slot_taken:
+            raise HTTPException(409, "That time has just been taken. Please choose another slot.")
     doc = {
         "booking_id": booking_id,
         "user_id": u["user_id"],
         "class_id": body.class_id,
-        "class_name": cls["name"],
-        "amount": cls["price_cents"],
+        "class_name": display_name,
+        "amount": chosen_amount,
         "currency": cls.get("currency", "aud"),
         "by_appointment": is_appt,
+        "duration_min": chosen_minutes,
         "class_start": cls.get("start_at"),
         "status": "pending",
         "created_at": now_utc(),
@@ -1274,10 +1376,10 @@ async def booking_create(body: BookingCreate, u: dict = Depends(require_user)):
         pref = body.requested_time or "a time to be confirmed"
         await notify_admins(
             "New session request",
-            f"{member_name} requested a {cls['name']} session — preferred: {pref}.",
+            f"{member_name} requested a {display_name} session — preferred: {pref}.",
             "booking",
             email_lines=[
-                f"<b>{esc(member_name)}</b> has requested a <b>{esc(cls['name'])}</b> session.",
+                f"<b>{esc(member_name)}</b> has requested a <b>{esc(display_name)}</b> session.",
                 f"Preferred time: <b>{esc(pref)}</b>",
                 "This is a by-appointment booking — open the app Admin → Bookings to accept, reschedule or cancel.",
             ],
@@ -1285,7 +1387,7 @@ async def booking_create(body: BookingCreate, u: dict = Depends(require_user)):
         await create_notification(
             u["user_id"],
             "Session request received",
-            f"We received your request for {cls['name']} ({pref}). We'll confirm shortly.",
+            f"We received your request for {display_name} ({pref}). We'll confirm shortly.",
             "booking",
         )
     return {"booking": doc}
@@ -3863,11 +3965,14 @@ async def seed_data():
                 "category": "Adults",
                 "trainer": "Coach Alex",
                 "level": "Any level",
-                "duration_min": 60,
-                "price_cents": 8000,
+                "duration_min": 30,
+                "price_cents": 6000,
                 "currency": "aud",
+                "appt_durations": [
+                    {"minutes": 30, "price_cents": 6000},
+                ],
                 "image": "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1200&q=80",
-                "description": "1-on-1 tailored coaching session with a certified trainer. Booked by appointment — we'll contact you to arrange a time that suits you.",
+                "description": "1-on-1 tailored coaching session with a certified trainer. Booked by appointment (Mon–Thu, 10:30am–4:00pm) — we'll confirm your time.",
                 "program": "",
                 "color": "#FF7A00",
                 "start_at": now_utc(),

@@ -106,6 +106,56 @@ export default function AdminCalendar() {
   const [viewMode, setViewMode] = useState<"month" | "week">("month");
   const [weekAnchor, setWeekAnchor] = useState<Date>(() => mondayOfKey(qldTodayUTC().toISOString().slice(0, 10)));
   const [pagerW, setPagerW] = useState(0);
+  // Staff "add my own appointment" modal.
+  const [apptClasses, setApptClasses] = useState<ClassSession[]>([]);
+  const [addOpen, setAddOpen] = useState(false);
+  const [aCls, setACls] = useState<string | null>(null);
+  const [aDayIdx, setADayIdx] = useState(0);
+  const [aMins, setAMins] = useState<number | null>(null);
+  const [aNote, setANote] = useState("");
+  const [aBusy, setABusy] = useState(false);
+  const [aMsg, setAMsg] = useState<string | null>(null);
+  const [takenAppt, setTakenAppt] = useState<Set<string>>(new Set());
+
+  const A_DAYS = useMemo(() => {
+    const base = qldTodayUTC();
+    const out: Date[] = [];
+    for (let i = 0; i < 28 && out.length < 8; i++) {
+      const d = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate() + i));
+      const wd = d.getUTCDay();
+      if (wd >= 1 && wd <= 4) out.push(d);
+    }
+    return out;
+  }, []);
+  const A_SLOTS = [630, 660, 690, 720, 750, 780, 810, 840, 870, 900, 930, 960];
+  const aIso = (d: Date, mins: number) =>
+    `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}T${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}:00`;
+
+  const openAdd = async () => {
+    setACls(apptClasses[0]?.class_id ?? null);
+    setADayIdx(0);
+    setAMins(null);
+    setANote("");
+    setAMsg(null);
+    setAddOpen(true);
+    try { const r = await api.appointmentsTaken(); setTakenAppt(new Set(r.taken || [])); } catch {}
+  };
+
+  const submitAdd = async () => {
+    if (!aCls || aMins === null) return;
+    setABusy(true);
+    setAMsg(null);
+    try {
+      const iso = aIso(A_DAYS[aDayIdx], aMins);
+      const label = `${classDate(iso, { weekday: "short", day: "2-digit", month: "short" })} · ${classTime(iso)}`;
+      await api.adminAddAppointment({ class_id: aCls, requested_at: iso, requested_time: label, note: aNote });
+      setAddOpen(false);
+      load();
+    } catch (e: any) {
+      setAMsg(e?.message || "Could not add session.");
+    }
+    setABusy(false);
+  };
   const pagerRef = useRef<ScrollView>(null);
 
   const load = useCallback(async () => {
@@ -113,6 +163,7 @@ export default function AdminCalendar() {
       const [b, c] = await Promise.all([api.adminBookings(), api.classes(undefined, true)]);
       setRows(b.bookings || []);
       setClasses((c.classes || []).filter((x: ClassSession) => !x.by_appointment && x.start_at));
+      setApptClasses((c.classes || []).filter((x: ClassSession) => x.by_appointment));
     } catch {}
     setLoading(false);
   }, []);
@@ -263,7 +314,16 @@ export default function AdminCalendar() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      <ScreenHeader title="Bookings Calendar" backTestID="admincal-back" fallback="/admin" />
+      <ScreenHeader
+        title="Bookings Calendar"
+        backTestID="admincal-back"
+        fallback="/admin"
+        right={
+          <Pressable testID="admincal-add" onPress={openAdd} hitSlop={12}>
+            <Ionicons name="add-circle" size={28} color={colors.brand} />
+          </Pressable>
+        }
+      />
 
       {loading ? (
         <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />
@@ -572,12 +632,98 @@ export default function AdminCalendar() {
           </View>
         </View>
       </Modal>
+
+      <Modal visible={addOpen} transparent animationType="slide" onRequestClose={() => setAddOpen(false)}>
+        <View style={styles.addOverlay}>
+          <View style={styles.addSheet}>
+            <View style={styles.addHeader}>
+              <Text style={styles.addTitle}>Add my session</Text>
+              <Pressable testID="addappt-close" onPress={() => setAddOpen(false)} hitSlop={12}>
+                <Ionicons name="close" size={24} color={colors.onSurface} />
+              </Pressable>
+            </View>
+            <Text style={styles.addNote}>Blocks the slot so members can't book it. Mon–Thu, 10:30am–4:00pm.</Text>
+
+            <Text style={styles.addLabel}>TYPE</Text>
+            <View style={styles.addRow}>
+              {apptClasses.map((c) => {
+                const active = aCls === c.class_id;
+                return (
+                  <Pressable key={c.class_id} testID={`addappt-cls-${c.class_id}`} onPress={() => setACls(c.class_id)} style={[styles.addChip, active && styles.addChipActive]}>
+                    <Text style={[styles.addChipText, active && styles.addChipTextActive]}>{c.name}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={styles.addLabel}>DAY</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm, paddingVertical: 2 }}>
+              {A_DAYS.map((d, i) => {
+                const active = i === aDayIdx;
+                return (
+                  <Pressable key={i} testID={`addappt-day-${i}`} onPress={() => { setADayIdx(i); setAMins(null); }} style={[styles.addDayChip, active && styles.addChipActive]}>
+                    <Text style={[styles.addDayLabel, active && styles.addChipTextActive]}>{classDate(aIso(d, 720), { weekday: "short" }).toUpperCase()}</Text>
+                    <Text style={[styles.addDayNum, active && styles.addChipTextActive]}>{d.getUTCDate()}</Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+
+            <Text style={[styles.addLabel, { marginTop: spacing.md }]}>TIME</Text>
+            <View style={styles.addTimeWrap}>
+              {A_SLOTS.map((mins) => {
+                const iso = aIso(A_DAYS[aDayIdx], mins);
+                const taken = takenAppt.has(iso);
+                const active = aMins === mins;
+                return (
+                  <Pressable key={mins} testID={`addappt-time-${mins}`} disabled={taken} onPress={() => setAMins(mins)} style={[styles.addTimeChip, active && styles.addChipActive, taken && styles.addTimeTaken]}>
+                    <Text style={[styles.addTimeText, active && styles.addChipTextActive]}>{classTime(iso)}</Text>
+                    {taken && <Text style={styles.addTakenTag}>Booked</Text>}
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {!!aMsg && <Text style={styles.addErr}>{aMsg}</Text>}
+            <Pressable
+              testID="addappt-submit"
+              style={[styles.addSubmit, (!aCls || aMins === null || aBusy) && { opacity: 0.5 }]}
+              disabled={!aCls || aMins === null || aBusy}
+              onPress={submitAdd}
+            >
+              {aBusy ? <ActivityIndicator color={colors.onBrand} /> : <Text style={styles.addSubmitText}>ADD TO CALENDAR</Text>}
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
+  addOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
+  addSheet: { backgroundColor: colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: spacing.xl, borderTopWidth: 1, borderColor: colors.border, maxHeight: "88%" },
+  addHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  addTitle: { color: colors.onSurface, fontSize: 20, fontFamily: font.display },
+  addNote: { color: colors.onSurfaceSecondary, fontSize: 12.5, marginTop: 4, marginBottom: spacing.md },
+  addLabel: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "800", letterSpacing: 1.2, marginTop: spacing.md, marginBottom: spacing.sm },
+  addRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  addChip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border },
+  addChipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
+  addChipText: { color: colors.onSurface, fontSize: 13, fontWeight: "700" },
+  addChipTextActive: { color: colors.onBrand },
+  addDayChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.md, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, alignItems: "center", minWidth: 52 },
+  addDayLabel: { color: colors.onSurfaceSecondary, fontSize: 10, fontWeight: "800" },
+  addDayNum: { color: colors.onSurface, fontSize: 16, fontWeight: "800", marginTop: 2 },
+  addTimeWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  addTimeChip: { paddingHorizontal: 12, paddingVertical: 9, borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, alignItems: "center" },
+  addTimeTaken: { borderColor: "#EF4444", backgroundColor: "rgba(239,68,68,0.10)" },
+  addTimeText: { color: colors.onSurface, fontSize: 13, fontWeight: "800" },
+  addTakenTag: { color: "#EF4444", fontSize: 9, fontWeight: "800" },
+  addErr: { color: "#EF4444", fontSize: 13, marginTop: spacing.md },
+  addSubmit: { marginTop: spacing.lg, backgroundColor: colors.brand, borderRadius: radius.md, paddingVertical: 15, alignItems: "center" },
+  addSubmitText: { color: colors.onBrand, fontFamily: font.display, fontSize: 15, letterSpacing: 0.6 },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
   headerTitle: { color: colors.onSurface, fontSize: 17, fontWeight: "800" },
   filterRow: { flexDirection: "row", gap: spacing.sm, paddingRight: spacing.lg },
