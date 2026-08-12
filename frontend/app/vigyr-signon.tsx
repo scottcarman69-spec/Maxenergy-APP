@@ -98,6 +98,31 @@ export default function VigyrSignOn() {
           contentContainerStyle={styles.scrollBody}
           showsVerticalScrollIndicator={false}
         >
+          {/* New Member Registration notice */}
+          <View style={styles.noticeCard}>
+            <View style={styles.noticeHead}>
+              <View style={styles.noticeIcon}>
+                <Ionicons name="clipboard" size={20} color={colors.brand} />
+              </View>
+              <Text style={styles.noticeTitle}>New Member Registration Required</Text>
+            </View>
+            <Text style={styles.noticeBody}>
+              If you are a new member, please complete the registration form below. You only need to register once.
+            </Text>
+            <Text style={styles.noticeBody}>
+              This allows us to securely add your details to our gym management system and confirm your booking.
+            </Text>
+            <View style={styles.noticeSecure}>
+              <Ionicons name="lock-closed" size={14} color="#22C55E" />
+              <Text style={styles.noticeSecureText}>
+                Your information is handled securely and safely. Any payment or banking information is processed through secure payment systems and is not stored directly within our app.
+              </Text>
+            </View>
+            <Text style={styles.noticeFoot}>
+              Once your registration is complete, you won't need to fill out this form again for future bookings.
+            </Text>
+          </View>
+
           <Text style={styles.pageTitle}>Choose How You'd Like to Join</Text>
           <Text style={styles.pageSub}>Please select the option that best suits you.</Text>
 
@@ -212,6 +237,22 @@ const styles = StyleSheet.create({
   scrollBody: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.xxl },
   pageTitle: { color: colors.onSurface, fontSize: 24, fontFamily: font.display, letterSpacing: -0.3 },
   pageSub: { color: colors.onSurfaceSecondary, fontSize: 14.5, marginTop: 6, marginBottom: spacing.lg },
+
+  noticeCard: {
+    backgroundColor: colors.brandTertiary,
+    borderRadius: radius.lg,
+    borderWidth: 1.5,
+    borderColor: colors.brand,
+    padding: spacing.lg,
+    marginBottom: spacing.xl,
+  },
+  noticeHead: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginBottom: spacing.md },
+  noticeIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
+  noticeTitle: { flex: 1, color: colors.onSurface, fontSize: 17, fontFamily: font.heading },
+  noticeBody: { color: colors.onSurface, fontSize: 14, lineHeight: 20, marginBottom: spacing.sm },
+  noticeSecure: { flexDirection: "row", gap: 8, backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: "#22C55E44", padding: spacing.md, marginTop: spacing.xs, marginBottom: spacing.md },
+  noticeSecureText: { flex: 1, color: colors.onSurfaceSecondary, fontSize: 12.5, lineHeight: 18 },
+  noticeFoot: { color: colors.brand, fontSize: 13, lineHeight: 19, fontFamily: font.semibold },
 
   optionCard: {
     backgroundColor: colors.surfaceSecondary,
