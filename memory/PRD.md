@@ -560,3 +560,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Bottom tab bar: labels now rendered via custom tabBarLabel with allowFontScaling={false}, fontSize 10, shorter names (Timetable->"Classes") to stop truncation; retained useSafeAreaInsets() height/paddingBottom fix for Android nav bar / iOS home indicator overlap.
 - Cleaned 31 leftover test-cancel notifications (Pass/Money/PT tests, "Booking cancelled by me").
 - NOTE: user must reload app / redeploy to see these on device.
+
+## Session update (Jun 2026 fork) — Fix "Not authenticated" on booking/pay (DONE)
+- Root cause: after the environment fork, devices held a login token signed before the fork -> invalid -> ALL authenticated requests (POST /bookings, /auth/me, /me/stats, etc.) returned 401 "Not authenticated". App cached the user in memory so it looked logged in but every action failed. Backend verified healthy: fresh login -> POST /bookings 200.
+- Fix: api.ts req() now detects 401 on an authenticated request (token was present) -> clears token + invokes a global onUnauthorized handler + throws friendly "Your session has expired. Please log in again." AuthContext registers setUnauthorizedHandler -> setUser(null) + router.replace("/(auth)/login"). Verified via screenshot: corrupting auth_token then loading a protected screen auto-redirects to login.
+- User action: log out/in on device to get a fresh token.

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { api, getToken, setToken, clearToken, User } from "@/src/api";
+import { router } from "expo-router";
+import { api, getToken, setToken, clearToken, setUnauthorizedHandler, User } from "@/src/api";
 
 type AuthState = {
   user: User | null;
@@ -38,6 +39,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // When any authenticated API call gets a 401 (expired/invalid token), drop the
+  // session and send the user back to the login screen instead of a dead error.
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      setUser(null);
+      try { router.replace("/(auth)/login"); } catch {}
+    });
+    return () => setUnauthorizedHandler(null);
+  }, []);
 
   const loginEmail = async (email: string, password: string) => {
     const r = await api.login(email, password);

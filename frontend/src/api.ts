@@ -27,6 +27,13 @@ export async function clearToken() {
   await storage.secureRemove(TOKEN_KEY);
 }
 
+// Global handler invoked when an authenticated request is rejected with 401
+// (e.g. the saved token is expired/invalid). Lets the app auto-logout + redirect.
+let onUnauthorized: (() => void) | null = null;
+export function setUnauthorizedHandler(fn: (() => void) | null) {
+  onUnauthorized = fn;
+}
+
 async function req(path: string, opts: RequestInit = {}) {
   const token = await getToken();
   const headers: Record<string, string> = {
@@ -43,6 +50,12 @@ async function req(path: string, opts: RequestInit = {}) {
     data = text;
   }
   if (!res.ok) {
+    // A token was sent but the server rejected it -> stale/expired session.
+    // Clear it and let the app send the user back to login.
+    if (res.status === 401 && token) {
+      await clearToken();
+      if (onUnauthorized) onUnauthorized();
+    }
     let msg = `Request failed (${res.status})`;
     if (data && data.detail) {
       if (typeof data.detail === "string") {
@@ -50,6 +63,9 @@ async function req(path: string, opts: RequestInit = {}) {
       } else if (Array.isArray(data.detail)) {
         msg = data.detail.map((d: any) => d?.msg || "Invalid input").join(", ");
       }
+    }
+    if (res.status === 401 && token) {
+      msg = "Your session has expired. Please log in again.";
     }
     throw new Error(msg);
   }
