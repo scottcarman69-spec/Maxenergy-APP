@@ -274,6 +274,7 @@ export default function Home() {
     { key: "about", label: "About Us", icon: "people", grad: ["#0891B2", "#22D3EE"], onPress: () => router.push("/about") },
     { key: "contact", label: "Contact Us", icon: "chatbubbles", grad: ["#DB2777", "#F472B6"], onPress: () => router.push("/contact") },
     { key: "settings", label: "Settings", icon: "options", grad: ["#475569", "#94A3B8"], onPress: () => router.push("/inbox-settings") },
+    { key: "facebook", label: "Facebook", icon: "logo-facebook", grad: ["#1877F2", "#4293FB"], onPress: () => router.push("/social") },
   ] as const;
 
   return (

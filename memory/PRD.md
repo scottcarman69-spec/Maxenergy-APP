@@ -708,3 +708,6 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - FacebookFeed sizing bumped to fill the /social page: FEED_HEIGHT 460→620, PLUGIN_HEIGHT 900→1100, MIN_H 260→520, MAX_H 1600→1800.
 - social.tsx: added a follow banner above the feed — "Please like and follow our social media to stay up to date! 💥" (heart icon, brand-tinted card).
 - Verified via screenshot (banner + tabs + taller feed area). Note: FB plugin frame renders blank in the headless web-preview sandbox but populates on real devices (unchanged plugin behaviour). tsc clean.
+
+## Session update (Jun 2026 fork) — Facebook quick action (DONE)
+- Added a "Facebook" tile (blue logo-facebook, testID quick-facebook) to the Home Quick Actions grid → routes to /social. Verified via screenshot. tsc clean.
