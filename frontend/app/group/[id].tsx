@@ -37,7 +37,11 @@ export default function GroupChat() {
       setMsgs(r.messages || []); setGname(r.group?.name || gname); setCount((r.group?.members || []).length);
       setPinned(r.group?.pinned_note || null);
       setMeId(me?.user?.user_id || "");
-    } catch {}
+    } catch {
+      // Not a member (e.g. tapped the Academy shortcut without joining) → send them to the Inbox to request access.
+      router.replace("/(tabs)/inbox");
+      return;
+    }
     setLoading(false);
     setTimeout(() => ref.current?.scrollToEnd({ animated: false }), 100);
   }, [id]);
@@ -54,7 +58,12 @@ export default function GroupChat() {
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
       <ScreenHeader title={gname} subtitle={`${count} members`} fallback="/(tabs)/inbox"
-        right={<Pressable testID="group-manage" hitSlop={10} onPress={() => router.push({ pathname: "/group/manage", params: { id: String(id) } } as any)}><Ionicons name="settings-outline" size={22} color={colors.onSurface} /></Pressable>} />
+        right={
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+            <Pressable testID="group-members" hitSlop={10} onPress={() => router.push({ pathname: "/group/members", params: { id: String(id) } } as any)}><Ionicons name="people" size={22} color={colors.onSurface} /></Pressable>
+            <Pressable testID="group-manage" hitSlop={10} onPress={() => router.push({ pathname: "/group/manage", params: { id: String(id) } } as any)}><Ionicons name="settings-outline" size={22} color={colors.onSurface} /></Pressable>
+          </View>
+        } />
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }} keyboardVerticalOffset={80}>
         {!!pinned && (
           <Pressable style={styles.pinBar} onPress={() => setPinExpanded((v) => !v)}>

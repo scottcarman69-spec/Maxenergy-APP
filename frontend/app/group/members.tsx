@@ -2,6 +2,7 @@ import React, { useCallback, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Image } from "react-native";
 import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
 import { presenceLabel, isOnline } from "@/src/presence";
 import ScreenHeader from "@/src/components/ScreenHeader";
@@ -53,7 +54,7 @@ export default function GroupMembers() {
                     {m.name}{m.user_id === ownerId ? "  ·  Owner" : ""}
                   </Text>
                   <Text style={styles.sub} numberOfLines={1}>
-                    {m.handle ? `${m.handle} · ` : ""}{online ? "Active now" : presenceLabel(m.last_active_at)}
+                    {m.handle ? `${m.handle} · ` : ""}{online ? "Active now" : (presenceLabel(m.last_active_at) || "Offline")}
                   </Text>
                 </View>
               </View>
@@ -64,8 +65,6 @@ export default function GroupMembers() {
     </SafeAreaView>
   );
 }
-
-import { api } from "@/src/api";
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },

@@ -268,10 +268,12 @@ export default function Home() {
     { key: "checkin", label: "Class Check-In", icon: "checkmark-done", grad: ["#16A34A", "#4ADE80"], onPress: () => router.push("/check-in") },
     { key: "trial", label: "Free Trial", icon: "gift", grad: ["#9333EA", "#C084FC"], onPress: () => router.push("/free-trial") },
     { key: "membership", label: "Join Membership", icon: "ribbon", grad: ["#2563EB", "#60A5FA"], onPress: () => router.push("/vigyr-signon") },
-    { key: "services", label: "Our Services", icon: "barbell", grad: ["#DC2626", "#F87171"], onPress: () => router.push("/services") },
+    { key: "classpass", label: "Class Pass", icon: "ticket", grad: ["#DC2626", "#F87171"], onPress: () => router.push("/credits") },
+    { key: "academy", label: "Muay Thai Academy", icon: "shield-half", grad: ["#B45309", "#F59E0B"], onPress: () => router.push("/group/grp_muaythai_academy") },
     { key: "notices", label: "Gym Notices", icon: "megaphone", grad: ["#D97706", "#FBBF24"], onPress: () => router.navigate("/(tabs)/events") },
     { key: "about", label: "About Us", icon: "people", grad: ["#0891B2", "#22D3EE"], onPress: () => router.push("/about") },
     { key: "contact", label: "Contact Us", icon: "chatbubbles", grad: ["#DB2777", "#F472B6"], onPress: () => router.push("/contact") },
+    { key: "settings", label: "Settings", icon: "options", grad: ["#475569", "#94A3B8"], onPress: () => router.push("/inbox-settings") },
   ] as const;
 
   return (
