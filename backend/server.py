@@ -4850,6 +4850,17 @@ async def admin_booking_reschedule(booking_id: str, body: AdminRescheduleReq, u:
     # Reject proposing a time that's already in the past.
     if body.new_at and iso_is_past(body.new_at):
         raise HTTPException(400, "That time is in the past. Please choose an upcoming day and time.")
+    # For appointment bookings, enforce the same window + no-double-book rules as members.
+    if b.get("by_appointment") and body.new_at:
+        check_appt_window(body.new_at)  # Mon–Thu, 10:30am–4:00pm, on the half hour
+        clash = await db.bookings.find_one({
+            "by_appointment": True,
+            "requested_at": body.new_at,
+            "status": {"$in": APPT_ACTIVE_STATUSES},
+            "booking_id": {"$ne": booking_id},
+        })
+        if clash:
+            raise HTTPException(409, "That time is already booked. Please choose another slot.")
     # The gym PROPOSES a new time — the member must confirm it suits them.
     upd = {"status": "admin_proposed", "proposed_time": body.new_time,
            "proposed_note": body.note, "proposed_at": now_utc()}

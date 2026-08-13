@@ -15,6 +15,7 @@ type Booking = {
   amount: number;
   by_appointment?: boolean;
   requested_time?: string;
+  requested_at?: string;
   scheduled_time?: string;
   proposed_time?: string;
   member_name?: string;
@@ -44,20 +45,32 @@ export default function AdminBookings() {
   const [rescheduleFor, setRescheduleFor] = useState<Booking | null>(null);
   const [rDayIdx, setRDayIdx] = useState<number | null>(null);
   const [rMins, setRMins] = useState<number | null>(null); // minutes since midnight
+  const [takenSlots, setTakenSlots] = useState<Set<string>>(new Set());
   const [note, setNote] = useState("");
   const [banner, setBanner] = useState<string | null>(null);
 
-  // Next 14 Queensland days as UTC-midnight Dates (comparable to schedule wall-clock).
+  const isApptResched = !!rescheduleFor?.by_appointment;
+
+  // Days: appointments are Mon–Thu only; class bookings can use any of the next 14 days.
   const rDays = React.useMemo(() => {
     const base = qldTodayUTC();
-    return Array.from({ length: 14 }, (_, i) =>
-      new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate() + i)));
+    const out: Date[] = [];
+    for (let i = 0; i < 21 && out.length < 14; i++) {
+      const d = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate() + i));
+      const wd = d.getUTCDay(); // Sun=0 .. Sat=6
+      if (isApptResched && !(wd >= 1 && wd <= 4)) continue; // Mon–Thu only for appointments
+      out.push(d);
+    }
+    return out;
   }, [rescheduleFor]);
+  // Slots: appointments 10:30am–4:00pm; class bookings 6:00am–8:00pm.
   const R_SLOTS = React.useMemo(() => {
     const out: number[] = [];
-    for (let mins = 6 * 60; mins <= 20 * 60; mins += 30) out.push(mins); // 6:00am–8:00pm
+    const start = isApptResched ? 10 * 60 + 30 : 6 * 60;
+    const end = isApptResched ? 16 * 60 : 20 * 60;
+    for (let mins = start; mins <= end; mins += 30) out.push(mins);
     return out;
-  }, []);
+  }, [rescheduleFor]);
   const slotIso = (d: Date, mins: number) => {
     const h = Math.floor(mins / 60), m = mins % 60;
     return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`;
@@ -66,11 +79,20 @@ export default function AdminBookings() {
   const rChosenLabel = rChosenIso
     ? `${classDate(rChosenIso, { weekday: "short", day: "2-digit", month: "short" })} · ${classTime(rChosenIso)}`
     : "";
-  const openReschedule = (b: Booking) => {
+  const openReschedule = async (b: Booking) => {
     setRescheduleFor(b);
     setRDayIdx(null);
     setRMins(null);
     setNote("");
+    setTakenSlots(new Set());
+    if (b.by_appointment) {
+      try {
+        const r = await api.appointmentsTaken();
+        // Don't treat this booking's own slot as taken.
+        const own = b.requested_at || "";
+        setTakenSlots(new Set((r.taken || []).filter((t: string) => t !== own)));
+      } catch { /* ignore */ }
+    }
   };
 
   const load = useCallback(async () => {
@@ -245,7 +267,7 @@ export default function AdminBookings() {
               <Text style={styles.modalHint}>Member's preferred time: {rescheduleFor?.requested_time}</Text>
             )}
 
-            <Text style={styles.modalLabel}>Pick a day</Text>
+            <Text style={styles.modalLabel}>Pick a day{isApptResched ? " (Mon–Thu only)" : ""}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm, paddingVertical: 4 }}>
               {rDays.map((d, i) => {
                 const active = i === rDayIdx;
@@ -268,13 +290,16 @@ export default function AdminBookings() {
               })}
             </ScrollView>
 
-            <Text style={styles.modalLabel}>Pick a time</Text>
+            <Text style={styles.modalLabel}>Pick a time{isApptResched ? " (10:30am–4:00pm)" : ""}</Text>
             <View style={styles.slotWrap}>
               {R_SLOTS.map((mins) => {
-                const disabled = rDayIdx === null || (slotIso(rDays[rDayIdx], mins) <= (() => {
+                const iso = rDayIdx !== null ? slotIso(rDays[rDayIdx], mins) : "";
+                const isPast = rDayIdx !== null && (iso <= (() => {
                   const n = qldNowUTC();
                   return `${n.getUTCFullYear()}-${String(n.getUTCMonth() + 1).padStart(2, "0")}-${String(n.getUTCDate()).padStart(2, "0")}T${String(n.getUTCHours()).padStart(2, "0")}:${String(n.getUTCMinutes()).padStart(2, "0")}:00`;
                 })());
+                const isTaken = isApptResched && !!iso && takenSlots.has(iso);
+                const disabled = rDayIdx === null || isPast || isTaken;
                 const active = mins === rMins;
                 const h = Math.floor(mins / 60), m = mins % 60;
                 const label = new Date(Date.UTC(2000, 0, 1, h, m)).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", timeZone: "UTC" });
@@ -284,9 +309,10 @@ export default function AdminBookings() {
                     testID={`adminbk-slot-${mins}`}
                     disabled={disabled}
                     onPress={() => setRMins(mins)}
-                    style={[styles.slotChip, active && styles.chipActive, disabled && { opacity: 0.3 }]}
+                    style={[styles.slotChip, active && styles.chipActive, disabled && { opacity: 0.3 }, isTaken && styles.slotTaken]}
                   >
                     <Text style={[styles.slotChipText, active && styles.chipTextActive]}>{label}</Text>
+                    {isTaken && <Text style={styles.slotTakenText}>booked</Text>}
                   </Pressable>
                 );
               })}
@@ -377,7 +403,9 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
   chipTextActive: { color: colors.onBrand },
   slotWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  slotChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSecondary },
+  slotChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSecondary, alignItems: "center" },
   slotChipText: { color: colors.onSurface, fontSize: 13, fontWeight: "700" },
+  slotTaken: { borderColor: colors.error },
+  slotTakenText: { color: colors.error, fontSize: 9, fontWeight: "800", textTransform: "uppercase", marginTop: 1 },
   chosenLine: { color: colors.onSurface, fontSize: 14, marginTop: spacing.md },
 });

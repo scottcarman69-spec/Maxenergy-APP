@@ -749,3 +749,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Fix (frontend admin/bookings.tsx): replaced the free-text "new time" input with a STRUCTURED day-chip (next 14 QLD days) + time-slot picker (6:00am–8:00pm, 30-min), past slots on today auto-disabled. Builds new_time label + new_at ISO. Modal wrapped in ScrollView (button always reachable). Button relabelled "PROPOSE & NOTIFY".
 - api.ts adminRescheduleBooking(id, new_time, note, new_at).
 - Verified via curl E2E: propose past→400, propose future→ok(proposed_at_iso set), member confirm future→ok(requested_at+scheduled_time set), member confirm past→400. Admin picker UI verified via screenshot (day+time chips render).
+
+## Session update (Jun 2026 fork) — Admin picker matches member appt rules (DONE)
+- Q from user: does the admin "Suggest a new time" picker hide booked-out slots + restrict to Mon–Thu 10:30am–4:00pm? Previously NO (all days, 6am–8pm, taken slots shown).
+- Fix (admin/bookings.tsx): for by_appointment bookings the picker now shows Mon–Thu days only + 10:30am–4:00pm slots, and disables slots already taken (fetched via api.appointmentsTaken, excluding the booking's own requested_at) with a red "booked" tag. Class (non-appointment) bookings keep the general next-14-days / 6am–8pm picker. Past slots on today still disabled. Labels show "(Mon–Thu only)" / "(10:30am–4:00pm)".
+- Backend (admin_booking_reschedule): for appointment bookings with new_at, now also runs check_appt_window (Mon–Thu, 10:30–4, half-hour) and rejects a slot already taken by another active appointment (409).
+- Verified via curl: Saturday→400, 5pm→400, valid Wed 11:30→ok, taken Thu 2pm→409. Test data cleaned.
