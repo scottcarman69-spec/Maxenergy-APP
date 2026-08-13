@@ -1,11 +1,22 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Platform, Alert } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import * as Sharing from "expo-sharing";
+import * as FileSystem from "expo-file-system/legacy";
 import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
 import ScreenHeader from "@/src/components/ScreenHeader";
+
+type Person = { name: string; email?: string; checkin_time?: string | null; checked_in_by?: string | null };
+type Session = { class_name: string; iso: string; date: string; time: string; attended: Person[]; no_shows: Person[]; attended_count: number; no_show_count: number; booked_count: number };
+type Roster = { sessions: Session[]; totals: { attended: number; no_shows: number; sessions: number } };
+
+const csvCell = (v: any) => {
+  const s = String(v ?? "");
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
 
 type Report = {
   totals: { today: number; week: number; month: number; all: number };
@@ -19,17 +30,64 @@ type Report = {
 export default function AdminAttendance() {
   const router = useRouter();
   const [data, setData] = useState<Report | null>(null);
+  const [roster, setRoster] = useState<Roster | null>(null);
   const [loading, setLoading] = useState(true);
   const [openKey, setOpenKey] = useState<string | null>(null);
+  const [openNs, setOpenNs] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const r = await api.attendanceReport();
+      const [r, rr] = await Promise.all([api.attendanceReport(), api.attendanceRoster()]);
       setData(r);
+      setRoster(rr);
     } catch {}
     setLoading(false);
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const exportCsv = useCallback(async () => {
+    if (!roster || !roster.sessions.length || exporting) return;
+    setExporting(true);
+    try {
+      const headers = ["Class", "Date", "Time", "Member", "Email", "Status", "Check-in time", "Checked in by"];
+      const lines = [headers.join(",")];
+      for (const s of roster.sessions) {
+        const rows: [Person, string][] = [
+          ...s.attended.map((p) => [p, "Attended"] as [Person, string]),
+          ...s.no_shows.map((p) => [p, "No-show"] as [Person, string]),
+        ];
+        for (const [p, status] of rows) {
+          const by = p.checked_in_by === "admin_qr" ? "QR scan" : p.checked_in_by === "admin" ? "Staff" : p.checked_in_by === "member" ? "Member" : "";
+          lines.push([
+            csvCell(s.class_name), csvCell(s.date), csvCell(s.time),
+            csvCell(p.name), csvCell(p.email), csvCell(status),
+            csvCell(p.checkin_time || ""), csvCell(by),
+          ].join(","));
+        }
+      }
+      const csv = lines.join("\n");
+      const fname = `maxenergy-attendance-${new Date().toISOString().slice(0, 10)}.csv`;
+      if (Platform.OS === "web") {
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = fname; document.body.appendChild(a); a.click();
+        a.remove(); URL.revokeObjectURL(url);
+      } else {
+        const uri = FileSystem.cacheDirectory + fname;
+        await FileSystem.writeAsStringAsync(uri, csv, { encoding: FileSystem.EncodingType.UTF8 });
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(uri, { mimeType: "text/csv", dialogTitle: "Export attendance", UTI: "public.comma-separated-values-text" });
+        } else {
+          Alert.alert("Export ready", `Saved attendance to ${fname}.`);
+        }
+      }
+    } catch (e: any) {
+      Alert.alert("Export failed", e?.message || "Could not export attendance.");
+    }
+    setExporting(false);
+  }, [roster, exporting]);
 
   const maxDaily = Math.max(1, ...(data?.daily || []).map((d) => d.count));
 
@@ -52,6 +110,15 @@ export default function AdminAttendance() {
         <Text style={styles.empty}>Could not load report.</Text>
       ) : (
         <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.lg, paddingBottom: 40 }}>
+          <Pressable testID="att-export" style={[styles.exportBtn, exporting && { opacity: 0.6 }]} onPress={exportCsv} disabled={exporting || !roster?.sessions.length}>
+            {exporting ? <ActivityIndicator color={colors.brand} /> : (
+              <>
+                <Ionicons name="download-outline" size={18} color={colors.brand} />
+                <Text style={styles.exportText}>EXPORT ATTENDANCE (CSV)</Text>
+              </>
+            )}
+          </Pressable>
+
           <View style={styles.statsGrid}>
             {[
               { label: "TODAY", value: data.totals.today },
@@ -118,6 +185,63 @@ export default function AdminAttendance() {
                   </View>
                 );
               })
+            )}
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>NO-SHOW REPORT</Text>
+            <View style={styles.nsSummary}>
+              <View style={[styles.nsChip, { borderColor: "#22C55E" }]}>
+                <Text style={[styles.nsChipNum, { color: "#22C55E" }]}>{roster?.totals.attended ?? 0}</Text>
+                <Text style={styles.nsChipLabel}>ATTENDED</Text>
+              </View>
+              <View style={[styles.nsChip, { borderColor: colors.error }]}>
+                <Text style={[styles.nsChipNum, { color: colors.error }]}>{roster?.totals.no_shows ?? 0}</Text>
+                <Text style={styles.nsChipLabel}>NO-SHOWS</Text>
+              </View>
+              <View style={[styles.nsChip, { borderColor: colors.border }]}>
+                <Text style={[styles.nsChipNum, { color: colors.onSurface }]}>{roster?.totals.sessions ?? 0}</Text>
+                <Text style={styles.nsChipLabel}>SESSIONS</Text>
+              </View>
+            </View>
+            {(!roster || roster.sessions.length === 0) ? (
+              <Text style={styles.muted}>No ended sessions yet.</Text>
+            ) : (
+              roster.sessions.filter((s) => s.no_show_count > 0).length === 0 ? (
+                <Text style={styles.muted}>🎉 No no-shows — every booked member checked in.</Text>
+              ) : (
+                roster.sessions.filter((s) => s.no_show_count > 0).map((s) => {
+                  const key = "ns" + s.class_name + s.iso;
+                  const open = openNs === key;
+                  return (
+                    <View key={key} style={styles.session}>
+                      <Pressable testID={`noshow-${key}`} style={styles.sessionHead} onPress={() => setOpenNs(open ? null : key)}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.rowName} numberOfLines={1}>{s.class_name}</Text>
+                          <Text style={styles.rowEmail}>{s.date} · {s.time}</Text>
+                        </View>
+                        <View style={[styles.countPill, { backgroundColor: "rgba(239,68,68,0.15)" }]}>
+                          <Ionicons name="alert-circle" size={13} color={colors.error} />
+                          <Text style={[styles.countPillText, { color: colors.error }]}>{s.no_show_count}</Text>
+                        </View>
+                        <Ionicons name={open ? "chevron-up" : "chevron-down"} size={18} color={colors.onSurfaceSecondary} />
+                      </Pressable>
+                      {open && (
+                        <View style={styles.attendeeList}>
+                          <Text style={styles.nsMeta}>{s.attended_count} of {s.booked_count} checked in · {s.no_show_count} missed</Text>
+                          {s.no_shows.map((p, i) => (
+                            <View key={i} style={styles.attendeeRow}>
+                              <Ionicons name="close-circle-outline" size={18} color={colors.error} />
+                              <Text style={styles.attendeeName} numberOfLines={1}>{p.name}</Text>
+                              <Text style={styles.attendeeTime} numberOfLines={1}>{p.email || ""}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  );
+                })
+              )
             )}
           </View>
 
@@ -215,4 +339,11 @@ const styles = StyleSheet.create({
   attendeeRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   attendeeName: { color: colors.onSurface, fontSize: 13.5, fontWeight: "600", flex: 1 },
   attendeeTime: { color: colors.onSurfaceSecondary, fontSize: 11.5 },
+  exportBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.brand },
+  exportText: { color: colors.brand, fontWeight: "900", fontSize: 14, letterSpacing: 0.5 },
+  nsSummary: { flexDirection: "row", gap: spacing.md, marginBottom: spacing.sm },
+  nsChip: { flex: 1, borderWidth: 1.5, borderRadius: radius.md, paddingVertical: spacing.md, alignItems: "center" },
+  nsChipNum: { fontSize: 24, fontWeight: "900" },
+  nsChipLabel: { color: colors.onSurfaceSecondary, fontSize: 9.5, letterSpacing: 0.8, fontWeight: "800", marginTop: 2 },
+  nsMeta: { color: colors.onSurfaceSecondary, fontSize: 11.5, fontStyle: "italic", marginBottom: 2 },
 });

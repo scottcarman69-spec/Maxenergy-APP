@@ -870,3 +870,17 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Leaderboard now supports a discipline filter. GET /api/leaderboard?period=&discipline= — discipline "all" or a class name (e.g. "Muay Thai"). Filter applied to the main ranking, streaks, and last-month movement. Response also returns `disciplines` (distinct class_names with any confirmed attendance) for the filter chips.
 - Frontend leaderboard screen: horizontal chip row under the period tabs — "All Classes" + each discipline. Selecting one re-ranks the board, podium, streaks, movement, and the your-rank bar for that discipline. api.leaderboard(period, discipline).
 - Verified via curl (All / Muay Thai / Kickboxing give different rankings + own rank) and screenshot. Test data cleaned.
+
+
+## Session update (Jun 2026 fork) — Receipt fix + 3 backlog features (DONE)
+- Receipt bug (P0): GET /api/payments/receipt/{booking_id} now serves receipts for status in ("paid","confirmed") so confirmed Personal Training / Custom Program appointments load. Verified endpoint + confirmed-appt data.
+- TASK 1 — Spots Left in reschedule picker (bookings.tsx): the member's class-reschedule "Pick a session" list now shows spots-left per session (green "N spots left", amber 1-3, red "Class full" + disabled). Pulled from api.classes() spots_left/capacity. ClassSlot type extended.
+- TASK 3 — Admin-configurable Cancel/Reschedule window (was hardcoded 24h):
+  - Backend: db.settings {key:"booking", cancel_window_hours} + get_cancel_window_hours() (default 24, clamp 1..168). New endpoints GET /api/settings/booking (member), GET+PUT /api/admin/settings (admin, PUT validates 1..168). Cancel (booking_cancel) + reschedule (booking_reschedule) now use the dynamic window with dynamic error copy.
+  - Frontend: NEW /app/frontend/app/admin/settings.tsx (chips 6/12/24/48/72 hrs, save on tap, banner). "Booking Settings" card on Admin Dashboard. bookings.tsx fetches api.bookingSettings() and uses cancelWindow in the class-slot cutoff, appt-slot sub-window disabling, reschedule/cancel copy.
+- TASK 4 + 5 — No-Show Report + Attendance CSV export:
+  - Backend: GET /api/admin/attendance/roster — per ENDED fixed-time class session (by_appointment excluded), returns attended[] vs no_shows[] (name/email/checkin_time/checked_in_by) + counts + totals{attended,no_shows,sessions}. "ended" = class_start+duration < QLD-now.
+  - Frontend (admin/attendance.tsx): "EXPORT ATTENDANCE (CSV)" button (native share / web download; columns Class,Date,Time,Member,Email,Status,Check-in time,Checked in by) + "NO-SHOW REPORT" card (ATTENDED/NO-SHOWS/SESSIONS chips + expandable per-session no-show member lists).
+  - api.ts +bookingSettings +adminSettings +adminUpdateSettings +attendanceRoster.
+- Verified by testing_agent: backend 17/17 pytest (backend/tests/test_booking_settings_and_attendance.py — run with -p no:xdist), all frontend flows pass. cancel_window reset to 24 after tests. tsc clean.
+- Remaining backlog (P2/P3): Low Balance Nudge, Streak Reminders, Class Champion Badge, Admin Pass Report, Pass for Appointments, SMS on booking (Twilio), Booking push (Firebase).

@@ -123,6 +123,11 @@ export const api = {
     req(`/api/bookings/${id}/reschedule`, { method: "POST", body: JSON.stringify({ requested_time, note, requested_at }) }),
   confirmProposedTime: (id: string) => req(`/api/bookings/${id}/confirm-time`, { method: "POST" }),
 
+  bookingSettings: () => req("/api/settings/booking"),
+  adminSettings: () => req("/api/admin/settings"),
+  adminUpdateSettings: (cancel_window_hours: number) =>
+    req("/api/admin/settings", { method: "PUT", body: JSON.stringify({ cancel_window_hours }) }),
+
   checkout: (booking_id: string, origin_url: string, use_credit?: boolean, use_class_pass?: boolean) =>
     req("/api/payments/checkout", {
       method: "POST",
@@ -255,6 +260,7 @@ export const api = {
   adminSetAttendance: (id: string, attended: boolean) =>
     req(`/api/admin/bookings/${id}/attendance`, { method: "POST", body: JSON.stringify({ attended }) }),
   attendanceReport: () => req("/api/admin/attendance/report"),
+  attendanceRoster: () => req("/api/admin/attendance/roster"),
   // messaging
   myMessages: () => req("/api/messages"),
   unreadMessages: () => req("/api/messages/unread"),

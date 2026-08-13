@@ -10,7 +10,7 @@ import { classTime, classDate, classStartMs, qldTodayUTC, qldNowUTC, stampDate, 
 import ScreenHeader from "@/src/components/ScreenHeader";
 
 type Booking = { booking_id: string; class_name: string; status: string; amount: number; by_appointment?: boolean; requested_time?: string; requested_at?: string; scheduled_time?: string; proposed_time?: string; class_start?: string; duration_min?: number; attended?: boolean; checked_in_method?: string; checked_in_by?: string; checked_in_at?: string; paid_with_pass?: boolean };
-type ClassSlot = { class_id: string; name: string; start_at: string };
+type ClassSlot = { class_id: string; name: string; start_at: string; spots_left?: number; capacity?: number };
 
 const STATUS_META: Record<string, { label: string; bg: string; fg: string }> = {
   paid: { label: "PAID", bg: colors.brand, fg: colors.onBrand },
@@ -40,6 +40,7 @@ export default function BookingsScreen() {
   const [rClassSlot, setRClassSlot] = useState<ClassSlot | null>(null);
   const [takenSlots, setTakenSlots] = useState<Set<string>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
+  const [cancelWindow, setCancelWindow] = useState(24);
 
   const isAppt = !!rescheduleFor?.by_appointment;
 
@@ -66,17 +67,18 @@ export default function BookingsScreen() {
       setLoadingSlots(true);
       try {
         const r = await api.classes();
-        const cutoff = Date.now() + 24 * 3600 * 1000;
+        const cutoff = Date.now() + cancelWindow * 3600 * 1000;
         const all: ClassSlot[] = (r.classes || [])
           .filter((c: any) => c.start_at && classStartMs(c.start_at) > cutoff)
-          .sort((a: any, b: any) => classStartMs(a.start_at) - classStartMs(b.start_at));
+          .sort((a: any, b: any) => classStartMs(a.start_at) - classStartMs(b.start_at))
+          .map((c: any) => ({ class_id: c.class_id, name: c.name, start_at: c.start_at, spots_left: c.spots_left, capacity: c.capacity }));
         const sameName = all.filter((c) => c.name === rescheduleFor.class_name);
         if (!cancelled) setClassSlots(sameName.length ? sameName : all);
       } catch { if (!cancelled) setClassSlots([]); }
       if (!cancelled) setLoadingSlots(false);
     })();
     return () => { cancelled = true; };
-  }, [rescheduleFor]);
+  }, [rescheduleFor, cancelWindow]);
 
   // Appointment reschedule: Mon–Thu days only (next ~3 weeks).
   const dayOptions = React.useMemo(() => {
@@ -130,6 +132,10 @@ export default function BookingsScreen() {
       const c = await api.myCredits();
       setCreditCents(c.balance_cents || 0);
       setPassCredits(c.class_pass_credits || 0);
+    } catch {}
+    try {
+      const s = await api.bookingSettings();
+      if (typeof s.cancel_window_hours === "number") setCancelWindow(s.cancel_window_hours);
     } catch {}
     setLoading(false);
   }, []);
@@ -448,7 +454,7 @@ export default function BookingsScreen() {
             <ScrollView showsVerticalScrollIndicator keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 4 }}>
             <Text style={styles.modalTitle}>Request a reschedule</Text>
             <Text style={styles.modalSub}>{rescheduleFor?.class_name}</Text>
-            <Text style={styles.modalHint}>Reschedules must be at least 24 hours before your booking.</Text>
+            <Text style={styles.modalHint}>Reschedules must be at least {cancelWindow} hour{cancelWindow === 1 ? "" : "s"} before your booking.</Text>
 
             {isAppt ? (
               <>
@@ -470,7 +476,7 @@ export default function BookingsScreen() {
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
                     {timeSlots.map((s) => {
                       const iso = slotIsoFor(rDay, s.mins);
-                      const cutoff = (() => { const n = qldNowUTC(); n.setUTCHours(n.getUTCHours() + 24); return `${n.getUTCFullYear()}-${String(n.getUTCMonth() + 1).padStart(2, "0")}-${String(n.getUTCDate()).padStart(2, "0")}T${String(n.getUTCHours()).padStart(2, "0")}:${String(n.getUTCMinutes()).padStart(2, "0")}:00`; })();
+                      const cutoff = (() => { const n = qldNowUTC(); n.setUTCHours(n.getUTCHours() + cancelWindow); return `${n.getUTCFullYear()}-${String(n.getUTCMonth() + 1).padStart(2, "0")}-${String(n.getUTCDate()).padStart(2, "0")}T${String(n.getUTCHours()).padStart(2, "0")}:${String(n.getUTCMinutes()).padStart(2, "0")}:00`; })();
                       const tooSoon = iso <= cutoff;
                       const taken = takenSlots.has(iso);
                       const disabled = tooSoon || taken;
@@ -497,16 +503,24 @@ export default function BookingsScreen() {
                 {loadingSlots ? (
                   <ActivityIndicator color={colors.brand} style={{ marginVertical: 16 }} />
                 ) : classSlots.length === 0 ? (
-                  <Text style={styles.modalHint}>No upcoming sessions 24h+ away. Please contact the gym.</Text>
+                  <Text style={styles.modalHint}>No upcoming sessions {cancelWindow}h+ away. Please contact the gym.</Text>
                 ) : (
                   <ScrollView style={{ maxHeight: 240 }} showsVerticalScrollIndicator>
                     {classSlots.map((c) => {
                       const on = rClassSlot?.class_id === c.class_id && rClassSlot?.start_at === c.start_at;
+                      const spots = typeof c.spots_left === "number" ? c.spots_left : undefined;
+                      const full = spots === 0;
+                      const low = spots !== undefined && spots > 0 && spots <= 3;
                       return (
-                        <Pressable key={`${c.class_id}-${c.start_at}`} testID={`rclass-${c.class_id}`} style={[styles.slotRow, on && styles.slotRowOn]} onPress={() => setRClassSlot(c)}>
+                        <Pressable key={`${c.class_id}-${c.start_at}`} testID={`rclass-${c.class_id}`} disabled={full} style={[styles.slotRow, on && styles.slotRowOn, full && { opacity: 0.45 }]} onPress={() => !full && setRClassSlot(c)}>
                           <View style={{ flex: 1 }}>
                             <Text style={styles.slotName}>{c.name}</Text>
                             <Text style={styles.slotWhen}>{classDate(c.start_at, { weekday: "long", day: "numeric", month: "short" })} · {classTime(c.start_at)}</Text>
+                            {spots !== undefined && (
+                              <Text style={[styles.slotSpots, full ? { color: colors.error } : low ? { color: "#F59E0B" } : { color: "#22C55E" }]}>
+                                {full ? "Class full" : `${spots} spot${spots === 1 ? "" : "s"} left`}
+                              </Text>
+                            )}
                           </View>
                           {on && <Ionicons name="checkmark-circle" size={20} color={colors.brand} />}
                         </Pressable>
@@ -560,7 +574,7 @@ export default function BookingsScreen() {
             <Text style={styles.confirmTitle}>Cancel booking?</Text>
             <Text style={styles.confirmBody}>
               Cancel your {cancelFor?.class_name} booking?{"\n\n"}
-              Bookings can only be cancelled at least 24 hours before the start time.
+              Bookings can only be cancelled at least {cancelWindow} hour{cancelWindow === 1 ? "" : "s"} before the start time.
               {cancelFor?.paid_with_pass
                 ? " Your class pass will be returned to your account."
                 : " If you paid, we'll add it back as account credit."}
@@ -674,6 +688,7 @@ const styles = StyleSheet.create({
   slotRowOn: { borderColor: colors.brand, backgroundColor: colors.brandTertiary },
   slotName: { color: colors.onSurface, fontSize: 14.5, fontWeight: "800" },
   slotWhen: { color: colors.onSurfaceSecondary, fontSize: 12.5, marginTop: 2 },
+  slotSpots: { fontSize: 11.5, fontWeight: "800", marginTop: 3, letterSpacing: 0.2 },
   modalInput: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, color: colors.onSurface, paddingHorizontal: spacing.md, paddingVertical: 12, borderRadius: radius.md, fontSize: 15 },
   modalActions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.lg },
   errBox: { flexDirection: "row", alignItems: "flex-start", gap: 8, backgroundColor: "rgba(239,68,68,0.12)", borderWidth: 1, borderColor: colors.error, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.md },

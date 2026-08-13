@@ -1,0 +1,34 @@
+{
+  "summary": "All 3 new features verified end-to-end. Backend: 17/17 pytest pass in test_booking_settings_and_attendance.py — GET/PUT /api/admin/settings (default 24, 403 for non-admin, 400 for 0/-5/169/200, PUT+GET roundtrip persists to Mongo settings collection), GET /api/settings/booking (member-auth, unauth rejected, reflects admin changes), GET /api/admin/attendance/roster (correct shape: sessions[] with class_name/date/time/attended/no_shows/attended_count/no_show_count/booked_count and totals{attended,no_shows,sessions}; booked_count == attended+no_show; totals.sessions matches list len; 403 for non-admin), Cancel/Reschedule error copy is dynamic — with window=168 an in-window reschedule returns 409 mentioning '168 hours' (or pending-request if already flagged), regression on GET /api/classes still exposes spots_left+capacity for fixed-time classes. Frontend (390x844 mobile viewport): admin dashboard shows new 'Booking Settings' card that opens /admin/settings; chips 6/12/24/48/72 all rendered with testIDs cancel-window-{h}, current selection highlighted, tapping 48 saves and shows 'Saved — members must now cancel or reschedule at least 48 hours before.' banner; reset to 24 works. Admin 'Attendance Report' shows EXPORT ATTENDANCE (CSV) button (testID att-export) and NO-SHOW REPORT card with ATTENDED/NO-SHOWS/SESSIONS chips (0/1/1 in current data); tapping the Muay Thai no-show row expands showing 'Scott Carman scottcarman69@gmail.com · 0 of 1 checked in · 1 missed'. Member (testmember) reschedule picker on a class booking (Boot Camp bk_e86a53015e10) shows 'Reschedules must be at least 24 hours before your booking.' + Pick a session list with 'Boot Camp Saturday 15/22/29 Aug · 7:00 am' each with green '19/20 spots left' text; after setting admin cancel window to 48h, the same modal re-opened correctly reads 'at least 48 hours before your booking' AND drops the Sat 15 Aug session (which was inside the new 48h window) — dynamic filter works. Setting was reset to 24 at end of testing (verified via GET /api/admin/settings=24) and booking bk_e86a53015e10 was reset from 'reschedule_requested' back to 'paid' with pending fields unset for a clean handoff. Minor UI copy bug: bookings.tsx line 506 empty-state hint is hardcoded 'No upcoming sessions 24h+ away' — should use the dynamic cancelWindow variable like the rest of the modal.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "bookings.tsx reschedule modal (class-flow empty state)", "issue": "Line 506 shows hardcoded 'No upcoming sessions 24h+ away. Please contact the gym.' — should read '{cancelWindow}h+' so the copy stays in sync when admin changes the window from 24 to 6/12/48/72. Reference: /app/frontend/app/bookings.tsx:506", "testID": "reschedule-modal", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_booking_settings_and_attendance.py",
+    "/app/test_reports/pytest/pytest_booking_settings.xml"
+  ],
+  "action_items": [
+    "(Optional / LOW) Replace hardcoded '24h+' string in bookings.tsx line 506 with the dynamic {cancelWindow} value so the empty-state copy remains accurate when admin changes the window (e.g. 'No upcoming sessions {cancelWindow}h+ away. Please contact the gym.')."
+  ],
+  "critical_code_review_comments": [
+    "server.py get_cancel_window_hours() clamps out-of-range persisted values back to DEFAULT_CANCEL_WINDOW_HOURS (24) — good defensive coding, but note it silently coerces bad DB state rather than surfacing; if manual DB edits ever put an out-of-range value there, admin UI will show 24 while DB still holds the stale value. Non-blocking.",
+    "admin/attendance/roster caps sessions at 120 (server.py:5345); if the gym runs 3+ classes/day this hides older data from the CSV export path. Fine for MVP.",
+    "attendance.tsx csv 'Class,Date,Time,Member,Email,Status,Check-in time,Checked in by' — status is derived per row (Attended vs No-show). CSV assembly is clean; only browser-side download is a real click on web, and expo-file-system/expo-sharing is used on native — correctly gated by Platform.OS.",
+    "settings.tsx uses optimistic UI (setHours(h) before await) and rolls back on error via prev — good UX. However `banner` doesn't auto-dismiss; consider clearing after 3s to reduce staleness on the screen. Non-blocking."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_booking_settings_and_attendance.py (new — 17 tests)"
+  ],
+  "success_rate": {"backend": "100% (17/17 in pytest_booking_settings.xml)", "frontend": "100% — booking settings chips + save banner, attendance no-show report + expand + CSV export button, reschedule modal spots-left rendering + dynamic cancel-window copy all verified on 390x844"},
+  "seed_data_creation": "None. Used the existing testmember@gmail.com pre-seeded bookings (bk_e86a53015e10 Boot Camp, bk_d350c40f5f96 & bk_e3ba878af765 Muay Thai). During testing bk_e86a53015e10 was set to 'reschedule_requested' by the safe-reschedule test — RESET back to status='paid' with requested_time/reschedule_note/reschedule_requested_at/requested_at unset via direct Mongo update. cancel_window_hours reset to 24 at end (verified).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Booking Settings + No-Show Report + Attendance CSV + reschedule spots-left + dynamic cancel window are all verified. Use /app/backend/tests/test_booking_settings_and_attendance.py for regression. Run with `pytest backend/tests/test_booking_settings_and_attendance.py -p no:xdist -o addopts=` — the parallel xdist runner interleaves writes to the shared cancel_window_hours setting between workers and gives false failures; running serially is stable. testmember bookings state at end-of-run: bk_e86a53015e10 = paid, bk_d350c40f5f96 = paid, bk_e3ba878af765 = paid. cancel_window_hours = 24.",
+  "rca_of_issue": "N/A — new features tested. No blocking bugs. One low-priority copy inconsistency: the class-flow empty-state hint 'No upcoming sessions 24h+ away' is the only string in bookings.tsx that isn't wired to the dynamic cancelWindow (see line 506)."
+}

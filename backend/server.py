@@ -1581,6 +1581,18 @@ APPT_ALLOWED_WEEKDAYS = {0, 1, 2, 3}  # Mon=0 .. Thu=3 (Python weekday())
 APPT_MIN_MINUTES = 10 * 60 + 30       # 10:30am
 APPT_MAX_MINUTES = 16 * 60            # 4:00pm
 
+DEFAULT_CANCEL_WINDOW_HOURS = 24
+
+
+async def get_cancel_window_hours() -> int:
+    """The minimum lead time (hours) required to cancel/reschedule. Admin-configurable."""
+    doc = await db.settings.find_one({"key": "booking"}, {"_id": 0, "cancel_window_hours": 1})
+    try:
+        h = int((doc or {}).get("cancel_window_hours", DEFAULT_CANCEL_WINDOW_HOURS))
+    except (TypeError, ValueError):
+        h = DEFAULT_CANCEL_WINDOW_HOURS
+    return h if 1 <= h <= 168 else DEFAULT_CANCEL_WINDOW_HOURS
+
 
 def check_appt_window(requested_at: str):
     """Validate a preferred appointment time falls inside the bookable window."""
@@ -1821,8 +1833,9 @@ async def booking_cancel(booking_id: str, u: dict = Depends(require_user)):
         raise HTTPException(404, "Booking not found")
     if b.get("status") == "cancelled":
         return {"booking": b}
-    # 24-hour cancellation cutoff: members can only cancel at least 24h before the
-    # scheduled start (Queensland time). Applies to classes and appointments alike.
+    # cancellation cutoff: members can only cancel at least N hours before the
+    # scheduled start (Queensland time). Admin-configurable. Applies to classes and appointments.
+    cancel_window = await get_cancel_window_hours()
     now_local = (now_utc() + timedelta(hours=10)).replace(tzinfo=None)
     start_local = None
     ra = b.get("requested_at")
@@ -1844,10 +1857,11 @@ async def booking_cancel(booking_id: str, u: dict = Depends(require_user)):
                 cs = None
         if isinstance(cs, datetime):
             start_local = cs.replace(tzinfo=None) if cs.tzinfo else cs
-    if start_local is not None and now_local >= (start_local - timedelta(hours=24)):
+    if start_local is not None and now_local >= (start_local - timedelta(hours=cancel_window)):
+        hr_txt = f"{cancel_window} hour{'s' if cancel_window != 1 else ''}"
         raise HTTPException(
             409,
-            "Bookings can only be cancelled at least 24 hours before the start time. Please contact the gym on 07 4057 9005 if you need help.",
+            f"Bookings can only be cancelled at least {hr_txt} before the start time. Please contact the gym on 07 4057 9005 if you need help.",
         )
     await db.bookings.update_one({"booking_id": booking_id}, {"$set": {"status": "cancelled", "cancelled_at": now_utc(), "cancelled_by": "member"}})
     member_name = u.get("name") or u.get("email")
@@ -1911,17 +1925,19 @@ async def booking_reschedule(booking_id: str, body: RescheduleReq, u: dict = Dep
         raise HTTPException(400, "This booking is cancelled and cannot be rescheduled.")
     if b.get("status") == "reschedule_requested":
         raise HTTPException(409, "You already have a reschedule request pending. The gym will confirm a new time shortly.")
-    # The NEW chosen time must be at least 24 hours from now (Queensland time).
+    # The NEW chosen time must be at least N hours from now (Queensland time).
+    cancel_window = await get_cancel_window_hours()
     now_local = (now_utc() + timedelta(hours=10)).replace(tzinfo=None)
     if body.requested_at:
         try:
             new_local = datetime.fromisoformat(body.requested_at).replace(tzinfo=None)
         except Exception:
             new_local = None
-        if new_local is not None and new_local < (now_local + timedelta(hours=24)):
+        if new_local is not None and new_local < (now_local + timedelta(hours=cancel_window)):
+            hr_txt = f"{cancel_window} hour{'s' if cancel_window != 1 else ''}"
             raise HTTPException(
                 409,
-                "Please choose a new time at least 24 hours from now. Pick a later day or time, or call the gym on 07 4057 9005.",
+                f"Please choose a new time at least {hr_txt} from now. Pick a later day or time, or call the gym on 07 4057 9005.",
             )
     set_fields = {"status": "reschedule_requested", "requested_time": body.requested_time,
                   "reschedule_note": body.note, "reschedule_requested_at": now_utc()}
@@ -3366,13 +3382,13 @@ async def payment_receipt(booking_id: str, u: dict = Depends(require_user)):
     b = await db.bookings.find_one({"booking_id": booking_id, "user_id": u["user_id"]}, {"_id": 0})
     if not b:
         raise HTTPException(404, "Booking not found")
-    if b.get("status") != "paid":
+    if b.get("status") not in ("paid", "confirmed"):
         # The web redirect can arrive before any status poll ran — sync with Square now.
         tx = await db.payment_transactions.find_one({"booking_id": booking_id}, {"_id": 0})
         if tx:
             await sync_square_payment(tx)
             b = await db.bookings.find_one({"booking_id": booking_id, "user_id": u["user_id"]}, {"_id": 0})
-    if b.get("status") != "paid":
+    if b.get("status") not in ("paid", "confirmed"):
         raise HTTPException(409, "Booking not paid")
     cls = await db.classes.find_one({"class_id": b["class_id"]}, {"_id": 0}) or {}
     tx = await db.payment_transactions.find_one({"booking_id": booking_id}, {"_id": 0}) or {}
@@ -5215,10 +5231,123 @@ async def admin_attendance_report(u: dict = Depends(require_admin)):
     return {"totals": totals, "daily": series, "by_class": by_class_list, "top_members": top_members, "recent": recent, "sessions": sessions}
 
 
+@api.get("/settings/booking")
+async def get_booking_settings(u: dict = Depends(require_user)):
+    """Member-facing booking policy (used for cancel/reschedule copy + cutoffs)."""
+    return {"cancel_window_hours": await get_cancel_window_hours()}
+
+
+class BookingSettings(BaseModel):
+    cancel_window_hours: int
+
+
+@api.get("/admin/settings")
+async def admin_get_settings(u: dict = Depends(require_admin)):
+    return {"cancel_window_hours": await get_cancel_window_hours()}
+
+
+@api.put("/admin/settings")
+async def admin_update_settings(body: BookingSettings, u: dict = Depends(require_admin)):
+    h = int(body.cancel_window_hours)
+    if h < 1 or h > 168:
+        raise HTTPException(400, "Cancel window must be between 1 and 168 hours.")
+    await db.settings.update_one(
+        {"key": "booking"},
+        {"$set": {"key": "booking", "cancel_window_hours": h, "updated_at": now_utc(), "updated_by": u.get("email")}},
+        upsert=True,
+    )
+    return {"ok": True, "cancel_window_hours": h}
+
+
 @api.post("/admin/reminders/run")
 async def admin_run_reminders(u: dict = Depends(require_admin)):
     sent = await send_due_reminders()
     return {"ok": True, "reminders_sent": sent}
+
+
+@api.get("/admin/attendance/roster")
+async def admin_attendance_roster(u: dict = Depends(require_admin)):
+    """Per past class-session roster: who attended vs who didn't check in (no-shows).
+
+    Powers the No-Show Report and the CSV attendance export. Only FIXED-time classes
+    (by-appointment PTs are excluded). A session is 'ended' when start+duration is in the past (QLD)."""
+    QLD = timedelta(hours=10)
+    now_local = (now_utc() + QLD).replace(tzinfo=None)
+
+    rows = await db.bookings.find(
+        {"by_appointment": {"$ne": True}, "status": {"$in": ["paid", "confirmed"]}},
+        {"_id": 0, "booking_id": 1, "class_id": 1, "class_name": 1, "user_id": 1,
+         "class_start": 1, "duration_min": 1, "attended": 1, "checked_in_at": 1, "checked_in_by": 1},
+    ).to_list(20000)
+
+    # class fallback for missing start/duration
+    cids = list({r.get("class_id") for r in rows if r.get("class_id")})
+    cls_map = {c["class_id"]: c for c in await db.classes.find(
+        {"class_id": {"$in": cids}}, {"_id": 0, "class_id": 1, "start_at": 1, "duration_min": 1}).to_list(2000)}
+
+    uids = list({r["user_id"] for r in rows})
+    users = await db.users.find({"user_id": {"$in": uids}}, {"_id": 0, "user_id": 1, "name": 1, "email": 1}).to_list(5000)
+    umap = {x["user_id"]: x for x in users}
+
+    def parse_local(v):
+        if isinstance(v, datetime):
+            return v.replace(tzinfo=None) if v.tzinfo is None else (v.astimezone(timezone.utc).replace(tzinfo=None))
+        if isinstance(v, str):
+            try:
+                d = datetime.fromisoformat(v.replace("Z", "+00:00"))
+                return d.replace(tzinfo=None) if d.tzinfo is None else d.astimezone(timezone.utc).replace(tzinfo=None)
+            except Exception:
+                return None
+        return None
+
+    sessions_map: dict = {}
+    total_no_shows = 0
+    total_attended = 0
+    for r in rows:
+        c = cls_map.get(r.get("class_id")) or {}
+        start = parse_local(r.get("class_start") or c.get("start_at"))
+        if start is None:
+            continue
+        dur = int(r.get("duration_min") or c.get("duration_min") or 60)
+        end = start + timedelta(minutes=dur)
+        if end >= now_local:
+            continue  # not ended yet
+        m = umap.get(r["user_id"], {})
+        attended = bool(r.get("attended"))
+        ci = parse_local(r.get("checked_in_at"))
+        key = (r.get("class_name", "Class"), start.strftime("%Y-%m-%dT%H:%M"))
+        s = sessions_map.setdefault(key, {
+            "class_name": r.get("class_name", "Class"),
+            "iso": start.isoformat(),
+            "date": start.strftime("%a %d %b %Y"),
+            "time": start.strftime("%-I:%M %p"),
+            "attended": [], "no_shows": [],
+        })
+        person = {
+            "name": m.get("name") or m.get("email") or "Member",
+            "email": m.get("email"),
+            "checkin_time": ci.strftime("%-I:%M %p") if ci else None,
+            "checked_in_by": r.get("checked_in_by") or ("member" if attended else None),
+        }
+        if attended:
+            s["attended"].append(person)
+            total_attended += 1
+        else:
+            s["no_shows"].append(person)
+            total_no_shows += 1
+
+    sessions = list(sessions_map.values())
+    for s in sessions:
+        s["attended_count"] = len(s["attended"])
+        s["no_show_count"] = len(s["no_shows"])
+        s["booked_count"] = s["attended_count"] + s["no_show_count"]
+    sessions.sort(key=lambda s: s["iso"], reverse=True)
+    sessions = sessions[:120]
+
+    return {
+        "sessions": sessions,
+        "totals": {"attended": total_attended, "no_shows": total_no_shows, "sessions": len(sessions)},
+    }
 
 
 @api.get("/")
