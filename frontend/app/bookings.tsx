@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, TextInput, RefreshControl, Alert } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -6,9 +6,11 @@ import { Swipeable } from "react-native-gesture-handler";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
+import { classTime, classDate, classStartMs } from "@/src/datetime";
 import ScreenHeader from "@/src/components/ScreenHeader";
 
 type Booking = { booking_id: string; class_name: string; status: string; amount: number; by_appointment?: boolean; requested_time?: string; scheduled_time?: string; proposed_time?: string; attended?: boolean };
+type ClassSlot = { class_id: string; name: string; start_at: string };
 
 const STATUS_META: Record<string, { label: string; bg: string; fg: string }> = {
   paid: { label: "PAID", bg: colors.brand, fg: colors.onBrand },
@@ -29,7 +31,32 @@ export default function BookingsScreen() {
   const [rDay, setRDay] = useState("");
   const [rSlot, setRSlot] = useState("");
   const [rNote, setRNote] = useState("");
+  const [classSlots, setClassSlots] = useState<ClassSlot[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [rClassSlot, setRClassSlot] = useState<ClassSlot | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  const isAppt = !!rescheduleFor?.by_appointment;
+
+  // For class bookings, load the gym's real upcoming sessions (24h+ out, same class first).
+  useEffect(() => {
+    if (!rescheduleFor || rescheduleFor.by_appointment) { setClassSlots([]); return; }
+    let cancelled = false;
+    (async () => {
+      setLoadingSlots(true);
+      try {
+        const r = await api.classes();
+        const cutoff = Date.now() + 24 * 3600 * 1000;
+        const all: ClassSlot[] = (r.classes || [])
+          .filter((c: any) => c.start_at && classStartMs(c.start_at) > cutoff)
+          .sort((a: any, b: any) => classStartMs(a.start_at) - classStartMs(b.start_at));
+        const sameName = all.filter((c) => c.name === rescheduleFor.class_name);
+        if (!cancelled) setClassSlots(sameName.length ? sameName : all);
+      } catch { if (!cancelled) setClassSlots([]); }
+      if (!cancelled) setLoadingSlots(false);
+    })();
+    return () => { cancelled = true; };
+  }, [rescheduleFor]);
 
   // Next 14 days as pickable chips (label shown to member + sent to gym).
   const dayOptions = React.useMemo(() => {
@@ -57,7 +84,10 @@ export default function BookingsScreen() {
   }, []);
   const rDayFull = dayOptions.find((d) => d.key === rDay)?.full || "";
   const rSlotLabel = timeSlots.find((s) => s.v === rSlot)?.label || "";
-  const rComposed = rDayFull && rSlotLabel ? `${rDayFull} · ${rSlotLabel}` : "";
+  const slotLabel = (c: ClassSlot) => `${classDate(c.start_at, { weekday: "short", day: "numeric", month: "short" })} · ${classTime(c.start_at)}`;
+  const rComposed = isAppt
+    ? (rDayFull && rSlotLabel ? `${rDayFull} · ${rSlotLabel}` : "")
+    : (rClassSlot ? `${rClassSlot.name} · ${slotLabel(rClassSlot)}` : "");
 
   const load = useCallback(async () => {
     try {
@@ -126,7 +156,7 @@ export default function BookingsScreen() {
       await api.rescheduleBooking(rescheduleFor.booking_id, rComposed, rNote.trim() || undefined);
       setBanner("Reschedule request sent. The gym will confirm a time.");
       setRescheduleFor(null);
-      setRDay(""); setRSlot(""); setRNote("");
+      setRDay(""); setRSlot(""); setRNote(""); setRClassSlot(null);
       await load();
     } catch (e: any) {
       setBanner(e?.message || "Could not request reschedule.");
@@ -251,7 +281,7 @@ export default function BookingsScreen() {
                         <Pressable
                           testID={`booking-reschedule-${b.booking_id}`}
                           style={styles.actionBtnGhost}
-                          onPress={() => { setRescheduleFor(b); setRDay(""); setRSlot(""); setRNote(""); }}
+                          onPress={() => { setRescheduleFor(b); setRDay(""); setRSlot(""); setRNote(""); setRClassSlot(null); }}
                           disabled={actioning === b.booking_id}
                         >
                           <Ionicons name="time-outline" size={15} color={colors.brand} />
@@ -318,29 +348,56 @@ export default function BookingsScreen() {
             <Text style={styles.modalSub}>{rescheduleFor?.class_name}</Text>
             <Text style={styles.modalHint}>Reschedules must be at least 24 hours before your booking.</Text>
 
-            <Text style={styles.modalLabel}>Pick a day</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
-              {dayOptions.map((d) => {
-                const on = rDay === d.key;
-                return (
-                  <Pressable key={d.key} testID={`rday-${d.key}`} style={[styles.pickChip, on && styles.pickChipOn]} onPress={() => setRDay(d.key)}>
-                    <Text style={[styles.pickChipText, on && styles.pickChipTextOn]}>{d.short}</Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-
-            <Text style={styles.modalLabel}>Pick a time</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
-              {timeSlots.map((s) => {
-                const on = rSlot === s.v;
-                return (
-                  <Pressable key={s.v} testID={`rslot-${s.v}`} style={[styles.pickChip, on && styles.pickChipOn]} onPress={() => setRSlot(s.v)}>
-                    <Text style={[styles.pickChipText, on && styles.pickChipTextOn]}>{s.label}</Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
+            {isAppt ? (
+              <>
+                <Text style={styles.modalLabel}>Pick a day</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
+                  {dayOptions.map((d) => {
+                    const on = rDay === d.key;
+                    return (
+                      <Pressable key={d.key} testID={`rday-${d.key}`} style={[styles.pickChip, on && styles.pickChipOn]} onPress={() => setRDay(d.key)}>
+                        <Text style={[styles.pickChipText, on && styles.pickChipTextOn]}>{d.short}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+                <Text style={styles.modalLabel}>Pick a time</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
+                  {timeSlots.map((s) => {
+                    const on = rSlot === s.v;
+                    return (
+                      <Pressable key={s.v} testID={`rslot-${s.v}`} style={[styles.pickChip, on && styles.pickChipOn]} onPress={() => setRSlot(s.v)}>
+                        <Text style={[styles.pickChipText, on && styles.pickChipTextOn]}>{s.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              </>
+            ) : (
+              <>
+                <Text style={styles.modalLabel}>Pick a session</Text>
+                {loadingSlots ? (
+                  <ActivityIndicator color={colors.brand} style={{ marginVertical: 16 }} />
+                ) : classSlots.length === 0 ? (
+                  <Text style={styles.modalHint}>No upcoming sessions 24h+ away. Please contact the gym.</Text>
+                ) : (
+                  <ScrollView style={{ maxHeight: 240 }} showsVerticalScrollIndicator>
+                    {classSlots.map((c) => {
+                      const on = rClassSlot?.class_id === c.class_id && rClassSlot?.start_at === c.start_at;
+                      return (
+                        <Pressable key={`${c.class_id}-${c.start_at}`} testID={`rclass-${c.class_id}`} style={[styles.slotRow, on && styles.slotRowOn]} onPress={() => setRClassSlot(c)}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.slotName}>{c.name}</Text>
+                            <Text style={styles.slotWhen}>{classDate(c.start_at, { weekday: "long", day: "numeric", month: "short" })} · {classTime(c.start_at)}</Text>
+                          </View>
+                          {on && <Ionicons name="checkmark-circle" size={20} color={colors.brand} />}
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                )}
+              </>
+            )}
 
             {!!rComposed && <Text style={styles.rComposed}>Preferred: {rComposed}</Text>}
 
@@ -426,6 +483,10 @@ const styles = StyleSheet.create({
   pickChipText: { color: colors.onSurfaceSecondary, fontSize: 13, fontWeight: "800" },
   pickChipTextOn: { color: colors.brand },
   rComposed: { color: colors.onSurface, fontSize: 13.5, fontWeight: "800", marginTop: spacing.sm },
+  slotRow: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.md, marginBottom: 8 },
+  slotRowOn: { borderColor: colors.brand, backgroundColor: colors.brandTertiary },
+  slotName: { color: colors.onSurface, fontSize: 14.5, fontWeight: "800" },
+  slotWhen: { color: colors.onSurfaceSecondary, fontSize: 12.5, marginTop: 2 },
   modalInput: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, color: colors.onSurface, paddingHorizontal: spacing.md, paddingVertical: 12, borderRadius: radius.md, fontSize: 15 },
   modalActions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.lg },
   modalCancel: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 14, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
