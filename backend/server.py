@@ -142,9 +142,10 @@ def check_pw(pw: str, h: str) -> bool:
         return False
 
 
-def make_jwt(user_id: str) -> str:
+def make_jwt(user_id: str, token_version: int = 0) -> str:
     payload = {
         "sub": user_id,
+        "ver": int(token_version),
         "iat": int(now_utc().timestamp()),
         "exp": int((now_utc() + timedelta(days=30)).timestamp()),
     }
@@ -575,19 +576,34 @@ async def mark_booking_paid(booking_id: str) -> None:
         {"booking_id": booking_id},
         {"$set": {"status": "paid", "paid_at": now_utc(), "paid_notified": True}},
     )
-    # Deduct any in-app credit that was applied to this booking (once).
+    # Deduct any in-app credit that was applied to this booking (exactly once).
     applied = int(b.get("credit_applied_cents", 0))
-    if applied > 0 and not b.get("credit_deducted"):
-        user_doc = await db.users.find_one({"user_id": b["user_id"]}, {"_id": 0, "credit_cents": 1})
-        avail = int((user_doc or {}).get("credit_cents", 0))
-        ded = min(applied, avail)
-        if ded > 0:
-            await db.users.update_one({"user_id": b["user_id"]}, {"$inc": {"credit_cents": -ded}})
-            await db.credit_ledger.insert_one({
-                "ledger_id": new_id("cl"), "user_id": b["user_id"], "delta_cents": -ded,
-                "reason": f"Used toward {b.get('class_name')}", "booking_id": booking_id, "created_at": now_utc(),
-            })
-        await db.bookings.update_one({"booking_id": booking_id}, {"$set": {"credit_deducted": True}})
+    if applied > 0:
+        # Atomically claim the deduction so concurrent callers can't double-deduct
+        # the same booking's credit.
+        claim = await db.bookings.update_one(
+            {"booking_id": booking_id, "credit_deducted": {"$ne": True}},
+            {"$set": {"credit_deducted": True}},
+        )
+        if claim.modified_count == 1:
+            # Guarded decrement — never drive the balance negative even under a race.
+            res = await db.users.update_one(
+                {"user_id": b["user_id"], "credit_cents": {"$gte": applied}},
+                {"$inc": {"credit_cents": -applied}},
+            )
+            ded = applied
+            if res.modified_count != 1:
+                # Balance was lower than expected — deduct only what remains.
+                user_doc = await db.users.find_one({"user_id": b["user_id"]}, {"_id": 0, "credit_cents": 1})
+                avail = int((user_doc or {}).get("credit_cents", 0))
+                ded = max(0, min(applied, avail))
+                if ded > 0:
+                    await db.users.update_one({"user_id": b["user_id"]}, {"$inc": {"credit_cents": -ded}})
+            if ded > 0:
+                await db.credit_ledger.insert_one({
+                    "ledger_id": new_id("cl"), "user_id": b["user_id"], "delta_cents": -ded,
+                    "reason": f"Used toward {b.get('class_name')}", "booking_id": booking_id, "created_at": now_utc(),
+                })
     member = await db.users.find_one({"user_id": b["user_id"]}, {"_id": 0})
     mname = (member or {}).get("name") or (member or {}).get("email") or "A member"
     cls = await db.classes.find_one({"class_id": b["class_id"]}, {"_id": 0})
@@ -761,6 +777,10 @@ async def get_user_by_token(authorization: Optional[str]) -> Optional[dict]:
         if uid:
             u = await db.users.find_one({"user_id": uid}, {"_id": 0, "password_hash": 0})
             if u:
+                # Session revocation: the token's version must match the user's current
+                # token_version. Logout / password reset increments it, invalidating old JWTs.
+                if int(payload.get("ver", 0)) != int(u.get("token_version", 0) or 0):
+                    return None
                 return u
     except Exception:
         pass
@@ -965,6 +985,7 @@ async def auth_register(body: RegisterReq, request: Request):
         "picture": None,
         "is_admin": False,
         "verified": False,
+        "token_version": 0,
         "created_at": now_utc(),
     }
     await db.users.insert_one(doc)
@@ -973,7 +994,7 @@ async def auth_register(body: RegisterReq, request: Request):
         await send_otp_email(doc["email"], "verify")
     except Exception as e:
         log.error(f"failed to send verification email to {doc['email']}: {e}")
-    return {"token": make_jwt(user_id), "user": user_public(doc)}
+    return {"token": make_jwt(user_id, 0), "user": user_public(doc)}
 
 
 @api.post("/auth/login")
@@ -982,7 +1003,7 @@ async def auth_login(body: LoginReq, request: Request):
     u = await db.users.find_one({"email": body.email.lower()})
     if not u or not u.get("password_hash") or not check_pw(body.password, u["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    return {"token": make_jwt(u["user_id"]), "user": user_public(u)}
+    return {"token": make_jwt(u["user_id"], int(u.get("token_version", 0) or 0)), "user": user_public(u)}
 
 
 @api.post("/auth/session")
@@ -1093,13 +1114,14 @@ async def auth_reset_password(body: ResetPasswordReq, request: Request):
     if not await verify_otp(email, "reset", code):
         raise HTTPException(status_code=400, detail="Invalid or expired code")
     validate_password_strength(body.new_password)
+    new_ver = int(u.get("token_version", 0) or 0) + 1
     await db.users.update_one(
         {"user_id": u["user_id"]},
-        {"$set": {"password_hash": hash_pw(body.new_password), "verified": True}},
+        {"$set": {"password_hash": hash_pw(body.new_password), "verified": True, "token_version": new_ver}},
     )
-    # Reset invalidates existing sessions for safety.
+    # Reset invalidates existing sessions for safety (Google sessions + all prior JWTs).
     await db.user_sessions.delete_many({"user_id": u["user_id"]})
-    return {"ok": True, "token": make_jwt(u["user_id"]), "user": user_public({**u, "verified": True})}
+    return {"ok": True, "token": make_jwt(u["user_id"], new_ver), "user": user_public({**u, "verified": True})}
 
 
 
@@ -1317,7 +1339,16 @@ async def set_quiet_hours(body: QuietHoursReq, u: dict = Depends(require_user)):
 async def auth_logout(authorization: Optional[str] = Header(None)):
     if authorization and authorization.lower().startswith("bearer "):
         token = authorization.split(" ", 1)[1].strip()
+        # Remove any Google/Emergent session row for this token.
         await db.user_sessions.delete_one({"session_token": token})
+        # Revoke all previously-issued JWTs for this user by bumping token_version.
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGO])
+            uid = payload.get("sub")
+            if uid:
+                await db.users.update_one({"user_id": uid}, {"$inc": {"token_version": 1}})
+        except Exception:
+            pass
     return {"ok": True}
 
 
@@ -2174,8 +2205,8 @@ async def messages_send(body: MessageReq, request: Request, u: dict = Depends(re
     base = _public_base(request)
     thread_url = f"{base}/admin/thread?userId={u['user_id']}&name={quote_plus(msg['sender_name'])}" if base else ""
     email_lines = [
-        f"<b>{msg['sender_name']}</b> ({u.get('email')}) sent you a new message:",
-        f"\"{text}\"",
+        f"<b>{esc(msg['sender_name'])}</b> ({esc(u.get('email') or '')}) sent you a new message:",
+        f"\"{esc(text)}\"",
         _download_button(thread_url, "Open conversation") if thread_url else "Open the app → Admin → Inbox to reply.",
     ]
     await notify_admins(
@@ -3086,23 +3117,6 @@ async def payments_checkout(body: CheckoutCreate, request: Request, u: dict = De
     amount_cents = int(booking["amount"])
     currency = (booking.get("currency") or "AUD").upper()
 
-    # ----- TEST ACCOUNT: skip the CARD charge only (still honour credit / class pass below) -----
-    if u.get("is_test") and not body.use_credit and not body.use_class_pass:
-        if booking.get("status") != "paid":
-            await db.payment_transactions.insert_one({
-                "session_id": f"test_{booking['booking_id']}",
-                "provider": "test_free",
-                "booking_id": booking["booking_id"],
-                "user_id": u["user_id"],
-                "amount": booking["amount"],
-                "currency": currency.lower(),
-                "payment_status": "paid",
-                "status": "paid",
-                "created_at": now_utc(),
-            })
-            await mark_booking_paid(booking["booking_id"])
-        return {"paid_free_test": True, "booking_id": booking["booking_id"]}
-
     # ----- Pay with a class pass (deduct 1 pass, no card) -----
     if body.use_class_pass:
         if booking.get("by_appointment"):
@@ -3154,14 +3168,27 @@ async def payments_checkout(body: CheckoutCreate, request: Request, u: dict = De
         fresh = await db.users.find_one({"user_id": u["user_id"]}, {"_id": 0, "credit_cents": 1})
         avail = int((fresh or {}).get("credit_cents", 0))
         credit_applied = min(avail, amount_cents)
-        if credit_applied > 0:
-            await db.bookings.update_one(
-                {"booking_id": booking["booking_id"]},
-                {"$set": {"credit_applied_cents": credit_applied}},
-            )
         remainder = amount_cents - credit_applied
         if remainder <= 0:
-            # Fully covered by credit — no card payment needed.
+            # Fully covered by credit — deduct atomically up-front (guarded) so two
+            # concurrent bookings can't spend the same credit twice.
+            res = await db.users.update_one(
+                {"user_id": u["user_id"], "credit_cents": {"$gte": credit_applied}},
+                {"$inc": {"credit_cents": -credit_applied}},
+            )
+            if res.modified_count != 1:
+                raise HTTPException(400, "Your credit balance changed. Please refresh and try again.")
+            # Mark as applied AND already-deducted so mark_booking_paid won't deduct again.
+            await db.bookings.update_one(
+                {"booking_id": booking["booking_id"]},
+                {"$set": {"credit_applied_cents": credit_applied, "credit_deducted": True}},
+            )
+            left = int((fresh or {}).get("credit_cents", 0)) - credit_applied
+            await db.credit_ledger.insert_one({
+                "ledger_id": new_id("cl"), "user_id": u["user_id"], "delta_cents": -credit_applied,
+                "reason": f"Used toward {booking.get('class_name')}", "booking_id": booking["booking_id"],
+                "balance_after": max(0, left), "created_at": now_utc(),
+            })
             await db.payment_transactions.insert_one({
                 "session_id": f"credit_{booking['booking_id']}",
                 "provider": "credit",
@@ -3176,22 +3203,13 @@ async def payments_checkout(body: CheckoutCreate, request: Request, u: dict = De
             })
             await mark_booking_paid(booking["booking_id"])
             return {"paid_with_credit": True, "booking_id": booking["booking_id"]}
-        # Test account: credit applied above, cover the remaining card portion for free.
-        if u.get("is_test"):
-            await db.payment_transactions.insert_one({
-                "session_id": f"test_{booking['booking_id']}",
-                "provider": "test_free",
-                "booking_id": booking["booking_id"],
-                "user_id": u["user_id"],
-                "amount": booking["amount"],
-                "currency": currency.lower(),
-                "credit_applied_cents": credit_applied,
-                "payment_status": "paid",
-                "status": "paid",
-                "created_at": now_utc(),
-            })
-            await mark_booking_paid(booking["booking_id"])
-            return {"paid_with_credit": True, "booking_id": booking["booking_id"]}
+        # Partial credit — reserve the applied amount on the booking; the actual
+        # deduction happens once (atomically) in mark_booking_paid when the card clears.
+        if credit_applied > 0:
+            await db.bookings.update_one(
+                {"booking_id": booking["booking_id"]},
+                {"$set": {"credit_applied_cents": credit_applied}},
+            )
         amount_cents = remainder  # charge only the remainder on the card
 
     redirect_url = f"{body.origin_url.rstrip('/')}/payment-return?status=success&booking_id={booking['booking_id']}"
@@ -5357,10 +5375,21 @@ async def root():
 
 app.include_router(api)
 
+_cors_env = os.environ.get("CORS_ORIGINS", "").strip()
+if _cors_env and _cors_env != "*":
+    _cors_origins = [o.strip() for o in _cors_env.split(",") if o.strip()]
+    _cors_allow_credentials = True
+else:
+    # No explicit allowlist configured. The API authenticates with bearer tokens in the
+    # Authorization header (not cookies), so credentials are disabled — this avoids the
+    # invalid wildcard-origin + credentials combination. Set CORS_ORIGINS to lock down.
+    _cors_origins = ["*"]
+    _cors_allow_credentials = False
+
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=["*"],
+    allow_credentials=_cors_allow_credentials,
+    allow_origins=_cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )

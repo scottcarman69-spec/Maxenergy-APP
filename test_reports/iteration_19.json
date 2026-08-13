@@ -1,0 +1,37 @@
+{
+  "summary": "Backend regression PASS for SEC-003 (credit-deduction atomicity) and SEC-004 (per-user token_version session revocation). Wrote /app/backend/tests/test_auth_security_regression.py — 10/10 pytest pass (pytest_auth_security_regression.xml). Coverage: (1) admin + testmember /auth/login return a token and /auth/me returns 200; (2) fresh @gmail.com /auth/register returns a working token; (3) SEC-004 logout — POST /auth/logout with testmember bearer token → the SAME token now 401 on /auth/me while a fresh login mints a new working token; (4) SEC-004 password reset — throwaway account /auth/forgot-password + /auth/reset-password (OTP hash seeded directly into Mongo — see NOTE below), pre-reset token now 401 on /auth/me AND the token returned by reset-password works, login with new password works; (5) /admin/overview: admin=200 (returns classes/members/applications counts), testmember=403; (6) SEC-003 — seeded testmember credit_cents=price_a (1500), POST /api/bookings + POST /api/payments/checkout use_credit=true returned {paid_with_credit: true}, users.credit_cents decremented atomically from 1500 → 0 (guarded $inc), exactly ONE credit_ledger row written with delta_cents=-1500, booking.credit_deducted=true and credit_applied_cents=1500; second full-credit checkout on a new booking with 0 balance NEVER drove credit_cents negative (final == 0) — Square was never invoked because testmember.is_test=true routes through the test_free branch; (7) Regression — /api/settings/booking (member) + /api/admin/settings (admin) both return cancel_window_hours (int, 1–168) and /api/admin/attendance/roster returns sessions[] + totals{attended,no_shows,sessions}. No Square hosted-checkout link was ever requested. Cleanup: testmember credit_cents reset to 0, all created bookings + credit_ledger + payment_transactions rows deleted, both throwaway @gmail.com users + their OTP codes deleted; testmember password remains Test!1234 (login re-verified 200). Testmember bookings unchanged (bk_e86a53015e10 Boot Camp paid, bk_d350c40f5f96 Muay Thai paid, bk_e3ba878af765 Muay Thai paid).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/payments/checkout (credit path)", "issue": "mark_booking_paid runs the emergent email retry loop (delays 0/2/5/12/25s + 30s httpx timeout each) synchronously before the response is returned, so on a bad email-service moment the request can exceed Cloudflare's edge timeout (~60s) and the client sees a 502 even though the server-side booking + credit deduction completed successfully. Test harness works around this with a retry that accepts 200 or 409 'Already paid'. Consider moving the email send to a background task (asyncio.create_task or similar) so the checkout response returns fast."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_auth_security_regression.py",
+    "/app/test_reports/pytest/pytest_auth_security_regression.xml"
+  ],
+  "action_items": [
+    "(Optional / LOW) Fire the email send in mark_booking_paid via a background task (fastapi BackgroundTasks or asyncio.create_task) so /api/payments/checkout responds within Cloudflare's edge timeout even when the email provider is throttling — otherwise real members can occasionally see a gateway error on a booking that actually succeeded server-side.",
+    "(Nice-to-have) Log the OTP code alongside 'OTP issued for <email> (<purpose>)' to /var/log/supervisor/backend.out.log (behind an env flag e.g. LOG_OTP_CODES=1) — the review request stated the code should be readable from the log but only the fact of issuance is logged today (server.py:491). This blocks automated tests unless they seed the code_hash directly in Mongo (which is what the new pytest does)."
+  ],
+  "critical_code_review_comments": [
+    "server.py make_jwt (line 145) correctly embeds ver=int(token_version) in every JWT; get_user_by_token (line 782) rejects mismatched versions — clean per-user session revocation. Logout ($inc token_version by 1) and reset-password ($set new_ver) both bump correctly (server.py:1349, 1117).",
+    "server.py payments/checkout full-credit path (line 3192) uses a guarded $inc with {credit_cents: {$gte: credit_applied}} and returns 400 'balance changed' on modified_count!=1 — this is the atomic double-spend guard. mark_booking_paid line 590 uses the same guarded pattern for the deferred (Square-cleared) deduction. Both paths write a credit_ledger row exactly once and the {credit_deducted: {$ne: true}} claim at line 585 prevents double-deduction on the same booking. Solid.",
+    "auth_reset_password (line 1123) also deletes ALL user_sessions for the user — good; Google/Emergent session tokens are also invalidated in addition to JWTs.",
+    "get_user_by_token session-token fallback (line 787) does NOT enforce token_version — Google sessions live in db.user_sessions and are cleared on password reset (line 1123) but NOT on /auth/logout. Logout for a Google-session user removes only the one session_token row (line 1343), which is correct behaviour — but is a subtle asymmetry with JWT users where logout bumps token_version and invalidates every other device. Worth documenting."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_auth_security_regression.py (new — 10 tests)"
+  ],
+  "success_rate": {"backend": "100% (10/10 in pytest_auth_security_regression.xml)", "frontend": "N/A — backend-only regression as requested"},
+  "seed_data_creation": "During the credit test: testmember.credit_cents seeded from 0 → 1500, then 2 bookings created (class A cls_475ec5e6303e Muay Thai 1500c + class B cls_5f5ce3683c09 Muay Thai 1500c). ALL cleaned up in finally block — credit reset to 0, both bookings deleted, credit_ledger + payment_transactions rows deleted. Two throwaway @gmail.com users registered for register + password-reset tests, both deleted. Testmember password unchanged. Verified end-state: testmember credit_cents=0, 3 pre-seeded bookings still paid, no stray TEST_ users, no OTPs, login with Test!1234 → 200.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Run: `pytest /app/backend/tests/test_auth_security_regression.py -p no:xdist -o addopts= -v` (module-scoped session fixture — do not parallelise). Credit test uses the two earliest future non-appointment, non-booked classes for testmember and cleans up. Password-reset test seeds OTP hash directly in db.otp_codes since backend logs only the fact of issuance (not the code). If mark_booking_paid ever gets moved to a background task, drop the _post_with_retry wrapper and the 200/409 accept-list in the credit test."
+}
