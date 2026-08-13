@@ -721,3 +721,10 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Session update (Jun 2026 fork) — Reschedule picker shows REAL class slots (DONE)
 - bookings.tsx reschedule modal: for CLASS bookings (not by_appointment) it now loads api.classes(), filters to upcoming sessions ≥24h out (classStartMs > now+24h), prefers same class name (falls back to all), and shows them as selectable rows ("Kickboxing · Tuesday 18 Aug · 6:00 pm"). requested_time = "<name> · <weekday d mon> · <time>". APPOINTMENT bookings keep the generic day+time chip picker. Send disabled until a session/time is chosen. Verified via screenshot (real Kickboxing sessions listed). tsc clean. Test booking cleaned.
+
+## Session update (Jun 2026 fork) — Device compatibility hardening + defined minimums (DONE)
+- Added expo-build-properties plugin to app.json pinning explicit minimums: Android minSdkVersion 24 (Android 7.0), compile/target SDK 35 (Android 15, Play Store 2025 req); iOS deploymentTarget 15.1. Matches Expo SDK 54 defaults (no unnecessary restriction).
+- Confirmed: ios.supportsTablet true (iPad), android.edgeToEdgeEnabled true (Android 15 edge-to-edge/gesture nav), SafeAreaProvider wraps app + SafeAreaView/useSafeAreaInsets used in 56 screens (notch/Dynamic Island/nav-bar safe), layouts use Flexbox+StyleSheet (responsive across phone/tablet). Permissions declared (camera/QR, photos) with rationale strings.
+- Third-party libs are all current cross-platform (RN 0.81.5, react-native-webview 13.15, expo-camera 17, expo-image-picker 17, react-native-safe-area-context 5.6, rn-emoji-keyboard 1.7) — none force a higher minimum than Android 7 / iOS 15.1.
+- Verified app boots after config change (smoke screenshot). newArchEnabled true.
+- MINIMUMS TO PUBLISH: Android 7.0 (API 24)+, iOS/iPadOS 15.1+.

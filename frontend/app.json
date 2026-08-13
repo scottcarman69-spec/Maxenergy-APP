@@ -36,6 +36,19 @@
     "plugins": [
       "expo-router",
       [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 24,
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35
+          },
+          "ios": {
+            "deploymentTarget": "15.1"
+          }
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "photosPermission": "Attach a photo to your membership application",
@@ -56,7 +69,8 @@
         {
           "cameraPermission": "Scan member booking QR codes for class check-in"
         }
-      ]
+      ],
+      "expo-build-properties"
     ],
     "experiments": {
       "typedRoutes": true
