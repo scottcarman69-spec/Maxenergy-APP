@@ -737,3 +737,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 ## Session update (Jun 2026 fork) — FIX: reschedule Send Request unreachable (DONE)
 - Bug: reschedule modal card was vertically centered with no maxHeight/scroll; the taller form (day/time chips or class-session list + note) pushed SEND REQUEST off-screen so the user could not complete. Fix: wrapped modal body in a ScrollView (keyboardShouldPersistTaps=handled) + modalCard maxHeight 85%. bookings.tsx.
 - Verified by testing_agent iteration_17: class + appointment reschedules submit (200, status reschedule_requested, banner shows), button reachable on 390x844; 24h cutoff 409 regression intact. Seeded test bookings cleaned.
+
+## Session update (Jun 2026 fork) — Fix "New time proposed" alert tap (DONE)
+- Bug: tapping the "New time proposed — please confirm" notification (data.nav="member_bookings") routed to the Profile tab, which has NO "This time works" confirm button — so it appeared to do nothing.
+- Fix: alerts.tsx openNotif `member_bookings` case now routes to `/bookings` (the My Bookings screen), which shows the proposed booking + "This time works" confirm + Reschedule/Cancel actions. Verified E2E via screenshot: tap → lands on /bookings with the confirm button visible.
+- Also this session: removed admin rights from scottcarman69@gmail.com (is_admin=false, not a seeded admin so permanent). Added is_test flag + free-booking bypass in payments/checkout (returns paid_free_test, marks booking paid) — ONLY testmember@gmail.com is is_test. Seeded testmember with 3 upcoming paid bookings.

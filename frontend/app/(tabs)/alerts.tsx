@@ -69,7 +69,7 @@ export default function AlertsTab() {
         router.navigate("/(tabs)/inbox");
         break;
       case "member_bookings":
-        router.navigate("/(tabs)/profile");
+        router.push("/bookings" as any);
         break;
       case "member_membership":
         router.push("/vigyr-signon");
