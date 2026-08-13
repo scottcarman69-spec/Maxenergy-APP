@@ -1,8 +1,10 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { View, Text, StyleSheet, TextInput, FlatList, Pressable, ActivityIndicator, RefreshControl } from "react-native";
+import { View, Text, StyleSheet, TextInput, FlatList, Pressable, ActivityIndicator, RefreshControl, Platform, Alert } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import * as Sharing from "expo-sharing";
+import * as FileSystem from "expo-file-system/legacy";
 import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
 import { stampDate } from "@/src/datetime";
@@ -17,14 +19,25 @@ type LogItem = {
   phone?: string;
   class_name?: string;
   when?: string;
+  duration_min?: number;
   payment_method?: string;
   amount_cents?: number;
   credit_applied_cents?: number;
   membership_plan?: string;
+  membership_status?: string;
+  membership_expires?: string;
+  key_tag?: string;
   created_at?: string;
 };
 
 const money = (c?: number) => `$${((c || 0) / 100).toFixed(2)}`;
+const dollars = (c?: number) => ((c || 0) / 100).toFixed(2);
+
+// Quote a CSV cell (escape embedded quotes, wrap if it has comma/quote/newline).
+const csvCell = (v: any) => {
+  const s = String(v ?? "");
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
 
 export default function BookingLog() {
   const [q, setQ] = useState("");
@@ -55,6 +68,61 @@ export default function BookingLog() {
   }, [items, q]);
 
   const shownTotal = useMemo(() => filtered.reduce((s, r) => s + (r.amount_cents || 0), 0), [filtered]);
+
+  const [exporting, setExporting] = useState(false);
+  const buildCsv = useCallback((rows: LogItem[]) => {
+    const headers = ["Reference", "Date Logged", "Member", "Email", "Phone", "Class", "When",
+      "Duration (min)", "Payment Method", "Amount (AUD)", "Credit Applied (AUD)",
+      "Membership Plan", "Membership Status", "Membership Expires", "Key Tag"];
+    const lines = [headers.join(",")];
+    for (const r of rows) {
+      lines.push([
+        csvCell(r.reference),
+        csvCell(r.created_at ? stampDate(r.created_at, { day: "numeric", month: "short", year: "numeric" }) : ""),
+        csvCell(r.member_name || r.first_name || "Member"),
+        csvCell(r.member_email),
+        csvCell(r.phone),
+        csvCell(r.class_name),
+        csvCell(r.when),
+        csvCell(r.duration_min ?? ""),
+        csvCell(r.payment_method),
+        csvCell(dollars(r.amount_cents)),
+        csvCell(dollars(r.credit_applied_cents)),
+        csvCell(r.membership_plan),
+        csvCell(r.membership_status),
+        csvCell(r.membership_expires),
+        csvCell(r.key_tag),
+      ].join(","));
+    }
+    return lines.join("\n");
+  }, []);
+
+  const exportCsv = useCallback(async () => {
+    if (!filtered.length || exporting) return;
+    setExporting(true);
+    try {
+      const csv = buildCsv(filtered);
+      const fname = `maxenergy-booking-log-${new Date().toISOString().slice(0, 10)}.csv`;
+      if (Platform.OS === "web") {
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = fname; document.body.appendChild(a); a.click();
+        a.remove(); URL.revokeObjectURL(url);
+      } else {
+        const uri = FileSystem.cacheDirectory + fname;
+        await FileSystem.writeAsStringAsync(uri, csv, { encoding: FileSystem.EncodingType.UTF8 });
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(uri, { mimeType: "text/csv", dialogTitle: "Export booking log", UTI: "public.comma-separated-values-text" });
+        } else {
+          Alert.alert("Export ready", `Saved ${filtered.length} rows to ${fname}.`);
+        }
+      }
+    } catch (e: any) {
+      Alert.alert("Export failed", e?.message || "Could not export the booking log.");
+    }
+    setExporting(false);
+  }, [filtered, exporting, buildCsv]);
 
   const renderItem = ({ item }: { item: LogItem }) => (
     <View style={styles.card} testID={`blog-${item.log_id}`}>
@@ -106,6 +174,22 @@ export default function BookingLog() {
         )}
       </View>
 
+      <Pressable
+        testID="blog-export"
+        style={[styles.exportBtn, (!filtered.length || exporting) && { opacity: 0.5 }]}
+        onPress={exportCsv}
+        disabled={!filtered.length || exporting}
+      >
+        {exporting ? (
+          <ActivityIndicator color={colors.onBrand} size="small" />
+        ) : (
+          <>
+            <Ionicons name="download-outline" size={17} color={colors.onBrand} />
+            <Text style={styles.exportText}>Export {q.trim() ? "results" : "all"} to spreadsheet (CSV){filtered.length ? ` · ${filtered.length}` : ""}</Text>
+          </>
+        )}
+      </Pressable>
+
       {loading ? (
         <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />
       ) : (
@@ -137,6 +221,8 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   searchWrap: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginHorizontal: spacing.lg, marginTop: spacing.sm, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, height: 46 },
   search: { flex: 1, color: colors.onSurface, fontSize: 15 },
+  exportBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.brand, marginHorizontal: spacing.lg, marginTop: spacing.sm, borderRadius: radius.lg, height: 46 },
+  exportText: { color: colors.onBrand, fontSize: 13.5, fontWeight: "900", letterSpacing: 0.3 },
   summary: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.sm },
   summaryText: { color: colors.onSurfaceSecondary, fontSize: 12.5, fontWeight: "800", letterSpacing: 0.5 },
   summaryTotal: { color: colors.brand, fontSize: 15, fontWeight: "900" },

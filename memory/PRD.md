@@ -775,3 +775,10 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Bug (user): could not reschedule a booking whose ORIGINAL start was within 24h, even when moving it to a far-future date (e.g. Mon 17 Aug). The 24h cutoff was checking the ORIGINAL booking time.
 - Fix: reschedule now validates the NEW chosen time is ≥24h from now, and ignores how close the original booking is. RescheduleReq gains requested_at (ISO QLD wall-clock); booking_reschedule rejects only when requested_at < now+24h (409 "choose a new time at least 24 hours from now"), and stores requested_at on the booking. Frontend api.rescheduleBooking(id, requested_time, note, requested_at); submitReschedule sends the new time's ISO (appointment rApptIso, class booking rClassSlot.start_at). Error shown in-modal.
 - Verified via curl: original within-24h booking → reschedule to Mon 17 Aug = 200; reschedule to a new <24h time = 409. Applies to PT, Custom Programs, and class bookings.
+
+## Session update (Jun 2026 fork) — Booking Log CSV Export (DONE)
+- Added an "Export … to spreadsheet (CSV)" button on the admin Booking Log screen (/admin/booking-log, testID blog-export).
+- Builds a CSV client-side from the fetched log rows (columns: Reference, Date Logged, Member, Email, Phone, Class, When, Duration, Payment Method, Amount AUD, Credit Applied AUD, Membership Plan/Status/Expires, Key Tag). Respects the search filter (exports filtered results when searching, all otherwise). Proper CSV quoting.
+- Delivery: web → direct file download (Blob + anchor); native → writes to FileSystem cache (expo-file-system/legacy) then opens the native share sheet (expo-sharing) so admins can save to Files / email to the accountant. Works in Expo Go.
+- Installed expo-file-system (~19.0.23); expo-sharing already present.
+- Verified via screenshot: button renders + click works (web download, no crash). Cleaned test-member booking_logs.
