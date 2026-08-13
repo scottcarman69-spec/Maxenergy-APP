@@ -1189,6 +1189,53 @@ async def attendance_leaderboard(period: str = "all", u: dict = Depends(require_
         "count": p["count"],
         "is_me": p["user_id"] == u["user_id"],
     } for i, p in enumerate(participants[:30])]
+    # ----- Weekly streaks (consecutive QLD weeks with ≥1 confirmed attendance) -----
+    needed = {p["user_id"] for p in participants[:30]} | {u["user_id"]}
+    wk_docs = await db.bookings.find(
+        {"attended": True, "checked_in_at": {"$ne": None}, "user_id": {"$in": list(needed)}},
+        {"_id": 0, "user_id": 1, "checked_in_at": 1},
+    ).to_list(20000)
+    EPOCH_MON = datetime(1970, 1, 5)  # a Monday
+    def week_idx(dt: datetime) -> int:
+        local = (dt.replace(tzinfo=None) + timedelta(hours=10)) if dt.tzinfo is None else (dt.astimezone(timezone.utc).replace(tzinfo=None) + timedelta(hours=10))
+        return (local.date() - EPOCH_MON.date()).days // 7
+    cur_week = (qld_now_naive().date() - EPOCH_MON.date()).days // 7
+    weeks_by_user: dict = {}
+    for d in wk_docs:
+        ci = d.get("checked_in_at")
+        if isinstance(ci, datetime):
+            weeks_by_user.setdefault(d["user_id"], set()).add(week_idx(ci))
+    def streak_for(uid: str) -> int:
+        weeks = sorted(weeks_by_user.get(uid, set()))
+        if not weeks or weeks[-1] < cur_week - 1:
+            return 0
+        s, w = 1, weeks[-1]
+        for prev in reversed(weeks[:-1]):
+            if prev == w - 1:
+                s += 1; w = prev
+            elif prev == w:
+                continue
+            else:
+                break
+        return s
+    # ----- Movement vs last calendar month -----
+    m_start = now_l.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    prev_start = (m_start - timedelta(days=1)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    prev_rows = await db.bookings.aggregate([
+        {"$match": {"attended": True, "checked_in_at": {"$gte": prev_start - timedelta(hours=10), "$lt": m_start - timedelta(hours=10)}}},
+        {"$group": {"_id": "$user_id", "count": {"$sum": 1}}},
+    ]).to_list(5000)
+    prev_parts = [
+        {"user_id": r["_id"], "count": int(r["count"])}
+        for r in prev_rows
+        if r.get("_id") in users and not users[r["_id"]].get("leaderboard_opt_out") and not users[r["_id"]].get("is_test")
+    ]
+    prev_parts.sort(key=lambda x: -x["count"])
+    prev_rank = {p["user_id"]: i + 1 for i, p in enumerate(prev_parts)}
+    for row in board:
+        row["streak"] = streak_for(row["user_id"])
+        pr = prev_rank.get(row["user_id"])
+        row["movement"] = None if pr is None else (pr - row["rank"])  # +up / -down / 0 same; None = new
     # Caller's own standing (shown even if outside Top 30 or opted out).
     my_count = counts.get(u["user_id"], 0)
     opted_out = bool(u.get("leaderboard_opt_out"))
@@ -1201,7 +1248,7 @@ async def attendance_leaderboard(period: str = "all", u: dict = Depends(require_
     return {
         "period": period,
         "leaderboard": board,
-        "me": {"rank": my_rank, "count": my_count, "opted_out": opted_out},
+        "me": {"rank": my_rank, "count": my_count, "opted_out": opted_out, "streak": streak_for(u["user_id"])},
     }
 
 

@@ -7,8 +7,8 @@ import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
 import ScreenHeader from "@/src/components/ScreenHeader";
 
-type Row = { rank: number; user_id: string; name: string; picture?: string | null; count: number; is_me: boolean };
-type Me = { rank: number | null; count: number; opted_out: boolean };
+type Row = { rank: number; user_id: string; name: string; picture?: string | null; count: number; is_me: boolean; streak?: number; movement?: number | null };
+type Me = { rank: number | null; count: number; opted_out: boolean; streak?: number };
 type Period = "month" | "year" | "all";
 
 const PERIODS: { key: Period; label: string }[] = [
@@ -17,6 +17,23 @@ const PERIODS: { key: Period; label: string }[] = [
   { key: "all", label: "All Time" },
 ];
 const MEDAL = ["#FFD700", "#C0C0C0", "#CD7F32"]; // gold / silver / bronze
+
+function StreakPill({ streak }: { streak?: number }) {
+  if (!streak || streak < 2) return null;
+  return (
+    <View style={styles.streakPill}>
+      <Text style={styles.streakText}>🔥 {streak}w</Text>
+    </View>
+  );
+}
+
+function Movement({ movement }: { movement?: number | null }) {
+  if (movement === undefined) return <View style={{ width: 34 }} />;
+  if (movement === null) return <Text style={[styles.moveText, { color: "#22C55E" }]}>NEW</Text>;
+  if (movement > 0) return <Text style={[styles.moveText, { color: "#22C55E" }]}>▲{movement}</Text>;
+  if (movement < 0) return <Text style={[styles.moveText, { color: colors.error }]}>▼{-movement}</Text>;
+  return <Text style={[styles.moveText, { color: colors.onSurfaceSecondary }]}>–</Text>;
+}
 
 function Avatar({ name, picture, size = 40 }: { name: string; picture?: string | null; size?: number }) {
   const initials = name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
@@ -102,6 +119,10 @@ export default function LeaderboardScreen() {
                       <Text style={[styles.podName, r.is_me && { color: colors.brand }]} numberOfLines={1}>{r.name}{r.is_me ? " (You)" : ""}</Text>
                       <Text style={styles.podCount}>{r.count}</Text>
                       <Text style={styles.podCountLabel}>classes</Text>
+                      <View style={styles.podExtras}>
+                        <Movement movement={r.movement} />
+                        {(r.streak || 0) >= 2 && <StreakPill streak={r.streak} />}
+                      </View>
                     </View>
                   );
                 })}
@@ -112,9 +133,13 @@ export default function LeaderboardScreen() {
                 <View key={r.user_id} testID={`lb-row-${r.rank}`} style={[styles.row, r.is_me && styles.rowMe]}>
                   <Text style={[styles.rank, r.is_me && { color: colors.brand }]}>{r.rank}</Text>
                   <Avatar name={r.name} picture={r.picture} size={38} />
-                  <Text style={[styles.name, r.is_me && { color: colors.brand, fontWeight: "900" }]} numberOfLines={1}>
-                    {r.name}{r.is_me ? " (You)" : ""}
-                  </Text>
+                  <View style={{ flex: 1, gap: 3 }}>
+                    <Text style={[styles.name, r.is_me && { color: colors.brand, fontWeight: "900" }]} numberOfLines={1}>
+                      {r.name}{r.is_me ? " (You)" : ""}
+                    </Text>
+                    {(r.streak || 0) >= 2 && <StreakPill streak={r.streak} />}
+                  </View>
+                  <Movement movement={r.movement} />
                   <Text style={styles.count}>{r.count}</Text>
                 </View>
               ))}
@@ -141,6 +166,12 @@ export default function LeaderboardScreen() {
                 <Text style={styles.meLabel}>YOUR RANK</Text>
                 <Text style={styles.meSub}>{me.count} class{me.count === 1 ? "" : "es"} attended{me.rank ? "" : " · attend a class to get ranked"}</Text>
               </View>
+              {(me.streak || 0) >= 2 && (
+                <View style={styles.meStreak}>
+                  <Text style={styles.meStreakText}>🔥 {me.streak}</Text>
+                  <Text style={styles.meStreakLabel}>week streak</Text>
+                </View>
+              )}
               <Ionicons name="trophy" size={22} color={colors.brand} />
             </>
           )}
@@ -173,9 +204,16 @@ const styles = StyleSheet.create({
   rank: { color: colors.onSurfaceSecondary, fontWeight: "900", fontSize: 15, width: 26, textAlign: "center" },
   name: { flex: 1, color: colors.onSurface, fontWeight: "700", fontSize: 14 },
   count: { color: colors.onSurface, fontWeight: "900", fontSize: 16 },
+  streakPill: { alignSelf: "flex-start", backgroundColor: "rgba(249,115,22,0.15)", borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 1 },
+  streakText: { color: "#F97316", fontSize: 10.5, fontWeight: "900" },
+  moveText: { width: 34, textAlign: "center", fontSize: 12, fontWeight: "900" },
+  podExtras: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 5, minHeight: 18 },
   meBar: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderTopWidth: 1, borderTopColor: colors.brand, paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xl },
   meRankBadge: { minWidth: 52, height: 40, borderRadius: radius.md, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center", paddingHorizontal: 8 },
   meRankText: { color: colors.onBrand, fontWeight: "900", fontSize: 18 },
   meLabel: { color: colors.onSurfaceSecondary, fontSize: 10.5, fontWeight: "800", letterSpacing: 0.6 },
   meSub: { color: colors.onSurface, fontSize: 13, fontWeight: "700", marginTop: 2 },
+  meStreak: { alignItems: "center", backgroundColor: "rgba(249,115,22,0.15)", borderRadius: radius.md, paddingHorizontal: 10, paddingVertical: 4 },
+  meStreakText: { color: "#F97316", fontSize: 16, fontWeight: "900" },
+  meStreakLabel: { color: "#F97316", fontSize: 8.5, fontWeight: "800", textTransform: "uppercase" },
 });
