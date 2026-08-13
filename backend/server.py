@@ -1659,6 +1659,7 @@ async def bookings_history(u: dict = Depends(require_user)):
     rows = await db.bookings.find(
         {"user_id": u["user_id"]}, {"_id": 0}
     ).sort("created_at", -1).to_list(500)
+    await _enrich_bookings(rows)
     return {"bookings": rows}
 
 

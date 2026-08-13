@@ -824,3 +824,10 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Backend booking_reschedule: rejects with 409 "You already have a reschedule request pending…" when the booking status is already "reschedule_requested".
 - Member bookings.tsx: when status=="reschedule_requested", the Reschedule button is hidden (Cancel still available) and a pending note shows "Reschedule requested for <time> — waiting for the gym to confirm. You can't request another change until they respond."
 - Verified: 2nd reschedule attempt → 409; UI hides Reschedule + shows pending note (screenshot). Test data reverted.
+
+## Session update (Jun 2026 fork) — Attendance record + no-show message on Booking History (DONE)
+- User asked to apply the attendance record + "QR not confirmed" no-show message across all bookings; added them to the Booking History / Booking Log screen (booking-history.tsx) which previously only showed a plain "· Attended".
+- Now each history row shows: attended → green "ATTENDANCE CONFIRMED" box with Method (QR Code / Staff (manual)), Confirmed by (staff name), Confirmed date+time; unattended past paid/confirmed session → red "QR code was not confirmed during class time". Works for all types (classes + appointments), same logic as the My Bookings screen.
+- Backend bookings_history now runs _enrich_bookings (adds class_start + duration_min) so no-show timing works.
+- Reschedule pending-lock confirmed already universal (status-based) across all booking types.
+- Verified via screenshot (attended MuayThai record + no-show PT). Test data cleaned.
