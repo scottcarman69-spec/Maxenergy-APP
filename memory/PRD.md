@@ -755,3 +755,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Fix (admin/bookings.tsx): for by_appointment bookings the picker now shows Mon–Thu days only + 10:30am–4:00pm slots, and disables slots already taken (fetched via api.appointmentsTaken, excluding the booking's own requested_at) with a red "booked" tag. Class (non-appointment) bookings keep the general next-14-days / 6am–8pm picker. Past slots on today still disabled. Labels show "(Mon–Thu only)" / "(10:30am–4:00pm)".
 - Backend (admin_booking_reschedule): for appointment bookings with new_at, now also runs check_appt_window (Mon–Thu, 10:30–4, half-hour) and rejects a slot already taken by another active appointment (409).
 - Verified via curl: Saturday→400, 5pm→400, valid Wed 11:30→ok, taken Thu 2pm→409. Test data cleaned.
+
+## Session update (Jun 2026 fork) — Member reschedule picker: available times only (DONE)
+- User asked the member "Request a reschedule" picker (appointment bookings) to only show available times and grey out unavailable ones.
+- Fix (bookings.tsx, isAppt branch): day chips now Mon–Thu only (next ~3 weeks), time chips 10:30am–4:00pm on the half hour. A slot is greyed/disabled when it is <24h away (the reschedule rule) OR already booked by another appointment (fetched via api.appointmentsTaken on modal open); taken slots get a red "BOOKED" tag. "Choose a day first" hint before a day is picked. Rebuilt dayOptions/timeSlots on the QLD (UTC-based) datetime util for device-independence. Class-booking reschedule (real session list) unchanged.
+- Verified via screenshot: day picker shows Tue/Wed/Thu only, times 10:30am–4:00pm, and the taken 11:30am slot shows greyed with red "BOOKED".

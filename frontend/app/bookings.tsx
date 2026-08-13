@@ -6,7 +6,7 @@ import { Swipeable } from "react-native-gesture-handler";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
-import { classTime, classDate, classStartMs } from "@/src/datetime";
+import { classTime, classDate, classStartMs, qldTodayUTC, qldNowUTC } from "@/src/datetime";
 import ScreenHeader from "@/src/components/ScreenHeader";
 
 type Booking = { booking_id: string; class_name: string; status: string; amount: number; by_appointment?: boolean; requested_time?: string; scheduled_time?: string; proposed_time?: string; attended?: boolean };
@@ -28,15 +28,29 @@ export default function BookingsScreen() {
   const [actioning, setActioning] = useState<string | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
   const [rescheduleFor, setRescheduleFor] = useState<Booking | null>(null);
-  const [rDay, setRDay] = useState("");
-  const [rSlot, setRSlot] = useState("");
+  const [rDay, setRDay] = useState("");   // appointment: selected day key (UTC YYYY-MM-DD)
+  const [rSlot, setRSlot] = useState(""); // appointment: selected minutes-since-midnight (string)
   const [rNote, setRNote] = useState("");
   const [classSlots, setClassSlots] = useState<ClassSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [rClassSlot, setRClassSlot] = useState<ClassSlot | null>(null);
+  const [takenSlots, setTakenSlots] = useState<Set<string>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
 
   const isAppt = !!rescheduleFor?.by_appointment;
+
+  // For appointment bookings, load which PT/Program slots are already taken.
+  useEffect(() => {
+    if (!rescheduleFor || !rescheduleFor.by_appointment) { setTakenSlots(new Set()); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await api.appointmentsTaken();
+        if (!cancelled) setTakenSlots(new Set(r.taken || []));
+      } catch { if (!cancelled) setTakenSlots(new Set()); }
+    })();
+    return () => { cancelled = true; };
+  }, [rescheduleFor]);
 
   // For class bookings, load the gym's real upcoming sessions (24h+ out, same class first).
   useEffect(() => {
@@ -58,32 +72,44 @@ export default function BookingsScreen() {
     return () => { cancelled = true; };
   }, [rescheduleFor]);
 
-  // Next 14 days as pickable chips (label shown to member + sent to gym).
+  // Appointment reschedule: Mon–Thu days only (next ~3 weeks).
   const dayOptions = React.useMemo(() => {
-    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const out: { key: string; short: string; full: string }[] = [];
-    const base = new Date();
-    for (let i = 0; i < 14; i++) {
-      const d = new Date(base.getFullYear(), base.getMonth(), base.getDate() + i);
+    const base = qldTodayUTC();
+    const out: { key: string; short: string; full: string; date: Date }[] = [];
+    for (let i = 0; i < 21 && out.length < 10; i++) {
+      const d = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate() + i));
+      const wd = d.getUTCDay();
+      if (!(wd >= 1 && wd <= 4)) continue; // Mon–Thu only
       out.push({
-        key: d.toISOString().slice(0, 10),
-        short: `${days[d.getDay()].slice(0, 3)} ${d.getDate()} ${months[d.getMonth()]}`,
-        full: `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`,
+        key: `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`,
+        short: d.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }),
+        full: d.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "short", timeZone: "UTC" }),
+        date: d,
       });
     }
     return out;
   }, [rescheduleFor]);
+  // Appointment slots: 10:30am–4:00pm on the half hour.
   const timeSlots = React.useMemo(() => {
-    const out: { v: string; label: string }[] = [];
-    for (let h = 6; h <= 20; h++) for (const m of [0, 30]) {
-      const ap = h < 12 ? "AM" : "PM"; const hh = h % 12 === 0 ? 12 : h % 12;
-      out.push({ v: `${h}:${m}`, label: `${hh}:${String(m).padStart(2, "0")} ${ap}` });
+    const out: { v: string; mins: number; label: string }[] = [];
+    for (let mins = 10 * 60 + 30; mins <= 16 * 60; mins += 30) {
+      const h = Math.floor(mins / 60), m = mins % 60;
+      const label = new Date(Date.UTC(2000, 0, 1, h, m)).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", timeZone: "UTC" });
+      out.push({ v: String(mins), mins, label });
     }
     return out;
   }, []);
+  const slotIsoFor = (dayKey: string, mins: number) => {
+    const h = Math.floor(mins / 60), m = mins % 60;
+    return `${dayKey}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`;
+  };
+  const nowIso = () => {
+    const n = qldNowUTC();
+    return `${n.getUTCFullYear()}-${String(n.getUTCMonth() + 1).padStart(2, "0")}-${String(n.getUTCDate()).padStart(2, "0")}T${String(n.getUTCHours()).padStart(2, "0")}:${String(n.getUTCMinutes()).padStart(2, "0")}:00`;
+  };
   const rDayFull = dayOptions.find((d) => d.key === rDay)?.full || "";
   const rSlotLabel = timeSlots.find((s) => s.v === rSlot)?.label || "";
+  const rApptIso = rDay && rSlot ? slotIsoFor(rDay, Number(rSlot)) : "";
   const slotLabel = (c: ClassSlot) => `${classDate(c.start_at, { weekday: "short", day: "numeric", month: "short" })} · ${classTime(c.start_at)}`;
   const rComposed = isAppt
     ? (rDayFull && rSlotLabel ? `${rDayFull} · ${rSlotLabel}` : "")
@@ -351,28 +377,44 @@ export default function BookingsScreen() {
 
             {isAppt ? (
               <>
-                <Text style={styles.modalLabel}>Pick a day</Text>
+                <Text style={styles.modalLabel}>Pick a day (Mon–Thu)</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
                   {dayOptions.map((d) => {
                     const on = rDay === d.key;
                     return (
-                      <Pressable key={d.key} testID={`rday-${d.key}`} style={[styles.pickChip, on && styles.pickChipOn]} onPress={() => setRDay(d.key)}>
+                      <Pressable key={d.key} testID={`rday-${d.key}`} style={[styles.pickChip, on && styles.pickChipOn]} onPress={() => { setRDay(d.key); setRSlot(""); }}>
                         <Text style={[styles.pickChipText, on && styles.pickChipTextOn]}>{d.short}</Text>
                       </Pressable>
                     );
                   })}
                 </ScrollView>
-                <Text style={styles.modalLabel}>Pick a time</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
-                  {timeSlots.map((s) => {
-                    const on = rSlot === s.v;
-                    return (
-                      <Pressable key={s.v} testID={`rslot-${s.v}`} style={[styles.pickChip, on && styles.pickChipOn]} onPress={() => setRSlot(s.v)}>
-                        <Text style={[styles.pickChipText, on && styles.pickChipTextOn]}>{s.label}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
+                <Text style={styles.modalLabel}>Pick a time (10:30am–4:00pm)</Text>
+                {!rDay ? (
+                  <Text style={styles.modalHint}>Choose a day first to see available times.</Text>
+                ) : (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
+                    {timeSlots.map((s) => {
+                      const iso = slotIsoFor(rDay, s.mins);
+                      const cutoff = (() => { const n = qldNowUTC(); n.setUTCHours(n.getUTCHours() + 24); return `${n.getUTCFullYear()}-${String(n.getUTCMonth() + 1).padStart(2, "0")}-${String(n.getUTCDate()).padStart(2, "0")}T${String(n.getUTCHours()).padStart(2, "0")}:${String(n.getUTCMinutes()).padStart(2, "0")}:00`; })();
+                      const tooSoon = iso <= cutoff;
+                      const taken = takenSlots.has(iso);
+                      const disabled = tooSoon || taken;
+                      const on = rSlot === s.v;
+                      return (
+                        <Pressable
+                          key={s.v}
+                          testID={`rslot-${s.v}`}
+                          disabled={disabled}
+                          style={[styles.pickChip, on && styles.pickChipOn, disabled && { opacity: 0.35 }, taken && styles.pickChipTaken]}
+                          onPress={() => setRSlot(s.v)}
+                        >
+                          <Text style={[styles.pickChipText, on && styles.pickChipTextOn]}>{s.label}</Text>
+                          {taken && <Text style={styles.pickChipTakenText}>booked</Text>}
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                )}
               </>
             ) : (
               <>
@@ -480,10 +522,12 @@ const styles = StyleSheet.create({
   modalSub: { color: colors.brand, fontSize: 14, fontWeight: "700", marginTop: 2, marginBottom: spacing.md },
   modalLabel: { color: colors.onSurfaceSecondary, fontSize: 12, fontWeight: "700", marginTop: spacing.sm, marginBottom: 6 },
   modalHint: { color: colors.brand, fontSize: 12, fontWeight: "700", marginTop: 4, marginBottom: 2 },
-  pickChip: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSecondary, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 9 },
+  pickChip: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSecondary, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 9, alignItems: "center" },
   pickChipOn: { borderColor: colors.brand, backgroundColor: colors.brandTertiary },
   pickChipText: { color: colors.onSurfaceSecondary, fontSize: 13, fontWeight: "800" },
   pickChipTextOn: { color: colors.brand },
+  pickChipTaken: { borderColor: colors.error },
+  pickChipTakenText: { color: colors.error, fontSize: 9, fontWeight: "800", textTransform: "uppercase", marginTop: 1 },
   rComposed: { color: colors.onSurface, fontSize: 13.5, fontWeight: "800", marginTop: spacing.sm },
   slotRow: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.md, marginBottom: 8 },
   slotRowOn: { borderColor: colors.brand, backgroundColor: colors.brandTertiary },
