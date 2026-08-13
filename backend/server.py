@@ -621,6 +621,20 @@ async def mark_booking_paid(booking_id: str) -> None:
             f"{b['class_name']} at Maxenergy Fitness. Booking ref: {booking_ref_code(b['booking_id'])}.",
         )
         cal_line = f"<a href='{cal_url}' style='color:#FF7A00;font-weight:bold'>➕ Add this class to your calendar</a>"
+    # Entry QR — valid through the class day (long-lived; single-use enforced by the attended flag).
+    from urllib.parse import quote as _urlquote
+    _qr_exp = (start + timedelta(days=2)) if isinstance(start, datetime) else (now_utc() + timedelta(days=120))
+    _qr_code = make_checkin_code(b["booking_id"], b["user_id"], _qr_exp)
+    _qr_img = f"https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=10&data={_urlquote(_qr_code)}"
+    qr_block = (
+        "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>"
+        "<div style='text-align:center'>"
+        "<b>Your entry QR code</b><br>"
+        "<span style='color:#666;font-size:13px'>Show this at the door — our staff will scan it to confirm your attendance.</span><br>"
+        f"<img src='{_qr_img}' alt='Entry QR code' width='220' height='220' style='margin-top:10px;border-radius:12px'/><br>"
+        "<span style='color:#999;font-size:12px'>You can also open it any time in the app → My Bookings.</span>"
+        "</div>"
+    )
     # Full-detail confirmation email to the member
     if (member or {}).get("email"):
         await send_email(
@@ -642,6 +656,7 @@ async def mark_booking_paid(booking_id: str) -> None:
                     f"<b>Booking reference:</b> {booking_ref_code(b['booking_id'])}",
                     f"<b>Location:</b> {GYM_INFO['address']}",
                     cal_line,
+                    qr_block,
                     "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
                     "Need to cancel or reschedule? Open the Max Energy app → Profile → My Bookings.",
                     "See you on the mats! 🥊",
@@ -1811,6 +1826,11 @@ async def booking_checkin(booking_id: str, u: dict = Depends(require_user)):
     raise HTTPException(403, "Check-in is done by gym staff scanning your entry QR code.")
 
 
+def make_checkin_code(booking_id: str, uid: str, exp: datetime) -> str:
+    """Signed, non-guessable, single-use (via `attended` flag) door check-in token."""
+    return jwt.encode({"bid": booking_id, "uid": uid, "typ": "checkin", "exp": exp}, JWT_SECRET, algorithm=JWT_ALGO)
+
+
 @api.get("/bookings/{booking_id}/checkin-code")
 async def booking_checkin_code(booking_id: str, u: dict = Depends(require_user)):
     """Return a signed QR payload the member displays for door check-in."""
@@ -1819,13 +1839,7 @@ async def booking_checkin_code(booking_id: str, u: dict = Depends(require_user))
         raise HTTPException(404, "Booking not found")
     if b.get("status") not in ("paid", "confirmed"):
         raise HTTPException(400, "Only paid or confirmed bookings have a check-in code.")
-    payload = {
-        "bid": booking_id,
-        "uid": u["user_id"],
-        "typ": "checkin",
-        "exp": datetime.now(timezone.utc) + timedelta(days=2),
-    }
-    code = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGO)
+    code = make_checkin_code(booking_id, u["user_id"], datetime.now(timezone.utc) + timedelta(days=2))
     return {"code": code, "booking_id": booking_id}
 
 
@@ -1950,9 +1964,12 @@ async def admin_checkin_scan(body: ScanCheckinReq, request: Request, u: dict = D
             "when": when_str,
         }
 
+    admin_name = u.get("name") or u.get("email") or "Staff"
     await db.bookings.update_one(
         {"booking_id": b["booking_id"]},
-        {"$set": {"attended": True, "checked_in_at": now_utc(), "checked_in_by": "admin_qr"}},
+        {"$set": {"attended": True, "checked_in_at": now_utc(),
+                  "checked_in_by": admin_name, "checked_in_by_id": u["user_id"],
+                  "checked_in_method": "qr"}},
     )
     await create_notification(
         b["user_id"],
@@ -4927,10 +4944,15 @@ async def booking_confirm_proposed_time(booking_id: str, u: dict = Depends(requi
 @api.post("/admin/bookings/{booking_id}/attendance")
 async def admin_booking_attendance(booking_id: str, body: AttendanceReq, u: dict = Depends(require_admin)):
     b = await _admin_get_booking(booking_id)
-    await db.bookings.update_one(
-        {"booking_id": booking_id},
-        {"$set": {"attended": body.attended, "checked_in_at": now_utc() if body.attended else None, "checked_in_by": "admin" if body.attended else None}},
-    )
+    admin_name = u.get("name") or u.get("email") or "Staff"
+    if body.attended:
+        set_fields = {"attended": True, "checked_in_at": now_utc(),
+                      "checked_in_by": admin_name, "checked_in_by_id": u["user_id"],
+                      "checked_in_method": "manual"}
+    else:
+        set_fields = {"attended": False, "checked_in_at": None, "checked_in_by": None,
+                      "checked_in_by_id": None, "checked_in_method": None}
+    await db.bookings.update_one({"booking_id": booking_id}, {"$set": set_fields})
     return {"ok": True, "attended": body.attended}
 
 

@@ -803,3 +803,13 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 ## Session update (Jun 2026 fork) — "BOOKING CONFIRMED" badge for all types (DONE)
 - Added a green "BOOKING CONFIRMED" badge in the admin booking card title row, shown once a booking is confirmed: for classes (Muay Thai, Kickboxing, Boot Camp) when paid (paid == confirmed); for appointments (Personal Training, Custom Programs) when status == "confirmed" (admin tapped Confirm). confirmed = status==="confirmed" || (!by_appointment && is_paid). Non-confirmed, non-paid statuses still show their normal pill (PENDING/RESCHEDULE ASK/AWAITING MEMBER/CANCELLED). Paid-but-unconfirmed appointments show the Paid chip + Confirm button (no confirmed badge yet).
 - Verified via screenshot. Seeded txns cleaned.
+
+## Session update (Jun 2026 fork) — QR Attendance system: staff name, method, timestamp + emailed QR (DONE)
+- Context: QR check-in already existed (member "Show entry QR code" → /check-in shows react-native-qrcode-svg from GET /bookings/{id}/checkin-code; admin/scan.tsx CameraView scans → POST /admin/checkin/scan; single-use via `attended` flag; class-day restriction for classes; appointments any day). Applies to all types (Muay Thai, Kickboxing, Boot Camp, Custom Programs, Personal Training).
+- Added per user's spec:
+  1. Record staff identity + method + time: admin_checkin_scan (QR) and admin_booking_attendance (manual) now set checked_in_by=<admin name>, checked_in_by_id, checked_in_method ("qr"|"manual"), checked_in_at. (Previously generic "admin_qr"/"admin").
+  2. Member Booking History (bookings.tsx): attended bookings now show a green "ATTENDANCE CONFIRMED" card with Method (QR Code / Staff (manual)), Confirmed by (staff name), and Confirmed date+time (stampDate/stampTime). Replaces old "Checked in" line.
+  3. Admin Bookings card: attended bookings show a green line "Attendance confirmed · QR|Manual · <staff> · <date time>".
+  4. Emailed QR: booking payment-confirmation email now embeds the entry QR (external QR image renderer using a signed, long-lived — class start +2d / 120d — check-in JWT) + "show at the door" copy. New helper make_checkin_code(booking_id, uid, exp).
+- Manual "Attended?" toggle kept as backup (admin only shows it for appointments; QR works for all).
+- Verified via curl (scan #1 ok, scan #2 already/single-use, method+staff+time recorded for both QR and manual) + screenshot (member attendance card renders). Test data cleaned.

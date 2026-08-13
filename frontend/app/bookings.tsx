@@ -6,10 +6,10 @@ import { Swipeable } from "react-native-gesture-handler";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
-import { classTime, classDate, classStartMs, qldTodayUTC, qldNowUTC } from "@/src/datetime";
+import { classTime, classDate, classStartMs, qldTodayUTC, qldNowUTC, stampDate, stampTime } from "@/src/datetime";
 import ScreenHeader from "@/src/components/ScreenHeader";
 
-type Booking = { booking_id: string; class_name: string; status: string; amount: number; by_appointment?: boolean; requested_time?: string; requested_at?: string; scheduled_time?: string; proposed_time?: string; attended?: boolean };
+type Booking = { booking_id: string; class_name: string; status: string; amount: number; by_appointment?: boolean; requested_time?: string; requested_at?: string; scheduled_time?: string; proposed_time?: string; attended?: boolean; checked_in_method?: string; checked_in_by?: string; checked_in_at?: string };
 type ClassSlot = { class_id: string; name: string; start_at: string };
 
 const STATUS_META: Record<string, { label: string; bg: string; fg: string }> = {
@@ -347,9 +347,29 @@ export default function BookingsScreen() {
                     )}
                     {(b.status === "paid" || b.status === "confirmed") && (
                       b.attended ? (
-                        <View style={styles.checkedInBar}>
-                          <Ionicons name="checkmark-circle" size={16} color="#fff" />
-                          <Text style={styles.checkedInText}>Checked in — see you on the mats!</Text>
+                        <View style={styles.attendCard}>
+                          <View style={styles.attendHead}>
+                            <Ionicons name="checkmark-circle" size={18} color="#fff" />
+                            <Text style={styles.attendHeadText}>ATTENDANCE CONFIRMED</Text>
+                          </View>
+                          <View style={styles.attendBody}>
+                            <View style={styles.attendRow}>
+                              <Text style={styles.attendLabel}>Method</Text>
+                              <Text style={styles.attendValue}>{b.checked_in_method === "manual" ? "Staff (manual)" : "QR Code"}</Text>
+                            </View>
+                            {!!b.checked_in_by && (
+                              <View style={styles.attendRow}>
+                                <Text style={styles.attendLabel}>Confirmed by</Text>
+                                <Text style={styles.attendValue}>{b.checked_in_by}</Text>
+                              </View>
+                            )}
+                            {!!b.checked_in_at && (
+                              <View style={styles.attendRow}>
+                                <Text style={styles.attendLabel}>Confirmed</Text>
+                                <Text style={styles.attendValue}>{stampDate(b.checked_in_at, { weekday: "short", day: "numeric", month: "short" })} · {stampTime(b.checked_in_at)}</Text>
+                              </View>
+                            )}
+                          </View>
                         </View>
                       ) : (
                         <Pressable
@@ -509,6 +529,13 @@ const styles = StyleSheet.create({
   bookingActions: { flexDirection: "row", borderTopWidth: 1, borderTopColor: colors.border },
   qrInfoBar: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, borderTopWidth: 1, borderTopColor: colors.border },
   qrInfoText: { color: colors.onSurfaceSecondary, fontSize: 12.5, fontWeight: "600" },
+  attendCard: { borderTopWidth: 1, borderTopColor: colors.border },
+  attendHead: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.success, paddingVertical: 9 },
+  attendHeadText: { color: "#fff", fontSize: 12, fontWeight: "900", letterSpacing: 0.6 },
+  attendBody: { padding: spacing.md, gap: 6 },
+  attendRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  attendLabel: { color: colors.onSurfaceSecondary, fontSize: 12.5, fontWeight: "600" },
+  attendValue: { color: colors.onSurface, fontSize: 12.5, fontWeight: "800" },
   receiptBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 11, borderTopWidth: 1, borderTopColor: colors.border },
   receiptBtnText: { color: colors.brand, fontSize: 13, fontWeight: "800" },
   checkedInBar: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: "#16A34A" },

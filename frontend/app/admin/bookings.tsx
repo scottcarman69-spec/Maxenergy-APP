@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
 import ScreenHeader from "@/src/components/ScreenHeader";
-import { classTime, classDate, qldTodayUTC, qldNowUTC } from "@/src/datetime";
+import { classTime, classDate, qldTodayUTC, qldNowUTC, stampDate, stampTime } from "@/src/datetime";
 
 type Booking = {
   booking_id: string;
@@ -24,6 +24,9 @@ type Booking = {
   reference?: string;
   created_at?: string;
   attended?: boolean;
+  checked_in_method?: string;
+  checked_in_by?: string;
+  checked_in_at?: string;
   paid_via?: string;
   is_paid?: boolean;
 };
@@ -222,6 +225,16 @@ export default function AdminBookings() {
                             : `Preferred: ${b.requested_time}`}
                         </Text>
                       )}
+                      {b.attended && (
+                        <View style={styles.attendLine}>
+                          <Ionicons name="checkmark-circle" size={12} color={colors.success} />
+                          <Text style={styles.attendLineText} numberOfLines={1}>
+                            Attendance confirmed · {b.checked_in_method === "manual" ? "Manual" : "QR"}
+                            {b.checked_in_by ? ` · ${b.checked_in_by}` : ""}
+                            {b.checked_in_at ? ` · ${stampDate(b.checked_in_at, { day: "numeric", month: "short" })} ${stampTime(b.checked_in_at)}` : ""}
+                          </Text>
+                        </View>
+                      )}
                     </View>
                   </View>
 
@@ -406,6 +419,8 @@ const styles = StyleSheet.create({
   paidChip: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: colors.success, borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 2 },
   paidChipText: { color: "#fff", fontSize: 9.5, fontWeight: "900", letterSpacing: 0.3 },
   timeLine: { color: colors.onSurface, fontSize: 11.5, marginTop: 4, fontWeight: "600" },
+  attendLine: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
+  attendLineText: { color: colors.success, fontSize: 11, fontWeight: "800", flex: 1 },
   statusPill: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: radius.pill },
   statusText: { fontSize: 8.5, fontWeight: "900", letterSpacing: 0.4 },
   confirmedBadge: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: colors.success, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 4 },
