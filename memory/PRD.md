@@ -799,3 +799,7 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - User asked if the paid booking shows a reference that matches its Square payment. It does: the app number (e.g. 88352) is the same value Square receives as "MAX-88352" in the payment_note (booking_ref_code).
 - Made it explicit: admin_bookings now returns `reference` (booking_ref_code = MAX-<no.>). Admin Bookings card shows the reference as "MAX-88352" (orange) instead of bare "No.", and for Square-paid bookings adds a "Square ref: MAX-88352" line so it lines up 1:1 with the Square dashboard/payment note for reconciliation.
 - Verified via curl (reference == MAX-<booking_no>, matches Square payment_note format) + screenshot. Seeded square txns cleaned.
+
+## Session update (Jun 2026 fork) — "BOOKING CONFIRMED" badge for all types (DONE)
+- Added a green "BOOKING CONFIRMED" badge in the admin booking card title row, shown once a booking is confirmed: for classes (Muay Thai, Kickboxing, Boot Camp) when paid (paid == confirmed); for appointments (Personal Training, Custom Programs) when status == "confirmed" (admin tapped Confirm). confirmed = status==="confirmed" || (!by_appointment && is_paid). Non-confirmed, non-paid statuses still show their normal pill (PENDING/RESCHEDULE ASK/AWAITING MEMBER/CANCELLED). Paid-but-unconfirmed appointments show the Paid chip + Confirm button (no confirmed badge yet).
+- Verified via screenshot. Seeded txns cleaned.

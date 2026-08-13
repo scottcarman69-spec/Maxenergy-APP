@@ -182,17 +182,24 @@ export default function AdminBookings() {
               const meta = STATUS_META[b.status] || { label: b.status.toUpperCase(), bg: colors.surfaceTertiary, fg: colors.onSurface };
               const busy = actioning === b.booking_id;
               const paidViaSquare = b.paid_via === "square";
+              // A booking is "confirmed" when a paid class (paid == confirmed) or an appointment the admin has confirmed.
+              const confirmed = b.status === "confirmed" || (!b.by_appointment && !!b.is_paid);
               return (
                 <View key={b.booking_id} testID={`adminbk-row-${b.booking_id}`} style={styles.card}>
                   <View style={styles.cardTop}>
                     <View style={{ flex: 1 }}>
                       <View style={styles.titleRow}>
                         <Text style={styles.className} numberOfLines={1}>{b.class_name}</Text>
-                        {b.status !== "paid" && (
+                        {confirmed ? (
+                          <View style={styles.confirmedBadge}>
+                            <Ionicons name="checkmark-circle" size={12} color="#fff" />
+                            <Text style={styles.confirmedBadgeText}>BOOKING CONFIRMED</Text>
+                          </View>
+                        ) : b.status !== "paid" ? (
                           <View style={[styles.statusPill, { backgroundColor: meta.bg }]}>
                             <Text style={[styles.statusText, { color: meta.fg }]}>{meta.label}</Text>
                           </View>
-                        )}
+                        ) : null}
                       </View>
                       <Text style={styles.member} numberOfLines={1}>{b.member_name}{b.member_email ? ` · ${b.member_email}` : ""}</Text>
                       <View style={styles.metaRow}>
@@ -401,6 +408,8 @@ const styles = StyleSheet.create({
   timeLine: { color: colors.onSurface, fontSize: 11.5, marginTop: 4, fontWeight: "600" },
   statusPill: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: radius.pill },
   statusText: { fontSize: 8.5, fontWeight: "900", letterSpacing: 0.4 },
+  confirmedBadge: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: colors.success, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 4 },
+  confirmedBadgeText: { color: "#fff", fontSize: 8.5, fontWeight: "900", letterSpacing: 0.4 },
   actions: { flexDirection: "row", borderTopWidth: 1, borderTopColor: colors.border },
   actBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingVertical: 9 },
   actAccept: { backgroundColor: colors.brand },
