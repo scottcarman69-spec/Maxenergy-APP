@@ -108,6 +108,14 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="leaderboard"
+        options={{
+          title: "Ladder",
+          tabBarLabel: tabLabel("Ladder"),
+          tabBarIcon: ({ color, size }) => <Ionicons name="trophy" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="reviews"
         options={{ href: null }}
       />

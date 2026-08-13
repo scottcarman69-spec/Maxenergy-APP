@@ -269,7 +269,6 @@ export default function Home() {
     { key: "trial", label: "Free Trial", icon: "gift", grad: ["#9333EA", "#C084FC"], onPress: () => router.push("/free-trial") },
     { key: "membership", label: "Join Membership", icon: "ribbon", grad: ["#2563EB", "#60A5FA"], onPress: () => router.push("/vigyr-signon") },
     { key: "classpass", label: "Class Pass", icon: "ticket", grad: ["#DC2626", "#F87171"], onPress: () => router.push("/credits") },
-    { key: "leaderboard", label: "Attendance Ladder", icon: "trophy", grad: ["#CA8A04", "#FACC15"], onPress: () => router.push("/leaderboard") },
     { key: "academy", label: "Muay Thai Academy", icon: "shield-half", grad: ["#B45309", "#F59E0B"], onPress: () => router.push("/group/grp_muaythai_academy") },
     { key: "notices", label: "Gym Notices", icon: "megaphone", grad: ["#D97706", "#FBBF24"], onPress: () => router.navigate("/(tabs)/events") },
     { key: "contact", label: "Contact Us", icon: "chatbubbles", grad: ["#DB2777", "#F472B6"], onPress: () => router.push("/contact") },

@@ -860,3 +860,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Ladder Movement: rank change vs LAST calendar month (prev-month ranking of participants). Each row shows ▲n (green, moved up), ▼n (red, down), – (same), or NEW (green, not ranked last month). Backend adds movement (prev_rank - current_rank, null=new) to each board row.
 - leaderboard endpoint response now includes streak + movement per row and me.streak. Frontend Movement + StreakPill components.
 - Verified via curl (streak 2/3, movement 0/▼1/NEW) + screenshot. All ladder test data cleaned.
+
+## Session update (Jun 2026 fork) — Ladder moved to bottom tab bar (DONE)
+- Moved leaderboard screen from /app/leaderboard.tsx to /app/(tabs)/leaderboard.tsx (route still /leaderboard). Added a "Ladder" tab (trophy icon) in (tabs)/_layout.tsx between Alerts and Profile (now 7 tabs). ScreenHeader on the ladder now showBack={false} (root tab, no back).
+- Removed the "Attendance Ladder" quick-action tile from Home.
+- Verified via screenshot: trophy tab present + active, ladder renders as a tab with no back button.
