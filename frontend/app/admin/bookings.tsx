@@ -187,9 +187,11 @@ export default function AdminBookings() {
                     <View style={{ flex: 1 }}>
                       <View style={styles.titleRow}>
                         <Text style={styles.className} numberOfLines={1}>{b.class_name}</Text>
-                        <View style={[styles.statusPill, { backgroundColor: meta.bg }]}>
-                          <Text style={[styles.statusText, { color: meta.fg }]}>{meta.label}</Text>
-                        </View>
+                        {b.status !== "paid" && (
+                          <View style={[styles.statusPill, { backgroundColor: meta.bg }]}>
+                            <Text style={[styles.statusText, { color: meta.fg }]}>{meta.label}</Text>
+                          </View>
+                        )}
                       </View>
                       <Text style={styles.member} numberOfLines={1}>{b.member_name}{b.member_email ? ` · ${b.member_email}` : ""}</Text>
                       <View style={styles.metaRow}>
@@ -198,7 +200,7 @@ export default function AdminBookings() {
                         {b.is_paid && (
                           <View style={styles.paidChip}>
                             <Ionicons name="checkmark-circle" size={12} color="#fff" />
-                            <Text style={styles.paidChipText}>PAID{b.paid_via ? ` · ${PAID_VIA_LABEL[b.paid_via] || "Card"}` : ""}</Text>
+                            <Text style={styles.paidChipText}>Paid by {b.paid_via ? (PAID_VIA_LABEL[b.paid_via] || "Card") : "Card"}</Text>
                           </View>
                         )}
                       </View>

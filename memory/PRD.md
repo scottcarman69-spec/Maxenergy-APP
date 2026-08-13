@@ -789,3 +789,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Removed the "Mark as attended" bar from CLASS bookings (Muay Thai, Boot Camp, Kickboxing). Attendance ("Attended?" toggle) now only shows for by_appointment bookings (PT/Custom Programs), inline in the action row.
 - Compacted the admin booking cards: status pill inline with the class title, meta as small chips (No. / price / PAID), single confirmed/preferred/proposed time line, smaller action buttons, tighter list gap. More organised & smaller per user request.
 - Verified via screenshot + curl (paid_via=square, is_paid=true). Seeded test data cleaned.
+
+## Session update (Jun 2026 fork) — "Paid by Square" chip + remove PAID badge (DONE)
+- Admin Bookings: green chip now reads "Paid by <method>" (e.g. "Paid by Square", "Paid by Class Pass") instead of "PAID · Square".
+- Removed the redundant PAID status pill from paid bookings (status pill now hidden when status=="paid"); the green "Paid by …" chip conveys it. Other statuses (CONFIRMED, PENDING, RESCHEDULE ASK, AWAITING MEMBER) still show their pill.
+- Verified via screenshot. Seeded square txns cleaned.
