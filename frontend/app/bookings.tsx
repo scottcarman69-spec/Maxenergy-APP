@@ -312,17 +312,27 @@ export default function BookingsScreen() {
                         </Pressable>
                       </View>
                     )}
+                    {b.status === "reschedule_requested" && (
+                      <View style={styles.pendingBox}>
+                        <Ionicons name="hourglass-outline" size={15} color={colors.brand} />
+                        <Text style={styles.pendingText}>
+                          Reschedule requested{b.requested_time ? ` for ${b.requested_time}` : ""} — waiting for the gym to confirm. You can't request another change until they respond.
+                        </Text>
+                      </View>
+                    )}
                     {canManage && (
                       <View style={styles.bookingActions}>
-                        <Pressable
-                          testID={`booking-reschedule-${b.booking_id}`}
-                          style={styles.actionBtnGhost}
-                          onPress={() => { setRescheduleFor(b); setRDay(""); setRSlot(""); setRNote(""); setRClassSlot(null); setRErr(null); }}
-                          disabled={actioning === b.booking_id}
-                        >
-                          <Ionicons name="time-outline" size={15} color={colors.brand} />
-                          <Text style={styles.actionGhostText}>Reschedule</Text>
-                        </Pressable>
+                        {b.status !== "reschedule_requested" && (
+                          <Pressable
+                            testID={`booking-reschedule-${b.booking_id}`}
+                            style={styles.actionBtnGhost}
+                            onPress={() => { setRescheduleFor(b); setRDay(""); setRSlot(""); setRNote(""); setRClassSlot(null); setRErr(null); }}
+                            disabled={actioning === b.booking_id}
+                          >
+                            <Ionicons name="time-outline" size={15} color={colors.brand} />
+                            <Text style={styles.actionGhostText}>Reschedule</Text>
+                          </Pressable>
+                        )}
                         <Pressable
                           testID={`booking-cancel-${b.booking_id}`}
                           style={styles.actionBtnDanger}
@@ -559,6 +569,8 @@ const styles = StyleSheet.create({
   statusPill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill },
   proposeBox: { marginTop: spacing.sm, backgroundColor: "#F59E0B22", borderWidth: 1, borderColor: "#F59E0B", borderRadius: radius.md, padding: spacing.md, gap: spacing.sm },
   proposeText: { color: colors.onSurface, fontSize: 13.5, lineHeight: 19 },
+  pendingBox: { flexDirection: "row", alignItems: "flex-start", gap: 8, marginTop: spacing.sm, backgroundColor: colors.brandTertiary, borderWidth: 1, borderColor: colors.brand, borderRadius: radius.md, padding: spacing.md },
+  pendingText: { flex: 1, color: colors.onSurface, fontSize: 12.5, lineHeight: 18, fontWeight: "600" },
   proposeConfirmBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, backgroundColor: colors.brand, paddingVertical: 12, borderRadius: radius.md },
   proposeConfirmText: { color: colors.onBrand, fontWeight: "900", fontSize: 14, letterSpacing: 0.3 },
   statusText: { fontSize: 10, fontWeight: "900", letterSpacing: 1 },

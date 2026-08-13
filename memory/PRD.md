@@ -818,3 +818,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - If a paid/confirmed booking was never checked in (attended=False) and the session END time (start + duration) has passed, both the member Booking History card and the admin Bookings card now show a red "QR code was not confirmed during class time" message (member: replaces the "Show entry QR code" button; admin: a red line under the booking).
 - Computed client-side: startIso = by_appointment ? requested_at : class_start; endMs = classStartMs(startIso) + (duration_min||60)*60000; missed = !attended && status in (paid,confirmed) && qldNowUTC() > endMs. admin_bookings now enriches rows with class_start + duration_min (from classes) for this.
 - Verified via screenshot (member shows the red message on a past unattended appointment; upcoming bookings still show the QR button). Test data cleaned.
+
+## Session update (Jun 2026 fork) — Block duplicate reschedule while pending (DONE)
+- Members can no longer request a second reschedule while one is still pending admin action.
+- Backend booking_reschedule: rejects with 409 "You already have a reschedule request pending…" when the booking status is already "reschedule_requested".
+- Member bookings.tsx: when status=="reschedule_requested", the Reschedule button is hidden (Cancel still available) and a pending note shows "Reschedule requested for <time> — waiting for the gym to confirm. You can't request another change until they respond."
+- Verified: 2nd reschedule attempt → 409; UI hides Reschedule + shows pending note (screenshot). Test data reverted.

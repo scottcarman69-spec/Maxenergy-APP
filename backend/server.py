@@ -1777,6 +1777,8 @@ async def booking_reschedule(booking_id: str, body: RescheduleReq, u: dict = Dep
         raise HTTPException(404, "Booking not found")
     if b.get("status") == "cancelled":
         raise HTTPException(400, "This booking is cancelled and cannot be rescheduled.")
+    if b.get("status") == "reschedule_requested":
+        raise HTTPException(409, "You already have a reschedule request pending. The gym will confirm a new time shortly.")
     # The NEW chosen time must be at least 24 hours from now (Queensland time).
     now_local = (now_utc() + timedelta(hours=10)).replace(tzinfo=None)
     if body.requested_at:
