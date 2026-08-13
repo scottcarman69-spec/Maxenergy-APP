@@ -794,3 +794,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Admin Bookings: green chip now reads "Paid by <method>" (e.g. "Paid by Square", "Paid by Class Pass") instead of "PAID · Square".
 - Removed the redundant PAID status pill from paid bookings (status pill now hidden when status=="paid"); the green "Paid by …" chip conveys it. Other statuses (CONFIRMED, PENDING, RESCHEDULE ASK, AWAITING MEMBER) still show their pill.
 - Verified via screenshot. Seeded square txns cleaned.
+
+## Session update (Jun 2026 fork) — Booking reference matches Square (DONE)
+- User asked if the paid booking shows a reference that matches its Square payment. It does: the app number (e.g. 88352) is the same value Square receives as "MAX-88352" in the payment_note (booking_ref_code).
+- Made it explicit: admin_bookings now returns `reference` (booking_ref_code = MAX-<no.>). Admin Bookings card shows the reference as "MAX-88352" (orange) instead of bare "No.", and for Square-paid bookings adds a "Square ref: MAX-88352" line so it lines up 1:1 with the Square dashboard/payment note for reconciliation.
+- Verified via curl (reference == MAX-<booking_no>, matches Square payment_note format) + screenshot. Seeded square txns cleaned.

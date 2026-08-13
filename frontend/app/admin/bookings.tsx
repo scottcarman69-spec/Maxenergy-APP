@@ -21,6 +21,7 @@ type Booking = {
   member_name?: string;
   member_email?: string;
   booking_no?: number;
+  reference?: string;
   created_at?: string;
   attended?: boolean;
   paid_via?: string;
@@ -195,7 +196,7 @@ export default function AdminBookings() {
                       </View>
                       <Text style={styles.member} numberOfLines={1}>{b.member_name}{b.member_email ? ` · ${b.member_email}` : ""}</Text>
                       <View style={styles.metaRow}>
-                        {!!b.booking_no && <Text style={styles.metaChip}>No. {b.booking_no}</Text>}
+                        {!!b.reference && <Text style={styles.refChip}>{b.reference}</Text>}
                         <Text style={styles.metaChip}>{b.by_appointment ? "Appointment" : `$${(b.amount / 100).toFixed(0)}`}</Text>
                         {b.is_paid && (
                           <View style={styles.paidChip}>
@@ -204,6 +205,9 @@ export default function AdminBookings() {
                           </View>
                         )}
                       </View>
+                      {paidViaSquare && !!b.reference && (
+                        <Text style={styles.squareRef} numberOfLines={1}>Square ref: {b.reference}</Text>
+                      )}
                       {(b.scheduled_time || b.requested_time || (b.status === "admin_proposed" && b.proposed_time)) && (
                         <Text style={styles.timeLine} numberOfLines={1}>
                           {b.scheduled_time ? `Confirmed: ${b.scheduled_time}`
@@ -390,6 +394,8 @@ const styles = StyleSheet.create({
   member: { color: colors.onSurfaceSecondary, fontSize: 11.5, marginTop: 2 },
   metaRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 6, marginTop: 5 },
   metaChip: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "700" },
+  refChip: { color: colors.brand, fontSize: 11, fontWeight: "900", letterSpacing: 0.3 },
+  squareRef: { color: colors.onSurfaceSecondary, fontSize: 10.5, fontWeight: "700", marginTop: 3 },
   paidChip: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: colors.success, borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 2 },
   paidChipText: { color: "#fff", fontSize: 9.5, fontWeight: "900", letterSpacing: 0.3 },
   timeLine: { color: colors.onSurface, fontSize: 11.5, marginTop: 4, fontWeight: "600" },

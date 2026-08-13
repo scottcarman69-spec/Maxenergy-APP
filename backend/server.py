@@ -4761,6 +4761,7 @@ async def admin_bookings(u: dict = Depends(require_admin)):
     for r in rows:
         m = umap.get(r["user_id"], {})
         r["booking_no"] = booking_ref_no(r.get("booking_id", ""))
+        r["reference"] = booking_ref_code(r.get("booking_id", ""))
         r["member_name"] = m.get("name") or m.get("email") or "Member"
         r["member_email"] = m.get("email")
         r["member_phone"] = m.get("phone") or phone_by_user.get(r["user_id"])
