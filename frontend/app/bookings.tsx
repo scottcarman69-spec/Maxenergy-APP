@@ -182,8 +182,9 @@ export default function BookingsScreen() {
     if (!rescheduleFor || !rComposed) return;
     setRErr(null);
     setActioning(rescheduleFor.booking_id);
+    const newAt = isAppt ? rApptIso : (rClassSlot?.start_at || undefined);
     try {
-      await api.rescheduleBooking(rescheduleFor.booking_id, rComposed, rNote.trim() || undefined);
+      await api.rescheduleBooking(rescheduleFor.booking_id, rComposed, rNote.trim() || undefined, newAt || undefined);
       setBanner("Reschedule request sent. The gym will confirm a time.");
       setRescheduleFor(null);
       setRDay(""); setRSlot(""); setRNote(""); setRClassSlot(null);

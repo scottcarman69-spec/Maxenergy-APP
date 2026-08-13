@@ -883,6 +883,7 @@ class TrialClaimReq(BaseModel):
 
 class RescheduleReq(BaseModel):
     requested_time: str
+    requested_at: Optional[str] = None   # ISO QLD wall-clock of the NEW chosen time
     note: Optional[str] = None
 
 
@@ -1761,36 +1762,25 @@ async def booking_reschedule(booking_id: str, body: RescheduleReq, u: dict = Dep
         raise HTTPException(404, "Booking not found")
     if b.get("status") == "cancelled":
         raise HTTPException(400, "This booking is cancelled and cannot be rescheduled.")
-    # 24-hour reschedule cutoff (Queensland time) — same policy as cancellations.
+    # The NEW chosen time must be at least 24 hours from now (Queensland time).
     now_local = (now_utc() + timedelta(hours=10)).replace(tzinfo=None)
-    start_local = None
-    ra = b.get("requested_at")
-    if ra:
+    if body.requested_at:
         try:
-            start_local = datetime.fromisoformat(ra).replace(tzinfo=None)
+            new_local = datetime.fromisoformat(body.requested_at).replace(tzinfo=None)
         except Exception:
-            start_local = None
-    else:
-        cs = None
-        if b.get("class_id"):
-            c = await db.classes.find_one({"class_id": b["class_id"]}, {"_id": 0, "start_at": 1})
-            cs = (c or {}).get("start_at")
-        cs = cs or b.get("class_start")
-        if isinstance(cs, str):
-            try:
-                cs = datetime.fromisoformat(cs.replace("Z", "+00:00"))
-            except Exception:
-                cs = None
-        if isinstance(cs, datetime):
-            start_local = cs.replace(tzinfo=None) if cs.tzinfo else cs
-    if start_local is not None and now_local >= (start_local - timedelta(hours=24)):
-        raise HTTPException(
-            409,
-            "You can reschedule up until 24 hours before the class starts. This booking is now within 24 hours, so please contact the gym on 07 4057 9005 to change it.",
-        )
+            new_local = None
+        if new_local is not None and new_local < (now_local + timedelta(hours=24)):
+            raise HTTPException(
+                409,
+                "Please choose a new time at least 24 hours from now. Pick a later day or time, or call the gym on 07 4057 9005.",
+            )
+    set_fields = {"status": "reschedule_requested", "requested_time": body.requested_time,
+                  "reschedule_note": body.note, "reschedule_requested_at": now_utc()}
+    if body.requested_at:
+        set_fields["requested_at"] = body.requested_at
     await db.bookings.update_one(
         {"booking_id": booking_id},
-        {"$set": {"status": "reschedule_requested", "requested_time": body.requested_time, "reschedule_note": body.note, "reschedule_requested_at": now_utc()}},
+        {"$set": set_fields},
     )
     member_name = u.get("name") or u.get("email")
     note_txt = f" Note: {body.note}" if body.note else ""
