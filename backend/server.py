@@ -211,6 +211,7 @@ def user_public(u: dict) -> dict:
         "phone": u.get("phone"),
         "picture": u.get("picture"),
         "is_admin": bool(u.get("is_admin", False)),
+        "is_test": bool(u.get("is_test", False)),
         "verified": bool(u.get("verified", False)),
         "reminder_hours": int(u.get("reminder_hours", 3)),
         "message_notifications": bool(u.get("message_notifications", True)),
@@ -2909,6 +2910,23 @@ async def payments_checkout(body: CheckoutCreate, request: Request, u: dict = De
 
     amount_cents = int(booking["amount"])
     currency = (booking.get("currency") or "AUD").upper()
+
+    # ----- TEST ACCOUNT: book free, no card charge (marked paid/confirmed) -----
+    if u.get("is_test"):
+        if booking.get("status") != "paid":
+            await db.payment_transactions.insert_one({
+                "session_id": f"test_{booking['booking_id']}",
+                "provider": "test_free",
+                "booking_id": booking["booking_id"],
+                "user_id": u["user_id"],
+                "amount": booking["amount"],
+                "currency": currency.lower(),
+                "payment_status": "paid",
+                "status": "paid",
+                "created_at": now_utc(),
+            })
+            await mark_booking_paid(booking["booking_id"])
+        return {"paid_free_test": True, "booking_id": booking["booking_id"]}
 
     # ----- Pay with a class pass (deduct 1 pass, no card) -----
     if body.use_class_pass:

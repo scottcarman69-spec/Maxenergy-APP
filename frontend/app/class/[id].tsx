@@ -92,8 +92,8 @@ export default function ClassDetail() {
           : BACKEND_URL!;
       const res = await api.checkout(booking.booking_id, origin, useCredit, useClassPass);
 
-      // Fully covered by in-app credit or a class pass — no card payment needed.
-      if (res.paid_with_credit || res.paid_with_pass) {
+      // Fully covered by in-app credit, a class pass, or a free test account — no card payment needed.
+      if (res.paid_with_credit || res.paid_with_pass || res.paid_free_test) {
         setBusy(false);
         router.replace({ pathname: "/receipt", params: { booking_id: booking.booking_id } });
         return;
