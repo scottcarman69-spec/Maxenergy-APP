@@ -782,3 +782,10 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Delivery: web → direct file download (Blob + anchor); native → writes to FileSystem cache (expo-file-system/legacy) then opens the native share sheet (expo-sharing) so admins can save to Files / email to the accountant. Works in Expo Go.
 - Installed expo-file-system (~19.0.23); expo-sharing already present.
 - Verified via screenshot: button renders + click works (web download, no crash). Cleaned test-member booking_logs.
+
+## Session update (Jun 2026 fork) — Admin Bookings redesign + paid/Square indicator (DONE)
+- Status badge (PAID/CONFIRMED) now GREEN (colors.success) instead of orange.
+- Added a green "PAID · <method>" chip on each booking (incl. Personal Training / Custom Programs), driven by real payment_transactions (payment_status="paid"): shows Square / Credit / Class Pass / Test. Backend admin_bookings now enriches each row with paid_via (first paid tx provider) and is_paid.
+- Removed the "Mark as attended" bar from CLASS bookings (Muay Thai, Boot Camp, Kickboxing). Attendance ("Attended?" toggle) now only shows for by_appointment bookings (PT/Custom Programs), inline in the action row.
+- Compacted the admin booking cards: status pill inline with the class title, meta as small chips (No. / price / PAID), single confirmed/preferred/proposed time line, smaller action buttons, tighter list gap. More organised & smaller per user request.
+- Verified via screenshot + curl (paid_via=square, is_paid=true). Seeded test data cleaned.

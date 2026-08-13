@@ -23,11 +23,17 @@ type Booking = {
   booking_no?: number;
   created_at?: string;
   attended?: boolean;
+  paid_via?: string;
+  is_paid?: boolean;
+};
+
+const PAID_VIA_LABEL: Record<string, string> = {
+  square: "Square", credit: "Credit", class_pass: "Class Pass", test_free: "Test",
 };
 
 const STATUS_META: Record<string, { label: string; bg: string; fg: string }> = {
-  paid: { label: "PAID", bg: colors.brand, fg: colors.onBrand },
-  confirmed: { label: "CONFIRMED", bg: colors.brand, fg: colors.onBrand },
+  paid: { label: "PAID", bg: colors.success, fg: "#fff" },
+  confirmed: { label: "CONFIRMED", bg: colors.success, fg: "#fff" },
   pending: { label: "PENDING", bg: colors.surfaceTertiary, fg: colors.onSurface },
   reschedule_requested: { label: "RESCHEDULE ASK", bg: "#B45309", fg: "#fff" },
   admin_proposed: { label: "AWAITING MEMBER", bg: "#F59E0B", fg: "#1A1A1A" },
@@ -164,7 +170,7 @@ export default function AdminBookings() {
       {loading ? (
         <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />
       ) : (
-        <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: 40 }}>
+        <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.sm, paddingBottom: 40 }}>
           {filtered.length === 0 ? (
             <View style={styles.empty}>
               <Ionicons name="clipboard-outline" size={40} color={colors.onSurfaceSecondary} />
@@ -174,22 +180,35 @@ export default function AdminBookings() {
             filtered.map((b) => {
               const meta = STATUS_META[b.status] || { label: b.status.toUpperCase(), bg: colors.surfaceTertiary, fg: colors.onSurface };
               const busy = actioning === b.booking_id;
+              const paidViaSquare = b.paid_via === "square";
               return (
                 <View key={b.booking_id} testID={`adminbk-row-${b.booking_id}`} style={styles.card}>
                   <View style={styles.cardTop}>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.className}>{b.class_name}</Text>
-                      <Text style={styles.member}>{b.member_name}{b.member_email ? ` · ${b.member_email}` : ""}</Text>
-                      <Text style={styles.meta}>
-                        {b.booking_no ? `No. ${b.booking_no} · ` : ""}
-                        {b.by_appointment ? "By appointment" : `$${(b.amount / 100).toFixed(0)}`}
-                        {b.scheduled_time ? ` · confirmed: ${b.scheduled_time}` : ""}
-                        {!b.scheduled_time && b.requested_time ? ` · preferred: ${b.requested_time}` : ""}
-                        {b.status === "admin_proposed" && b.proposed_time ? ` · proposed: ${b.proposed_time}` : ""}
-                      </Text>
-                    </View>
-                    <View style={[styles.statusPill, { backgroundColor: meta.bg }]}>
-                      <Text style={[styles.statusText, { color: meta.fg }]}>{meta.label}</Text>
+                      <View style={styles.titleRow}>
+                        <Text style={styles.className} numberOfLines={1}>{b.class_name}</Text>
+                        <View style={[styles.statusPill, { backgroundColor: meta.bg }]}>
+                          <Text style={[styles.statusText, { color: meta.fg }]}>{meta.label}</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.member} numberOfLines={1}>{b.member_name}{b.member_email ? ` · ${b.member_email}` : ""}</Text>
+                      <View style={styles.metaRow}>
+                        {!!b.booking_no && <Text style={styles.metaChip}>No. {b.booking_no}</Text>}
+                        <Text style={styles.metaChip}>{b.by_appointment ? "Appointment" : `$${(b.amount / 100).toFixed(0)}`}</Text>
+                        {b.is_paid && (
+                          <View style={styles.paidChip}>
+                            <Ionicons name="checkmark-circle" size={12} color="#fff" />
+                            <Text style={styles.paidChipText}>PAID{b.paid_via ? ` · ${PAID_VIA_LABEL[b.paid_via] || "Card"}` : ""}</Text>
+                          </View>
+                        )}
+                      </View>
+                      {(b.scheduled_time || b.requested_time || (b.status === "admin_proposed" && b.proposed_time)) && (
+                        <Text style={styles.timeLine} numberOfLines={1}>
+                          {b.scheduled_time ? `Confirmed: ${b.scheduled_time}`
+                            : b.status === "admin_proposed" && b.proposed_time ? `Proposed: ${b.proposed_time}`
+                            : `Preferred: ${b.requested_time}`}
+                        </Text>
+                      )}
                     </View>
                   </View>
 
@@ -202,7 +221,7 @@ export default function AdminBookings() {
                           disabled={busy}
                           onPress={() => act(b.booking_id, () => api.adminAcceptBooking(b.booking_id), "Accepted & member notified.")}
                         >
-                          {busy ? <ActivityIndicator size="small" color={colors.onBrand} /> : (<><Ionicons name="checkmark" size={15} color={colors.onBrand} /><Text style={styles.actAcceptText}>Accept</Text></>)}
+                          {busy ? <ActivityIndicator size="small" color={colors.onBrand} /> : (<><Ionicons name="checkmark" size={14} color={colors.onBrand} /><Text style={styles.actAcceptText}>Accept</Text></>)}
                         </Pressable>
                       )}
                       {b.by_appointment && b.status === "paid" && (
@@ -212,7 +231,7 @@ export default function AdminBookings() {
                           disabled={busy}
                           onPress={() => act(b.booking_id, () => api.adminConfirmBooking(b.booking_id), "Confirmed & member notified.")}
                         >
-                          {busy ? <ActivityIndicator size="small" color={colors.onBrand} /> : (<><Ionicons name="checkmark-done" size={15} color={colors.onBrand} /><Text style={styles.actAcceptText}>Confirm booking</Text></>)}
+                          {busy ? <ActivityIndicator size="small" color={colors.onBrand} /> : (<><Ionicons name="checkmark-done" size={14} color={colors.onBrand} /><Text style={styles.actAcceptText}>Confirm</Text></>)}
                         </Pressable>
                       )}
                       {b.by_appointment && (
@@ -222,8 +241,19 @@ export default function AdminBookings() {
                           disabled={busy}
                           onPress={() => openReschedule(b)}
                         >
-                          <Ionicons name="time-outline" size={15} color={colors.brand} />
+                          <Ionicons name="time-outline" size={14} color={colors.brand} />
                           <Text style={styles.actGhostText}>Suggest time</Text>
+                        </Pressable>
+                      )}
+                      {b.by_appointment && (
+                        <Pressable
+                          testID={`adminbk-attend-${b.booking_id}`}
+                          style={[styles.actBtn, b.attended ? styles.actAttendOn : styles.actGhost]}
+                          disabled={busy}
+                          onPress={() => act(b.booking_id, () => api.adminSetAttendance(b.booking_id, !b.attended), b.attended ? "Marked as not attended." : "Marked as attended ✓")}
+                        >
+                          <Ionicons name={b.attended ? "checkmark-circle" : "person-add-outline"} size={14} color={b.attended ? "#fff" : colors.brand} />
+                          <Text style={b.attended ? styles.actAttendOnText : styles.actGhostText}>{b.attended ? "Attended" : "Attended?"}</Text>
                         </Pressable>
                       )}
                       <Pressable
@@ -232,23 +262,10 @@ export default function AdminBookings() {
                         disabled={busy}
                         onPress={() => act(b.booking_id, () => api.adminCancelBooking(b.booking_id), "Cancelled & member notified.")}
                       >
-                        <Ionicons name="close-circle-outline" size={15} color={colors.error} />
+                        <Ionicons name="close-circle-outline" size={14} color={colors.error} />
                         <Text style={styles.actDangerText}>Cancel</Text>
                       </Pressable>
                     </View>
-                  )}
-                  {b.status !== "cancelled" && (
-                    <Pressable
-                      testID={`adminbk-attend-${b.booking_id}`}
-                      style={[styles.attendBar, b.attended && styles.attendBarOn]}
-                      disabled={busy}
-                      onPress={() => act(b.booking_id, () => api.adminSetAttendance(b.booking_id, !b.attended), b.attended ? "Marked as not attended." : "Marked as attended ✓")}
-                    >
-                      <Ionicons name={b.attended ? "checkmark-circle" : "person-add-outline"} size={16} color={b.attended ? "#fff" : colors.onSurface} />
-                      <Text style={[styles.attendText, b.attended && { color: "#fff" }]}>
-                        {b.attended ? "Attended ✓  (tap to undo)" : "Mark as attended"}
-                      </Text>
-                    </Pressable>
                   )}
                 </View>
               );
@@ -365,23 +382,27 @@ const styles = StyleSheet.create({
   banner: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginHorizontal: spacing.lg, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.brandTertiary },
   bannerText: { color: colors.brand, fontSize: 13, fontWeight: "700", flex: 1 },
   card: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, overflow: "hidden" },
-  cardTop: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md, padding: spacing.md },
-  className: { color: colors.onSurface, fontWeight: "800", fontSize: 15 },
-  member: { color: colors.onSurface, fontSize: 12, marginTop: 3 },
-  meta: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 3 },
-  statusPill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill },
-  statusText: { fontSize: 9, fontWeight: "900", letterSpacing: 0.5 },
+  cardTop: { padding: 11 },
+  titleRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  className: { flex: 1, color: colors.onSurface, fontWeight: "800", fontSize: 14 },
+  member: { color: colors.onSurfaceSecondary, fontSize: 11.5, marginTop: 2 },
+  metaRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 6, marginTop: 5 },
+  metaChip: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "700" },
+  paidChip: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: colors.success, borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 2 },
+  paidChipText: { color: "#fff", fontSize: 9.5, fontWeight: "900", letterSpacing: 0.3 },
+  timeLine: { color: colors.onSurface, fontSize: 11.5, marginTop: 4, fontWeight: "600" },
+  statusPill: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: radius.pill },
+  statusText: { fontSize: 8.5, fontWeight: "900", letterSpacing: 0.4 },
   actions: { flexDirection: "row", borderTopWidth: 1, borderTopColor: colors.border },
-  actBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 12 },
+  actBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingVertical: 9 },
   actAccept: { backgroundColor: colors.brand },
-  actAcceptText: { color: colors.onBrand, fontWeight: "800", fontSize: 13 },
+  actAcceptText: { color: colors.onBrand, fontWeight: "800", fontSize: 12 },
   actGhost: { borderRightWidth: 1, borderRightColor: colors.border, borderLeftWidth: 1, borderLeftColor: colors.border },
-  actGhostText: { color: colors.brand, fontWeight: "800", fontSize: 13 },
+  actGhostText: { color: colors.brand, fontWeight: "800", fontSize: 12 },
+  actAttendOn: { backgroundColor: colors.success, borderRightWidth: 1, borderRightColor: colors.border, borderLeftWidth: 1, borderLeftColor: colors.border },
+  actAttendOnText: { color: "#fff", fontWeight: "800", fontSize: 12 },
   actDanger: {},
-  actDangerText: { color: colors.error, fontWeight: "800", fontSize: 13 },
-  attendBar: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 11, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surface },
-  attendBarOn: { backgroundColor: "#16A34A" },
-  attendText: { color: colors.onSurface, fontWeight: "800", fontSize: 13 },
+  actDangerText: { color: colors.error, fontWeight: "800", fontSize: 12 },
   empty: { alignItems: "center", padding: 50, gap: spacing.md },
   emptyText: { color: colors.onSurfaceSecondary },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", padding: spacing.xl },

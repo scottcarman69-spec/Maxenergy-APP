@@ -4749,12 +4749,23 @@ async def admin_bookings(u: dict = Depends(require_admin)):
     for a in apps:
         if a.get("phone") and a["user_id"] not in phone_by_user:
             phone_by_user[a["user_id"]] = a.get("phone")
+    # Look up how each booking was paid (Square card / credit / class pass) — only "paid" transactions count.
+    bids = [r.get("booking_id") for r in rows if r.get("booking_id")]
+    paid_via: dict = {}
+    txs = await db.payment_transactions.find(
+        {"booking_id": {"$in": bids}, "payment_status": "paid"},
+        {"_id": 0, "booking_id": 1, "provider": 1},
+    ).to_list(2000)
+    for t in txs:
+        paid_via.setdefault(t["booking_id"], t.get("provider"))
     for r in rows:
         m = umap.get(r["user_id"], {})
         r["booking_no"] = booking_ref_no(r.get("booking_id", ""))
         r["member_name"] = m.get("name") or m.get("email") or "Member"
         r["member_email"] = m.get("email")
         r["member_phone"] = m.get("phone") or phone_by_user.get(r["user_id"])
+        r["paid_via"] = paid_via.get(r.get("booking_id"))
+        r["is_paid"] = (r.get("status") == "paid") or bool(r.get("paid_at"))
     return {"bookings": rows}
 
 
