@@ -1153,9 +1153,11 @@ def _leaderboard_name(u: dict) -> str:
 
 
 @api.get("/leaderboard")
-async def attendance_leaderboard(period: str = "all", u: dict = Depends(require_user)):
+async def attendance_leaderboard(period: str = "all", discipline: str = "all", u: dict = Depends(require_user)):
     """Ranks members by confirmed class attendance (QR/scan or manual). Top 30 + the caller's own rank."""
     match: dict = {"attended": True}
+    if discipline and discipline != "all":
+        match["class_name"] = discipline
     now_l = qld_now_naive()
     if period == "month":
         start = now_l.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -1163,13 +1165,15 @@ async def attendance_leaderboard(period: str = "all", u: dict = Depends(require_
     elif period == "year":
         start = now_l.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
         match["checked_in_at"] = {"$gte": start - timedelta(hours=10)}
+    # Distinct disciplines that have any confirmed attendance (for the filter chips).
+    disciplines = sorted([d for d in await db.bookings.distinct("class_name", {"attended": True}) if d])
     rows = await db.bookings.aggregate([
         {"$match": match},
         {"$group": {"_id": "$user_id", "count": {"$sum": 1}}},
     ]).to_list(5000)
     counts = {r["_id"]: int(r["count"]) for r in rows if r.get("_id")}
     if not counts:
-        return {"period": period, "leaderboard": [], "me": {"rank": None, "count": 0, "opted_out": bool(u.get("leaderboard_opt_out"))}}
+        return {"period": period, "discipline": discipline, "disciplines": disciplines, "leaderboard": [], "me": {"rank": None, "count": 0, "opted_out": bool(u.get("leaderboard_opt_out")), "streak": 0}}
     users = {us["user_id"]: us for us in await db.users.find(
         {"user_id": {"$in": list(counts.keys())}},
         {"_id": 0, "user_id": 1, "first_name": 1, "last_name": 1, "name": 1, "picture": 1, "leaderboard_opt_out": 1, "is_test": 1},
@@ -1191,8 +1195,11 @@ async def attendance_leaderboard(period: str = "all", u: dict = Depends(require_
     } for i, p in enumerate(participants[:30])]
     # ----- Weekly streaks (consecutive QLD weeks with ≥1 confirmed attendance) -----
     needed = {p["user_id"] for p in participants[:30]} | {u["user_id"]}
+    wk_filter: dict = {"attended": True, "checked_in_at": {"$ne": None}, "user_id": {"$in": list(needed)}}
+    if discipline and discipline != "all":
+        wk_filter["class_name"] = discipline
     wk_docs = await db.bookings.find(
-        {"attended": True, "checked_in_at": {"$ne": None}, "user_id": {"$in": list(needed)}},
+        wk_filter,
         {"_id": 0, "user_id": 1, "checked_in_at": 1},
     ).to_list(20000)
     EPOCH_MON = datetime(1970, 1, 5)  # a Monday
@@ -1221,8 +1228,11 @@ async def attendance_leaderboard(period: str = "all", u: dict = Depends(require_
     # ----- Movement vs last calendar month -----
     m_start = now_l.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     prev_start = (m_start - timedelta(days=1)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    prev_match: dict = {"attended": True, "checked_in_at": {"$gte": prev_start - timedelta(hours=10), "$lt": m_start - timedelta(hours=10)}}
+    if discipline and discipline != "all":
+        prev_match["class_name"] = discipline
     prev_rows = await db.bookings.aggregate([
-        {"$match": {"attended": True, "checked_in_at": {"$gte": prev_start - timedelta(hours=10), "$lt": m_start - timedelta(hours=10)}}},
+        {"$match": prev_match},
         {"$group": {"_id": "$user_id", "count": {"$sum": 1}}},
     ]).to_list(5000)
     prev_parts = [
@@ -1247,6 +1257,8 @@ async def attendance_leaderboard(period: str = "all", u: dict = Depends(require_
             my_rank = sum(1 for p in participants if p["count"] > my_count) + 1 if my_count > 0 else None
     return {
         "period": period,
+        "discipline": discipline,
+        "disciplines": disciplines,
         "leaderboard": board,
         "me": {"rank": my_rank, "count": my_count, "opted_out": opted_out, "streak": streak_for(u["user_id"])},
     }

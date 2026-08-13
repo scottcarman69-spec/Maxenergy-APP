@@ -49,24 +49,28 @@ function Avatar({ name, picture, size = 40 }: { name: string; picture?: string |
 
 export default function LeaderboardScreen() {
   const [period, setPeriod] = useState<Period>("month");
+  const [discipline, setDiscipline] = useState<string>("all");
+  const [disciplines, setDisciplines] = useState<string[]>([]);
   const [rows, setRows] = useState<Row[]>([]);
   const [me, setMe] = useState<Me>({ rank: null, count: 0, opted_out: false });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const load = useCallback(async (p: Period) => {
+  const load = useCallback(async (p: Period, disc: string) => {
     try {
-      const r = await api.leaderboard(p);
+      const r = await api.leaderboard(p, disc);
       setRows(r.leaderboard || []);
       setMe(r.me || { rank: null, count: 0, opted_out: false });
+      if (Array.isArray(r.disciplines)) setDisciplines(r.disciplines);
     } catch {}
     setLoading(false);
   }, []);
 
-  useFocusEffect(useCallback(() => { load(period); }, [load, period]));
+  useFocusEffect(useCallback(() => { load(period, discipline); }, [load, period, discipline]));
 
-  const onRefresh = async () => { setRefreshing(true); await load(period); setRefreshing(false); };
-  const selectPeriod = (p: Period) => { setPeriod(p); setLoading(true); load(p); };
+  const onRefresh = async () => { setRefreshing(true); await load(period, discipline); setRefreshing(false); };
+  const selectPeriod = (p: Period) => { setPeriod(p); setLoading(true); load(p, discipline); };
+  const selectDiscipline = (d: string) => { setDiscipline(d); setLoading(true); load(period, d); };
 
   const top3 = rows.slice(0, 3);
   const rest = rows.slice(3);
@@ -87,6 +91,28 @@ export default function LeaderboardScreen() {
           </Pressable>
         ))}
       </View>
+
+      {disciplines.length > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.discRow}
+          style={{ flexGrow: 0 }}
+        >
+          {["all", ...disciplines].map((d) => (
+            <Pressable
+              key={d}
+              testID={`lb-disc-${d}`}
+              style={[styles.discChip, discipline === d && styles.discChipActive]}
+              onPress={() => selectDiscipline(d)}
+            >
+              <Text style={[styles.discText, discipline === d && styles.discTextActive]}>
+                {d === "all" ? "All Classes" : d}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      )}
 
       {loading ? (
         <ActivityIndicator color={colors.brand} style={{ marginTop: 50 }} />
@@ -189,6 +215,11 @@ const styles = StyleSheet.create({
   tabText: { color: colors.onSurfaceSecondary, fontWeight: "800", fontSize: 12.5 },
   tabTextActive: { color: colors.onBrand },
   content: { padding: spacing.lg, paddingTop: spacing.sm },
+  discRow: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm, gap: spacing.sm },
+  discChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSecondary },
+  discChipActive: { backgroundColor: colors.brandTertiary, borderColor: colors.brand },
+  discText: { color: colors.onSurfaceSecondary, fontWeight: "800", fontSize: 12 },
+  discTextActive: { color: colors.brand },
   empty: { alignItems: "center", gap: spacing.md, paddingVertical: 50, paddingHorizontal: spacing.xl },
   emptyText: { color: colors.onSurfaceSecondary, fontSize: 13.5, textAlign: "center", lineHeight: 20 },
   podium: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: spacing.sm, marginBottom: spacing.xl, marginTop: spacing.sm },

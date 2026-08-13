@@ -865,3 +865,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Moved leaderboard screen from /app/leaderboard.tsx to /app/(tabs)/leaderboard.tsx (route still /leaderboard). Added a "Ladder" tab (trophy icon) in (tabs)/_layout.tsx between Alerts and Profile (now 7 tabs). ScreenHeader on the ladder now showBack={false} (root tab, no back).
 - Removed the "Attendance Ladder" quick-action tile from Home.
 - Verified via screenshot: trophy tab present + active, ladder renders as a tab with no back button.
+
+## Session update (Jun 2026 fork) — Per-discipline (class-type) ladders (DONE)
+- Leaderboard now supports a discipline filter. GET /api/leaderboard?period=&discipline= — discipline "all" or a class name (e.g. "Muay Thai"). Filter applied to the main ranking, streaks, and last-month movement. Response also returns `disciplines` (distinct class_names with any confirmed attendance) for the filter chips.
+- Frontend leaderboard screen: horizontal chip row under the period tabs — "All Classes" + each discipline. Selecting one re-ranks the board, podium, streaks, movement, and the your-rank bar for that discipline. api.leaderboard(period, discipline).
+- Verified via curl (All / Muay Thai / Kickboxing give different rankings + own rank) and screenshot. Test data cleaned.

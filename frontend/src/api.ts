@@ -133,7 +133,8 @@ export const api = {
   paymentReceipt: (booking_id: string) => req(`/api/payments/receipt/${booking_id}`),
   myReceipts: () => req("/api/payments/receipts"),
   myCredits: () => req("/api/credits"),
-  leaderboard: (period: "month" | "year" | "all") => req(`/api/leaderboard?period=${period}`),
+  leaderboard: (period: "month" | "year" | "all", discipline?: string) =>
+    req(`/api/leaderboard?period=${period}&discipline=${encodeURIComponent(discipline || "all")}`),
   setLeaderboardVisibility: (opt_out: boolean) =>
     req("/api/me/leaderboard-visibility", { method: "PUT", body: JSON.stringify({ opt_out }) }),
   storeProducts: () => req("/api/store/products"),
