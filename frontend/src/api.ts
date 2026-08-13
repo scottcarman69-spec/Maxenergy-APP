@@ -133,6 +133,9 @@ export const api = {
   paymentReceipt: (booking_id: string) => req(`/api/payments/receipt/${booking_id}`),
   myReceipts: () => req("/api/payments/receipts"),
   myCredits: () => req("/api/credits"),
+  leaderboard: (period: "month" | "year" | "all") => req(`/api/leaderboard?period=${period}`),
+  setLeaderboardVisibility: (opt_out: boolean) =>
+    req("/api/me/leaderboard-visibility", { method: "PUT", body: JSON.stringify({ opt_out }) }),
   storeProducts: () => req("/api/store/products"),
   storeCheckout: (product_id: string, origin_url: string, extra?: { start_date?: string; meet_time?: string }) =>
     req("/api/store/checkout", { method: "POST", body: JSON.stringify({ product_id, origin_url, ...(extra || {}) }) }),

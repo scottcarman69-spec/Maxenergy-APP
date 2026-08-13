@@ -22,6 +22,7 @@ export default function InboxSettings() {
   const [qhEnabled, setQhEnabled] = useState(false);
   const [qhStart, setQhStart] = useState("22:00");
   const [qhEnd, setQhEnd] = useState("07:00");
+  const [lbHidden, setLbHidden] = useState(false);
   const [picker, setPicker] = useState<null | "start" | "end">(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -33,10 +34,17 @@ export default function InboxSettings() {
       setRemHours(typeof me?.user?.reminder_hours === "number" ? me.user.reminder_hours : 3);
       const qh = me?.user?.quiet_hours;
       if (qh) { setQhEnabled(!!qh.enabled); setQhStart(qh.start || "22:00"); setQhEnd(qh.end || "07:00"); }
+      setLbHidden(me?.user?.leaderboard_opt_out === true);
     } catch {}
     setLoading(false);
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const toggleLeaderboard = async (hide: boolean) => {
+    setLbHidden(hide);
+    try { await api.setLeaderboardVisibility(hide); }
+    catch { setLbHidden(!hide); }
+  };
 
   const toggle = async (val: boolean) => {
     setEnabled(val);
@@ -89,6 +97,22 @@ export default function InboxSettings() {
               ? "You'll be notified about new messages in your Inbox."
               : "Message notifications are off. You won't get alerts — new messages still appear in your Inbox."}
           </Text>
+
+          <Text style={[styles.section, { marginTop: spacing.lg }]}>ATTENDANCE LADDER</Text>
+          <View style={styles.card}>
+            <View style={styles.iconWrap}><Ionicons name="trophy" size={20} color={colors.brand} /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.title}>Hide me from the public ladder</Text>
+              <Text style={styles.sub}>Your attendance is still counted — your name just won't appear to others.</Text>
+            </View>
+            <Switch
+              testID="toggle-leaderboard-hidden"
+              value={lbHidden}
+              onValueChange={toggleLeaderboard}
+              trackColor={{ false: colors.border, true: colors.brand }}
+              thumbColor={"#fff"}
+            />
+          </View>
 
           <Text style={[styles.section, { marginTop: spacing.lg }]}>CLASS REMINDERS</Text>
           <View style={styles.card}>

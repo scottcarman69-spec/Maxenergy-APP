@@ -232,6 +232,7 @@ def user_public(u: dict) -> dict:
         "verified": bool(u.get("verified", False)),
         "reminder_hours": int(u.get("reminder_hours", 3)),
         "message_notifications": bool(u.get("message_notifications", True)),
+        "leaderboard_opt_out": bool(u.get("leaderboard_opt_out", False)),
         "quiet_hours": u.get("quiet_hours") or {"enabled": False, "start": "22:00", "end": "07:00"},
         "credit_cents": int(u.get("credit_cents", 0)),
         "class_pass_credits": int(u.get("class_pass_credits", 0)),
@@ -1131,6 +1132,77 @@ class MessageNotifPrefReq(BaseModel):
 async def set_message_notifications(body: MessageNotifPrefReq, u: dict = Depends(require_user)):
     await db.users.update_one({"user_id": u["user_id"]}, {"$set": {"message_notifications": bool(body.enabled)}})
     return {"ok": True, "message_notifications": bool(body.enabled)}
+
+
+class LeaderboardOptReq(BaseModel):
+    opt_out: bool
+
+
+@api.put("/me/leaderboard-visibility")
+async def set_leaderboard_visibility(body: LeaderboardOptReq, u: dict = Depends(require_user)):
+    await db.users.update_one({"user_id": u["user_id"]}, {"$set": {"leaderboard_opt_out": bool(body.opt_out)}})
+    return {"ok": True, "leaderboard_opt_out": bool(body.opt_out)}
+
+
+def _leaderboard_name(u: dict) -> str:
+    fn = (u.get("first_name") or "").strip()
+    ln = (u.get("last_name") or "").strip()
+    if fn:
+        return f"{fn} {ln[0].upper()}." if ln else fn
+    return (u.get("name") or "Member").strip()
+
+
+@api.get("/leaderboard")
+async def attendance_leaderboard(period: str = "all", u: dict = Depends(require_user)):
+    """Ranks members by confirmed class attendance (QR/scan or manual). Top 30 + the caller's own rank."""
+    match: dict = {"attended": True}
+    now_l = qld_now_naive()
+    if period == "month":
+        start = now_l.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        match["checked_in_at"] = {"$gte": start - timedelta(hours=10)}  # back to UTC
+    elif period == "year":
+        start = now_l.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        match["checked_in_at"] = {"$gte": start - timedelta(hours=10)}
+    rows = await db.bookings.aggregate([
+        {"$match": match},
+        {"$group": {"_id": "$user_id", "count": {"$sum": 1}}},
+    ]).to_list(5000)
+    counts = {r["_id"]: int(r["count"]) for r in rows if r.get("_id")}
+    if not counts:
+        return {"period": period, "leaderboard": [], "me": {"rank": None, "count": 0, "opted_out": bool(u.get("leaderboard_opt_out"))}}
+    users = {us["user_id"]: us for us in await db.users.find(
+        {"user_id": {"$in": list(counts.keys())}},
+        {"_id": 0, "user_id": 1, "first_name": 1, "last_name": 1, "name": 1, "picture": 1, "leaderboard_opt_out": 1, "is_test": 1},
+    ).to_list(5000)}
+    # Participants = attended members who haven't opted out (and not the test/demo account).
+    participants = [
+        {"user_id": uid, "count": c, "u": users.get(uid, {})}
+        for uid, c in counts.items()
+        if uid in users and not users[uid].get("leaderboard_opt_out") and not users[uid].get("is_test")
+    ]
+    participants.sort(key=lambda x: (-x["count"], _leaderboard_name(x["u"]).lower()))
+    board = [{
+        "rank": i + 1,
+        "user_id": p["user_id"],
+        "name": _leaderboard_name(p["u"]),
+        "picture": p["u"].get("picture"),
+        "count": p["count"],
+        "is_me": p["user_id"] == u["user_id"],
+    } for i, p in enumerate(participants[:30])]
+    # Caller's own standing (shown even if outside Top 30 or opted out).
+    my_count = counts.get(u["user_id"], 0)
+    opted_out = bool(u.get("leaderboard_opt_out"))
+    if opted_out or u.get("is_test"):
+        my_rank = None
+    else:
+        my_rank = next((p["rank"] for p in board if p["is_me"]), None)
+        if my_rank is None:
+            my_rank = sum(1 for p in participants if p["count"] > my_count) + 1 if my_count > 0 else None
+    return {
+        "period": period,
+        "leaderboard": board,
+        "me": {"rank": my_rank, "count": my_count, "opted_out": opted_out},
+    }
 
 
 async def _msg_notifs_on(user_id: str) -> bool:
