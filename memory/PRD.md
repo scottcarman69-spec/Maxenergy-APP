@@ -765,3 +765,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Bug: on appointment reschedule (Personal Training / Custom Programs), Send Request appeared unresponsive. Root cause: the member's OWN current appointment slot was flagged as "BOOKED" (disabled) in the taken-slots set, so tapping their intended time did nothing and left the button disabled.
 - Fix (bookings.tsx): the appointment taken-slots effect now excludes the booking's own requested_at (added requested_at to Booking type). Same picker serves both PT and Custom Programs (both by_appointment) so both are fixed.
 - Verified via screenshot E2E: pick day + available 10:30am → "Preferred:" shows, SEND REQUEST enabled → submit → banner "Reschedule request sent" + booking flips to RESCHEDULE REQUESTED. Backend reschedule returns 200. Test data cleaned.
+
+## Session update (Jun 2026 fork) — Reschedule error now shown in-modal (DONE)
+- Follow-up bug: "Send Request" appeared to do nothing. Real cause: when the reschedule is rejected (most commonly the 24-hour cutoff — the booking's ORIGINAL start is <24h away), submitReschedule set the `banner` which renders BEHIND the still-open modal, so the member saw no feedback.
+- Fix (bookings.tsx): added rErr state shown in a red in-modal error box (testID reschedule-error) on failure; cleared on modal open/submit. Modal stays open so the member can adjust. Applies to PT, Custom Programs, and class bookings (shared modal).
+- Verified via screenshot: rescheduling a within-24h booking now shows "You can reschedule up until 24 hours before the class starts… please contact the gym on 07 4057 9005" inside the modal. Happy path still submits + closes. Test data cleaned.

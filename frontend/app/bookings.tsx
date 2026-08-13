@@ -31,6 +31,7 @@ export default function BookingsScreen() {
   const [rDay, setRDay] = useState("");   // appointment: selected day key (UTC YYYY-MM-DD)
   const [rSlot, setRSlot] = useState(""); // appointment: selected minutes-since-midnight (string)
   const [rNote, setRNote] = useState("");
+  const [rErr, setRErr] = useState<string | null>(null);
   const [classSlots, setClassSlots] = useState<ClassSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [rClassSlot, setRClassSlot] = useState<ClassSlot | null>(null);
@@ -179,6 +180,7 @@ export default function BookingsScreen() {
 
   const submitReschedule = async () => {
     if (!rescheduleFor || !rComposed) return;
+    setRErr(null);
     setActioning(rescheduleFor.booking_id);
     try {
       await api.rescheduleBooking(rescheduleFor.booking_id, rComposed, rNote.trim() || undefined);
@@ -187,7 +189,7 @@ export default function BookingsScreen() {
       setRDay(""); setRSlot(""); setRNote(""); setRClassSlot(null);
       await load();
     } catch (e: any) {
-      setBanner(e?.message || "Could not request reschedule.");
+      setRErr(e?.message || "Could not request reschedule. Please try again.");
     }
     setActioning(null);
   };
@@ -309,7 +311,7 @@ export default function BookingsScreen() {
                         <Pressable
                           testID={`booking-reschedule-${b.booking_id}`}
                           style={styles.actionBtnGhost}
-                          onPress={() => { setRescheduleFor(b); setRDay(""); setRSlot(""); setRNote(""); setRClassSlot(null); }}
+                          onPress={() => { setRescheduleFor(b); setRDay(""); setRSlot(""); setRNote(""); setRClassSlot(null); setRErr(null); }}
                           disabled={actioning === b.booking_id}
                         >
                           <Ionicons name="time-outline" size={15} color={colors.brand} />
@@ -456,6 +458,12 @@ export default function BookingsScreen() {
               multiline
               style={[styles.modalInput, { minHeight: 70, textAlignVertical: "top" }]}
             />
+            {!!rErr && (
+              <View style={styles.errBox} testID="reschedule-error">
+                <Ionicons name="alert-circle" size={16} color={colors.error} />
+                <Text style={styles.errBoxText}>{rErr}</Text>
+              </View>
+            )}
             <View style={styles.modalActions}>
               <Pressable style={styles.modalCancel} onPress={() => setRescheduleFor(null)}>
                 <Text style={styles.modalCancelText}>Cancel</Text>
@@ -537,6 +545,8 @@ const styles = StyleSheet.create({
   slotWhen: { color: colors.onSurfaceSecondary, fontSize: 12.5, marginTop: 2 },
   modalInput: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, color: colors.onSurface, paddingHorizontal: spacing.md, paddingVertical: 12, borderRadius: radius.md, fontSize: 15 },
   modalActions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.lg },
+  errBox: { flexDirection: "row", alignItems: "flex-start", gap: 8, backgroundColor: "rgba(239,68,68,0.12)", borderWidth: 1, borderColor: colors.error, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.md },
+  errBoxText: { color: colors.error, fontSize: 13, fontWeight: "700", flex: 1 },
   modalCancel: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 14, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
   modalCancelText: { color: colors.onSurface, fontWeight: "800" },
   modalSubmit: { flex: 2, alignItems: "center", justifyContent: "center", paddingVertical: 14, borderRadius: radius.md, backgroundColor: colors.brand },
