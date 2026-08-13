@@ -246,8 +246,8 @@ export const api = {
   adminAcceptBooking: (id: string) => req(`/api/admin/bookings/${id}/accept`, { method: "POST" }),
   adminConfirmBooking: (id: string) => req(`/api/admin/bookings/${id}/confirm`, { method: "POST" }),
   adminCancelBooking: (id: string) => req(`/api/admin/bookings/${id}/cancel`, { method: "POST" }),
-  adminRescheduleBooking: (id: string, new_time: string, note?: string) =>
-    req(`/api/admin/bookings/${id}/reschedule`, { method: "POST", body: JSON.stringify({ new_time, note }) }),
+  adminRescheduleBooking: (id: string, new_time: string, note?: string, new_at?: string) =>
+    req(`/api/admin/bookings/${id}/reschedule`, { method: "POST", body: JSON.stringify({ new_time, note, new_at }) }),
   adminSetAttendance: (id: string, attended: boolean) =>
     req(`/api/admin/bookings/${id}/attendance`, { method: "POST", body: JSON.stringify({ attended }) }),
   attendanceReport: () => req("/api/admin/attendance/report"),

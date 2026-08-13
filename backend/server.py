@@ -71,6 +71,23 @@ def now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def qld_now_naive() -> datetime:
+    """Current Queensland (GMT+10) wall-clock as a naive datetime, directly
+    comparable to appointment ISO strings (which store QLD wall-clock)."""
+    return (now_utc() + timedelta(hours=10)).replace(tzinfo=None)
+
+
+def iso_is_past(iso: Optional[str], buffer_minutes: int = 0) -> bool:
+    """True if an appointment ISO (QLD wall-clock) is at/before now (+buffer)."""
+    if not iso:
+        return False
+    try:
+        dt = datetime.fromisoformat(str(iso)).replace(tzinfo=None)
+    except Exception:
+        return False
+    return dt <= (qld_now_naive() + timedelta(minutes=buffer_minutes))
+
+
 def new_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:12]}"
 
@@ -871,6 +888,7 @@ class RescheduleReq(BaseModel):
 
 class AdminRescheduleReq(BaseModel):
     new_time: str
+    new_at: Optional[str] = None   # ISO naive Queensland wall-clock (structured picker)
     note: Optional[str] = None
 
 
@@ -4787,6 +4805,9 @@ async def _admin_get_booking(booking_id: str) -> dict:
 @api.post("/admin/bookings/{booking_id}/accept")
 async def admin_booking_accept(booking_id: str, u: dict = Depends(require_admin)):
     b = await _admin_get_booking(booking_id)
+    # Don't confirm an appointment whose requested time has already passed.
+    if b.get("by_appointment") and iso_is_past(b.get("requested_at")):
+        raise HTTPException(400, "The member's requested time has already passed. Use \u201cSuggest time\u201d to propose an upcoming slot instead.")
     when = b.get("requested_time")
     upd = {"status": "confirmed", "confirmed_at": now_utc()}
     if b.get("by_appointment") and when:
@@ -4826,12 +4847,15 @@ async def admin_booking_cancel(booking_id: str, u: dict = Depends(require_admin)
 @api.post("/admin/bookings/{booking_id}/reschedule")
 async def admin_booking_reschedule(booking_id: str, body: AdminRescheduleReq, u: dict = Depends(require_admin)):
     b = await _admin_get_booking(booking_id)
+    # Reject proposing a time that's already in the past.
+    if body.new_at and iso_is_past(body.new_at):
+        raise HTTPException(400, "That time is in the past. Please choose an upcoming day and time.")
     # The gym PROPOSES a new time — the member must confirm it suits them.
-    await db.bookings.update_one(
-        {"booking_id": booking_id},
-        {"$set": {"status": "admin_proposed", "proposed_time": body.new_time,
-                  "proposed_note": body.note, "proposed_at": now_utc()}},
-    )
+    upd = {"status": "admin_proposed", "proposed_time": body.new_time,
+           "proposed_note": body.note, "proposed_at": now_utc()}
+    if body.new_at:
+        upd["proposed_at_iso"] = body.new_at
+    await db.bookings.update_one({"booking_id": booking_id}, {"$set": upd})
     member = await db.users.find_one({"user_id": b["user_id"]}, {"_id": 0})
     note_txt = f" Note: {body.note}" if body.note else ""
     await notify_user(
@@ -4858,10 +4882,16 @@ async def booking_confirm_proposed_time(booking_id: str, u: dict = Depends(requi
         raise HTTPException(404, "Booking not found")
     if b.get("status") != "admin_proposed":
         raise HTTPException(409, "There's no proposed time to confirm for this booking.")
+    # Block confirming a time that has already passed.
+    if iso_is_past(b.get("proposed_at_iso")):
+        raise HTTPException(400, "This proposed time has already passed. Please ask the gym to suggest a new time.")
     when = b.get("proposed_time")
+    set_fields = {"status": "confirmed", "scheduled_time": when, "requested_time": None, "confirmed_at": now_utc()}
+    if b.get("proposed_at_iso"):
+        set_fields["requested_at"] = b["proposed_at_iso"]
     await db.bookings.update_one(
         {"booking_id": booking_id},
-        {"$set": {"status": "confirmed", "scheduled_time": when, "requested_time": None, "confirmed_at": now_utc()}},
+        {"$set": set_fields},
     )
     member_name = u.get("name") or u.get("email") or "A member"
     await notify_user(

@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
 import ScreenHeader from "@/src/components/ScreenHeader";
+import { classTime, classDate, qldTodayUTC, qldNowUTC } from "@/src/datetime";
 
 type Booking = {
   booking_id: string;
@@ -41,9 +42,36 @@ export default function AdminBookings() {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("Active");
   const [actioning, setActioning] = useState<string | null>(null);
   const [rescheduleFor, setRescheduleFor] = useState<Booking | null>(null);
-  const [newTime, setNewTime] = useState("");
+  const [rDayIdx, setRDayIdx] = useState<number | null>(null);
+  const [rMins, setRMins] = useState<number | null>(null); // minutes since midnight
   const [note, setNote] = useState("");
   const [banner, setBanner] = useState<string | null>(null);
+
+  // Next 14 Queensland days as UTC-midnight Dates (comparable to schedule wall-clock).
+  const rDays = React.useMemo(() => {
+    const base = qldTodayUTC();
+    return Array.from({ length: 14 }, (_, i) =>
+      new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate() + i)));
+  }, [rescheduleFor]);
+  const R_SLOTS = React.useMemo(() => {
+    const out: number[] = [];
+    for (let mins = 6 * 60; mins <= 20 * 60; mins += 30) out.push(mins); // 6:00am–8:00pm
+    return out;
+  }, []);
+  const slotIso = (d: Date, mins: number) => {
+    const h = Math.floor(mins / 60), m = mins % 60;
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`;
+  };
+  const rChosenIso = rDayIdx !== null && rMins !== null ? slotIso(rDays[rDayIdx], rMins) : null;
+  const rChosenLabel = rChosenIso
+    ? `${classDate(rChosenIso, { weekday: "short", day: "2-digit", month: "short" })} · ${classTime(rChosenIso)}`
+    : "";
+  const openReschedule = (b: Booking) => {
+    setRescheduleFor(b);
+    setRDayIdx(null);
+    setRMins(null);
+    setNote("");
+  };
 
   const load = useCallback(async () => {
     try {
@@ -69,14 +97,15 @@ export default function AdminBookings() {
   };
 
   const submitReschedule = async () => {
-    if (!rescheduleFor || !newTime.trim()) return;
+    if (!rescheduleFor || !rChosenIso) return;
     const id = rescheduleFor.booking_id;
     setActioning(id);
     try {
-      await api.adminRescheduleBooking(id, newTime.trim(), note.trim() || undefined);
-      setBanner("Rescheduled & member notified.");
+      await api.adminRescheduleBooking(id, rChosenLabel, note.trim() || undefined, rChosenIso);
+      setBanner("New time proposed & member notified.");
       setRescheduleFor(null);
-      setNewTime("");
+      setRDayIdx(null);
+      setRMins(null);
       setNote("");
       await load();
     } catch (e: any) {
@@ -169,7 +198,7 @@ export default function AdminBookings() {
                           testID={`adminbk-reschedule-${b.booking_id}`}
                           style={[styles.actBtn, styles.actGhost]}
                           disabled={busy}
-                          onPress={() => { setRescheduleFor(b); setNewTime(b.requested_time || ""); setNote(""); }}
+                          onPress={() => openReschedule(b)}
                         >
                           <Ionicons name="time-outline" size={15} color={colors.brand} />
                           <Text style={styles.actGhostText}>Suggest time</Text>
@@ -209,20 +238,64 @@ export default function AdminBookings() {
       <Modal visible={!!rescheduleFor} transparent animationType="fade" onRequestClose={() => setRescheduleFor(null)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <Text style={styles.modalTitle}>Suggest a new time</Text>
             <Text style={styles.modalSub}>{rescheduleFor?.class_name} · {rescheduleFor?.member_name}</Text>
             {!!rescheduleFor?.requested_time && (
               <Text style={styles.modalHint}>Member's preferred time: {rescheduleFor?.requested_time}</Text>
             )}
-            <Text style={styles.modalLabel}>Confirmed day & time</Text>
-            <TextInput
-              testID="adminbk-newtime"
-              value={newTime}
-              onChangeText={setNewTime}
-              placeholder="e.g. Tuesday 6:00pm"
-              placeholderTextColor={colors.onSurfaceSecondary}
-              style={styles.modalInput}
-            />
+
+            <Text style={styles.modalLabel}>Pick a day</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm, paddingVertical: 4 }}>
+              {rDays.map((d, i) => {
+                const active = i === rDayIdx;
+                return (
+                  <Pressable
+                    key={i}
+                    testID={`adminbk-day-${i}`}
+                    onPress={() => { setRDayIdx(i); setRMins(null); }}
+                    style={[styles.dayChip, active && styles.chipActive]}
+                  >
+                    <Text style={[styles.dayChipLabel, active && styles.chipTextActive]}>
+                      {d.toLocaleDateString("en-AU", { weekday: "short", timeZone: "UTC" })}
+                    </Text>
+                    <Text style={[styles.dayChipNum, active && styles.chipTextActive]}>{d.getUTCDate()}</Text>
+                    <Text style={[styles.dayChipMon, active && styles.chipTextActive]}>
+                      {d.toLocaleDateString("en-AU", { month: "short", timeZone: "UTC" })}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+
+            <Text style={styles.modalLabel}>Pick a time</Text>
+            <View style={styles.slotWrap}>
+              {R_SLOTS.map((mins) => {
+                const disabled = rDayIdx === null || (slotIso(rDays[rDayIdx], mins) <= (() => {
+                  const n = qldNowUTC();
+                  return `${n.getUTCFullYear()}-${String(n.getUTCMonth() + 1).padStart(2, "0")}-${String(n.getUTCDate()).padStart(2, "0")}T${String(n.getUTCHours()).padStart(2, "0")}:${String(n.getUTCMinutes()).padStart(2, "0")}:00`;
+                })());
+                const active = mins === rMins;
+                const h = Math.floor(mins / 60), m = mins % 60;
+                const label = new Date(Date.UTC(2000, 0, 1, h, m)).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", timeZone: "UTC" });
+                return (
+                  <Pressable
+                    key={mins}
+                    testID={`adminbk-slot-${mins}`}
+                    disabled={disabled}
+                    onPress={() => setRMins(mins)}
+                    style={[styles.slotChip, active && styles.chipActive, disabled && { opacity: 0.3 }]}
+                  >
+                    <Text style={[styles.slotChipText, active && styles.chipTextActive]}>{label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {!!rChosenLabel && (
+              <Text style={styles.chosenLine}>New time: <Text style={{ fontWeight: "800", color: colors.brand }}>{rChosenLabel}</Text></Text>
+            )}
+
             <Text style={styles.modalLabel}>Note (optional)</Text>
             <TextInput
               testID="adminbk-note"
@@ -231,7 +304,7 @@ export default function AdminBookings() {
               placeholder="Message to the member"
               placeholderTextColor={colors.onSurfaceSecondary}
               multiline
-              style={[styles.modalInput, { minHeight: 70, textAlignVertical: "top" }]}
+              style={[styles.modalInput, { minHeight: 60, textAlignVertical: "top" }]}
             />
             <View style={styles.modalActions}>
               <Pressable style={styles.modalCancel} onPress={() => setRescheduleFor(null)}>
@@ -239,13 +312,14 @@ export default function AdminBookings() {
               </Pressable>
               <Pressable
                 testID="adminbk-reschedule-submit"
-                style={[styles.modalSubmit, (!newTime.trim() || !!actioning) && { opacity: 0.5 }]}
+                style={[styles.modalSubmit, (!rChosenIso || !!actioning) && { opacity: 0.5 }]}
                 onPress={submitReschedule}
-                disabled={!newTime.trim() || !!actioning}
+                disabled={!rChosenIso || !!actioning}
               >
-                {actioning ? <ActivityIndicator color={colors.onBrand} /> : <Text style={styles.modalSubmitText}>CONFIRM & NOTIFY</Text>}
+                {actioning ? <ActivityIndicator color={colors.onBrand} /> : <Text style={styles.modalSubmitText}>PROPOSE & NOTIFY</Text>}
               </Pressable>
             </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -285,7 +359,7 @@ const styles = StyleSheet.create({
   empty: { alignItems: "center", padding: 50, gap: spacing.md },
   emptyText: { color: colors.onSurfaceSecondary },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", padding: spacing.xl },
-  modalCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.xl, borderWidth: 1, borderColor: colors.border },
+  modalCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, maxHeight: "88%" },
   modalTitle: { color: colors.onSurface, fontSize: 20, fontFamily: font.heading },
   modalSub: { color: colors.brand, fontSize: 13, fontWeight: "700", marginTop: 2 },
   modalHint: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: spacing.sm },
@@ -296,4 +370,14 @@ const styles = StyleSheet.create({
   modalCancelText: { color: colors.onSurface, fontWeight: "800" },
   modalSubmit: { flex: 2, alignItems: "center", justifyContent: "center", paddingVertical: 14, borderRadius: radius.md, backgroundColor: colors.brand },
   modalSubmitText: { color: colors.onBrand, fontWeight: "900", letterSpacing: 1 },
+  dayChip: { alignItems: "center", paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSecondary, minWidth: 58 },
+  dayChipLabel: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "700", textTransform: "uppercase" },
+  dayChipNum: { color: colors.onSurface, fontSize: 18, fontWeight: "900" },
+  dayChipMon: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "700", textTransform: "uppercase" },
+  chipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
+  chipTextActive: { color: colors.onBrand },
+  slotWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  slotChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSecondary },
+  slotChipText: { color: colors.onSurface, fontSize: 13, fontWeight: "700" },
+  chosenLine: { color: colors.onSurface, fontSize: 14, marginTop: spacing.md },
 });
