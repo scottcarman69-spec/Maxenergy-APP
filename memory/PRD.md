@@ -837,3 +837,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Refund/credit policy (confirmed to user): cancelling ≥24h before start → class-pass bookings get the PASS RETURNED to the account; money-paid bookings get in-app ACCOUNT CREDIT for the amount. Verified via curl (card → +$25 credit; pass → +1 pass).
 - Show class time on ALL bookings: My Bookings card now shows a clock-icon time line for every booking — classes use class_start (classDate·classTime), appointments use scheduled_time/requested_time (or "Time TBC"). Cancel modal copy adapts (pass vs credit) using paid_with_pass.
 - Verified via screenshot (times on all cards; cancel modal opens on web) + curl (cancel completes, rewards correct). Test data cleaned.
+
+## Session update (Jun 2026 fork) — Fix credit not deducted (test account) (DONE)
+- Bug: booking a class "with credit" didn't deduct the credit balance. Root cause: the is_test free-booking bypass in payments_checkout ran BEFORE the credit/class-pass branches, so the test account booked free and ignored the chosen payment method (real accounts always deducted correctly — verified).
+- Fix: the is_test free bypass now only applies when NOT using credit or class pass (`if u.is_test and not use_credit and not use_class_pass`). For partial-credit on a test account, credit is applied and the leftover card portion is covered free (test_free tx) so no real card charge. Real accounts unchanged.
+- Verified via curl: real account credit 5000→3500 (ledger). Test account with use_credit: 5000→2500 (ledger "Used toward Kickboxing"); test account without credit still books free (no deduction).
+- Note: the visible balance updates on next screen load (server + ledger correct). Test data cleaned; testmember reset to 3 seeded bookings, credit 0.

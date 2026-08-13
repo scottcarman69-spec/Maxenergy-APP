@@ -2939,8 +2939,8 @@ async def payments_checkout(body: CheckoutCreate, request: Request, u: dict = De
     amount_cents = int(booking["amount"])
     currency = (booking.get("currency") or "AUD").upper()
 
-    # ----- TEST ACCOUNT: book free, no card charge (marked paid/confirmed) -----
-    if u.get("is_test"):
+    # ----- TEST ACCOUNT: skip the CARD charge only (still honour credit / class pass below) -----
+    if u.get("is_test") and not body.use_credit and not body.use_class_pass:
         if booking.get("status") != "paid":
             await db.payment_transactions.insert_one({
                 "session_id": f"test_{booking['booking_id']}",
@@ -3018,6 +3018,22 @@ async def payments_checkout(body: CheckoutCreate, request: Request, u: dict = De
             await db.payment_transactions.insert_one({
                 "session_id": f"credit_{booking['booking_id']}",
                 "provider": "credit",
+                "booking_id": booking["booking_id"],
+                "user_id": u["user_id"],
+                "amount": booking["amount"],
+                "currency": currency.lower(),
+                "credit_applied_cents": credit_applied,
+                "payment_status": "paid",
+                "status": "paid",
+                "created_at": now_utc(),
+            })
+            await mark_booking_paid(booking["booking_id"])
+            return {"paid_with_credit": True, "booking_id": booking["booking_id"]}
+        # Test account: credit applied above, cover the remaining card portion for free.
+        if u.get("is_test"):
+            await db.payment_transactions.insert_one({
+                "session_id": f"test_{booking['booking_id']}",
+                "provider": "test_free",
                 "booking_id": booking["booking_id"],
                 "user_id": u["user_id"],
                 "amount": booking["amount"],
