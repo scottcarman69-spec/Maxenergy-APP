@@ -1,0 +1,31 @@
+{
+  "summary": "PRIMARY BUG (reschedule 'SEND REQUEST' not submitting) is FIXED and verified end-to-end on a 390x844 mobile viewport. Backend: 4/4 pytest cases pass — pre-seeded bk_rs_class + bk_rs_appt exist, both return 200 on POST /api/bookings/{id}/reschedule (status flips to reschedule_requested and requested_time persists), and the 24h cutoff regression still returns 409 with the expected 'You can reschedule up until 24 hours before the class starts.' detail. Frontend: on My Bookings, tapping 'Reschedule' on the Kickboxing (class) booking opens the modal, the modal is now wrapped in a ScrollView with maxHeight 85%, the class-session list (rclass-*) renders 4 upcoming Kickboxing sessions, selecting one enables and reveals SEND REQUEST (bounding box y=633 within 844px viewport), tapping submits, the modal closes and 'Reschedule request sent. The gym will confirm a time.' banner appears; the same works for Personal Training (appointment) using rday-* + rslot-* chips. Verified via GET /api/bookings after each submit that status='reschedule_requested' and requested_time matches ('Kickboxing · Tue, 18 Aug · 6:00 pm' and 'Friday 14 Aug · 11:00 AM'). Bookings were reset to 'confirmed' at end of testing for the main agent.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_reschedule_flow.py",
+    "/app/test_reports/pytest/pytest_reschedule_flow.xml"
+  ],
+  "action_items": [
+    "No action needed — reschedule bug is resolved and the modal is now scrollable & submit reachable on a 390x844 viewport. Optional: consider centralising the day/time picker so it can be re-used elsewhere (e.g. admin reschedule)."
+  ],
+  "critical_code_review_comments": [
+    "bookings.tsx dayOptions memo declares [rescheduleFor] as a dep but does not use it — harmless, but the effect is that array regenerates each open (14 short-lived objects). Not a bug, just dead dep.",
+    "Class-session picker in bookings.tsx uses a nested vertical ScrollView (maxHeight 240) inside the outer ScrollView — works on web, but on native RN this can cause gesture-conflict warnings. Consider FlatList with scrollEnabled and nestedScrollEnabled on Android.",
+    "Reschedule requested_time is a free-form label composed on the client (e.g. 'Kickboxing · Tue, 18 Aug · 6:00 pm'). Backend stores it verbatim — fine for admin UX but not machine-parseable, so any future 'auto-confirm' or conflict-check will need a structured field (class_id + start_at) alongside the label. Low priority."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_reschedule_flow.py (new)"
+  ],
+  "success_rate": {"backend": "100% (4/4 in pytest_reschedule_flow.xml)", "frontend": "100% (class + appointment reschedule end-to-end submit, modal scroll, banner, status persistence)"},
+  "seed_data_creation": "Used pre-seeded bookings bk_rs_class + bk_rs_appt (already present). During the 24h-cutoff regression test a temporary appointment booking 'TEST_bk_within24h' is inserted directly into Mongo and deleted in the same test's finally block. After successful reschedules, both bk_rs_* bookings were reset to status='confirmed' (requested_time / reschedule_note / reschedule_requested_at unset) so the main agent picks up a clean state.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Reschedule flow is verified working. Use /app/backend/tests/test_reschedule_flow.py for regression. Login member1@gmail.com/Password123, hit /bookings, use testIDs booking-reschedule-bk_rs_class → rclass-<id> → reschedule-submit for class flow, and booking-reschedule-bk_rs_appt → rday-<YYYY-MM-DD> + rslot-<h:m> → reschedule-submit for appointment flow. If Mongo bookings were left in 'reschedule_requested' by an earlier run, reset with: db.bookings.update_many({'booking_id':{'\\$in':['bk_rs_class','bk_rs_appt']}},{'\\$set':{'status':'confirmed'},'\\$unset':{'requested_time':'','reschedule_note':'','reschedule_requested_at':''}}). Note: EXPO_PUBLIC_BACKEND_URL is the actual env key (not EXPO_BACKEND_URL) in frontend/.env.",
+  "rca_of_issue": "Original bug: reschedule modal card was vertically centered with no maxHeight and no inner scroll, so on a 390x844 phone viewport the taller form (day+time chips OR the class-session list + note) pushed 'SEND REQUEST' below the visible area / off-card. Fix (already in place in /app/frontend/app/bookings.tsx around lines 346-428): wrap the modal content in a <ScrollView keyboardShouldPersistTaps='handled'> and add maxHeight:'85%' to styles.modalCard so overflow is contained + scrollable. Verified: on 390x844 with a real class booking the submit button sits at y=633 (well within 844) and is tappable without scrolling. On the appointment flow with day+time chips it sits at y=577 — also within view. Tapping submit triggers POST /api/bookings/{id}/reschedule → 200, modal closes, banner shows, and GET /api/bookings shows status='reschedule_requested' with the composed requested_time string persisted."
+}

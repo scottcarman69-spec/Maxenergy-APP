@@ -344,6 +344,7 @@ export default function BookingsScreen() {
       <Modal visible={!!rescheduleFor} transparent animationType="fade" onRequestClose={() => setRescheduleFor(null)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
+            <ScrollView showsVerticalScrollIndicator keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 4 }}>
             <Text style={styles.modalTitle}>Request a reschedule</Text>
             <Text style={styles.modalSub}>{rescheduleFor?.class_name}</Text>
             <Text style={styles.modalHint}>Reschedules must be at least 24 hours before your booking.</Text>
@@ -424,6 +425,7 @@ export default function BookingsScreen() {
                 {actioning ? <ActivityIndicator color={colors.onBrand} /> : <Text style={styles.modalSubmitText}>SEND REQUEST</Text>}
               </Pressable>
             </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -473,7 +475,7 @@ const styles = StyleSheet.create({
   notifTitle: { color: colors.onSurface, fontWeight: "800", fontSize: 14 },
   notifBody: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 3 },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", padding: spacing.xl },
-  modalCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.xl, borderWidth: 1, borderColor: colors.border },
+  modalCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, maxHeight: "85%" },
   modalTitle: { color: colors.onSurface, fontSize: 20, fontFamily: font.heading },
   modalSub: { color: colors.brand, fontSize: 14, fontWeight: "700", marginTop: 2, marginBottom: spacing.md },
   modalLabel: { color: colors.onSurfaceSecondary, fontSize: 12, fontWeight: "700", marginTop: spacing.sm, marginBottom: 6 },

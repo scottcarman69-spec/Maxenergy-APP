@@ -731,3 +731,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Session update (Jun 2026 fork) — Reschedule message reworded (DONE)
 - Reschedule 24h-cutoff 409 message changed to make clear rescheduling IS allowed, just not inside 24h: "You can reschedule up until 24 hours before the class starts. This booking is now within 24 hours, so please contact the gym on 07 4057 9005 to change it." Logic unchanged (>24h allowed, <24h blocked). Verified via curl.
+
+## Session update (Jun 2026 fork) — FIX: reschedule Send Request unreachable (DONE)
+- Bug: reschedule modal card was vertically centered with no maxHeight/scroll; taller form (day/time chips or class-session list + note) pushed SEND REQUEST off-screen → user could not complete. Fix: wrapped modal body in a ScrollView (keyboardShouldPersistTaps=handled) + modalCard maxHeight:"85
+## Session update (Jun 2026 fork) — FIX: reschedule Send Request unreachable (DONE)
+- Bug: reschedule modal card was vertically centered with no maxHeight/scroll; the taller form (day/time chips or class-session list + note) pushed SEND REQUEST off-screen so the user could not complete. Fix: wrapped modal body in a ScrollView (keyboardShouldPersistTaps=handled) + modalCard maxHeight 85%. bookings.tsx.
+- Verified by testing_agent iteration_17: class + appointment reschedules submit (200, status reschedule_requested, banner shows), button reachable on 390x844; 24h cutoff 409 regression intact. Seeded test bookings cleaned.
