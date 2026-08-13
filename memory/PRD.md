@@ -813,3 +813,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
   4. Emailed QR: booking payment-confirmation email now embeds the entry QR (external QR image renderer using a signed, long-lived — class start +2d / 120d — check-in JWT) + "show at the door" copy. New helper make_checkin_code(booking_id, uid, exp).
 - Manual "Attended?" toggle kept as backup (admin only shows it for appointments; QR works for all).
 - Verified via curl (scan #1 ok, scan #2 already/single-use, method+staff+time recorded for both QR and manual) + screenshot (member attendance card renders). Test data cleaned.
+
+## Session update (Jun 2026 fork) — No-show "QR not confirmed" message (DONE)
+- If a paid/confirmed booking was never checked in (attended=False) and the session END time (start + duration) has passed, both the member Booking History card and the admin Bookings card now show a red "QR code was not confirmed during class time" message (member: replaces the "Show entry QR code" button; admin: a red line under the booking).
+- Computed client-side: startIso = by_appointment ? requested_at : class_start; endMs = classStartMs(startIso) + (duration_min||60)*60000; missed = !attended && status in (paid,confirmed) && qldNowUTC() > endMs. admin_bookings now enriches rows with class_start + duration_min (from classes) for this.
+- Verified via screenshot (member shows the red message on a past unattended appointment; upcoming bookings still show the QR button). Test data cleaned.

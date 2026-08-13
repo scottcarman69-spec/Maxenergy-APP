@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
 import ScreenHeader from "@/src/components/ScreenHeader";
-import { classTime, classDate, qldTodayUTC, qldNowUTC, stampDate, stampTime } from "@/src/datetime";
+import { classTime, classDate, classStartMs, qldTodayUTC, qldNowUTC, stampDate, stampTime } from "@/src/datetime";
 
 type Booking = {
   booking_id: string;
@@ -27,6 +27,8 @@ type Booking = {
   checked_in_method?: string;
   checked_in_by?: string;
   checked_in_at?: string;
+  class_start?: string;
+  duration_min?: number;
   paid_via?: string;
   is_paid?: boolean;
 };
@@ -187,6 +189,10 @@ export default function AdminBookings() {
               const paidViaSquare = b.paid_via === "square";
               // A booking is "confirmed" when a paid class (paid == confirmed) or an appointment the admin has confirmed.
               const confirmed = b.status === "confirmed" || (!b.by_appointment && !!b.is_paid);
+              const startIso = b.by_appointment ? b.requested_at : b.class_start;
+              const endMs = startIso ? classStartMs(startIso) + ((b.duration_min || 60) * 60000) : NaN;
+              const missed = !b.attended && (b.status === "paid" || b.status === "confirmed")
+                && !Number.isNaN(endMs) && qldNowUTC().getTime() > endMs;
               return (
                 <View key={b.booking_id} testID={`adminbk-row-${b.booking_id}`} style={styles.card}>
                   <View style={styles.cardTop}>
@@ -233,6 +239,12 @@ export default function AdminBookings() {
                             {b.checked_in_by ? ` · ${b.checked_in_by}` : ""}
                             {b.checked_in_at ? ` · ${stampDate(b.checked_in_at, { day: "numeric", month: "short" })} ${stampTime(b.checked_in_at)}` : ""}
                           </Text>
+                        </View>
+                      )}
+                      {!b.attended && missed && (
+                        <View style={styles.missedLine}>
+                          <Ionicons name="alert-circle" size={12} color={colors.error} />
+                          <Text style={styles.missedLineText} numberOfLines={2}>QR code was not confirmed during class time</Text>
                         </View>
                       )}
                     </View>
@@ -421,6 +433,8 @@ const styles = StyleSheet.create({
   timeLine: { color: colors.onSurface, fontSize: 11.5, marginTop: 4, fontWeight: "600" },
   attendLine: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
   attendLineText: { color: colors.success, fontSize: 11, fontWeight: "800", flex: 1 },
+  missedLine: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
+  missedLineText: { color: colors.error, fontSize: 11, fontWeight: "800", flex: 1 },
   statusPill: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: radius.pill },
   statusText: { fontSize: 8.5, fontWeight: "900", letterSpacing: 0.4 },
   confirmedBadge: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: colors.success, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 4 },

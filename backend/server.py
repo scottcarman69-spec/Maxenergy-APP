@@ -4775,6 +4775,9 @@ async def admin_bookings(u: dict = Depends(require_admin)):
     ).to_list(2000)
     for t in txs:
         paid_via.setdefault(t["booking_id"], t.get("provider"))
+    # Class start/duration for no-show detection on the admin card.
+    cids = list({r.get("class_id") for r in rows if r.get("class_id")})
+    cls_map = {c["class_id"]: c for c in await db.classes.find({"class_id": {"$in": cids}}, {"_id": 0, "class_id": 1, "start_at": 1, "duration_min": 1}).to_list(1000)}
     for r in rows:
         m = umap.get(r["user_id"], {})
         r["booking_no"] = booking_ref_no(r.get("booking_id", ""))
@@ -4784,6 +4787,11 @@ async def admin_bookings(u: dict = Depends(require_admin)):
         r["member_phone"] = m.get("phone") or phone_by_user.get(r["user_id"])
         r["paid_via"] = paid_via.get(r.get("booking_id"))
         r["is_paid"] = (r.get("status") == "paid") or bool(r.get("paid_at"))
+        c = cls_map.get(r.get("class_id")) or {}
+        if c.get("start_at") is not None and r.get("class_start") is None:
+            r["class_start"] = c["start_at"]
+        if r.get("duration_min") is None:
+            r["duration_min"] = c.get("duration_min")
     return {"bookings": rows}
 
 

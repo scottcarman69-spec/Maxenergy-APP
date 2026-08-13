@@ -9,7 +9,7 @@ import { colors, spacing, radius, font } from "@/src/theme";
 import { classTime, classDate, classStartMs, qldTodayUTC, qldNowUTC, stampDate, stampTime } from "@/src/datetime";
 import ScreenHeader from "@/src/components/ScreenHeader";
 
-type Booking = { booking_id: string; class_name: string; status: string; amount: number; by_appointment?: boolean; requested_time?: string; requested_at?: string; scheduled_time?: string; proposed_time?: string; attended?: boolean; checked_in_method?: string; checked_in_by?: string; checked_in_at?: string };
+type Booking = { booking_id: string; class_name: string; status: string; amount: number; by_appointment?: boolean; requested_time?: string; requested_at?: string; scheduled_time?: string; proposed_time?: string; class_start?: string; duration_min?: number; attended?: boolean; checked_in_method?: string; checked_in_by?: string; checked_in_at?: string };
 type ClassSlot = { class_id: string; name: string; start_at: string };
 
 const STATUS_META: Record<string, { label: string; bg: string; fg: string }> = {
@@ -257,6 +257,11 @@ export default function BookingsScreen() {
             bookings.map((b) => {
               const meta = STATUS_META[b.status] || { label: b.status.toUpperCase(), bg: colors.surfaceTertiary, fg: colors.onSurface };
               const canManage = b.status !== "cancelled";
+              // "No-show": paid/confirmed, never checked in, and the session end time has passed.
+              const startIso = b.by_appointment ? b.requested_at : b.class_start;
+              const endMs = startIso ? classStartMs(startIso) + ((b.duration_min || 60) * 60000) : NaN;
+              const missed = !b.attended && (b.status === "paid" || b.status === "confirmed")
+                && !Number.isNaN(endMs) && qldNowUTC().getTime() > endMs;
               return (
                 <Swipeable
                   key={b.booking_id}
@@ -370,6 +375,11 @@ export default function BookingsScreen() {
                               </View>
                             )}
                           </View>
+                        </View>
+                      ) : missed ? (
+                        <View style={styles.missedBar}>
+                          <Ionicons name="alert-circle" size={16} color={colors.error} />
+                          <Text style={styles.missedText}>QR code was not confirmed during class time</Text>
                         </View>
                       ) : (
                         <Pressable
@@ -529,6 +539,8 @@ const styles = StyleSheet.create({
   bookingActions: { flexDirection: "row", borderTopWidth: 1, borderTopColor: colors.border },
   qrInfoBar: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, borderTopWidth: 1, borderTopColor: colors.border },
   qrInfoText: { color: colors.onSurfaceSecondary, fontSize: 12.5, fontWeight: "600" },
+  missedBar: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, paddingHorizontal: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: "rgba(239,68,68,0.10)" },
+  missedText: { color: colors.error, fontSize: 12.5, fontWeight: "800", textAlign: "center" },
   attendCard: { borderTopWidth: 1, borderTopColor: colors.border },
   attendHead: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.success, paddingVertical: 9 },
   attendHeadText: { color: "#fff", fontSize: 12, fontWeight: "900", letterSpacing: 0.6 },
