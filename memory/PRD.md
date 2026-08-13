@@ -831,3 +831,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Backend bookings_history now runs _enrich_bookings (adds class_start + duration_min) so no-show timing works.
 - Reschedule pending-lock confirmed already universal (status-based) across all booking types.
 - Verified via screenshot (attended MuayThai record + no-show PT). Test data cleaned.
+
+## Session update (Jun 2026 fork) — Fix cancel button (web) + class times + refund answer (DONE)
+- Bug: Cancel did nothing on web. Root cause: confirmCancel used Alert.alert with buttons, whose onPress callbacks don't fire on React Native Web. Replaced with a cross-platform in-app confirm Modal (Keep booking / Cancel booking, testID cancel-confirm-btn). Works on web + native. Removed unused Alert import; removed the 24h Alert (the 24h error already surfaces in the banner).
+- Refund/credit policy (confirmed to user): cancelling ≥24h before start → class-pass bookings get the PASS RETURNED to the account; money-paid bookings get in-app ACCOUNT CREDIT for the amount. Verified via curl (card → +$25 credit; pass → +1 pass).
+- Show class time on ALL bookings: My Bookings card now shows a clock-icon time line for every booking — classes use class_start (classDate·classTime), appointments use scheduled_time/requested_time (or "Time TBC"). Cancel modal copy adapts (pass vs credit) using paid_with_pass.
+- Verified via screenshot (times on all cards; cancel modal opens on web) + curl (cancel completes, rewards correct). Test data cleaned.

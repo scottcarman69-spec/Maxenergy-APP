@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, TextInput, RefreshControl, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, TextInput, RefreshControl } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Swipeable } from "react-native-gesture-handler";
@@ -9,7 +9,7 @@ import { colors, spacing, radius, font } from "@/src/theme";
 import { classTime, classDate, classStartMs, qldTodayUTC, qldNowUTC, stampDate, stampTime } from "@/src/datetime";
 import ScreenHeader from "@/src/components/ScreenHeader";
 
-type Booking = { booking_id: string; class_name: string; status: string; amount: number; by_appointment?: boolean; requested_time?: string; requested_at?: string; scheduled_time?: string; proposed_time?: string; class_start?: string; duration_min?: number; attended?: boolean; checked_in_method?: string; checked_in_by?: string; checked_in_at?: string };
+type Booking = { booking_id: string; class_name: string; status: string; amount: number; by_appointment?: boolean; requested_time?: string; requested_at?: string; scheduled_time?: string; proposed_time?: string; class_start?: string; duration_min?: number; attended?: boolean; checked_in_method?: string; checked_in_by?: string; checked_in_at?: string; paid_with_pass?: boolean };
 type ClassSlot = { class_id: string; name: string; start_at: string };
 
 const STATUS_META: Record<string, { label: string; bg: string; fg: string }> = {
@@ -28,6 +28,7 @@ export default function BookingsScreen() {
   const [actioning, setActioning] = useState<string | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
   const [rescheduleFor, setRescheduleFor] = useState<Booking | null>(null);
+  const [cancelFor, setCancelFor] = useState<Booking | null>(null);
   const [rDay, setRDay] = useState("");   // appointment: selected day key (UTC YYYY-MM-DD)
   const [rSlot, setRSlot] = useState(""); // appointment: selected minutes-since-midnight (string)
   const [rNote, setRNote] = useState("");
@@ -140,31 +141,21 @@ export default function BookingsScreen() {
       const res = await api.cancelBooking(b.booking_id);
       const bk = res?.booking || {};
       let extra = "";
-      if (bk.cancel_reward === "class_pass") extra = " Your class pass has been returned.";
+      if (bk.cancel_reward === "class_pass") extra = " Your class pass has been returned to your account.";
       else if (bk.cancel_reward === "credit" && bk.cancel_credit_cents)
         extra = ` $${(bk.cancel_credit_cents / 100).toFixed(2)} credit added to your account.`;
+      setCancelFor(null);
       setBanner("Booking cancelled." + extra + " We've notified the gym.");
       await load();
     } catch (e: any) {
       const msg = e?.message || "Could not cancel booking.";
+      setCancelFor(null);
       setBanner(msg);
-      if (/24 hours/i.test(msg)) {
-        Alert.alert("Too close to start time", msg);
-      }
     }
     setActioning(null);
   };
 
-  const confirmCancel = (b: Booking) => {
-    Alert.alert(
-      "Cancel booking?",
-      `Cancel your ${b.class_name} booking?\n\nBookings can only be cancelled at least 24 hours before the start time. If you paid, we'll add it back as account credit (or return your class pass).`,
-      [
-        { text: "Keep booking", style: "cancel" },
-        { text: "Cancel booking", style: "destructive", onPress: () => doCancel(b) },
-      ],
-    );
-  };
+  const confirmCancel = (b: Booking) => setCancelFor(b);
 
   const confirmProposed = async (b: Booking) => {
     setActioning(b.booking_id);
@@ -279,9 +270,19 @@ export default function BookingsScreen() {
                     <View style={styles.bookingRow}>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.notifTitle}>{b.class_name}</Text>
+                        {(() => {
+                          const timeLabel = b.by_appointment
+                            ? (b.scheduled_time || b.requested_time || "By appointment")
+                            : (b.class_start ? `${classDate(b.class_start, { weekday: "short", day: "numeric", month: "short" })} · ${classTime(b.class_start)}` : "Time TBC");
+                          return (
+                            <View style={styles.timeRow}>
+                              <Ionicons name="time-outline" size={13} color={colors.brand} />
+                              <Text style={styles.timeRowText}>{timeLabel}</Text>
+                            </View>
+                          );
+                        })()}
                         <Text style={styles.notifBody}>
                           {b.by_appointment ? "By appointment" : `$${(b.amount / 100).toFixed(0)}`}
-                          {b.scheduled_time ? ` · ${b.scheduled_time}` : ""}
                           {b.status === "reschedule_requested" && b.requested_time ? ` · asked: ${b.requested_time}` : ""}
                           {b.status === "admin_proposed" && b.proposed_time ? ` · proposed: ${b.proposed_time}` : ""}
                         </Text>
@@ -522,6 +523,37 @@ export default function BookingsScreen() {
           </View>
         </View>
       </Modal>
+
+      <Modal visible={!!cancelFor} transparent animationType="fade" onRequestClose={() => setCancelFor(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.confirmCard}>
+            <Ionicons name="alert-circle-outline" size={40} color={colors.error} style={{ alignSelf: "center" }} />
+            <Text style={styles.confirmTitle}>Cancel booking?</Text>
+            <Text style={styles.confirmBody}>
+              Cancel your {cancelFor?.class_name} booking?{"\n\n"}
+              Bookings can only be cancelled at least 24 hours before the start time.
+              {cancelFor?.paid_with_pass
+                ? " Your class pass will be returned to your account."
+                : " If you paid, we'll add it back as account credit."}
+            </Text>
+            <View style={styles.confirmActions}>
+              <Pressable style={styles.confirmKeep} onPress={() => setCancelFor(null)}>
+                <Text style={styles.confirmKeepText}>Keep booking</Text>
+              </Pressable>
+              <Pressable
+                testID="cancel-confirm-btn"
+                style={[styles.confirmCancelBtn, actioning === cancelFor?.booking_id && { opacity: 0.6 }]}
+                disabled={actioning === cancelFor?.booking_id}
+                onPress={() => cancelFor && doCancel(cancelFor)}
+              >
+                {actioning === cancelFor?.booking_id
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Text style={styles.confirmCancelText}>Cancel booking</Text>}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -579,6 +611,16 @@ const styles = StyleSheet.create({
   notifTitle: { color: colors.onSurface, fontWeight: "800", fontSize: 14 },
   notifBody: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 3 },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", padding: spacing.xl },
+  timeRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 3 },
+  timeRowText: { color: colors.onSurface, fontSize: 13, fontWeight: "700" },
+  confirmCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, gap: spacing.md },
+  confirmTitle: { color: colors.onSurface, fontSize: 19, fontWeight: "900", textAlign: "center" },
+  confirmBody: { color: colors.onSurfaceSecondary, fontSize: 13.5, lineHeight: 20, textAlign: "center" },
+  confirmActions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.sm },
+  confirmKeep: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 13, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
+  confirmKeepText: { color: colors.onSurface, fontWeight: "800", fontSize: 14 },
+  confirmCancelBtn: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 13, borderRadius: radius.md, backgroundColor: colors.error },
+  confirmCancelText: { color: "#fff", fontWeight: "900", fontSize: 14 },
   modalCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, maxHeight: "85%" },
   modalTitle: { color: colors.onSurface, fontSize: 20, fontFamily: font.heading },
   modalSub: { color: colors.brand, fontSize: 14, fontWeight: "700", marginTop: 2, marginBottom: spacing.md },
