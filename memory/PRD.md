@@ -760,3 +760,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - User asked the member "Request a reschedule" picker (appointment bookings) to only show available times and grey out unavailable ones.
 - Fix (bookings.tsx, isAppt branch): day chips now Mon–Thu only (next ~3 weeks), time chips 10:30am–4:00pm on the half hour. A slot is greyed/disabled when it is <24h away (the reschedule rule) OR already booked by another appointment (fetched via api.appointmentsTaken on modal open); taken slots get a red "BOOKED" tag. "Choose a day first" hint before a day is picked. Rebuilt dayOptions/timeSlots on the QLD (UTC-based) datetime util for device-independence. Class-booking reschedule (real session list) unchanged.
 - Verified via screenshot: day picker shows Tue/Wed/Thu only, times 10:30am–4:00pm, and the taken 11:30am slot shows greyed with red "BOOKED".
+
+## Session update (Jun 2026 fork) — Fix reschedule "Send Request" unresponsive (DONE)
+- Bug: on appointment reschedule (Personal Training / Custom Programs), Send Request appeared unresponsive. Root cause: the member's OWN current appointment slot was flagged as "BOOKED" (disabled) in the taken-slots set, so tapping their intended time did nothing and left the button disabled.
+- Fix (bookings.tsx): the appointment taken-slots effect now excludes the booking's own requested_at (added requested_at to Booking type). Same picker serves both PT and Custom Programs (both by_appointment) so both are fixed.
+- Verified via screenshot E2E: pick day + available 10:30am → "Preferred:" shows, SEND REQUEST enabled → submit → banner "Reschedule request sent" + booking flips to RESCHEDULE REQUESTED. Backend reschedule returns 200. Test data cleaned.

@@ -9,7 +9,7 @@ import { colors, spacing, radius, font } from "@/src/theme";
 import { classTime, classDate, classStartMs, qldTodayUTC, qldNowUTC } from "@/src/datetime";
 import ScreenHeader from "@/src/components/ScreenHeader";
 
-type Booking = { booking_id: string; class_name: string; status: string; amount: number; by_appointment?: boolean; requested_time?: string; scheduled_time?: string; proposed_time?: string; attended?: boolean };
+type Booking = { booking_id: string; class_name: string; status: string; amount: number; by_appointment?: boolean; requested_time?: string; requested_at?: string; scheduled_time?: string; proposed_time?: string; attended?: boolean };
 type ClassSlot = { class_id: string; name: string; start_at: string };
 
 const STATUS_META: Record<string, { label: string; bg: string; fg: string }> = {
@@ -46,7 +46,9 @@ export default function BookingsScreen() {
     (async () => {
       try {
         const r = await api.appointmentsTaken();
-        if (!cancelled) setTakenSlots(new Set(r.taken || []));
+        // Exclude this booking's own current slot — the member is moving away from it.
+        const own = rescheduleFor.requested_at || "";
+        if (!cancelled) setTakenSlots(new Set((r.taken || []).filter((t: string) => t !== own)));
       } catch { if (!cancelled) setTakenSlots(new Set()); }
     })();
     return () => { cancelled = true; };
