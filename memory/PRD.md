@@ -728,3 +728,6 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Third-party libs are all current cross-platform (RN 0.81.5, react-native-webview 13.15, expo-camera 17, expo-image-picker 17, react-native-safe-area-context 5.6, rn-emoji-keyboard 1.7) — none force a higher minimum than Android 7 / iOS 15.1.
 - Verified app boots after config change (smoke screenshot). newArchEnabled true.
 - MINIMUMS TO PUBLISH: Android 7.0 (API 24)+, iOS/iPadOS 15.1+.
+
+## Session update (Jun 2026 fork) — Reschedule message reworded (DONE)
+- Reschedule 24h-cutoff 409 message changed to make clear rescheduling IS allowed, just not inside 24h: "You can reschedule up until 24 hours before the class starts. This booking is now within 24 hours, so please contact the gym on 07 4057 9005 to change it." Logic unchanged (>24h allowed, <24h blocked). Verified via curl.

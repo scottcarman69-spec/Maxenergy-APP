@@ -1767,7 +1767,7 @@ async def booking_reschedule(booking_id: str, body: RescheduleReq, u: dict = Dep
     if start_local is not None and now_local >= (start_local - timedelta(hours=24)):
         raise HTTPException(
             409,
-            "Bookings can only be rescheduled at least 24 hours before the start time. Please contact the gym on 07 4057 9005 if you need help.",
+            "You can reschedule up until 24 hours before the class starts. This booking is now within 24 hours, so please contact the gym on 07 4057 9005 to change it.",
         )
     await db.bookings.update_one(
         {"booking_id": booking_id},
