@@ -843,3 +843,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Fix: the is_test free bypass now only applies when NOT using credit or class pass (`if u.is_test and not use_credit and not use_class_pass`). For partial-credit on a test account, credit is applied and the leftover card portion is covered free (test_free tx) so no real card charge. Real accounts unchanged.
 - Verified via curl: real account credit 5000→3500 (ledger). Test account with use_credit: 5000→2500 (ledger "Used toward Kickboxing"); test account without credit still books free (no deduction).
 - Note: the visible balance updates on next screen load (server + ledger correct). Test data cleaned; testmember reset to 3 seeded bookings, credit 0.
+
+## Session update (Jun 2026 fork) — Wallet balance on Bookings + Credit History (DONE)
+- Credit History screen already existed at /credits ("My Wallet"): shows AVAILABLE CREDIT, CLASS PASS CREDITS + QR, CLASS PASS HISTORY and CREDIT HISTORY (earned/spent w/ reasons+dates), from GET /api/credits (balance_cents, entries, class_pass_credits, pass_entries). No backend change needed.
+- Added: My Bookings screen now shows a tappable wallet bar at the top — CREDIT $x.xx · PASSES n · "History ›" (testID bookings-wallet) → routes to /credits. bookings.tsx load() now also fetches api.myCredits() (creditCents, passCredits), refreshed on focus so deductions show instantly.
+- Verified via screenshot (wallet bar shows $35.00 / 4 passes; tap opens full history). Test data reset.

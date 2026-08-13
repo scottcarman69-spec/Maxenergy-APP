@@ -24,6 +24,8 @@ const STATUS_META: Record<string, { label: string; bg: string; fg: string }> = {
 export default function BookingsScreen() {
   const router = useRouter();
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [creditCents, setCreditCents] = useState(0);
+  const [passCredits, setPassCredits] = useState(0);
   const [loading, setLoading] = useState(true);
   const [actioning, setActioning] = useState<string | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
@@ -123,6 +125,11 @@ export default function BookingsScreen() {
     try {
       const b = await api.myBookings();
       setBookings(b.bookings || []);
+    } catch {}
+    try {
+      const c = await api.myCredits();
+      setCreditCents(c.balance_cents || 0);
+      setPassCredits(c.class_pass_credits || 0);
     } catch {}
     setLoading(false);
   }, []);
@@ -225,6 +232,28 @@ export default function BookingsScreen() {
           contentContainerStyle={{ padding: spacing.lg, paddingBottom: 40, gap: spacing.sm }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} colors={[colors.brand]} />}
         >
+          <Pressable testID="bookings-wallet" style={styles.walletBar} onPress={() => router.push("/credits")}>
+            <View style={styles.walletCol}>
+              <View style={styles.walletHead}>
+                <Ionicons name="wallet-outline" size={15} color={colors.brand} />
+                <Text style={styles.walletLabel}>CREDIT</Text>
+              </View>
+              <Text style={styles.walletValue}>${(creditCents / 100).toFixed(2)}</Text>
+            </View>
+            <View style={styles.walletDivider} />
+            <View style={styles.walletCol}>
+              <View style={styles.walletHead}>
+                <Ionicons name="ticket-outline" size={15} color="#22C55E" />
+                <Text style={styles.walletLabel}>PASSES</Text>
+              </View>
+              <Text style={styles.walletValue}>{passCredits}</Text>
+            </View>
+            <View style={styles.walletCta}>
+              <Text style={styles.walletCtaText}>History</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.onSurfaceSecondary} />
+            </View>
+          </Pressable>
+
           {bookings.length > 0 && (
             <View style={styles.topRow}>
               <Text style={styles.countText}>{bookings.length} booking{bookings.length === 1 ? "" : "s"}</Text>
@@ -611,6 +640,14 @@ const styles = StyleSheet.create({
   notifTitle: { color: colors.onSurface, fontWeight: "800", fontSize: 14 },
   notifBody: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 3 },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", padding: spacing.xl },
+  walletBar: { flexDirection: "row", alignItems: "center", backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingVertical: spacing.md, paddingHorizontal: spacing.lg },
+  walletCol: { alignItems: "flex-start", minWidth: 78 },
+  walletHead: { flexDirection: "row", alignItems: "center", gap: 4 },
+  walletLabel: { color: colors.onSurfaceSecondary, fontSize: 10, fontWeight: "800", letterSpacing: 0.6 },
+  walletValue: { color: colors.onSurface, fontSize: 20, fontWeight: "900", marginTop: 2 },
+  walletDivider: { width: 1, height: 32, backgroundColor: colors.border, marginHorizontal: spacing.md },
+  walletCta: { flexDirection: "row", alignItems: "center", gap: 2, marginLeft: "auto" },
+  walletCtaText: { color: colors.onSurfaceSecondary, fontSize: 12.5, fontWeight: "700" },
   timeRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 3 },
   timeRowText: { color: colors.onSurface, fontSize: 13, fontWeight: "700" },
   confirmCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, gap: spacing.md },
