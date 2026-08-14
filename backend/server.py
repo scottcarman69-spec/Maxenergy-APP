@@ -3032,18 +3032,79 @@ async def fulfill_store_purchase(tx: dict) -> None:
     if upd:
         await db.users.update_one({"user_id": uid}, {"$set": upd})
     await db.payment_transactions.update_one({"session_id": tx["session_id"]}, {"$set": {"fulfilled": True, "fulfilled_at": now}})
-    # Notify member + admins
-    await notify_user(uid, user.get("email"), "Purchase confirmed",
-                      f"Your {p.get('name')} purchase is confirmed. Thanks for training with Max Energy!", "booking",
-                      email_lines=[f"Your <b>{p.get('name')}</b> purchase is confirmed.",
-                                   ("Key Tag 24/7 access is included." if tx.get("key_tag") else "")])
-    admins = await db.users.find({"is_admin": True}, {"_id": 0, "user_id": 1, "email": 1}).to_list(20)
+    # ----- Gather full customer + purchase details for the emails -----
+    cust_name = user.get("name") or user.get("email") or "Member"
+    cust_first = (cust_name or "").strip().split(" ")[0] or cust_name
+    cust_email = user.get("email") or "—"
+    app_doc = await db.membership_applications.find_one(
+        {"user_id": uid}, {"_id": 0, "phone": 1}, sort=[("created_at", -1)]
+    )
+    cust_phone = user.get("phone") or (app_doc or {}).get("phone") or "—"
+    amount = float(tx.get("amount", 0)) / 100.0
+    currency = (tx.get("currency") or "aud").upper()
+    pay_method = "Account credit" if (tx.get("provider") == "credit" or amount <= 0) else "Card (Square)"
+    ref_code = booking_ref_code(tx.get("order_ref") or tx.get("session_id") or uid)
+    purchased_on = now.strftime("%a %d %b %Y · %-I:%M %p")
+    key_tag_line = "Yes (24/7 access included)" if tx.get("key_tag") else "No"
+
+    # Product-specific summary line (passes balance / membership expiry)
+    detail_lines: list = []
+    if p.get("type") == "class_pass":
+        detail_lines.append(f"Passes added: <b>{int(p.get('classes', 0))}</b>")
+        detail_lines.append(f"New pass balance: <b>{int(upd.get('class_pass_credits', user.get('class_pass_credits', 0)))}</b>")
+    if p.get("type") in ("membership", "pass") and upd.get("membership_expires_at"):
+        exp_dt = upd["membership_expires_at"]
+        detail_lines.append(f"Membership: <b>{esc(p.get('name'))}</b>")
+        detail_lines.append(f"Valid until: <b>{exp_dt.strftime('%d %b %Y')}</b>")
     sched = ""
     if tx.get("start_date") or tx.get("meet_time"):
-        sched = f" Access-card setup: {tx.get('start_date','')} {tx.get('meet_time','')}".rstrip()
+        sched = f"{tx.get('start_date','')} {tx.get('meet_time','')}".strip()
+
+    # ----- Member confirmation email (with their purchase details) -----
+    member_lines = [
+        f"Hi {esc(cust_first)},",
+        f"Your <b>{esc(p.get('name'))}</b> purchase is confirmed. Thanks for training with Maxenergy Fitness! 🥊",
+        "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
+        f"<b>Product:</b> {esc(p.get('name'))}",
+        *detail_lines,
+        f"<b>Amount paid:</b> ${amount:.2f} {currency}",
+        f"<b>Payment method:</b> {esc(pay_method)}",
+        f"<b>Key tag:</b> {esc(key_tag_line)}",
+        (f"<b>Access-card setup:</b> {esc(sched)}" if sched else ""),
+        f"<b>Reference:</b> {ref_code}",
+        f"<b>Purchased on:</b> {esc(purchased_on)}",
+        "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
+        "You can view your balance any time in the app → My Wallet.",
+    ]
+    await notify_user(uid, user.get("email"), "Purchase confirmed",
+                      f"Your {p.get('name')} purchase is confirmed. Thanks for training with Max Energy!", "booking",
+                      email_lines=member_lines)
+
+    # ----- Gym admin email (full customer + purchase details) -----
+    admin_lines = [
+        f"<b>{esc(cust_name)}</b> purchased <b>{esc(p.get('name'))}</b>.",
+        "<hr style='border:none;border-top:1px solid #eee;margin:12px 0'>",
+        "<b>Customer details</b>",
+        f"Name: <b>{esc(cust_name)}</b>",
+        f"Email: {esc(cust_email)}",
+        f"Phone: {esc(str(cust_phone))}",
+        "<hr style='border:none;border-top:1px solid #eee;margin:12px 0'>",
+        "<b>Purchase</b>",
+        f"Product: <b>{esc(p.get('name'))}</b>",
+        *detail_lines,
+        f"Amount: <b>${amount:.2f} {currency}</b>",
+        f"Payment method: {esc(pay_method)}",
+        f"Key tag: {esc(key_tag_line)}",
+        (f"Access-card setup: {esc(sched)}" if sched else ""),
+        f"Reference: <b>{ref_code}</b>",
+        f"Purchased on: {esc(purchased_on)}",
+    ]
+    admins = await db.users.find({"is_admin": True}, {"_id": 0, "user_id": 1, "email": 1}).to_list(20)
+    admin_body = f"{cust_name} purchased {p.get('name')} (${amount:.2f} {currency})." + (f" Setup: {sched}" if sched else "")
     for a in admins:
-        await notify_user(a["user_id"], a.get("email"), "New membership purchase",
-                          f"{user.get('name') or user.get('email')} purchased {p.get('name')} (${tx.get('amount',0)/100:.2f}).{sched}", "admin")
+        await create_notification(a["user_id"], "New store purchase", admin_body, "admin")
+    await send_email(GYM_ADMIN_EMAIL, f"New purchase — {p.get('name')} by {cust_name}",
+                     _email_shell(f"New Purchase — {p.get('name')}", admin_lines))
 
 
 async def sync_square_payment(tx: dict) -> tuple:
