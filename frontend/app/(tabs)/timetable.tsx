@@ -320,7 +320,7 @@ export default function Timetable() {
             >
               <View style={styles.card}>
                 <View style={[styles.leftBar, { backgroundColor: catStyle(item.category, item.name).color }]} />
-                <View style={styles.cardBody}>
+                <View style={styles.cardHeader}>
                   {coachSource(item.trainer, item.trainer_photo) ? (
                     <Pressable
                       testID={`coach-avatar-${item.class_id}`}
@@ -338,58 +338,8 @@ export default function Timetable() {
                     </View>
                   )}
                   <View style={{ flex: 1 }}>
-                    <View style={styles.cardTop}>
-                      <Text style={styles.className}>{item.name}</Text>
-                      <View style={[styles.catTag, { backgroundColor: catStyle(item.category, item.name).color + "26" }]}>
-                        <Text style={[styles.catTagText, { color: catStyle(item.category, item.name).color }]}>{item.category}</Text>
-                      </View>
-                    </View>
+                    <Text style={styles.className} numberOfLines={1}>{item.name}</Text>
                     <Text style={styles.trainer}>with {item.trainer}</Text>
-                    {booked && (
-                      <View style={styles.bookedTag}>
-                        <Ionicons name="checkmark-circle" size={13} color={colors.success} />
-                        <Text style={styles.bookedTagText}>You have already booked this class!</Text>
-                      </View>
-                    )}
-                    {!booked && typeof item.spots_left === "number" && item.spots_left > 0 && item.spots_left <= 3 && (
-                      <View style={styles.nudgeTag}>
-                        <Ionicons name="flame" size={12} color={colors.onBrand} />
-                        <Text style={styles.nudgeText}>ONLY {item.spots_left} SPOT{item.spots_left === 1 ? "" : "S"} LEFT — BOOK EARLY!</Text>
-                      </View>
-                    )}
-                    <View style={styles.metaRow}>
-                      <View style={styles.timePill}>
-                        <Ionicons name="time-outline" size={13} color={catStyle(item.category, item.name).color} />
-                        <Text style={[styles.timePillText, { color: catStyle(item.category, item.name).color }]}>{fmtTime(item.start_at)}</Text>
-                      </View>
-                      <View style={styles.pill}>
-                        <Text style={styles.pillText}>{item.level}</Text>
-                      </View>
-                      <Text style={styles.duration} numberOfLines={1}>{item.duration_min} min</Text>
-                      {typeof item.price_cents === "number" && item.price_cents > 0 && (
-                        <View style={styles.pricePill}>
-                          <Text style={styles.pricePillText}>${(item.price_cents / 100).toFixed(0)}</Text>
-                        </View>
-                      )}
-                    </View>
-                    {typeof item.spots_left === "number" && (item.capacity || 0) > 0 && (
-                      <View style={styles.capWrap}>
-                        <View style={styles.capTrack}>
-                          <View
-                            style={[
-                              styles.capFill,
-                              {
-                                width: `${Math.min(100, Math.round(((item.booked || 0) / (item.capacity || 1)) * 100))}%`,
-                                backgroundColor: item.spots_left === 0 ? colors.error : item.spots_left <= 3 ? colors.warning : colors.success,
-                              },
-                            ]}
-                          />
-                        </View>
-                        <Text style={[styles.capText, item.spots_left === 0 && { color: colors.error }]}>
-                          {item.spots_left === 0 ? "Class full" : `${item.spots_left} spot${item.spots_left === 1 ? "" : "s"} left`}
-                        </Text>
-                      </View>
-                    )}
                   </View>
                   <View style={[styles.bookPill, item.spots_left === 0 && styles.bookPillFull, booked && styles.bookPillBooked]}>
                     <Text style={[styles.bookPillText, item.spots_left === 0 && styles.bookPillTextFull, booked && styles.bookPillTextBooked]}>
@@ -397,6 +347,57 @@ export default function Timetable() {
                     </Text>
                   </View>
                 </View>
+
+                {booked && (
+                  <View style={styles.bookedTag}>
+                    <Ionicons name="checkmark-circle" size={13} color={colors.success} />
+                    <Text style={styles.bookedTagText}>You have already booked this class!</Text>
+                  </View>
+                )}
+                {!booked && typeof item.spots_left === "number" && item.spots_left > 0 && item.spots_left <= 3 && (
+                  <View style={styles.nudgeTag}>
+                    <Ionicons name="flame" size={12} color={colors.onBrand} />
+                    <Text style={styles.nudgeText}>ONLY {item.spots_left} SPOT{item.spots_left === 1 ? "" : "S"} LEFT — BOOK EARLY!</Text>
+                  </View>
+                )}
+
+                <View style={styles.metaRow}>
+                  <View style={[styles.catTag, { backgroundColor: catStyle(item.category, item.name).color + "26" }]}>
+                    <Text style={[styles.catTagText, { color: catStyle(item.category, item.name).color }]}>{item.category}</Text>
+                  </View>
+                  <View style={styles.timePill}>
+                    <Ionicons name="time-outline" size={13} color={catStyle(item.category, item.name).color} />
+                    <Text style={[styles.timePillText, { color: catStyle(item.category, item.name).color }]}>{fmtTime(item.start_at)}</Text>
+                  </View>
+                  <View style={styles.pill}>
+                    <Text style={styles.pillText}>{item.level}</Text>
+                  </View>
+                  <Text style={styles.duration} numberOfLines={1}>{item.duration_min} min</Text>
+                  {typeof item.price_cents === "number" && item.price_cents > 0 && (
+                    <View style={styles.pricePill}>
+                      <Text style={styles.pricePillText}>${(item.price_cents / 100).toFixed(0)}</Text>
+                    </View>
+                  )}
+                </View>
+
+                {typeof item.spots_left === "number" && (item.capacity || 0) > 0 && (
+                  <View style={styles.capWrap}>
+                    <View style={styles.capTrack}>
+                      <View
+                        style={[
+                          styles.capFill,
+                          {
+                            width: `${Math.min(100, Math.round(((item.booked || 0) / (item.capacity || 1)) * 100))}%`,
+                            backgroundColor: item.spots_left === 0 ? colors.error : item.spots_left <= 3 ? colors.warning : colors.success,
+                          },
+                        ]}
+                      />
+                    </View>
+                    <Text style={[styles.capText, item.spots_left === 0 && { color: colors.error }]}>
+                      {item.spots_left === 0 ? "Class full" : `${item.spots_left} spot${item.spots_left === 1 ? "" : "s"} left`}
+                    </Text>
+                  </View>
+                )}
               </View>
             </Pressable>
             );
@@ -464,6 +465,7 @@ const styles = StyleSheet.create({
   },
   leftBar: { position: "absolute", left: 0, top: 0, bottom: 0, width: 5 },
   cardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  cardHeader: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   cardBody: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   logoBadge: { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center", overflow: "hidden" },
   logoImg: { width: 52, height: 52 },
@@ -471,8 +473,8 @@ const styles = StyleSheet.create({
   bookOutline: { borderWidth: 1.5, borderColor: colors.brand, borderRadius: radius.sm, paddingHorizontal: 14, paddingVertical: 8 },
   bookOutlineText: { color: colors.brand, fontWeight: "800", fontSize: 13 },
   className: { color: colors.onSurface, fontSize: 17, fontWeight: "800", flex: 1 },
-  catTag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },
-  catTagText: { fontSize: 10, fontWeight: "900", letterSpacing: 0.5 },
+  catTag: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: radius.pill, alignSelf: "center" },
+  catTagText: { fontSize: 11, fontWeight: "900", letterSpacing: 0.4 },
   trainer: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 3 },
   programTag: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6, alignSelf: "flex-start", backgroundColor: colors.brandTertiary, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },
   programText: { color: colors.brand, fontSize: 10, fontWeight: "800", letterSpacing: 0.5 },
