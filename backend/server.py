@@ -5245,11 +5245,39 @@ async def admin_booking_accept(booking_id: str, u: dict = Depends(require_admin)
         upd["scheduled_time"] = when
     await db.bookings.update_one({"booking_id": booking_id}, {"$set": upd})
     member = await db.users.find_one({"user_id": b["user_id"]}, {"_id": 0})
+    mname = (member or {}).get("name") or (member or {}).get("email") or "there"
+
+    # Build the same full detail block the member saw when they first booked.
+    cls = await db.classes.find_one({"class_id": b.get("class_id")}, {"_id": 0}) if b.get("class_id") else None
+    start = (cls or {}).get("start_at") or b.get("class_start")
+    if isinstance(start, datetime):
+        if start.tzinfo is None:
+            start = start.replace(tzinfo=timezone.utc)
+        when_full = start.strftime("%A %d %B %Y at %-I:%M %p")
+    else:
+        when_full = b.get("scheduled_time") or b.get("requested_time") or "By appointment"
+    if b.get("by_appointment") and (b.get("scheduled_time") or when):
+        when_full = b.get("scheduled_time") or when
+    trainer = (cls or {}).get("trainer", "")
+    duration = (cls or {}).get("duration_min") or b.get("duration_min")
+    amount = float(b.get("amount", 0)) / 100.0
+    currency = (b.get("currency", "aud") or "aud").upper()
+
     when_line = f" Your session is confirmed for {when}." if (b.get("by_appointment") and when) else ""
-    email_lines = [f"Great news — your booking for <b>{b['class_name']}</b> has been <b>accepted</b>!"]
-    if b.get("by_appointment") and when:
-        email_lines.append(f"Your session is confirmed for <b>{when}</b>.")
-    email_lines.append("See you at the gym. 🥊")
+    email_lines = [
+        f"Hi {esc(mname)},",
+        f"Great news — your booking for <b>{esc(b['class_name'])}</b> has been <b>accepted</b>!",
+        "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
+        f"<b>Class:</b> {esc(b['class_name'])}",
+        (f"<b>Coach:</b> {esc(trainer)}" if trainer else ""),
+        f"<b>When:</b> {esc(when_full)}",
+        (f"<b>Duration:</b> {duration} minutes" if duration else ""),
+        (f"<b>Amount paid:</b> ${amount:.2f} {currency}" if amount > 0 else "<b>Amount paid:</b> Free"),
+        f"<b>Booking reference:</b> {booking_ref_code(b['booking_id'])}",
+        f"<b>Location:</b> {GYM_INFO['address']}",
+        "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
+        "See you at the gym! 🥊",
+    ]
     await notify_user(
         b["user_id"], (member or {}).get("email"),
         "Booking accepted",
