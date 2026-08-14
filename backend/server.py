@@ -3402,14 +3402,24 @@ async def payment_receipt(booking_id: str, u: dict = Depends(require_user)):
         raise HTTPException(404, "Booking not found")
     if b.get("status") not in ("paid", "confirmed"):
         # The web redirect can arrive before any status poll ran — sync with Square now.
-        tx = await db.payment_transactions.find_one({"booking_id": booking_id}, {"_id": 0})
-        if tx:
-            await sync_square_payment(tx)
-            b = await db.bookings.find_one({"booking_id": booking_id, "user_id": u["user_id"]}, {"_id": 0})
+        # A booking can have MORE THAN ONE Square order (e.g. checkout tapped twice); sync
+        # every open transaction and stop as soon as one is detected paid.
+        txs = await db.payment_transactions.find({"booking_id": booking_id}, {"_id": 0}).to_list(20)
+        for t in txs:
+            if t.get("payment_status") == "paid":
+                continue
+            try:
+                ps, _ = await sync_square_payment(t)
+                if ps == "paid":
+                    break
+            except Exception as e:
+                log.error(f"receipt sync error for {booking_id}: {e}")
+        b = await db.bookings.find_one({"booking_id": booking_id, "user_id": u["user_id"]}, {"_id": 0})
     if b.get("status") not in ("paid", "confirmed"):
         raise HTTPException(409, "Booking not paid")
     cls = await db.classes.find_one({"class_id": b["class_id"]}, {"_id": 0}) or {}
-    tx = await db.payment_transactions.find_one({"booking_id": booking_id}, {"_id": 0}) or {}
+    tx = await db.payment_transactions.find_one({"booking_id": booking_id, "payment_status": "paid"}, {"_id": 0}) \
+        or await db.payment_transactions.find_one({"booking_id": booking_id}, {"_id": 0}) or {}
     start = cls.get("start_at") or b.get("class_start")
     paid_at = b.get("paid_at")
     # Reflect how it was actually paid.
