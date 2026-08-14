@@ -326,6 +326,12 @@ export default function BookingsScreen() {
                         <Text style={[styles.statusText, { color: meta.fg }]}>{meta.label}</Text>
                       </View>
                     </View>
+                    {b.status === "confirmed" && (
+                      <View style={styles.confirmedBanner}>
+                        <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+                        <Text style={styles.confirmedBannerText}>Booking confirmed by Maxenergy</Text>
+                      </View>
+                    )}
                     {b.status === "admin_proposed" && (
                       <View style={styles.proposeBox}>
                         <Text style={styles.proposeText}>
@@ -642,6 +648,8 @@ const styles = StyleSheet.create({
   actionBtnDanger: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 12 },
   actionDangerText: { color: colors.error, fontWeight: "800", fontSize: 13 },
   statusPill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill },
+  confirmedBanner: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: spacing.sm, alignSelf: "flex-start", backgroundColor: colors.success + "1F", borderWidth: 1, borderColor: colors.success, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
+  confirmedBannerText: { color: colors.success, fontSize: 13, fontWeight: "800", letterSpacing: 0.2 },
   proposeBox: { marginTop: spacing.sm, backgroundColor: "#F59E0B22", borderWidth: 1, borderColor: "#F59E0B", borderRadius: radius.md, padding: spacing.md, gap: spacing.sm },
   proposeText: { color: colors.onSurface, fontSize: 13.5, lineHeight: 19 },
   pendingBox: { flexDirection: "row", alignItems: "flex-start", gap: 8, marginTop: spacing.sm, backgroundColor: colors.brandTertiary, borderWidth: 1, borderColor: colors.brand, borderRadius: radius.md, padding: spacing.md },
