@@ -1768,16 +1768,18 @@ async def booking_create(body: BookingCreate, u: dict = Depends(require_user)):
     if is_appt:
         member_name = u.get("name") or u.get("email")
         pref = body.requested_time or "a time to be confirmed"
-        await notify_admins(
-            "New session request",
-            f"{member_name} requested a {display_name} session — preferred: {pref}.",
-            "booking",
-            email_lines=[
-                f"<b>{esc(member_name)}</b> has requested a <b>{esc(display_name)}</b> session.",
-                f"Preferred time: <b>{esc(pref)}</b>",
-                "This is a by-appointment booking — open the app Admin → Bookings to accept, reschedule or cancel.",
-            ],
-        )
+        # In-app alert for admins (no email here) — the gym gets ONE combined email
+        # with the full booker + payment details once payment is completed
+        # (see mark_booking_paid → "New PT/Program booking — needs confirmation").
+        admins = await db.users.find({"is_admin": True}, {"_id": 0, "user_id": 1}).to_list(100)
+        for a in admins:
+            await create_notification(
+                a["user_id"],
+                "New session request",
+                f"{member_name} requested a {display_name} session — preferred: {pref}.",
+                "booking",
+                {"nav": ADMIN_NAV.get("booking")},
+            )
         await create_notification(
             u["user_id"],
             "Session request received",
