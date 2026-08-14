@@ -2179,6 +2179,8 @@ async def admin_checkin_scan(body: ScanCheckinReq, request: Request, u: dict = D
     b = await db.bookings.find_one({"booking_id": data["bid"]}, {"_id": 0})
     if not b:
         raise HTTPException(404, "Booking not found.")
+    if b.get("status") == "cancelled" or b.get("refund_status") in ("pending", "pass_returned", "resolved", "credited"):
+        raise HTTPException(400, "This booking was cancelled/refunded — no check-in available.")
     if b.get("status") not in ("paid", "confirmed"):
         raise HTTPException(400, "This booking isn't paid — check payment first.")
 
