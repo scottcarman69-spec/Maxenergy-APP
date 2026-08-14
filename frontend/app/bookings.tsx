@@ -302,6 +302,7 @@ export default function BookingsScreen() {
                   rightThreshold={40}
                 >
                   <View style={styles.bookingCard}>
+                    <View style={styles.cardTopSection}>
                     <View style={styles.bookingRow}>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.notifTitle}>{b.class_name}</Text>
@@ -362,6 +363,7 @@ export default function BookingsScreen() {
                         </Text>
                       </View>
                     )}
+                    </View>
                     {canManage && (
                       <View style={styles.bookingActions}>
                         {b.status !== "reschedule_requested" && (
@@ -625,8 +627,9 @@ const styles = StyleSheet.create({
   browseBtn: { backgroundColor: colors.brand, paddingHorizontal: 22, paddingVertical: 12, borderRadius: radius.pill, marginTop: spacing.lg },
   browseBtnText: { color: colors.onBrand, fontWeight: "800", fontSize: 14 },
   swipeHint: { color: colors.onSurfaceSecondary, fontSize: 11, textAlign: "center", marginTop: 4, opacity: 0.7 },
-  bookingRow: { flexDirection: "row", alignItems: "center", backgroundColor: colors.surfaceSecondary, padding: spacing.md, borderRadius: radius.md, gap: spacing.md },
+  bookingRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md },
   bookingCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, overflow: "hidden" },
+  cardTopSection: { padding: spacing.md },
   bookingActions: { flexDirection: "row", borderTopWidth: 1, borderTopColor: colors.border },
   qrInfoBar: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, borderTopWidth: 1, borderTopColor: colors.border },
   qrInfoText: { color: colors.onSurfaceSecondary, fontSize: 12.5, fontWeight: "600" },
