@@ -2079,6 +2079,53 @@ async def admin_checkin_scan(body: ScanCheckinReq, request: Request, u: dict = D
             raise HTTPException(404, "Member not found.")
         mname = member.get("name") or member.get("email") or "Member"
         now = now_utc()
+        today = (now + timedelta(hours=10)).date()  # Queensland (no DST)
+
+        # ----- One class = one pass. If this member ALREADY has a booking for a class
+        # today (pass/card/credit — however they paid), the scan just CONFIRMS that
+        # booking's attendance. No second pass is deducted. -----
+        cands = await db.bookings.find(
+            {"user_id": uid, "status": {"$in": ["paid", "confirmed"]},
+             "attended": {"$ne": True}, "cleared": {"$ne": True},
+             "by_appointment": {"$ne": True}},
+            {"_id": 0},
+        ).to_list(100)
+        todays = []
+        for cand in cands:
+            cs = cand.get("class_start")
+            if isinstance(cs, str):
+                try:
+                    cs = datetime.fromisoformat(cs.replace("Z", "+00:00"))
+                except Exception:
+                    cs = None
+            if isinstance(cs, datetime):
+                d = (cs.replace(tzinfo=None) if cs.tzinfo else cs).date()
+                if d == today:
+                    todays.append((cs, cand))
+        if todays:
+            todays.sort(key=lambda x: x[0])
+            cs0, bk = todays[0]
+            admin_name = u.get("name") or u.get("email") or "Staff"
+            await db.bookings.update_one(
+                {"booking_id": bk["booking_id"]},
+                {"$set": {"attended": True, "checked_in_at": now, "checked_in_by": admin_name,
+                          "checked_in_by_id": u["user_id"], "checked_in_method": "qr"}},
+            )
+            await create_notification(
+                uid, "Checked in ✅",
+                f"You're checked in for {bk['class_name']}. Have a great session!", "booking",
+            )
+            when_str = (cs0.replace(tzinfo=None) if cs0.tzinfo else cs0).strftime("%-I:%M %p")
+            return {
+                "ok": True,
+                "member_name": mname,
+                "class_name": bk["class_name"],
+                "when": f"Booking confirmed · {when_str} — no pass deducted",
+                "existing_booking": True,
+                "passes_left": int(member.get("class_pass_credits", 0)),
+            }
+
+        # ----- No booking today → treat as a casual walk-in and deduct 1 class pass. -----
         # Atomic guarded decrement prevents concurrent double-spend.
         res = await db.users.update_one(
             {"user_id": uid, "class_pass_credits": {"$gte": 1}},
