@@ -2219,6 +2219,12 @@ async def admin_checkin_scan(body: ScanCheckinReq, request: Request, u: dict = D
                   "checked_in_by": admin_name, "checked_in_by_id": u["user_id"],
                   "checked_in_method": "qr"}},
     )
+    # If this is a free-trial booking, mark the trial redeemed so it can't be reused.
+    if b.get("is_trial") and b.get("trial_id"):
+        await db.free_trials.update_one(
+            {"trial_id": b["trial_id"]},
+            {"$set": {"status": "redeemed", "redeemed_at": now_utc(), "redeemed_by": admin_name}},
+        )
     await create_notification(
         b["user_id"],
         "Checked in ✅",
@@ -4321,6 +4327,36 @@ async def trials_claim(body: TrialClaimReq, u: dict = Depends(require_user)):
         await db.free_trials.insert_one(trial)
     except Exception:
         raise HTTPException(409, f"You've already claimed your {category} free trial")
+
+    # Create a linked booking so the trial flows through the SAME QR + check-in +
+    # attendance system as every other class booking (unique QR, scan to confirm,
+    # shows in booking/attendance history). by_appointment=True keeps it flexible on day.
+    trial_display = (
+        f"Free Trial – {category} ({preferred_day})" if preferred_day else f"Free Trial – {category}"
+    )
+    trial_booking_id = new_id("bk")
+    await db.bookings.insert_one({
+        "booking_id": trial_booking_id,
+        "user_id": u["user_id"],
+        "class_id": None,
+        "class_name": trial_display,
+        "amount": 0,
+        "currency": "aud",
+        "by_appointment": True,
+        "is_trial": True,
+        "trial_id": trial["trial_id"],
+        "trial_category": category,
+        "duration_min": 45 if category == "Kids" else 60,
+        "class_start": None,
+        "requested_time": preferred_day or None,
+        "scheduled_time": preferred_day or None,
+        "status": "confirmed",
+        "created_at": now_utc(),
+    })
+    await db.free_trials.update_one(
+        {"trial_id": trial["trial_id"]}, {"$set": {"booking_id": trial_booking_id}}
+    )
+    trial["booking_id"] = trial_booking_id
     await db.notifications.insert_one(
         {
             "notification_id": new_id("ntf"),

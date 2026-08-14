@@ -240,13 +240,23 @@ export default function Profile() {
 
         <Text style={styles.section}>MEMBERSHIP</Text>
         <View style={styles.linkGroup}>
-          <Pressable testID="profile-link-membership" style={styles.membershipRow} onPress={() => router.push("/vigyr-signon")}>
+          <Pressable testID="profile-link-membership" style={[styles.membershipRow, styles.linkRowDivider]} onPress={() => router.push("/vigyr-signon")}>
             <View style={styles.membershipIcon}>
               <Ionicons name="card" size={20} color={colors.onBrand} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.membershipLabel}>Membership Application</Text>
               <Text style={styles.membershipSub}>Join or manage your membership</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.brand} />
+          </Pressable>
+          <Pressable testID="profile-link-freetrial" style={styles.membershipRow} onPress={() => router.push("/free-trial")}>
+            <View style={styles.membershipIcon}>
+              <Ionicons name="gift" size={20} color={colors.onBrand} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.membershipLabel}>Free Trial</Text>
+              <Text style={styles.membershipSub}>Claim your free class & show your QR at the gym</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.brand} />
           </Pressable>

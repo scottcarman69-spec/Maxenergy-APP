@@ -266,7 +266,6 @@ export default function Home() {
     { key: "bookings", label: "My Bookings", icon: "bookmark", grad: ["#0D9488", "#2DD4BF"], onPress: () => router.push("/bookings") },
     { key: "schedule", label: "View Schedule", icon: "calendar", grad: ["#FF7A00", "#FFB259"], onPress: () => router.navigate("/(tabs)/timetable") },
     { key: "checkin", label: "Class Check-In", icon: "checkmark-done", grad: ["#16A34A", "#4ADE80"], onPress: () => router.push("/check-in") },
-    { key: "trial", label: "Free Trial", icon: "gift", grad: ["#9333EA", "#C084FC"], onPress: () => router.push("/free-trial") },
     { key: "membership", label: "Join Membership", icon: "ribbon", grad: ["#2563EB", "#60A5FA"], onPress: () => router.push("/vigyr-signon") },
     { key: "classpass", label: "Class Pass", icon: "ticket", grad: ["#DC2626", "#F87171"], onPress: () => router.push("/credits") },
     { key: "academy", label: "Muay Thai Academy", icon: "shield-half", grad: ["#B45309", "#F59E0B"], onPress: () => router.push("/group/grp_muaythai_academy") },

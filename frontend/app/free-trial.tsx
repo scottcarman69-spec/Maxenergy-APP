@@ -15,6 +15,7 @@ const TRIALS = [
 export default function FreeTrial() {
   const router = useRouter();
   const [claimed, setClaimed] = useState<string[]>([]);
+  const [trials, setTrials] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -34,6 +35,7 @@ export default function FreeTrial() {
     try {
       const r = await api.myTrials();
       setClaimed(r.claimed || []);
+      setTrials(r.trials || []);
     } catch {}
     setLoading(false);
   }, []);
@@ -50,7 +52,8 @@ export default function FreeTrial() {
       setClaimed((c) => [...c, "Kids"]);
       setKidsFormOpen(false);
       setChildName(""); setChildAge(""); setPreferredDay("");
-      setMsg(`🎉 ${childName.trim()}'s free Kids trial for ${preferredDay} is confirmed! Check your email and notifications.`);
+      setMsg(`🎉 ${childName.trim()}'s free Kids trial for ${preferredDay} is confirmed! Show your QR code at the gym when you arrive.`);
+      load();
     } catch (e: any) {
       setFormErr(e?.message || "Could not claim trial");
     } finally {
@@ -68,7 +71,8 @@ export default function FreeTrial() {
       setClaimed((c) => [...c, "Adults"]);
       setAdultsFormOpen(false);
       setAdultName(""); setAdultClass("");
-      setMsg(`🎉 Your free Adults trial (${adultClass}, 6:00pm) is confirmed! Check your email and notifications.`);
+      setMsg(`🎉 Your free Adults trial (${adultClass}, 6:00pm) is confirmed! Show your QR code at the gym when you arrive.`);
+      load();
     } catch (e: any) {
       setAdultErr(e?.message || "Could not claim trial");
     } finally {
@@ -97,10 +101,31 @@ export default function FreeTrial() {
                 <Text style={styles.cardTitle}>{t.category} Free Trial</Text>
                 <Text style={styles.cardBlurb}>{t.blurb}</Text>
                 {isClaimed ? (
-                  <View style={styles.claimedPill}>
-                    <Ionicons name="checkmark-circle" size={16} color={colors.success} />
-                    <Text style={styles.claimedText}>Already claimed</Text>
-                  </View>
+                  (() => {
+                    const tb = trials.find((x) => x.category === t.category);
+                    const redeemed = tb?.status === "redeemed";
+                    return (
+                      <>
+                        <View style={styles.claimedPill}>
+                          <Ionicons name={redeemed ? "checkmark-done-circle" : "checkmark-circle"} size={16} color={colors.success} />
+                          <Text style={styles.claimedText}>{redeemed ? "Attended ✓" : "Claimed"}</Text>
+                        </View>
+                        {tb?.booking_id && !redeemed && (
+                          <Pressable
+                            testID={`trial-qr-${t.category.toLowerCase()}`}
+                            style={styles.qrBtn}
+                            onPress={() => router.push({ pathname: "/check-in", params: { booking_id: tb.booking_id } })}
+                          >
+                            <Ionicons name="qr-code" size={16} color={colors.brand} />
+                            <Text style={styles.qrBtnText}>SHOW ENTRY QR CODE</Text>
+                          </Pressable>
+                        )}
+                        {redeemed && (
+                          <Text style={styles.redeemedNote}>This trial has been used — see it in My Bookings.</Text>
+                        )}
+                      </>
+                    );
+                  })()
                 ) : (
                   <Pressable
                     testID={`claim-trial-${t.category.toLowerCase()}`}
@@ -270,6 +295,9 @@ const styles = StyleSheet.create({
   claimText: { color: colors.onBrand, fontFamily: font.heading, fontSize: 13, letterSpacing: 0.5 },
   claimedPill: { marginTop: spacing.sm, flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", backgroundColor: "rgba(16,185,129,0.15)", paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.pill },
   claimedText: { color: colors.success, fontFamily: font.semibold, fontSize: 13 },
+  qrBtn: { marginTop: spacing.sm, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 13, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.brand },
+  qrBtnText: { color: colors.brand, fontFamily: font.heading, fontSize: 12.5, letterSpacing: 0.5 },
+  redeemedNote: { marginTop: spacing.sm, color: colors.onSurfaceSecondary, fontSize: 12.5, lineHeight: 17 },
   msg: { color: colors.brand, fontFamily: font.semibold, textAlign: "center", marginTop: spacing.sm },
   secondary: { alignItems: "center", paddingVertical: spacing.md },
   secondaryText: { color: colors.onSurfaceSecondary, fontFamily: font.semibold, textDecorationLine: "underline" },

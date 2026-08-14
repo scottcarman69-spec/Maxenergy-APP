@@ -9,7 +9,7 @@ import { colors, spacing, radius, font } from "@/src/theme";
 import { classTime, classDate, classStartMs, qldTodayUTC, qldNowUTC, stampDate, stampTime } from "@/src/datetime";
 import ScreenHeader from "@/src/components/ScreenHeader";
 
-type Booking = { booking_id: string; class_name: string; status: string; amount: number; by_appointment?: boolean; requested_time?: string; requested_at?: string; scheduled_time?: string; proposed_time?: string; class_start?: string; duration_min?: number; attended?: boolean; checked_in_method?: string; checked_in_by?: string; checked_in_at?: string; paid_with_pass?: boolean };
+type Booking = { booking_id: string; class_name: string; status: string; amount: number; by_appointment?: boolean; is_trial?: boolean; requested_time?: string; requested_at?: string; scheduled_time?: string; proposed_time?: string; class_start?: string; duration_min?: number; attended?: boolean; checked_in_method?: string; checked_in_by?: string; checked_in_at?: string; paid_with_pass?: boolean };
 type ClassSlot = { class_id: string; name: string; start_at: string; spots_left?: number; capacity?: number };
 
 const STATUS_META: Record<string, { label: string; bg: string; fg: string }> = {
@@ -282,7 +282,7 @@ export default function BookingsScreen() {
           ) : (
             bookings.map((b) => {
               const meta = STATUS_META[b.status] || { label: b.status.toUpperCase(), bg: colors.surfaceTertiary, fg: colors.onSurface };
-              const canManage = b.status !== "cancelled";
+              const canManage = b.status !== "cancelled" && !b.is_trial;
               // "No-show": paid/confirmed, never checked in, and the session end time has passed.
               const startIso = b.by_appointment ? b.requested_at : b.class_start;
               const endMs = startIso ? classStartMs(startIso) + ((b.duration_min || 60) * 60000) : NaN;
@@ -394,7 +394,7 @@ export default function BookingsScreen() {
                         </Pressable>
                       </View>
                     )}
-                    {(b.status === "paid" || b.status === "confirmed") && (
+                    {(b.status === "paid" || b.status === "confirmed") && !b.is_trial && (
                       <Pressable
                         testID={`booking-receipt-${b.booking_id}`}
                         style={styles.receiptBtn}
