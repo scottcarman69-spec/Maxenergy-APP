@@ -60,6 +60,7 @@ function sameDay(a: Date, b: Date) {
 export default function Timetable() {
   const router = useRouter();
   const [classes, setClasses] = useState<Cls[]>([]);
+  const [bookedKeys, setBookedKeys] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [dayOffset, setDayOffset] = useState(0);
@@ -72,6 +73,17 @@ export default function Timetable() {
       setClasses(r.classes || []);
       const d = qldTodayUTC();
       setToday((prev) => (prev.getTime() === d.getTime() ? prev : d));
+    } catch {}
+    try {
+      const mb = await api.myBookings();
+      const active = new Set(["paid", "confirmed", "pending", "reschedule_requested"]);
+      const keys = new Set<string>();
+      for (const b of (mb.bookings || [])) {
+        if (b.cleared || !active.has(b.status)) continue;
+        const anchor = b.class_start || b.requested_at;
+        if (b.class_id && anchor) keys.add(`${b.class_id}|${scheduleDay(anchor)}`);
+      }
+      setBookedKeys(keys);
     } catch {}
     setLoading(false);
   }, []);
@@ -298,7 +310,9 @@ export default function Timetable() {
               )}
             </View>
           }
-          renderItem={({ item }) => (
+          renderItem={({ item }) => {
+            const booked = bookedKeys.has(`${item.class_id}|${scheduleDay(item.start_at)}`);
+            return (
             <Pressable
               testID={`class-row-${item.class_id}`}
               onPress={() => router.push({ pathname: "/class/[id]", params: { id: item.class_id } })}
@@ -331,7 +345,13 @@ export default function Timetable() {
                       </View>
                     </View>
                     <Text style={styles.trainer}>with {item.trainer}</Text>
-                    {typeof item.spots_left === "number" && item.spots_left > 0 && item.spots_left <= 3 && (
+                    {booked && (
+                      <View style={styles.bookedTag}>
+                        <Ionicons name="checkmark-circle" size={13} color={colors.success} />
+                        <Text style={styles.bookedTagText}>You have already booked this class!</Text>
+                      </View>
+                    )}
+                    {!booked && typeof item.spots_left === "number" && item.spots_left > 0 && item.spots_left <= 3 && (
                       <View style={styles.nudgeTag}>
                         <Ionicons name="flame" size={12} color={colors.onBrand} />
                         <Text style={styles.nudgeText}>ONLY {item.spots_left} SPOT{item.spots_left === 1 ? "" : "S"} LEFT — BOOK EARLY!</Text>
@@ -371,15 +391,16 @@ export default function Timetable() {
                       </View>
                     )}
                   </View>
-                  <View style={[styles.bookPill, item.spots_left === 0 && styles.bookPillFull]}>
-                    <Text style={[styles.bookPillText, item.spots_left === 0 && styles.bookPillTextFull]}>
-                      {item.spots_left === 0 ? "Full" : "Book"}
+                  <View style={[styles.bookPill, item.spots_left === 0 && styles.bookPillFull, booked && styles.bookPillBooked]}>
+                    <Text style={[styles.bookPillText, item.spots_left === 0 && styles.bookPillTextFull, booked && styles.bookPillTextBooked]}>
+                      {booked ? "Booked" : item.spots_left === 0 ? "Full" : "Book"}
                     </Text>
                   </View>
                 </View>
               </View>
             </Pressable>
-          )}
+            );
+          }}
         />
       )}
     </SafeAreaView>
@@ -485,4 +506,8 @@ const styles = StyleSheet.create({
   bookPillText: { color: colors.onBrand, fontFamily: font.heading, fontSize: 13 },
   bookPillFull: { backgroundColor: colors.surfaceTertiary },
   bookPillTextFull: { color: colors.onSurfaceSecondary },
+  bookPillBooked: { backgroundColor: colors.success + "26", borderWidth: 1, borderColor: colors.success },
+  bookPillTextBooked: { color: colors.success },
+  bookedTag: { flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start", backgroundColor: colors.success + "22", paddingHorizontal: 8, paddingVertical: 4, borderRadius: radius.pill, marginTop: 6 },
+  bookedTagText: { color: colors.success, fontSize: 11, fontWeight: "800", letterSpacing: 0.2 },
 });
