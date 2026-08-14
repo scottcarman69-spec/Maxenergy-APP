@@ -2022,7 +2022,23 @@ async def booking_checkin_code(booking_id: str, u: dict = Depends(require_user))
         raise HTTPException(404, "Booking not found")
     if b.get("status") not in ("paid", "confirmed"):
         raise HTTPException(400, "Only paid or confirmed bookings have a check-in code.")
-    code = make_checkin_code(booking_id, u["user_id"], datetime.now(timezone.utc) + timedelta(days=2))
+    # Expiry is tied to the CLASS (start + 2 days), not when the code is opened, so an old
+    # code can't be reused after the class. By-appointment sessions (no fixed start) fall
+    # back to a long window. Single-use (attended flag) + class-day lock are the primary guards.
+    cls = await db.classes.find_one({"class_id": b.get("class_id")}, {"_id": 0, "start_at": 1}) or {}
+    start = cls.get("start_at") or b.get("class_start")
+    if isinstance(start, str):
+        try:
+            start = datetime.fromisoformat(start.replace("Z", "+00:00"))
+        except Exception:
+            start = None
+    if isinstance(start, datetime):
+        if start.tzinfo is None:
+            start = start.replace(tzinfo=timezone.utc)
+        exp = start + timedelta(days=2)
+    else:
+        exp = datetime.now(timezone.utc) + timedelta(days=120)
+    code = make_checkin_code(booking_id, u["user_id"], exp)
     return {"code": code, "booking_id": booking_id}
 
 
