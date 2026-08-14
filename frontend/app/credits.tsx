@@ -164,6 +164,10 @@ export default function CreditsScreen() {
               <Ionicons name="information-circle-outline" size={15} color={colors.onSurfaceSecondary} />
               <Text style={styles.qrHintText}>One pass is used each time staff scan this. Keep your screen bright.</Text>
             </View>
+            <View style={styles.qrNote}>
+              <Ionicons name="checkmark-circle" size={15} color={colors.success} />
+              <Text style={styles.qrNoteText}>Already booked this class in the app? No pass is used — staff will just confirm your booking.</Text>
+            </View>
             <Pressable testID="pass-qr-close" style={styles.qrCloseBtn} onPress={() => setQr(null)}>
               <Text style={styles.qrCloseText}>DONE</Text>
             </Pressable>
@@ -210,6 +214,8 @@ const styles = StyleSheet.create({
   qrBox: { backgroundColor: "#fff", padding: spacing.lg, borderRadius: radius.md },
   qrHint: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: spacing.lg, paddingHorizontal: spacing.sm },
   qrHintText: { color: colors.onSurfaceSecondary, fontSize: 12, flex: 1, lineHeight: 17 },
+  qrNote: { flexDirection: "row", alignItems: "flex-start", gap: 6, marginTop: spacing.sm, paddingHorizontal: spacing.sm },
+  qrNoteText: { color: colors.success, fontSize: 12, flex: 1, lineHeight: 17, fontWeight: "600" },
   qrCloseBtn: { backgroundColor: colors.brand, paddingVertical: 13, borderRadius: radius.md, alignItems: "center", marginTop: spacing.lg, alignSelf: "stretch" },
   qrCloseText: { color: colors.onBrand, fontWeight: "900", letterSpacing: 1 },
 });
