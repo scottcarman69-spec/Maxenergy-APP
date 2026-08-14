@@ -11,6 +11,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
   AppState,
+  Modal,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -86,6 +87,40 @@ export default function Home() {
   const [showWelcome, setShowWelcome] = useState(false);
   const [newNotices, setNewNotices] = useState<Notice[]>([]);
   const [newAlerts, setNewAlerts] = useState<AlertItem[]>([]);
+
+  // Muay Thai Academy join popup
+  const ACADEMY_ID = "grp_muaythai_academy";
+  const [academyOpen, setAcademyOpen] = useState(false);
+  const [academy, setAcademy] = useState<{ name: string; members?: number; description?: string; join_status?: string } | null>(null);
+  const [academyBusy, setAcademyBusy] = useState(false);
+  const [academyMsg, setAcademyMsg] = useState<string | null>(null);
+
+  const openAcademy = useCallback(async () => {
+    setAcademyMsg(null);
+    setAcademy(null);
+    setAcademyOpen(true);
+    try {
+      const r = await api.groupsDiscover();
+      const g = (r.groups || []).find((x: any) => x.group_id === ACADEMY_ID);
+      if (g) setAcademy(g);
+      else setAcademy({ name: "Muay Thai Academy" });
+    } catch {
+      setAcademy({ name: "Muay Thai Academy" });
+    }
+  }, []);
+
+  const requestAcademyJoin = useCallback(async () => {
+    setAcademyBusy(true);
+    setAcademyMsg(null);
+    try {
+      await api.groupJoin(ACADEMY_ID);
+      setAcademy((a) => (a ? { ...a, join_status: "pending" } : a));
+      setAcademyMsg("🥊 Request sent! The gym will review it and you'll be notified once you're approved.");
+    } catch (e: any) {
+      setAcademyMsg(e?.message || "Couldn't send your request. Please try again.");
+    }
+    setAcademyBusy(false);
+  }, []);
 
   // Pop up any gym notices posted since the member last saw them (per user, persisted).
   // On the very first run we set a silent baseline so members aren't spammed with
@@ -269,7 +304,7 @@ export default function Home() {
     { key: "checkin", label: "Class Check-In", icon: "checkmark-done", grad: ["#16A34A", "#4ADE80"], onPress: () => router.push("/check-in") },
     { key: "membership", label: "Join Membership", icon: "ribbon", grad: ["#2563EB", "#60A5FA"], onPress: () => router.push("/vigyr-signon") },
     { key: "classpass", label: "Class Pass", icon: "ticket", grad: ["#DC2626", "#F87171"], onPress: () => router.push("/credits") },
-    { key: "academy", label: "Muay Thai Academy", icon: "shield-half", grad: ["#B45309", "#F59E0B"], onPress: () => router.push("/group/grp_muaythai_academy") },
+    { key: "academy", label: "Muay Thai Academy", icon: "shield-half", grad: ["#B45309", "#F59E0B"], onPress: () => (user?.is_admin ? router.push("/group/grp_muaythai_academy") : openAcademy()) },
     { key: "notices", label: "Gym Notices", icon: "megaphone", grad: ["#D97706", "#FBBF24"], onPress: () => router.navigate("/(tabs)/events") },
     { key: "contact", label: "Contact Us", icon: "chatbubbles", grad: ["#DB2777", "#F472B6"], onPress: () => router.push("/contact") },
     { key: "settings", label: "Settings", icon: "options", grad: ["#475569", "#94A3B8"], onPress: () => router.push("/inbox-settings") },
@@ -594,12 +629,80 @@ export default function Home() {
           </>
         )}
       </ScrollView>
+
+      <Modal visible={academyOpen} transparent animationType="fade" onRequestClose={() => setAcademyOpen(false)}>
+        <Pressable style={styles.acadOverlay} onPress={() => setAcademyOpen(false)}>
+          <Pressable style={styles.acadCard} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.acadIcon}>
+              <MaterialCommunityIcons name="shield-half-full" size={30} color="#F59E0B" />
+            </View>
+            <Text style={styles.acadTitle}>Muay Thai Academy</Text>
+            <Text style={styles.acadBody}>
+              {academy?.description ||
+                "Join our exclusive Muay Thai Academy group — training tips, event updates and a direct line to the coaches and the crew."}
+            </Text>
+            {typeof academy?.members === "number" && (
+              <Text style={styles.acadMembers}>👥 {academy.members} member{academy.members === 1 ? "" : "s"}</Text>
+            )}
+
+            {academyMsg ? (
+              <Text style={styles.acadMsg}>{academyMsg}</Text>
+            ) : academy?.join_status === "member" ? (
+              <Pressable
+                testID="academy-open-chat"
+                style={styles.acadPrimary}
+                onPress={() => { setAcademyOpen(false); router.push("/group/grp_muaythai_academy"); }}
+              >
+                <Ionicons name="chatbubbles" size={17} color={colors.onBrand} />
+                <Text style={styles.acadPrimaryText}>OPEN GROUP CHAT</Text>
+              </Pressable>
+            ) : academy?.join_status === "pending" ? (
+              <View style={styles.acadPending}>
+                <Ionicons name="hourglass-outline" size={16} color="#F59E0B" />
+                <Text style={styles.acadPendingText}>Your request is pending the gym's approval.</Text>
+              </View>
+            ) : (
+              <Pressable
+                testID="academy-join-btn"
+                style={[styles.acadPrimary, academyBusy && { opacity: 0.6 }]}
+                onPress={requestAcademyJoin}
+                disabled={academyBusy || !academy}
+              >
+                {academyBusy ? (
+                  <ActivityIndicator color={colors.onBrand} />
+                ) : (
+                  <>
+                    <Ionicons name="add-circle" size={18} color={colors.onBrand} />
+                    <Text style={styles.acadPrimaryText}>REQUEST TO JOIN</Text>
+                  </>
+                )}
+              </Pressable>
+            )}
+
+            <Pressable testID="academy-close" style={styles.acadClose} onPress={() => setAcademyOpen(false)}>
+              <Text style={styles.acadCloseText}>{academyMsg ? "Done" : "Maybe later"}</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "transparent" },
+  acadOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "center", padding: 24 },
+  acadCard: { width: "100%", maxWidth: 420, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: 24, alignItems: "center" },
+  acadIcon: { width: 60, height: 60, borderRadius: 30, backgroundColor: "rgba(245,158,11,0.15)", alignItems: "center", justifyContent: "center", marginBottom: 12 },
+  acadTitle: { color: colors.onSurface, fontSize: 20, fontFamily: font.heading, textAlign: "center" },
+  acadBody: { color: colors.onSurfaceSecondary, fontSize: 14, lineHeight: 20, textAlign: "center", marginTop: 8 },
+  acadMembers: { color: colors.onSurfaceSecondary, fontSize: 12.5, fontWeight: "700", marginTop: 10 },
+  acadMsg: { color: colors.success, fontSize: 14, lineHeight: 20, textAlign: "center", marginTop: 16, fontWeight: "600" },
+  acadPrimary: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.brand, paddingVertical: 14, borderRadius: radius.md, alignSelf: "stretch", marginTop: 18 },
+  acadPrimaryText: { color: colors.onBrand, fontFamily: font.heading, fontSize: 14, letterSpacing: 0.5 },
+  acadPending: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "rgba(245,158,11,0.12)", borderWidth: 1, borderColor: "#F59E0B", paddingVertical: 12, paddingHorizontal: 14, borderRadius: radius.md, alignSelf: "stretch", marginTop: 18 },
+  acadPendingText: { color: "#F59E0B", fontSize: 13, fontWeight: "700", flexShrink: 1, textAlign: "center" },
+  acadClose: { marginTop: 12, paddingVertical: 8 },
+  acadCloseText: { color: colors.onSurfaceSecondary, fontSize: 14, fontWeight: "600" },  root: { flex: 1, backgroundColor: "transparent" },
   headerRow: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
