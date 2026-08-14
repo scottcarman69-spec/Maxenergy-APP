@@ -1704,13 +1704,19 @@ async def booking_create(body: BookingCreate, u: dict = Depends(require_user)):
         raise HTTPException(404, "Class not found")
     if cls.get("cancelled"):
         raise HTTPException(409, "This class has been cancelled.")
-    existing = await db.bookings.find_one(
-        {"user_id": u["user_id"], "class_id": body.class_id, "status": {"$in": ["paid", "pending"]}}, {"_id": 0}
-    )
-    if existing and existing.get("status") == "paid":
-        raise HTTPException(409, "Already booked")
-    if existing:
-        return {"booking": existing}
+    # One active booking per member per fixed class instance. Covers card, credit AND
+    # class-pass bookings (any of paid/pending/confirmed/reschedule_requested). Appointments
+    # are excluded — a member may book several PT/program sessions at different times.
+    if not cls.get("by_appointment"):
+        existing = await db.bookings.find_one(
+            {"user_id": u["user_id"], "class_id": body.class_id,
+             "status": {"$in": ["paid", "pending", "confirmed", "reschedule_requested"]}},
+            {"_id": 0},
+        )
+        if existing:
+            if existing.get("status") == "pending":
+                return {"booking": existing}  # resume an unfinished (unpaid) booking
+            raise HTTPException(409, "You've already booked this class.")
     booking_id = new_id("bk")
     is_appt = bool(cls.get("by_appointment"))
     # Appointment classes may offer multiple session lengths (e.g. 30 / 60 min).
