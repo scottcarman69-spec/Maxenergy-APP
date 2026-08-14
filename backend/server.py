@@ -914,7 +914,8 @@ class TrialClaimReq(BaseModel):
     child_name: Optional[str] = None
     child_age: Optional[str] = None
     attendee_name: Optional[str] = None  # Adults: person's name
-    preferred_day: Optional[str] = None  # Kids: Monday/Wednesday · Adults: "Muay Thai - Monday" etc
+    preferred_day: Optional[str] = None  # legacy label (auto-filled from chosen session)
+    class_id: Optional[str] = None       # the specific Muay Thai session the member picked
 
 
 class RescheduleReq(BaseModel):
@@ -4284,6 +4285,42 @@ async def trials_me(u: dict = Depends(require_user)):
     return {"trials": rows, "claimed": [r["category"] for r in rows]}
 
 
+@api.get("/trials/sessions")
+async def trials_sessions(category: str, u: dict = Depends(require_user)):
+    """Upcoming Muay Thai sessions a member can pick for their free trial (real schedule)."""
+    if category not in ("Kids", "Adults"):
+        raise HTTPException(400, "Invalid category")
+    now_local = (now_utc() + timedelta(hours=10)).replace(tzinfo=None)  # QLD
+    rows = await db.classes.find(
+        {"name": "Muay Thai", "category": category, "by_appointment": {"$ne": True}},
+        {"_id": 0, "class_id": 1, "name": 1, "category": 1, "level": 1, "start_at": 1, "duration_min": 1},
+    ).sort("start_at", 1).to_list(200)
+    out = []
+    for c in rows:
+        st = c.get("start_at")
+        if isinstance(st, str):
+            try:
+                st = datetime.fromisoformat(st.replace("Z", "+00:00")).replace(tzinfo=None)
+            except Exception:
+                st = None
+        if not isinstance(st, datetime):
+            continue
+        s = st.replace(tzinfo=None) if st.tzinfo else st
+        if s <= now_local:
+            continue
+        out.append({
+            "class_id": c["class_id"],
+            "start_at": s.isoformat(),
+            "label": s.strftime("%a %d %b"),
+            "time": s.strftime("%-I:%M %p"),
+            "weekday": s.strftime("%A"),
+            "duration_min": int(c.get("duration_min") or (45 if category == "Kids" else 60)),
+        })
+        if len(out) >= 12:
+            break
+    return {"sessions": out}
+
+
 @api.post("/trials/claim")
 async def trials_claim(body: TrialClaimReq, u: dict = Depends(require_user)):
     category = body.category
@@ -4292,21 +4329,32 @@ async def trials_claim(body: TrialClaimReq, u: dict = Depends(require_user)):
     child_name = (body.child_name or "").strip()
     child_age = (body.child_age or "").strip()
     attendee_name = (body.attendee_name or "").strip()
-    preferred_day = (body.preferred_day or "").strip()
-    ADULT_DAYS = ("Muay Thai - Monday", "Muay Thai - Wednesday", "Kickboxing - Tuesday", "Kickboxing - Thursday")
     if category == "Kids":
-        preferred_day = preferred_day.title()
         if not child_name:
             raise HTTPException(400, "Please enter the child's name.")
         if not child_age:
             raise HTTPException(400, "Please enter the child's age.")
-        if preferred_day not in ("Monday", "Wednesday"):
-            raise HTTPException(400, "Please choose Monday or Wednesday for the trial.")
     else:  # Adults
         if not attendee_name:
             raise HTTPException(400, "Please enter your name.")
-        if preferred_day not in ADULT_DAYS:
-            raise HTTPException(400, "Please choose a class and day for the trial.")
+
+    # The member must pick a real, upcoming Muay Thai session from the schedule.
+    if not body.class_id:
+        raise HTTPException(400, "Please choose a class session for your trial.")
+    cls = await db.classes.find_one({"class_id": body.class_id}, {"_id": 0})
+    if not cls or cls.get("name") != "Muay Thai" or cls.get("category") != category:
+        raise HTTPException(400, "That session isn't available for this trial. Please pick another.")
+    trial_start = cls.get("start_at")
+    if isinstance(trial_start, str):
+        try:
+            trial_start = datetime.fromisoformat(trial_start.replace("Z", "+00:00")).replace(tzinfo=None)
+        except Exception:
+            trial_start = None
+    now_local = (now_utc() + timedelta(hours=10)).replace(tzinfo=None)
+    if not isinstance(trial_start, datetime) or (trial_start.replace(tzinfo=None) if trial_start.tzinfo else trial_start) <= now_local:
+        raise HTTPException(400, "That session has already passed. Please pick an upcoming class.")
+    trial_start = trial_start.replace(tzinfo=None) if trial_start.tzinfo else trial_start
+    preferred_day = f"{trial_start.strftime('%a %d %b')} · {trial_start.strftime('%-I:%M %p')}"
     existing = await db.free_trials.find_one({"user_id": u["user_id"], "category": category})
     if existing:
         raise HTTPException(409, f"You've already claimed your {category} free trial")
@@ -4328,33 +4376,30 @@ async def trials_claim(body: TrialClaimReq, u: dict = Depends(require_user)):
     except Exception:
         raise HTTPException(409, f"You've already claimed your {category} free trial")
 
-    # Create a linked booking so the trial flows through the SAME QR + check-in +
-    # attendance system as every other class booking (unique QR, scan to confirm,
-    # shows in booking/attendance history). by_appointment=True keeps it flexible on day.
-    trial_display = (
-        f"Free Trial – {category} ({preferred_day})" if preferred_day else f"Free Trial – {category}"
-    )
+    # Create a linked booking on the CHOSEN real session so the trial flows through the
+    # SAME QR + check-in + attendance system as every other class booking. Because it's a
+    # real dated class booking, check-in is locked to that session's date (single-use).
+    trial_display = f"Free Trial – {cls.get('name')} ({category})"
     trial_booking_id = new_id("bk")
     await db.bookings.insert_one({
         "booking_id": trial_booking_id,
         "user_id": u["user_id"],
-        "class_id": None,
+        "class_id": cls["class_id"],
         "class_name": trial_display,
         "amount": 0,
         "currency": "aud",
-        "by_appointment": True,
+        "by_appointment": False,
         "is_trial": True,
         "trial_id": trial["trial_id"],
         "trial_category": category,
-        "duration_min": 45 if category == "Kids" else 60,
-        "class_start": None,
-        "requested_time": preferred_day or None,
-        "scheduled_time": preferred_day or None,
+        "duration_min": int(cls.get("duration_min") or (45 if category == "Kids" else 60)),
+        "class_start": trial_start,
+        "scheduled_time": preferred_day,
         "status": "confirmed",
         "created_at": now_utc(),
     })
     await db.free_trials.update_one(
-        {"trial_id": trial["trial_id"]}, {"$set": {"booking_id": trial_booking_id}}
+        {"trial_id": trial["trial_id"]}, {"$set": {"booking_id": trial_booking_id, "class_id": cls["class_id"], "class_start": trial_start}}
     )
     trial["booking_id"] = trial_booking_id
     await db.notifications.insert_one(
@@ -4363,9 +4408,9 @@ async def trials_claim(body: TrialClaimReq, u: dict = Depends(require_user)):
             "user_id": u["user_id"],
             "title": f"{category} free trial claimed 🎉",
             "body": (
-                f"{child_name}'s free Kids trial is booked for {preferred_day}. Show this at the front desk — see you on the mats!"
+                f"{child_name}'s free Kids Muay Thai trial is booked for {preferred_day}. Show your QR code at the front desk — see you on the mats!"
                 if category == "Kids" else
-                f"Your free trial ({preferred_day}, 6:00pm) is booked in. Show this at the front desk — we'll see you on the mats!"
+                f"Your free Muay Thai trial is booked for {preferred_day}. Show your QR code at the front desk — we'll see you on the mats!"
             ),
             "type": "trial",
             "read": False,
@@ -4382,13 +4427,14 @@ async def trials_claim(body: TrialClaimReq, u: dict = Depends(require_user)):
         member_lines += [
             f"<b>Child's name:</b> {child_name}",
             f"<b>Age:</b> {child_age}",
-            f"<b>Trial day:</b> {preferred_day}, 5:00–5:45pm",
+            f"<b>Class:</b> Kids Muay Thai",
+            f"<b>Session:</b> {preferred_day}",
         ]
     else:
         member_lines += [
             f"<b>Name:</b> {attendee_name}",
-            f"<b>Class:</b> {preferred_day}",
-            "<b>Start time:</b> 6:00pm",
+            f"<b>Class:</b> Muay Thai",
+            f"<b>Session:</b> {preferred_day}",
         ]
     member_lines += [
         f"<b>Trial reference:</b> {trial['trial_id']}",
@@ -4396,30 +4442,30 @@ async def trials_claim(body: TrialClaimReq, u: dict = Depends(require_user)):
         f"<b>Phone:</b> {GYM_INFO['phone']}",
         "<b>What to bring:</b> comfortable workout clothes, a water bottle and a towel. Gloves can be borrowed at the gym.",
         "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
-        "Just turn up on your chosen day and mention your free trial at the front desk. See you on the mats! 🥊",
+        "Turn up at your booked session and show your entry QR code at the front desk. See you on the mats! 🥊",
     ]
     await send_email(u["email"], f"Your free {category} trial at Max Energy 🎉", _email_shell(f"Your free {category} trial is confirmed!", member_lines))
 
-    admin_lines = [f"<b>{mname}</b> ({u['email']}) claimed a free <b>{category}</b> trial."]
+    admin_lines = [f"<b>{mname}</b> ({u['email']}) claimed a free <b>{category} Muay Thai</b> trial."]
     if category == "Kids":
         admin_lines += [
             f"<b>Child's name:</b> {child_name}",
             f"<b>Age:</b> {child_age}",
-            f"<b>Preferred day:</b> {preferred_day}",
+            f"<b>Session:</b> {preferred_day}",
         ]
     else:
         admin_lines += [
             f"<b>Name:</b> {attendee_name}",
-            f"<b>Class:</b> {preferred_day}, 6:00pm",
+            f"<b>Session:</b> {preferred_day}",
         ]
     admin_lines += [
         f"Claimed: {now_utc().strftime('%A %d %B %Y')}",
         "You can view all members and trial claims in the app: Admin → Members.",
     ]
     admin_body = (
-        f"{child_name} (age {child_age}) — Kids trial on {preferred_day}. Parent: {mname} ({u['email']})."
+        f"{child_name} (age {child_age}) — Kids Muay Thai trial: {preferred_day}. Parent: {mname} ({u['email']})."
         if category == "Kids" else
-        f"{attendee_name} — Adults trial: {preferred_day}, 6:00pm ({u['email']})."
+        f"{attendee_name} — Muay Thai trial: {preferred_day} ({u['email']})."
     )
     await notify_admins(f"New free {category} trial claimed", admin_body, "trial", email_lines=admin_lines)
     trial.pop("_id", None)

@@ -23,19 +23,27 @@ export default function FreeTrial() {
   const [kidsFormOpen, setKidsFormOpen] = useState(false);
   const [childName, setChildName] = useState("");
   const [childAge, setChildAge] = useState("");
-  const [preferredDay, setPreferredDay] = useState<"Monday" | "Wednesday" | "">("");
+  const [kidsSession, setKidsSession] = useState<string>("");  // class_id
   const [formErr, setFormErr] = useState<string | null>(null);
   // Adults form modal
   const [adultsFormOpen, setAdultsFormOpen] = useState(false);
   const [adultName, setAdultName] = useState("");
-  const [adultClass, setAdultClass] = useState("");
+  const [adultSession, setAdultSession] = useState<string>("");  // class_id
   const [adultErr, setAdultErr] = useState<string | null>(null);
+  // Real Muay Thai sessions from the schedule
+  const [kidsSessions, setKidsSessions] = useState<any[]>([]);
+  const [adultSessions, setAdultSessions] = useState<any[]>([]);
 
   const load = useCallback(async () => {
     try {
       const r = await api.myTrials();
       setClaimed(r.claimed || []);
       setTrials(r.trials || []);
+    } catch {}
+    try {
+      const [k, a] = await Promise.all([api.trialSessions("Kids"), api.trialSessions("Adults")]);
+      setKidsSessions(k.sessions || []);
+      setAdultSessions(a.sessions || []);
     } catch {}
     setLoading(false);
   }, []);
@@ -45,14 +53,14 @@ export default function FreeTrial() {
     setFormErr(null);
     if (!childName.trim()) return setFormErr("Please enter the child's name.");
     if (!childAge.trim()) return setFormErr("Please enter the child's age.");
-    if (!preferredDay) return setFormErr("Please choose Monday or Wednesday.");
+    if (!kidsSession) return setFormErr("Please choose a class session.");
     setBusy("Kids");
     try {
-      await api.claimTrial("Kids", { child_name: childName.trim(), child_age: childAge.trim(), preferred_day: preferredDay });
+      await api.claimTrial("Kids", { child_name: childName.trim(), child_age: childAge.trim(), class_id: kidsSession });
       setClaimed((c) => [...c, "Kids"]);
       setKidsFormOpen(false);
-      setChildName(""); setChildAge(""); setPreferredDay("");
-      setMsg(`🎉 ${childName.trim()}'s free Kids trial for ${preferredDay} is confirmed! Show your QR code at the gym when you arrive.`);
+      setChildName(""); setChildAge(""); setKidsSession("");
+      setMsg(`🎉 ${childName.trim()}'s free Kids Muay Thai trial is confirmed! Show your QR code at the gym when you arrive.`);
       load();
     } catch (e: any) {
       setFormErr(e?.message || "Could not claim trial");
@@ -64,14 +72,14 @@ export default function FreeTrial() {
   const submitAdults = async () => {
     setAdultErr(null);
     if (!adultName.trim()) return setAdultErr("Please enter your name.");
-    if (!adultClass) return setAdultErr("Please choose a class and day.");
+    if (!adultSession) return setAdultErr("Please choose a class session.");
     setBusy("Adults");
     try {
-      await api.claimTrial("Adults", { attendee_name: adultName.trim(), preferred_day: adultClass });
+      await api.claimTrial("Adults", { attendee_name: adultName.trim(), class_id: adultSession });
       setClaimed((c) => [...c, "Adults"]);
       setAdultsFormOpen(false);
-      setAdultName(""); setAdultClass("");
-      setMsg(`🎉 Your free Adults trial (${adultClass}, 6:00pm) is confirmed! Show your QR code at the gym when you arrive.`);
+      setAdultName(""); setAdultSession("");
+      setMsg(`🎉 Your free Muay Thai trial is confirmed! Show your QR code at the gym when you arrive.`);
       load();
     } catch (e: any) {
       setAdultErr(e?.message || "Could not claim trial");
@@ -190,20 +198,26 @@ export default function FreeTrial() {
               style={styles.input}
             />
 
-            <Text style={styles.label}>Which day would you like to trial?</Text>
-            <View style={styles.dayRow}>
-              {(["Monday", "Wednesday"] as const).map((d) => (
-                <Pressable
-                  key={d}
-                  testID={`kids-day-${d.toLowerCase()}`}
-                  style={[styles.dayChip, preferredDay === d && styles.dayChipOn]}
-                  onPress={() => setPreferredDay(d)}
-                >
-                  <Ionicons name="calendar-outline" size={15} color={preferredDay === d ? colors.onBrand : colors.brand} />
-                  <Text style={[styles.dayText, preferredDay === d && styles.dayTextOn]}>{d}</Text>
-                </Pressable>
-              ))}
-            </View>
+            <Text style={styles.label}>Choose a class session</Text>
+            {kidsSessions.length === 0 ? (
+              <Text style={styles.noSessions}>No upcoming Kids Muay Thai sessions right now. Please check back soon.</Text>
+            ) : (
+              <ScrollView style={styles.sessionScroll} contentContainerStyle={{ gap: spacing.sm }}>
+                {kidsSessions.map((s) => (
+                  <Pressable
+                    key={s.class_id}
+                    testID={`kids-session-${s.class_id}`}
+                    style={[styles.classRow, kidsSession === s.class_id && styles.classRowOn]}
+                    onPress={() => setKidsSession(s.class_id)}
+                  >
+                    <Ionicons name={kidsSession === s.class_id ? "radio-button-on" : "radio-button-off"} size={18} color={kidsSession === s.class_id ? colors.onBrand : colors.brand} />
+                    <Text style={[styles.classRowText, kidsSession === s.class_id && { color: colors.onBrand }]}>
+                      {s.label} · {s.time}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            )}
 
             {formErr && <Text style={styles.formErr}>{formErr}</Text>}
 
@@ -228,7 +242,7 @@ export default function FreeTrial() {
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Adults Free Trial</Text>
-            <Text style={styles.modalSub}>Tell us your name and which class you'd like to try. All classes start at 6:00pm.</Text>
+            <Text style={styles.modalSub}>Tell us your name and pick a Muay Thai session from the schedule.</Text>
 
             <Text style={styles.label}>Your name</Text>
             <TextInput
@@ -240,24 +254,28 @@ export default function FreeTrial() {
               style={styles.input}
             />
 
-            <Text style={styles.label}>Which class would you like to try?</Text>
-            <View style={{ gap: spacing.sm }}>
-              {["Muay Thai - Monday", "Muay Thai - Wednesday", "Kickboxing - Tuesday", "Kickboxing - Thursday"].map((c) => (
-                <Pressable
-                  key={c}
-                  testID={`adult-class-${c.replace(/[^a-z]/gi, "").toLowerCase()}`}
-                  style={[styles.classRow, adultClass === c && styles.classRowOn]}
-                  onPress={() => setAdultClass(c)}
-                >
-                  <Ionicons
-                    name={adultClass === c ? "radio-button-on" : "radio-button-off"}
-                    size={18}
-                    color={adultClass === c ? colors.onBrand : colors.brand}
-                  />
-                  <Text style={[styles.classRowText, adultClass === c && { color: colors.onBrand }]}>{c} · 6:00pm</Text>
-                </Pressable>
-              ))}
-            </View>
+            <Text style={styles.label}>Choose a class session</Text>
+            {adultSessions.length === 0 ? (
+              <Text style={styles.noSessions}>No upcoming Muay Thai sessions right now. Please check back soon.</Text>
+            ) : (
+              <ScrollView style={styles.sessionScroll} contentContainerStyle={{ gap: spacing.sm }}>
+                {adultSessions.map((s) => (
+                  <Pressable
+                    key={s.class_id}
+                    testID={`adult-session-${s.class_id}`}
+                    style={[styles.classRow, adultSession === s.class_id && styles.classRowOn]}
+                    onPress={() => setAdultSession(s.class_id)}
+                  >
+                    <Ionicons
+                      name={adultSession === s.class_id ? "radio-button-on" : "radio-button-off"}
+                      size={18}
+                      color={adultSession === s.class_id ? colors.onBrand : colors.brand}
+                    />
+                    <Text style={[styles.classRowText, adultSession === s.class_id && { color: colors.onBrand }]}>{s.label} · {s.time}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            )}
 
             {adultErr && <Text style={styles.formErr}>{adultErr}</Text>}
 
@@ -316,6 +334,8 @@ const styles = StyleSheet.create({
   classRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: 12, paddingHorizontal: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSecondary },
   classRowOn: { backgroundColor: colors.brand, borderColor: colors.brand },
   classRowText: { color: colors.onSurface, fontWeight: "700", fontSize: 14 },
+  sessionScroll: { maxHeight: 240 },
+  noSessions: { color: colors.onSurfaceSecondary, fontSize: 13, lineHeight: 19, paddingVertical: spacing.sm },
   modalActions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.lg },
   modalCancel: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 14, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
   modalCancelText: { color: colors.onSurface, fontWeight: "800" },

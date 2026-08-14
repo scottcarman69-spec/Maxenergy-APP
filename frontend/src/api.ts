@@ -173,7 +173,8 @@ export const api = {
   reviews: () => req("/api/reviews"),
 
   myTrials: () => req("/api/trials/me"),
-  claimTrial: (category: string, extra?: { child_name?: string; child_age?: string; attendee_name?: string; preferred_day?: string }) =>
+  trialSessions: (category: string) => req(`/api/trials/sessions?category=${encodeURIComponent(category)}`),
+  claimTrial: (category: string, extra?: { child_name?: string; child_age?: string; attendee_name?: string; class_id?: string }) =>
     req("/api/trials/claim", { method: "POST", body: JSON.stringify({ category, ...(extra || {}) }) }),
 
   plans: () => req("/api/membership/plans"),
