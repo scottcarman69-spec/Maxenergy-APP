@@ -52,9 +52,12 @@ async function req(path: string, opts: RequestInit = {}) {
     data = text;
   }
   if (!res.ok) {
-    // A token was sent but the server rejected it -> stale/expired session.
-    // Clear it and let the app send the user back to login.
-    if (res.status === 401 && token) {
+    // A 401 on a PROTECTED endpoint (whether or not a token was sent) means the
+    // session is invalid or missing -> clear it and bounce to login, so the user
+    // never gets stuck on a half-authenticated screen. Auth endpoints (login,
+    // register, reset) keep their own messages (e.g. "Invalid credentials").
+    const isAuthEndpoint = path.startsWith("/api/auth/");
+    if (res.status === 401 && !isAuthEndpoint) {
       await clearToken();
       if (onUnauthorized) onUnauthorized();
     }
@@ -66,7 +69,7 @@ async function req(path: string, opts: RequestInit = {}) {
         msg = data.detail.map((d: any) => d?.msg || "Invalid input").join(", ");
       }
     }
-    if (res.status === 401 && token) {
+    if (res.status === 401 && !isAuthEndpoint) {
       msg = "Your session has expired. Please log in again.";
     }
     throw new Error(msg);
