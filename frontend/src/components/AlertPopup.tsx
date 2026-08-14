@@ -32,7 +32,6 @@ export default function AlertPopup({ visible, items, onClose, onViewAll, onOpen 
               <Ionicons name="notifications" size={20} color="#fff" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.eyebrow}>{count > 1 ? `${count} NEW UPDATES` : "NEW UPDATE"}</Text>
               <Text style={styles.headerTitle}>Notifications</Text>
             </View>
             <Pressable testID="alert-popup-close" onPress={onClose} hitSlop={12}>
@@ -59,7 +58,7 @@ export default function AlertPopup({ visible, items, onClose, onViewAll, onOpen 
 
           <Pressable testID="alert-popup-viewall" style={styles.viewAllBtn} onPress={onViewAll}>
             <Ionicons name="open-outline" size={18} color={colors.onBrand} />
-            <Text style={styles.viewAllText}>VIEW UPDATES</Text>
+            <Text style={styles.viewAllText}>VIEW NOTIFICATIONS</Text>
           </Pressable>
           <Pressable testID="alert-popup-gotit" style={styles.gotItBtn} onPress={onClose}>
             <Text style={styles.gotItText}>DISMISS</Text>
@@ -75,7 +74,6 @@ const styles = StyleSheet.create({
   card: { backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg },
   headerRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginBottom: spacing.md },
   iconChip: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
-  eyebrow: { color: colors.brand, fontSize: 11, fontFamily: font.heading, letterSpacing: 1.5 },
   headerTitle: { color: colors.onSurface, fontSize: 17, fontFamily: font.heading, marginTop: 1 },
   item: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm },
   itemTitle: { color: colors.onSurface, fontSize: 15, fontFamily: font.heading, marginBottom: 3 },
