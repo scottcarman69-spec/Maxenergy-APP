@@ -84,6 +84,7 @@ export default function Home() {
   const [monthName, setMonthName] = useState("");
   const carouselRef = useRef<ScrollView>(null);
   const [slide, setSlide] = useState(0);
+  const [showMoreActions, setShowMoreActions] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [newNotices, setNewNotices] = useState<Notice[]>([]);
   const [newAlerts, setNewAlerts] = useState<AlertItem[]>([]);
@@ -311,6 +312,14 @@ export default function Home() {
     { key: "facebook", label: "Facebook", icon: "logo-facebook", grad: ["#1877F2", "#4293FB"], onPress: () => router.push("/social") },
   ] as const;
 
+  // Declutter: show 6 essentials by default, tuck the rest under "More".
+  // Contextual: hide "Join Membership" once the member is active.
+  const ESSENTIAL_KEYS = ["booknext", "bookings", "schedule", "checkin", "classpass", "academy"];
+  const availableActions = quickActions.filter((a) => !(a.key === "membership" && !!user?.membership_active));
+  const primaryActions = availableActions.filter((a) => ESSENTIAL_KEYS.includes(a.key));
+  const secondaryActions = availableActions.filter((a) => !ESSENTIAL_KEYS.includes(a.key));
+  const visibleActions = showMoreActions ? [...primaryActions, ...secondaryActions] : primaryActions;
+
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
       <ScreenBg />
@@ -496,7 +505,7 @@ export default function Home() {
 
             <Text style={[styles.sectionTitle, { marginTop: spacing.xl }]}>QUICK ACTIONS</Text>
             <View style={styles.quickGrid}>
-              {quickActions.map((a) => (
+              {visibleActions.map((a) => (
                 <Pressable
                   key={a.key}
                   testID={`quick-${a.key}`}
@@ -521,7 +530,22 @@ export default function Home() {
                   <Text style={styles.quickLabel} numberOfLines={2}>{a.label}</Text>
                 </Pressable>
               ))}
+              {Array.from({ length: (4 - (visibleActions.length % 4)) % 4 }).map((_, i) => (
+                <View key={`spacer-${i}`} style={styles.quickSpacer} />
+              ))}
             </View>
+            {secondaryActions.length > 0 && (
+              <Pressable
+                testID="quick-toggle-more"
+                style={({ pressed }) => [styles.moreBtn, pressed && { opacity: 0.7 }]}
+                onPress={() => setShowMoreActions((v) => !v)}
+              >
+                <Ionicons name={showMoreActions ? "chevron-up" : "chevron-down"} size={16} color={colors.brand} />
+                <Text style={styles.moreBtnText}>
+                  {showMoreActions ? "Show less" : `More actions (${secondaryActions.length})`}
+                </Text>
+              </Pressable>
+            )}
 
             <View style={[styles.sectionHeader, { marginTop: spacing.xl }]}>
               <Text style={styles.sectionTitle}>UPCOMING CLASSES</Text>
@@ -845,6 +869,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     rowGap: spacing.md,
   },
+  quickSpacer: { width: "23.5%" },
+  moreBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    paddingVertical: 12,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceSecondary,
+  },
+  moreBtnText: { color: colors.brand, fontSize: 13, fontWeight: "800", letterSpacing: 0.3 },
   quickCard: {
     width: "23.5%",
     backgroundColor: colors.surfaceSecondary,
