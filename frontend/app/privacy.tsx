@@ -1,20 +1,10 @@
 import React from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, Linking } from "react-native";
-import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, radius, font } from "@/src/theme";
 import ScreenHeader from "@/src/components/ScreenHeader";
 
-const GYM = {
-  name: "Maxenergy Fitness",
-  abn: "81 213 163 833",
-  email: "info@maxenergy.com.au",
-  phone: "07 4057 9005",
-  address: "Shop 38 Campus Village Shopping Centre, 38 Faculty Cl, Smithfield QLD 4878",
-};
-
-const UPDATED = "June 2026";
+const UPDATED = "17 August 2026";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -23,6 +13,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       {children}
     </View>
   );
+}
+function Sub({ children }: { children: React.ReactNode }) {
+  return <Text style={styles.sub}>{children}</Text>;
 }
 function P({ children }: { children: React.ReactNode }) {
   return <Text style={styles.p}>{children}</Text>;
@@ -37,7 +30,6 @@ function Bullet({ children }: { children: React.ReactNode }) {
 }
 
 export default function PrivacyPolicy() {
-  const router = useRouter();
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
       <ScreenHeader title="Privacy Policy" backTestID="privacy-back" fallback="/(tabs)/profile" />
@@ -47,108 +39,210 @@ export default function PrivacyPolicy() {
         <Text style={styles.updated}>Last updated: {UPDATED}</Text>
 
         <P>
-          {GYM.name} (ABN {GYM.abn}) ("we", "us", "our") operates this mobile application. We respect your
-          privacy and are committed to protecting your personal information in line with the Australian Privacy
-          Principles under the Privacy Act 1988 (Cth). This policy explains what we collect, why, and how we handle it.
+          Maxenergy Fitness (ABN 81 213 163 833) ("we", "us" or "our") operates the Maxenergy Fitness mobile
+          application and associated services.
+        </P>
+        <P>
+          We respect your privacy and are committed to protecting the personal information we collect and handle.
+          This Privacy Policy explains what information we collect, how we use and protect it, when it may be shared,
+          and the choices available to you.
         </P>
 
-        <Section title="1. Information we collect">
-          <Bullet>Account details: your name, email address and password (stored encrypted).</Bullet>
-          <Bullet>Profile & booking data: classes you book, attendance/check-ins, and messages you send us.</Bullet>
-          <Bullet>Payment information: processed securely by our payment provider (Square). We do not store your full card or bank details on our servers.</Bullet>
-          <Bullet>Membership sign-up: completed on our provider Vigyr's secure portal; that information is handled under Vigyr's terms.</Bullet>
-          <Bullet>Device permissions: camera access (staff only) is used to scan class check-in QR codes; images you choose to upload.</Bullet>
+        <Section title="1. Information We Collect">
+          <P>Depending on how you use our app and services, we may collect:</P>
+          <Sub>Account information</Sub>
+          <Bullet>Name</Bullet>
+          <Bullet>Email address</Bullet>
+          <Bullet>Login and account information</Bullet>
+          <Bullet>Other information you provide when creating or managing your account</Bullet>
+          <P>Passwords are securely protected using appropriate security measures. We do not store passwords in plain text.</P>
+          <Sub>Profile, booking and attendance information</Sub>
+          <Bullet>Classes you book</Bullet>
+          <Bullet>Booking history</Bullet>
+          <Bullet>Attendance and check-in records</Bullet>
+          <Bullet>QR code check-ins</Bullet>
+          <Bullet>Membership-related information</Bullet>
+          <Bullet>Messages or enquiries you send to us</Bullet>
+          <Sub>Payment information</Sub>
+          <P>Payments made through the app are processed securely by our payment provider, Square.</P>
+          <P>
+            We do not store your full credit or debit card details on our servers. Payment information is handled by
+            Square in accordance with its own security and privacy requirements.
+          </P>
+          <Sub>Membership information</Sub>
+          <P>Membership registrations and direct debit arrangements may be completed through Vigyr's secure systems.</P>
+          <P>
+            Information entered through Vigyr is handled by Vigyr and relevant payment or billing providers in
+            accordance with their applicable privacy and security practices.
+          </P>
+          <Sub>Images and uploaded content</Sub>
+          <P>If the app allows you to upload an image or other content, we collect the information you choose to provide.</P>
+          <Sub>Device permissions</Sub>
+          <P>Certain features may request access to functions on your device.</P>
+          <P>
+            For example, authorised staff may use camera access to scan member QR codes for attendance and class
+            check-ins.
+          </P>
+          <P>We only request device permissions that are required for the relevant app feature.</P>
         </Section>
 
-        <Section title="2. How we use your information">
-          <Bullet>To create and manage your account and class bookings.</Bullet>
-          <Bullet>To process payments for classes and memberships.</Bullet>
-          <Bullet>To send booking confirmations, class reminders and important notices (you can turn class reminders off in the app).</Bullet>
-          <Bullet>To record attendance and improve our classes and services.</Bullet>
+        <Section title="2. How We Collect Information">
+          <P>We may collect personal information:</P>
+          <Bullet>Directly from you when you create an account, make a booking, contact us or use the app</Bullet>
+          <Bullet>When you attend or check in to a class</Bullet>
+          <Bullet>When you purchase a class, service or membership</Bullet>
+          <Bullet>Through service providers used to operate the app and our gym services</Bullet>
+          <Bullet>When you choose to sign in using a supported third-party login service</Bullet>
         </Section>
 
-        <Section title="3. Sharing your information">
-          <P>We do not sell your personal information. We share it only with trusted service providers who help us run the app:</P>
+        <Section title="3. How We Use Your Information">
+          <P>We may use your information to:</P>
+          <Bullet>Create and manage your account</Bullet>
+          <Bullet>Manage class bookings and cancellations</Bullet>
+          <Bullet>Confirm attendance and check-ins</Bullet>
+          <Bullet>Process payments</Bullet>
+          <Bullet>Manage memberships</Bullet>
+          <Bullet>Provide gym and membership services</Bullet>
+          <Bullet>Send booking confirmations and class reminders</Bullet>
+          <Bullet>Send important service, membership or account notices</Bullet>
+          <Bullet>Respond to enquiries and provide customer support</Bullet>
+          <Bullet>Maintain the security and operation of the app</Bullet>
+          <Bullet>Improve our classes, services and app functionality</Bullet>
+          <Bullet>Meet legal and regulatory requirements</Bullet>
+          <P>Where available, class reminder preferences can be managed within the app.</P>
+        </Section>
+
+        <Section title="4. Sharing Your Information">
+          <P>We do not sell your personal information.</P>
+          <P>
+            We may share information with trusted service providers where necessary to operate our app and provide our
+            services, including:
+          </P>
           <Bullet>Square — payment processing.</Bullet>
-          <Bullet>Vigyr — membership sign-up and gym access management.</Bullet>
-          <Bullet>Resend — sending you transactional emails.</Bullet>
-          <Bullet>Google — optional "Sign in with Google" login.</Bullet>
-          <P>We may also disclose information where required by law.</P>
-        </Section>
-
-        <Section title="4. How we store & protect your data">
+          <Bullet>Vigyr — membership registration and gym membership/access management.</Bullet>
+          <Bullet>Resend — transactional emails, including booking confirmations and class notifications.</Bullet>
+          <Bullet>Google — where you choose to use Sign in with Google or other supported Google services.</Bullet>
           <P>
-            We take the security of your information seriously. Here is how your data is stored and protected:
+            We may also use technology, hosting, database, notification and other service providers necessary to
+            operate and secure the app.
           </P>
-          <Bullet>
-            <Text style={styles.bold}>Passwords:</Text> Your password is never stored in a readable form. It is
-            protected using bcrypt one-way hashing with a unique salt, so it cannot be reversed back into your
-            original password — not even by us.
-          </Bullet>
-          <Bullet>
-            <Text style={styles.bold}>Your information:</Text> Member accounts, bookings, attendance records and
-            related details are stored in a secure database, with access restricted to authorised staff.
-          </Bullet>
-          <Bullet>
-            <Text style={styles.bold}>Uploaded images:</Text> Any photos you upload (such as with a membership
-            application) are kept in secure managed cloud storage, separate from the main database.
-          </Bullet>
-          <Bullet>
-            <Text style={styles.bold}>Payments:</Text> Card payments are processed securely by Square. We do not
-            store your full card details.
-          </Bullet>
-          <Bullet>
-            <Text style={styles.bold}>In transit:</Text> Information is sent between the app and our servers over
-            an encrypted (HTTPS) connection.
-          </Bullet>
+          <P>These providers may only receive information reasonably required to provide their services.</P>
           <P>
-            {/* TODO: Confirm the following details with your hosting provider before publishing. */}
-            Our app and database are hosted with [HOSTING PROVIDER], with data stored in [DATA REGION / COUNTRY].
-            [State here whether any information is stored or processed outside Australia.] Regular backups are
-            maintained in [BACKUP LOCATION]. For details of our hosting and data-processing arrangements, contact
-            us using the details below.
-          </P>
-          <P>
-            While we take reasonable steps to protect your data, no method of transmission or storage over the
-            internet is completely secure.
+            We may also disclose information where required or authorised by Australian law, or where reasonably
+            necessary to protect our legal rights or the safety of our members, staff or others.
           </P>
         </Section>
 
-        <Section title="5. Your rights">
-          <Bullet>Access or update your personal information.</Bullet>
-          <Bullet>Request deletion of your account and associated data (Profile → Settings → Password &amp; account).</Bullet>
-          <Bullet>Opt out of class reminders and notifications at any time in the app.</Bullet>
-          <P>To make a request, contact us using the details below.</P>
-        </Section>
-
-        <Section title="6. Children's privacy">
+        <Section title="5. Overseas Processing and Disclosure">
           <P>
-            For members under 18 (including our kids' classes), a parent or guardian provides consent and manages the
-            account. We only collect information necessary to deliver classes safely.
+            Some of the technology and service providers used by our app may operate systems or infrastructure outside
+            Australia.
+          </P>
+          <P>
+            As a result, personal information may in some circumstances be processed, stored or disclosed outside
+            Australia.
+          </P>
+          <P>
+            Where required, we take reasonable steps to ensure personal information disclosed to overseas recipients is
+            handled appropriately and in accordance with applicable Australian privacy requirements.
+          </P>
+          <P>
+            Where it is practicable to identify the countries in which overseas recipients are located, we will provide
+            that information in this Privacy Policy or otherwise make it available to you.
           </P>
         </Section>
 
-        <Section title="7. Changes to this policy">
-          <P>We may update this policy from time to time. The latest version will always be available here in the app.</P>
+        <Section title="6. Data Storage and Security">
+          <P>
+            We take reasonable steps to protect personal information from misuse, interference, loss, unauthorised
+            access, modification and disclosure.
+          </P>
+          <P>Access to personal information is restricted to authorised persons who require access for legitimate business purposes.</P>
+          <P>Payment card information is handled by our payment provider and is not stored directly by Maxenergy Fitness.</P>
+          <P>
+            Although we take reasonable security precautions, no internet-connected system or method of electronic
+            transmission can be guaranteed to be completely secure.
+          </P>
         </Section>
 
-        <Section title="8. Contact us">
-          <P>If you have any questions about this policy or your personal information, contact us:</P>
-          <Pressable style={styles.contactRow} onPress={() => Linking.openURL(`mailto:${GYM.email}`)}>
-            <Ionicons name="mail-outline" size={18} color={colors.brand} />
-            <Text style={styles.contactText}>{GYM.email}</Text>
+        <Section title="7. Data Retention and Account Deletion">
+          <P>
+            We retain personal information for as long as reasonably necessary to provide our services, operate the app,
+            maintain appropriate business records and meet legal or regulatory requirements.
+          </P>
+          <P>You may request deletion of your account and associated personal information.</P>
+          <P>
+            Some information may need to be retained after an account is deleted where required by law, for legitimate
+            record-keeping purposes, to resolve disputes or to protect our legal rights.
+          </P>
+        </Section>
+
+        <Section title="8. Accessing and Correcting Your Information">
+          <P>
+            You may request access to personal information we hold about you or ask us to correct information that is
+            inaccurate, incomplete or out of date.
+          </P>
+          <P>You can also update certain account information directly through the app where this functionality is available.</P>
+          <P>To make an access, correction or deletion request, contact us using the details below.</P>
+        </Section>
+
+        <Section title="9. Children's Privacy">
+          <P>Our services include classes for children and young people.</P>
+          <P>
+            Where appropriate, a parent or legal guardian must provide consent and manage or authorise the account for a
+            member under 18.
+          </P>
+          <P>
+            We aim to collect only the personal information reasonably necessary to manage bookings, attendance,
+            memberships, safety and participation in our services.
+          </P>
+          <P>Parents or guardians may contact us regarding personal information associated with their child's account.</P>
+        </Section>
+
+        <Section title="10. Privacy Complaints">
+          <P>If you believe we have not handled your personal information appropriately, please contact us using the details below.</P>
+          <P>Please provide enough information for us to understand and investigate your concern.</P>
+          <P>We will review your complaint and aim to respond within a reasonable period.</P>
+          <P>
+            If you are not satisfied with our response and the Australian Privacy Act applies to the matter, you may be
+            entitled to make a complaint to the Office of the Australian Information Commissioner (OAIC).
+          </P>
+        </Section>
+
+        <Section title="11. Third-Party Services">
+          <P>Our app may contain links to, or integrate with, third-party services.</P>
+          <P>
+            Those services may have their own privacy policies and terms. We encourage you to review the privacy
+            information provided by those services before providing personal information directly to them.
+          </P>
+        </Section>
+
+        <Section title="12. Changes to This Privacy Policy">
+          <P>We may update this Privacy Policy from time to time to reflect changes to our app, services, providers or legal requirements.</P>
+          <P>The latest version will be made available through the app and/or our website.</P>
+          <P>The "Last updated" date at the top of this policy will show when the policy was most recently revised.</P>
+        </Section>
+
+        <Section title="13. Contact Us">
+          <P>
+            If you have questions, would like to access or correct your personal information, request account deletion,
+            or make a privacy complaint, please contact:
+          </P>
+          <Text style={styles.contactName}>Maxenergy Fitness</Text>
+          <Text style={styles.contactLine}>ABN 81 213 163 833</Text>
+          <Text style={styles.contactLine}>Shop 38, Campus Village Shopping Centre</Text>
+          <Text style={styles.contactLine}>38 Faculty Close</Text>
+          <Text style={styles.contactLine}>Smithfield QLD 4878</Text>
+          <Text style={styles.contactLine}>Australia</Text>
+          <Pressable onPress={() => Linking.openURL("mailto:info@maxenergy.com.au")}>
+            <Text style={styles.link}>Email: info@maxenergy.com.au</Text>
           </Pressable>
-          <Pressable style={styles.contactRow} onPress={() => Linking.openURL(`tel:${GYM.phone.replace(/\s/g, "")}`)}>
-            <Ionicons name="call-outline" size={18} color={colors.brand} />
-            <Text style={styles.contactText}>{GYM.phone}</Text>
+          <Pressable onPress={() => Linking.openURL("tel:0740579005")}>
+            <Text style={styles.link}>Phone: 07 4057 9005</Text>
           </Pressable>
-          <View style={styles.contactRow}>
-            <Ionicons name="location-outline" size={18} color={colors.brand} />
-            <Text style={styles.contactText}>{GYM.address}</Text>
-          </View>
         </Section>
 
-        <Text style={styles.footer}>{GYM.name} · ABN {GYM.abn}</Text>
+        <View style={{ height: spacing.xl }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -156,19 +250,17 @@ export default function PrivacyPolicy() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
-  headerTitle: { color: colors.onSurface, fontSize: 17, fontWeight: "800" },
-  scroll: { padding: spacing.xl, paddingBottom: 48 },
+  scroll: { padding: spacing.lg },
   title: { color: colors.onSurface, fontSize: 26, fontFamily: font.display },
-  updated: { color: colors.onSurfaceSecondary, fontSize: 12.5, marginTop: 4, marginBottom: spacing.lg },
+  updated: { color: colors.onSurfaceSecondary, fontSize: 13, marginTop: 4, marginBottom: spacing.md },
   section: { marginTop: spacing.lg },
-  h2: { color: colors.brand, fontSize: 15, fontWeight: "800", marginBottom: spacing.sm },
+  h2: { color: colors.onSurface, fontSize: 17, fontWeight: "800", marginBottom: spacing.sm },
+  sub: { color: colors.onSurface, fontSize: 14, fontWeight: "800", marginTop: spacing.sm, marginBottom: 4 },
   p: { color: colors.onSurface, fontSize: 14, lineHeight: 22, marginBottom: spacing.sm },
-  bulletRow: { flexDirection: "row", gap: 10, marginBottom: 8, paddingRight: spacing.sm },
+  bulletRow: { flexDirection: "row", alignItems: "flex-start", gap: 8, marginBottom: 6 },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.brand, marginTop: 8 },
   bulletText: { color: colors.onSurface, fontSize: 14, lineHeight: 21, flex: 1 },
-  bold: { fontWeight: "800", color: colors.onSurface },
-  contactRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8 },
-  contactText: { color: colors.onSurface, fontSize: 14, fontWeight: "600", flex: 1 },
-  footer: { color: colors.onSurfaceSecondary, fontSize: 12, textAlign: "center", marginTop: spacing.xl },
+  contactName: { color: colors.onSurface, fontSize: 15, fontWeight: "800", marginTop: 4 },
+  contactLine: { color: colors.onSurface, fontSize: 14, lineHeight: 21 },
+  link: { color: colors.brand, fontSize: 14, fontWeight: "700", marginTop: 6 },
 });
