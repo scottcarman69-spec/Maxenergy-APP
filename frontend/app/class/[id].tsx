@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Platform, Modal } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Platform, Modal, TextInput } from "react-native";
 import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -59,6 +59,9 @@ export default function ClassDetail() {
   const [onWaitlist, setOnWaitlist] = useState(false);
   const [wlBusy, setWlBusy] = useState(false);
   const [calReminder, setCalReminder] = useState(user?.cal_reminder_default || 60); // calendar alarm lead time (minutes)
+  const [ageModalOpen, setAgeModalOpen] = useState(false);
+  const [childAge, setChildAge] = useState("");
+  const [childAgeNum, setChildAgeNum] = useState<number | null>(null);
 
   const toggleWaitlist = async () => {
     if (!cls || wlBusy) return;
@@ -108,7 +111,7 @@ export default function ClassDetail() {
     setBusy(true);
     setMsg(null);
     try {
-      const { booking } = await api.createBooking(cls.class_id, requestedTime, requestedAt, durationMin, calReminder);
+      const { booking } = await api.createBooking(cls.class_id, requestedTime, requestedAt, durationMin, calReminder, childAgeNum ?? undefined);
 
       if (booking.status === "paid") {
         setMsg("Already booked. See you there!");
@@ -177,6 +180,15 @@ export default function ClassDetail() {
     setBusy(false);
   };
 
+  const continueFixed = () => {
+    if (credit > 0 || passes > 0) {
+      setMsg(null);
+      setCreditOpen(true);
+    } else {
+      proceedBooking();
+    }
+  };
+
   const onBookPress = () => {
     if (cls?.by_appointment) {
       setApptDay(0);
@@ -188,12 +200,22 @@ export default function ClassDetail() {
         .then((r) => setTakenSlots(new Set(r.taken || [])))
         .catch(() => {});
       setApptOpen(true);
-    } else if (credit > 0 || passes > 0) {
+    } else if (!!cls?.min_age && !!cls?.max_age && childAgeNum === null) {
+      // Kids class: ask the child's age once before continuing.
+      setChildAge("");
       setMsg(null);
-      setCreditOpen(true);
+      setAgeModalOpen(true);
     } else {
-      proceedBooking();
+      continueFixed();
     }
+  };
+
+  const confirmAge = () => {
+    const n = parseInt(childAge, 10);
+    if (!Number.isFinite(n) || n <= 0) return;
+    setChildAgeNum(n);
+    setAgeModalOpen(false);
+    continueFixed();
   };
 
   // Preferred-time picker (appointment classes): Mon–Thu only, 10:30am–4:00pm (Queensland).
@@ -564,6 +586,56 @@ export default function ClassDetail() {
         </View>
       </Modal>
 
+      <Modal visible={ageModalOpen} transparent animationType="fade" onRequestClose={() => setAgeModalOpen(false)}>
+        <View style={styles.creditOverlay}>
+          <View style={styles.creditCard}>
+            <View style={styles.creditIcon}>
+              <Ionicons name="body" size={26} color={colors.brand} />
+            </View>
+            <Text style={styles.ageModalTitle}>How old is the child attending?</Text>
+            <Text style={styles.ageModalSub}>
+              This class is designed for ages {cls?.min_age}–{cls?.max_age}.
+            </Text>
+            <TextInput
+              testID="child-age-input"
+              style={styles.ageInput}
+              value={childAge}
+              onChangeText={(t) => setChildAge(t.replace(/[^0-9]/g, "").slice(0, 2))}
+              keyboardType="number-pad"
+              placeholder="Age in years"
+              placeholderTextColor={colors.onSurfaceSecondary}
+              maxLength={2}
+              autoFocus
+            />
+            {(() => {
+              const n = parseInt(childAge, 10);
+              if (Number.isFinite(n) && (n < (cls?.min_age || 0) || n > (cls?.max_age || 99))) {
+                return (
+                  <View style={styles.ageWarn}>
+                    <Ionicons name="alert-circle" size={15} color={colors.warning} />
+                    <Text style={styles.ageWarnText}>
+                      Heads up — this class is best suited to ages {cls?.min_age}–{cls?.max_age}. You can still continue if you'd like.
+                    </Text>
+                  </View>
+                );
+              }
+              return null;
+            })()}
+            <Pressable
+              testID="child-age-continue"
+              style={[styles.payBtn, { marginTop: spacing.md, opacity: parseInt(childAge, 10) > 0 ? 1 : 0.5 }]}
+              onPress={confirmAge}
+              disabled={!(parseInt(childAge, 10) > 0)}
+            >
+              <Text style={styles.payBtnText}>CONTINUE</Text>
+            </Pressable>
+            <Pressable testID="child-age-cancel" style={styles.ageCancel} onPress={() => setAgeModalOpen(false)}>
+              <Text style={styles.ageCancelText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
       <Modal visible={creditOpen} transparent animationType="fade" onRequestClose={() => { setCreditOpen(false); setApptChoice(null); }}>
         <View style={styles.creditOverlay}>
           <View style={styles.creditCard}>
@@ -679,6 +751,13 @@ const styles = StyleSheet.create({
   ageIconWrap: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
   ageBannerTitle: { color: colors.onSurface, fontSize: 14, fontWeight: "900" },
   ageBannerSub: { color: colors.onSurfaceSecondary, fontSize: 12.5, marginTop: 1 },
+  ageModalTitle: { color: colors.onSurface, fontSize: 18, fontWeight: "900", textAlign: "center", marginTop: 4 },
+  ageModalSub: { color: colors.onSurfaceSecondary, fontSize: 13, textAlign: "center", marginTop: 6 },
+  ageInput: { marginTop: spacing.md, backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 12, fontSize: 18, fontWeight: "800", color: colors.onSurface, textAlign: "center" },
+  ageWarn: { flexDirection: "row", alignItems: "flex-start", gap: 8, backgroundColor: colors.warning + "1F", borderRadius: radius.md, padding: 10, marginTop: spacing.md },
+  ageWarnText: { flex: 1, color: colors.onSurface, fontSize: 12.5, lineHeight: 18 },
+  ageCancel: { alignItems: "center", paddingVertical: 12, marginTop: 4 },
+  ageCancelText: { color: colors.onSurfaceSecondary, fontSize: 14, fontWeight: "700" },
   metaGrid: { flexDirection: "row", gap: spacing.md },
   metaCol: {
     flex: 1,

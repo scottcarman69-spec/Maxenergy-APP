@@ -119,8 +119,8 @@ export const api = {
     return req(`/api/classes${qs ? `?${qs}` : ""}`);
   },
   classDetail: (id: string) => req(`/api/classes/${id}`),
-  createBooking: (class_id: string, requested_time?: string, requested_at?: string, duration_min?: number, cal_reminder_minutes?: number) =>
-    req("/api/bookings", { method: "POST", body: JSON.stringify({ class_id, requested_time, requested_at, duration_min, cal_reminder_minutes }) }),
+  createBooking: (class_id: string, requested_time?: string, requested_at?: string, duration_min?: number, cal_reminder_minutes?: number, child_age?: number) =>
+    req("/api/bookings", { method: "POST", body: JSON.stringify({ class_id, requested_time, requested_at, duration_min, cal_reminder_minutes, child_age }) }),
   myBookings: () => req("/api/bookings"),
   bookingCalendar: (id: string) => req(`/api/bookings/${id}/calendar`),
   appointmentsTaken: () => req("/api/appointments/taken"),

@@ -941,6 +941,7 @@ class BookingCreate(BaseModel):
     requested_at: Optional[str] = None     # ISO naive Queensland wall-clock (appointment)
     duration_min: Optional[int] = None      # chosen session length (appointment classes with options)
     cal_reminder_minutes: Optional[int] = None  # calendar alarm lead time: 60 (1h) or 1440 (1 day)
+    child_age: Optional[int] = None          # age of the child attending (Kids classes)
 
 
 class CheckoutCreate(BaseModel):
@@ -1939,6 +1940,7 @@ async def booking_create(body: BookingCreate, u: dict = Depends(require_user)):
         "duration_min": chosen_minutes,
         "class_start": cls.get("start_at"),
         "cal_reminder_minutes": 1440 if int(body.cal_reminder_minutes or u.get("cal_reminder_default") or 60) == 1440 else 60,
+        "child_age": (int(body.child_age) if isinstance(body.child_age, int) or (isinstance(body.child_age, str) and str(body.child_age).isdigit()) else None),
         "status": "pending",
         "created_at": now_utc(),
     }

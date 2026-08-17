@@ -937,3 +937,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Kids Muay Thai age requirement 8–16: data-driven via class docs min_age=8/max_age=16 (+ level "Ages 8-16"). Idempotent startup migration updates existing Kids Muay Thai classes in place (keeps class_ids & bookings). CLASS_TEMPLATES + seed doc updated for future reseeds (was "Ages 6-16"). /classes & /classes/{id} already return full doc so fields surface automatically. Frontend: prominent orange "AGES 8–16" pill under class name on timetable Kids cards; neat "Ages 8–16 only" banner (person icon) at top of class detail/booking screen. Verified via screenshots.
 
 - Tweak: HOME_QUICK_COUNT 6→8 (src/quickActions.ts) — Home now shows 8 essentials (2 rows of 4) before "More actions"; also drives the Customize screen home badges.
+
+## Session update (Jun 2026 fork) — Child age prompt on Kids booking (DONE)
+- When booking a Kids class (min_age/max_age set), a modal now asks "How old is the child attending?" before payment. Numeric input; if the age is outside 8-16 it shows a GENTLE amber flag ("best suited to ages 8-16, you can still continue") but does NOT hard-block. Asked once per class-detail session (childAgeNum state), then continues the normal pay flow (credit/pass popup or card).
+- Backend: BookingCreate.child_age (Optional[int]); stored on booking doc as child_age. Verified persists (=10 in curl test).
+- Frontend class/[id].tsx: onBookPress routes Kids classes to the age modal first; confirmAge saves & continues; child_age passed through proceedBooking -> api.createBooking. Verified via screenshot (modal + out-of-range warning).
