@@ -94,154 +94,133 @@ export default function InboxSettings() {
               <Text style={styles.title}>My notifications</Text>
               <Text style={styles.sub}>View all your alerts, messages and reminders.</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.brand} />
+            <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceSecondary} />
           </Pressable>
 
           <Text style={styles.section}>NOTIFICATIONS</Text>
           <View style={styles.card}>
-            <View style={styles.iconWrap}><Ionicons name="chatbubbles" size={20} color={colors.brand} /></View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.title}>Message notifications</Text>
-              <Text style={styles.sub}>Get alerts for new group, friend and gym messages.</Text>
+            <View style={styles.cardHead}>
+              <View style={styles.iconWrap}><Ionicons name="chatbubbles" size={20} color={colors.brand} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.title}>Message notifications</Text>
+                <Text style={styles.sub}>Alerts for new group, friend and gym messages.</Text>
+              </View>
+              <Switch testID="toggle-message-notifications" value={enabled} onValueChange={toggle} disabled={saving} trackColor={{ false: colors.border, true: colors.brand }} thumbColor={"#fff"} />
             </View>
-            <Switch
-              testID="toggle-message-notifications"
-              value={enabled}
-              onValueChange={toggle}
-              disabled={saving}
-              trackColor={{ false: colors.border, true: colors.brand }}
-              thumbColor={"#fff"}
-            />
-          </View>
-          <Text style={styles.note}>
-            {enabled
-              ? "You'll be notified about new messages in your Inbox."
-              : "Message notifications are off. You won't get alerts — new messages still appear in your Inbox."}
-          </Text>
-
-          <Text style={[styles.section, { marginTop: spacing.lg }]}>ATTENDANCE LADDER</Text>
-          <View style={styles.card}>
-            <View style={styles.iconWrap}><Ionicons name="trophy" size={20} color={colors.brand} /></View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.title}>Hide me from the public ladder</Text>
-              <Text style={styles.sub}>Your attendance is still counted — your name just won't appear to others.</Text>
-            </View>
-            <Switch
-              testID="toggle-leaderboard-hidden"
-              value={lbHidden}
-              onValueChange={toggleLeaderboard}
-              trackColor={{ false: colors.border, true: colors.brand }}
-              thumbColor={"#fff"}
-            />
+            <View style={styles.divider} />
+            <Text style={styles.noteIn}>
+              {enabled ? "You'll be notified about new messages in your Inbox." : "Off — new messages still appear in your Inbox, without alerts."}
+            </Text>
           </View>
 
-          <Text style={[styles.section, { marginTop: spacing.lg }]}>CLASS REMINDERS</Text>
+          <Text style={styles.section}>ATTENDANCE LADDER</Text>
           <View style={styles.card}>
-            <View style={styles.iconWrap}><Ionicons name="alarm" size={20} color={colors.brand} /></View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.title}>Class reminders</Text>
-              <Text style={styles.sub}>Get a reminder before a class you've booked.</Text>
+            <View style={styles.cardHead}>
+              <View style={styles.iconWrap}><Ionicons name="trophy" size={20} color={colors.brand} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.title}>Hide me from the public ladder</Text>
+                <Text style={styles.sub}>Your attendance still counts — your name just won't appear to others.</Text>
+              </View>
+              <Switch testID="toggle-leaderboard-hidden" value={lbHidden} onValueChange={toggleLeaderboard} trackColor={{ false: colors.border, true: colors.brand }} thumbColor={"#fff"} />
             </View>
-            <Switch
-              testID="toggle-class-reminders"
-              value={remOn}
-              onValueChange={(val) => setReminderHours(val ? 3 : 0)}
-              trackColor={{ false: colors.border, true: colors.brand }}
-              thumbColor={"#fff"}
-            />
           </View>
-          {remOn && (
+
+          <Text style={styles.section}>CLASS REMINDERS</Text>
+          <View style={styles.card}>
+            <View style={styles.cardHead}>
+              <View style={styles.iconWrap}><Ionicons name="alarm" size={20} color={colors.brand} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.title}>Class reminders</Text>
+                <Text style={styles.sub}>A reminder before a class you've booked.</Text>
+              </View>
+              <Switch testID="toggle-class-reminders" value={remOn} onValueChange={(val) => setReminderHours(val ? 3 : 0)} trackColor={{ false: colors.border, true: colors.brand }} thumbColor={"#fff"} />
+            </View>
+            {remOn && (
+              <View style={styles.chipRow}>
+                {[1, 3, 12].map((h) => {
+                  const on = remHours === h;
+                  return (
+                    <Pressable key={h} testID={`reminder-lead-${h}`} style={[styles.chip, on && styles.chipOn]} onPress={() => setReminderHours(h)}>
+                      <Text style={[styles.chipText, on && styles.chipTextOn]}>{h} hr{h > 1 ? "s" : ""} before</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
+            <View style={styles.divider} />
+            <Text style={styles.noteIn}>
+              {remOn ? `We'll remind you ${remHours} hour${remHours > 1 ? "s" : ""} before each booked class.` : "Off — you won't be reminded before booked classes."}
+            </Text>
+          </View>
+
+          <Text style={styles.section}>CALENDAR REMINDER</Text>
+          <View style={styles.card}>
+            <View style={styles.cardHead}>
+              <View style={styles.iconWrap}><Ionicons name="calendar" size={20} color={colors.brand} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.title}>Default calendar reminder</Text>
+                <Text style={styles.sub}>Used when you add a booking to your calendar.</Text>
+              </View>
+            </View>
             <View style={styles.chipRow}>
-              {[1, 3, 12].map((h) => {
-                const on = remHours === h;
+              {[{ m: 60, label: "1 hour before" }, { m: 1440, label: "1 day before" }].map((o) => {
+                const on = calDefault === o.m;
                 return (
-                  <Pressable key={h} testID={`reminder-lead-${h}`} style={[styles.chip, on && styles.chipOn]} onPress={() => setReminderHours(h)}>
-                    <Text style={[styles.chipText, on && styles.chipTextOn]}>{h} hr{h > 1 ? "s" : ""} before</Text>
+                  <Pressable key={o.m} testID={`cal-default-${o.m}`} style={[styles.chip, on && styles.chipOn]} onPress={() => saveCalDefault(o.m)}>
+                    <Text style={[styles.chipText, on && styles.chipTextOn]}>{o.label}</Text>
                   </Pressable>
                 );
               })}
             </View>
-          )}
-          <Text style={styles.note}>
-            {remOn
-              ? `We'll remind you about ${remHours} hour${remHours > 1 ? "s" : ""} before each booked class.`
-              : "Class reminders are off. You won't be reminded before your booked classes."}
-          </Text>
-
-          <Text style={[styles.section, { marginTop: spacing.lg }]}>CALENDAR REMINDER</Text>
-          <View style={styles.card}>
-            <View style={styles.iconWrap}><Ionicons name="calendar" size={20} color={colors.brand} /></View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.title}>Default calendar reminder</Text>
-              <Text style={styles.sub}>Used when you add a booking to your calendar.</Text>
-            </View>
+            <View style={styles.divider} />
+            <Text style={styles.noteIn}>New bookings pre-select this. You can still change it per booking.</Text>
           </View>
-          <View style={styles.chipRow}>
-            {[{ m: 60, label: "1 hour before" }, { m: 1440, label: "1 day before" }].map((o) => {
-              const on = calDefault === o.m;
-              return (
-                <Pressable key={o.m} testID={`cal-default-${o.m}`} style={[styles.chip, on && styles.chipOn]} onPress={() => saveCalDefault(o.m)}>
-                  <Text style={[styles.chipText, on && styles.chipTextOn]}>{o.label}</Text>
+
+          <Text style={styles.section}>QUIET HOURS</Text>
+          <View style={styles.card}>
+            <View style={styles.cardHead}>
+              <View style={styles.iconWrap}><Ionicons name="moon" size={20} color={colors.brand} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.title}>Quiet hours</Text>
+                <Text style={styles.sub}>Mute all notifications during set hours.</Text>
+              </View>
+              <Switch testID="toggle-quiet-hours" value={qhEnabled} onValueChange={(val) => saveQuiet({ enabled: val })} trackColor={{ false: colors.border, true: colors.brand }} thumbColor={"#fff"} />
+            </View>
+            {qhEnabled && (
+              <View style={styles.timeRow}>
+                <Pressable testID="quiet-start" style={styles.timeBtn} onPress={() => setPicker("start")}>
+                  <Text style={styles.timeLabel}>FROM</Text>
+                  <Text style={styles.timeVal}>{fmt12(qhStart)}</Text>
                 </Pressable>
-              );
-            })}
+                <Ionicons name="arrow-forward" size={16} color={colors.onSurfaceSecondary} />
+                <Pressable testID="quiet-end" style={styles.timeBtn} onPress={() => setPicker("end")}>
+                  <Text style={styles.timeLabel}>UNTIL</Text>
+                  <Text style={styles.timeVal}>{fmt12(qhEnd)}</Text>
+                </Pressable>
+              </View>
+            )}
+            <View style={styles.divider} />
+            <Text style={styles.noteIn}>
+              {qhEnabled ? `Muted from ${fmt12(qhStart)} to ${fmt12(qhEnd)} (QLD time). Alerts still wait in your Inbox.` : "Off — turn on to silence alerts during set hours."}
+            </Text>
           </View>
-          <Text style={styles.note}>
-            New bookings will pre-select this reminder. You can still change it per booking on the class screen.
-          </Text>
 
-          <Text style={[styles.section, { marginTop: spacing.lg }]}>QUIET HOURS</Text>
-          <View style={styles.card}>
-            <View style={styles.iconWrap}><Ionicons name="moon" size={20} color={colors.brand} /></View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.title}>Quiet hours</Text>
-              <Text style={styles.sub}>Mute all notifications overnight or during set hours.</Text>
-            </View>
-            <Switch
-              testID="toggle-quiet-hours"
-              value={qhEnabled}
-              onValueChange={(val) => saveQuiet({ enabled: val })}
-              trackColor={{ false: colors.border, true: colors.brand }}
-              thumbColor={"#fff"}
-            />
-          </View>
-          {qhEnabled && (
-            <View style={styles.timeRow}>
-              <Pressable testID="quiet-start" style={styles.timeBtn} onPress={() => setPicker("start")}>
-                <Text style={styles.timeLabel}>From</Text>
-                <Text style={styles.timeVal}>{fmt12(qhStart)}</Text>
-              </Pressable>
-              <Ionicons name="arrow-forward" size={16} color={colors.onSurfaceSecondary} />
-              <Pressable testID="quiet-end" style={styles.timeBtn} onPress={() => setPicker("end")}>
-                <Text style={styles.timeLabel}>Until</Text>
-                <Text style={styles.timeVal}>{fmt12(qhEnd)}</Text>
-              </Pressable>
-            </View>
-          )}
-          <Text style={styles.note}>
-            {qhEnabled
-              ? `Notifications are muted from ${fmt12(qhStart)} to ${fmt12(qhEnd)} (Queensland time). They'll still be waiting in your Inbox.`
-              : "Quiet hours are off. Turn on to silence alerts during set hours."}
-          </Text>
-
-          <Text style={[styles.section, { marginTop: spacing.lg }]}>ACCOUNT</Text>
+          <Text style={styles.section}>ACCOUNT & PRIVACY</Text>
           <Pressable testID="settings-account" style={styles.linkCard} onPress={() => router.push("/account")}>
             <View style={styles.iconWrap}><Ionicons name="lock-closed" size={20} color={colors.brand} /></View>
             <View style={{ flex: 1 }}>
               <Text style={styles.title}>Password & account</Text>
               <Text style={styles.sub}>Change your password or delete your account.</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.brand} />
+            <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceSecondary} />
           </Pressable>
-
-          <Text style={[styles.section, { marginTop: spacing.lg }]}>PRIVACY</Text>
           <Pressable testID="settings-blocked" style={styles.linkCard} onPress={() => router.push("/blocked")}>
             <View style={styles.iconWrap}><Ionicons name="ban" size={20} color={colors.brand} /></View>
             <View style={{ flex: 1 }}>
               <Text style={styles.title}>Blocked members</Text>
-              <Text style={styles.sub}>Members you have blocked — view and unblock them.</Text>
+              <Text style={styles.sub}>Members you've blocked — view and unblock them.</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.brand} />
+            <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceSecondary} />
           </Pressable>
           <Pressable testID="settings-privacy" style={styles.linkCard} onPress={() => router.push("/privacy")}>
             <View style={styles.iconWrap}><Ionicons name="document-text" size={20} color={colors.brand} /></View>
@@ -249,7 +228,7 @@ export default function InboxSettings() {
               <Text style={styles.title}>Privacy Policy</Text>
               <Text style={styles.sub}>How we handle and protect your data.</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.brand} />
+            <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceSecondary} />
           </Pressable>
         </ScrollView>
       )}
@@ -279,20 +258,22 @@ export default function InboxSettings() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
-  section: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "900", letterSpacing: 1.5 },
-  card: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md },
-  linkCard: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.brand, borderRadius: radius.lg, padding: spacing.md },
+  section: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "900", letterSpacing: 1.5, marginTop: spacing.sm },
+  card: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md, gap: spacing.sm },
+  cardHead: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  linkCard: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md },
   iconWrap: { width: 42, height: 42, borderRadius: radius.sm, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center" },
   title: { color: colors.onSurface, fontSize: 15.5, fontWeight: "800" },
   sub: { color: colors.onSurfaceSecondary, fontSize: 12.5, marginTop: 2 },
-  note: { color: colors.onSurfaceSecondary, fontSize: 12.5, lineHeight: 18, paddingHorizontal: 4 },
+  divider: { height: 1, backgroundColor: colors.border },
+  noteIn: { color: colors.onSurfaceSecondary, fontSize: 12.5, lineHeight: 18 },
   chipRow: { flexDirection: "row", gap: spacing.sm, flexWrap: "wrap" },
-  chip: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 9, backgroundColor: colors.surfaceSecondary },
+  chip: { flexGrow: 1, alignItems: "center", borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 9, backgroundColor: colors.surface },
   chipOn: { borderColor: colors.brand, backgroundColor: colors.brandTertiary },
   chipText: { color: colors.onSurfaceSecondary, fontWeight: "800", fontSize: 13 },
   chipTextOn: { color: colors.brand },
   timeRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  timeBtn: { flex: 1, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md, alignItems: "center", gap: 2 },
+  timeBtn: { flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md, alignItems: "center", gap: 2 },
   timeLabel: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "800", letterSpacing: 1 },
   timeVal: { color: colors.onSurface, fontSize: 17, fontWeight: "900" },
   backdrop: { flex: 1, backgroundColor: "#00000099", justifyContent: "flex-end" },
