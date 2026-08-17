@@ -1038,10 +1038,9 @@ DEFAULT_CLASS_IMAGE = "https://images.unsplash.com/photo-1591117207239-788bf8de6
 @api.post("/auth/register")
 async def auth_register(body: RegisterReq, request: Request):
     await enforce_rate_limit(request, "register", body.email.lower())
-    existing = await db.users.find_one({"email": body.email.lower()})
-    if existing:
-        raise HTTPException(status_code=409, detail="Email already registered")
-    # Validate date of birth (added identity check for new members).
+    email = body.email.lower().strip()
+    # Validate inputs FIRST. These 400s are identical whether or not the email
+    # already exists, so they never reveal account existence.
     try:
         dob = datetime.strptime(body.date_of_birth.strip(), "%Y-%m-%d").date()
     except ValueError:
@@ -1059,30 +1058,37 @@ async def auth_register(body: RegisterReq, request: Request):
     first = body.first_name.strip()
     last = body.last_name.strip()
     full_name = (f"{first} {last}").strip()
-    user_id = new_id("user")
-    doc = {
-        "user_id": user_id,
-        "email": body.email.lower(),
-        "name": full_name,
-        "first_name": first,
-        "last_name": last,
-        "date_of_birth": body.date_of_birth.strip(),
-        "phone": phone,
-        "password_hash": hash_pw(body.password),
-        "provider": "password",
-        "picture": None,
-        "is_admin": False,
-        "verified": False,
-        "token_version": 0,
-        "created_at": now_utc(),
-    }
-    await db.users.insert_one(doc)
-    # Fire the verification code email (non-blocking of the response on failure).
+
+    # Enumeration-safe: we NEVER tell the client whether this email already exists.
+    # No account is created here — we stage a pending registration and email a code.
+    # The real account is only created after the code is verified (verify-then-login).
+    existing = await db.users.find_one({"email": email}, {"_id": 1})
+    if existing:
+        # Already registered: return the exact same generic response, create no
+        # pending record and send no verification code (which would confirm the
+        # address is unregistered). Owner can log in / reset as normal.
+        return {"pending": True, "email": email}
+
+    await db.pending_registrations.update_one(
+        {"email": email},
+        {"$set": {
+            "email": email,
+            "first_name": first,
+            "last_name": last,
+            "name": full_name,
+            "date_of_birth": body.date_of_birth.strip(),
+            "phone": phone,
+            "password_hash": hash_pw(body.password),
+            "created_at": now_utc(),
+            "expires_at": now_utc() + timedelta(hours=24),
+        }},
+        upsert=True,
+    )
     try:
-        await send_otp_email(doc["email"], "verify")
+        await send_otp_email(email, "verify")
     except Exception as e:
-        log.error(f"failed to send verification email to {doc['email']}: {e}")
-    return {"token": make_jwt(user_id, 0), "user": user_public(doc)}
+        log.error(f"failed to send verification email to {email}: {e}")
+    return {"pending": True, "email": email}
 
 
 @api.post("/auth/login")
@@ -1143,17 +1149,49 @@ async def auth_session(body: GoogleSessionReq):
 async def auth_verify_otp(body: VerifyOtpReq, request: Request):
     email = body.email.lower()
     await enforce_rate_limit(request, "otp", email)
-    u = await db.users.find_one({"email": email})
-    if not u:
-        raise HTTPException(status_code=404, detail="Account not found")
-    if u.get("verified"):
-        return {"verified": True, "user": user_public(u)}
     code = (body.code or "").strip()
+
+    # A correct, unexpired code proves the caller controls this inbox, so it's safe
+    # to mint a session token here. A wrong/missing code returns the SAME generic
+    # error whether or not the email exists (no enumeration, no account takeover).
     if not await verify_otp(email, "verify", code):
         raise HTTPException(status_code=400, detail="Invalid or expired code")
-    await db.users.update_one({"user_id": u["user_id"]}, {"$set": {"verified": True}})
-    u["verified"] = True
-    return {"verified": True, "user": user_public(u)}
+
+    # Case 1: a real account already exists (e.g. a legacy soft-gate signup) —
+    # flip it to verified and issue its token.
+    u = await db.users.find_one({"email": email})
+    if u:
+        if not u.get("verified"):
+            await db.users.update_one({"user_id": u["user_id"]}, {"$set": {"verified": True}})
+            u["verified"] = True
+        await db.pending_registrations.delete_one({"email": email})
+        return {"verified": True, "user": user_public(u), "token": make_jwt(u["user_id"], int(u.get("token_version", 0) or 0))}
+
+    # Case 2: brand-new signup — promote the staged pending registration to a real
+    # verified account, then auto-log-in by returning a token.
+    pending = await db.pending_registrations.find_one({"email": email})
+    if not pending:
+        raise HTTPException(status_code=400, detail="Invalid or expired code")
+    user_id = new_id("user")
+    doc = {
+        "user_id": user_id,
+        "email": email,
+        "name": pending.get("name"),
+        "first_name": pending.get("first_name"),
+        "last_name": pending.get("last_name"),
+        "date_of_birth": pending.get("date_of_birth"),
+        "phone": pending.get("phone"),
+        "password_hash": pending.get("password_hash"),
+        "provider": "password",
+        "picture": None,
+        "is_admin": False,
+        "verified": True,
+        "token_version": 0,
+        "created_at": now_utc(),
+    }
+    await db.users.insert_one(doc)
+    await db.pending_registrations.delete_one({"email": email})
+    return {"verified": True, "user": user_public(doc), "token": make_jwt(user_id, 0)}
 
 
 @api.post("/auth/resend-otp")
@@ -1161,8 +1199,11 @@ async def auth_resend_otp(body: ResendOtpReq, request: Request):
     email = body.email.lower()
     await enforce_rate_limit(request, "otp", email)
     u = await db.users.find_one({"email": email})
-    # Always respond ok (don't leak which emails exist), but only send when valid + unverified.
-    if u and not u.get("verified") and u.get("provider") == "password":
+    pending = await db.pending_registrations.find_one({"email": email}) if not u else None
+    # Always respond ok (don't leak which emails exist), but only send when there's
+    # a real unverified account OR a staged pending registration awaiting a code.
+    eligible = (u and not u.get("verified") and u.get("provider") == "password") or (pending is not None)
+    if eligible:
         if not await can_resend_otp(email, "verify"):
             raise HTTPException(status_code=429, detail="Please wait a moment before requesting another code")
         try:
@@ -6509,6 +6550,12 @@ async def _startup():
         await db.otp_codes.create_index("expires_at", expireAfterSeconds=0)
     except Exception as e:
         log.warning(f"otp ttl index: {e}")
+    # Pending (unverified) registrations: unique per email, auto-expire at expires_at.
+    try:
+        await db.pending_registrations.create_index("email", unique=True)
+        await db.pending_registrations.create_index("expires_at", expireAfterSeconds=0)
+    except Exception as e:
+        log.warning(f"pending_registrations index: {e}")
     app.state.reminder_task = asyncio.create_task(reminder_loop())
 
 

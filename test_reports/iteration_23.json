@@ -1,0 +1,32 @@
+{
+  "summary": "Regression-verified the enumeration-safe verify-then-login sign-up flow end-to-end. Backend: all 10 pytest cases in test_verify_then_login_regression.py pass — register(new email) returns generic {pending:true,email} without creating a users doc (a pending_registrations doc is staged instead); register with EXISTING email (info@maxenergy.com.au) returns the IDENTICAL 200 payload (no 409, no leak); verify-otp with a wrong code returns 400 'Invalid or expired code' whether the email exists or not; verify-otp with an injected correct code returns 200 {verified:true, token, user}, creates the users doc, clears the pending record, /auth/me works with the token, and subsequent /auth/login with the chosen password also succeeds; admin login regression (info@maxenergy.com.au / SInEf5!4AvEj) still returns 200 with a token. Frontend (Expo web preview, mobile viewport 390x844): tapping SIGN UP with a fresh unique email routes to /verify?email=... showing the entered email; no auth_token is stored yet; the 'Verify your email to finish creating your account.' note is present; the 'I'll verify later' / skip link is GONE; the top-left back button navigates BACK TO LOGIN and does not enter the app; entering a wrong code renders 'Invalid or expired code'; injecting the OTP via mongo and tapping VERIFY EMAIL logs the user in, stores auth_token in localStorage, routes to /home, and the home tab renders the new user's first name ('Frontend'); Resend button calls /api/auth/resend-otp and surfaces the backend rate-limit / cooldown; admin login regression on the web preview lands on /home with token stored.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_verify_then_login_regression.py",
+    "/app/test_reports/pytest/pytest_verify_then_login.xml"
+  ],
+  "action_items": [
+    "OPTIONAL polish (not a bug): the backend OTP send cooldown (~60s) is longer than the frontend Resend cooldown (30s). If a user just completed /auth/register (which sends an OTP), tapping 'Resend code' within ~60s returns 429 'Please wait a moment before requesting another code'. The screen displays this error correctly (see /tmp/08_resend_cooldown.png), but consider aligning the frontend cooldown to the backend cooldown (or starting the 30s cooldown immediately on landing on the verify screen) so users don't see a rate-limit error on their first Resend tap. Currently the visible 'Resend in Ns' timer only starts AFTER a successful resend."
+  ],
+  "critical_code_review_comments": [
+    "server.py /auth/register correctly returns the SAME shape {pending, email} in both branches (new email + existing email), and only 400s for input-validation failures — those 400s are also identical regardless of whether the email exists, so enumeration is closed on the happy path.",
+    "server.py /auth/verify-otp handles both a legacy already-existing unverified user AND a brand-new pending_registrations promotion path — good coverage.",
+    "verify.tsx: skip / 'verify later' link is removed; back button correctly router.replace('/(auth)/login'); the testID on the back button is still named 'verify-later' which is now a misleading name for its actual behavior (goes back to login). Consider renaming testID to 'verify-back' for clarity.",
+    "AuthContext.registerEmail no longer sets a token — matches the enumeration-safe design."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_verify_then_login_regression.py (new)"
+  ],
+  "success_rate": { "backend": "100%", "frontend": "100%" },
+  "seed_data_creation": "Test users/pending/otp records prefixed with test_frontend_/test_back_/test_verify_ were created during the flow and cleaned up at the end (users=1, pending=2, otp=2 removed). Admin account untouched.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend regression suite at /app/backend/tests/test_verify_then_login_regression.py covers all 9 assertions from the review. It uses pymongo (sync) to inject a known OTP hash after /auth/register so verify-otp can be exercised without reading an inbox. Run with: pytest backend/tests/test_verify_then_login_regression.py -v -o addopts=''. Frontend testIDs of note: register-{first-name,last-name,email,phone,password}-input, register-dob-button, dob-{day,month,year}-N, dob-confirm, register-submit-button, verify-code-input, verify-submit-button, verify-resend, verify-later (back button — misleading name).",
+  "rca_of_issue": "N/A — no bugs found. All acceptance criteria verified."
+}

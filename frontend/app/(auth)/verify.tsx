@@ -17,7 +17,7 @@ import { colors, spacing, radius, type, font } from "@/src/theme";
 
 export default function Verify() {
   const router = useRouter();
-  const { refresh } = useAuth();
+  const { finishAuth } = useAuth();
   const params = useLocalSearchParams<{ email?: string }>();
   const email = (params.email || "").toString().toLowerCase();
 
@@ -26,7 +26,7 @@ export default function Verify() {
   const [resending, setResending] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
-  const [cooldown, setCooldown] = useState(0);
+  const [cooldown, setCooldown] = useState(60); // a code was just emailed on the previous screen
   const timerRef = useRef<any>(null);
 
   useEffect(() => {
@@ -44,9 +44,13 @@ export default function Verify() {
     }
     setLoading(true);
     try {
-      await api.verifyOtp(email, code.trim());
-      await refresh();
-      router.replace("/(tabs)/home");
+      const r = await api.verifyOtp(email, code.trim());
+      if (r?.token && r?.user) {
+        await finishAuth(r.token, r.user);
+        router.replace("/(tabs)/home");
+      } else {
+        setErr("Something went wrong. Please try logging in.");
+      }
     } catch (e: any) {
       setErr(e?.message || "Invalid or expired code");
     } finally {
@@ -61,7 +65,7 @@ export default function Verify() {
     try {
       await api.resendOtp(email);
       setInfo("We've sent you a fresh code. Check your inbox.");
-      setCooldown(30);
+      setCooldown(60);
     } catch (e: any) {
       setErr(e?.message || "Could not resend code");
     } finally {
@@ -75,8 +79,8 @@ export default function Verify() {
       style={styles.root}
     >
       <View style={styles.header}>
-        <Pressable testID="verify-later" hitSlop={12} onPress={() => router.replace("/(tabs)/home")}>
-          <Ionicons name="close" size={26} color={colors.onSurface} />
+        <Pressable testID="verify-back" hitSlop={12} onPress={() => router.replace("/(auth)/login")}>
+          <Ionicons name="chevron-back" size={26} color={colors.onSurface} />
         </Pressable>
       </View>
 
@@ -127,9 +131,7 @@ export default function Verify() {
           </Pressable>
         </View>
 
-        <Pressable testID="verify-skip" onPress={() => router.replace("/(tabs)/home")}>
-          <Text style={styles.skipText}>I'll verify later</Text>
-        </Pressable>
+        <Text style={styles.mustVerifyNote}>Verify your email to finish creating your account.</Text>
       </View>
     </KeyboardAvoidingView>
   );
@@ -180,4 +182,5 @@ const styles = StyleSheet.create({
   resendRow: { flexDirection: "row", justifyContent: "center", marginTop: spacing.xl },
   linkText: { color: colors.brand, fontWeight: "700" },
   skipText: { color: colors.onSurfaceSecondary, marginTop: spacing.xl, textDecorationLine: "underline" },
+  mustVerifyNote: { color: colors.onSurfaceSecondary, fontSize: 12.5, textAlign: "center", marginTop: spacing.xl },
 });

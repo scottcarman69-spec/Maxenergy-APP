@@ -7,6 +7,7 @@ type AuthState = {
   loading: boolean;
   loginEmail: (email: string, password: string) => Promise<void>;
   registerEmail: (payload: { first_name: string; last_name: string; date_of_birth: string; phone: string; email: string; password: string }) => Promise<void>;
+  finishAuth: (token: string, user: User) => Promise<void>;
   applyGoogleSessionId: (sessionId: string) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -56,9 +57,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(r.user);
   };
   const registerEmail = async (payload: { first_name: string; last_name: string; date_of_birth: string; phone: string; email: string; password: string }) => {
-    const r = await api.register(payload);
-    await setToken(r.token);
-    setUser(r.user);
+    // Enumeration-safe signup: no account/token is issued here. The backend stages
+    // a pending registration and emails a code; the account is created and the user
+    // is logged in only after the code is verified (see finishAuth).
+    await api.register(payload);
+  };
+  const finishAuth = async (token: string, user: User) => {
+    await setToken(token);
+    setUser(user);
   };
   const applyGoogleSessionId = async (sessionId: string) => {
     const r = await api.googleSession(sessionId);
@@ -75,7 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthCtx.Provider
-      value={{ user, loading, loginEmail, registerEmail, applyGoogleSessionId, logout, refresh }}
+      value={{ user, loading, loginEmail, registerEmail, finishAuth, applyGoogleSessionId, logout, refresh }}
     >
       {children}
     </AuthCtx.Provider>
