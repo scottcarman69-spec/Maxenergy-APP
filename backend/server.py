@@ -973,6 +973,8 @@ class ClassUpsert(BaseModel):
     description: Optional[str] = None
     capacity: int = 16
     by_appointment: Optional[bool] = None
+    min_age: Optional[int] = None
+    max_age: Optional[int] = None
 
 
 class AnnouncementCreate(BaseModel):
@@ -4996,6 +4998,8 @@ async def admin_class_create(body: ClassUpsert, u: dict = Depends(require_admin)
         "start_at": _parse_dt(body.start_at) if body.start_at else now_utc(),
         "capacity": 1 if by_appt else body.capacity,
         "by_appointment": by_appt,
+        "min_age": body.min_age if isinstance(body.min_age, int) else None,
+        "max_age": body.max_age if isinstance(body.max_age, int) else None,
         "created_at": now_utc(),
     }
     await db.classes.insert_one(doc)
@@ -5026,6 +5030,8 @@ async def admin_class_update(class_id: str, body: ClassUpsert, u: dict = Depends
         upd["image"] = body.image
     if body.description is not None:
         upd["description"] = body.description
+    upd["min_age"] = body.min_age if isinstance(body.min_age, int) else None
+    upd["max_age"] = body.max_age if isinstance(body.max_age, int) else None
     r = await db.classes.update_one({"class_id": class_id}, {"$set": upd})
     if r.matched_count == 0:
         raise HTTPException(404, "Class not found")

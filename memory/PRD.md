@@ -949,3 +949,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 ## Session update (Jun 2026 fork) — 16+ note on adult classes (DONE)
 - Adult group classes (Muay Thai Adults, Kickboxing, Boot Camp) now carry min_age=16 (no max_age) -> display-only "16+" badge on timetable cards + "Ages 16+" banner on class detail, consistent with Kids "AGES 8-16". Appointments (PT/Programs) unchanged (no age). Idempotent startup migration sets min_age=16 for non-Kids non-appointment classes; CLASS_TEMPLATES updated for reseeds.
 - No age prompt/block for adults: the child-age modal only triggers when BOTH min_age && max_age are set (Kids only), so adults just see the note. Frontend badge/banner render "AGES {min}-{max}" when both present else "{min}+". Verified via screenshot (Adults Muay Thai shows 16+).
+
+## Session update (Jun 2026 fork) — Admin class editor age range (DONE)
+- Admin class editor (app/admin/classes.tsx) now has an "Age requirement (optional)" section: Min age + Max age inputs (populate on edit, blank = none). Helper text explains: both set (8-16) => age badge + child-age prompt at booking + under-min hard block; only Min (16) => simple "16+" note; blank => no limit.
+- Backend ClassUpsert +min_age/+max_age; admin_class_create & admin_class_update set them (null clears). Verified via admin API: create with 10-14, update to clear max (12+), delete.
+- Flows into existing member-side logic (timetable badge, class detail banner, booking age prompt/under-min block) already built. tsc clean; admin editor screenshot verified.

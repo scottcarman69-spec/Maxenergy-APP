@@ -34,6 +34,8 @@ type Cls = {
   by_appointment?: boolean;
   cancelled?: boolean;
   cancel_reason?: string;
+  min_age?: number;
+  max_age?: number;
 };
 
 function toDateStr(iso: string) {
@@ -60,6 +62,8 @@ const emptyForm = {
   capacity: "20",
   description: "",
   by_appointment: false,
+  min_age: "",
+  max_age: "",
 };
 
 export default function AdminClasses() {
@@ -105,6 +109,8 @@ export default function AdminClasses() {
       capacity: String(c.capacity),
       description: c.description || "",
       by_appointment: !!c.by_appointment,
+      min_age: c.min_age != null ? String(c.min_age) : "",
+      max_age: c.max_age != null ? String(c.max_age) : "",
     });
     setEditing(c.class_id);
     setErr(null);
@@ -127,6 +133,8 @@ export default function AdminClasses() {
       capacity: appt ? 1 : parseInt(form.capacity || "20", 10),
       description: form.description,
       by_appointment: appt,
+      min_age: form.min_age.trim() ? parseInt(form.min_age, 10) : null,
+      max_age: form.max_age.trim() ? parseInt(form.max_age, 10) : null,
     };
     if (!appt) payload.start_at = `${form.date}T${form.time}:00`;
     setSaving(true);
@@ -323,6 +331,20 @@ export default function AdminClasses() {
                     </View>
                   )}
                 </View>
+                <Text style={[styles.label, { marginTop: spacing.sm }]}>Age requirement (optional)</Text>
+                <View style={styles.rowFields}>
+                  <View style={[styles.field, { flex: 1 }]}>
+                    <Text style={styles.hintSmall}>Min age</Text>
+                    <TextInput testID="adminc-min-age" value={form.min_age} onChangeText={(t) => setForm({ ...form, min_age: t.replace(/[^0-9]/g, "").slice(0, 2) })} keyboardType="number-pad" placeholder="e.g. 8" placeholderTextColor={colors.onSurfaceSecondary} style={styles.input} />
+                  </View>
+                  <View style={[styles.field, { flex: 1 }]}>
+                    <Text style={styles.hintSmall}>Max age</Text>
+                    <TextInput testID="adminc-max-age" value={form.max_age} onChangeText={(t) => setForm({ ...form, max_age: t.replace(/[^0-9]/g, "").slice(0, 2) })} keyboardType="number-pad" placeholder="e.g. 16" placeholderTextColor={colors.onSurfaceSecondary} style={styles.input} />
+                  </View>
+                </View>
+                <Text style={styles.ageHelp}>
+                  Set both (e.g. 8–16) to show an age badge AND ask the child's age at booking (under-min is blocked). Set only Min (e.g. 16) for a simple "16+" note. Leave blank for no age limit.
+                </Text>
                 {err && <Text style={styles.error}>{err}</Text>}
                 <Pressable testID="adminc-save" style={[styles.saveBtn, saving && { opacity: 0.5 }]} onPress={save} disabled={saving}>
                   {saving ? <ActivityIndicator color={colors.onBrand} /> : <Text style={styles.saveText}>SAVE CLASS</Text>}
@@ -436,6 +458,8 @@ const styles = StyleSheet.create({
   field: { marginBottom: spacing.md },
   rowFields: { flexDirection: "row", gap: spacing.sm },
   label: { color: colors.onSurfaceSecondary, fontSize: 12, fontWeight: "700", marginBottom: 6 },
+  hintSmall: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "700", marginBottom: 6 },
+  ageHelp: { color: colors.onSurfaceSecondary, fontSize: 11.5, lineHeight: 17, marginBottom: spacing.sm },
   input: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, color: colors.onSurface, paddingHorizontal: spacing.md, paddingVertical: 12, borderRadius: radius.md, fontSize: 15 },
   error: { color: colors.error, fontSize: 13, marginBottom: spacing.sm },
   saveBtn: { backgroundColor: colors.brand, paddingVertical: 16, borderRadius: radius.md, alignItems: "center", marginTop: spacing.sm },
