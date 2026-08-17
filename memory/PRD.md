@@ -884,3 +884,16 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
   - api.ts +bookingSettings +adminSettings +adminUpdateSettings +attendanceRoster.
 - Verified by testing_agent: backend 17/17 pytest (backend/tests/test_booking_settings_and_attendance.py — run with -p no:xdist), all frontend flows pass. cancel_window reset to 24 after tests. tsc clean.
 - Remaining backlog (P2/P3): Low Balance Nudge, Streak Reminders, Class Champion Badge, Admin Pass Report, Pass for Appointments, SMS on booking (Twilio), Booking push (Firebase).
+
+
+## Session update (Jun 2026 fork) — Account screen finalize + SEC-001 + Champion/Streak/Trial nudges (DONE)
+- Account screen (P0, was untested): CONFIRMED WORKING. Profile → Settings → "Password & account" → /account. Change Password validates (wrong current / weak / same-as-old / mismatch), updates bcrypt hash, bumps token_version (signs out other devices), returns fresh token to keep this session. Delete Account (DELETE /api/auth/account) wipes user data & logs out (admins blocked). Backend verified via curl (all validation paths + old-token 401 + new-token 200 + re-login). Frontend verified via screenshot (dark theme, renders clean).
+- SEC-001 (P1): Rotated both seeded admin passwords to strong random values (env backend/.env ADMIN_PASSWORD / ADMIN2_PASSWORD + DB password_hash updated via one-off rotate script, token_version bumped, sessions cleared). New creds in /app/memory/test_credentials.md. Old passwords now rejected (verified). Also hardened root .gitignore to ignore all .env files (they were untracked but had no ignore rule). Square token remains sandbox in backend/.env (untracked).
+- Class Champion Badge (P1): backend compute_champions() → #1 all-time confirmed-attendance member per discipline (excludes opted-out/test members + "Free Trial" classes), 5-min cache. Exposed in GET /api/auth/me as user.champion_disciplines[]. Frontend: gold "<DISCIPLINE> CHAMPION" trophy pill in profile badge row (one per discipline). Verified end-to-end via screenshot (BOXING CHAMPION shown). api.ts User type +champion_disciplines.
+- Streak Reminders (P1): send_streak_reminders() in reminder_loop (every 15 min). Fri–Sun QLD only; nudges members with a >=2-week attendance streak who haven't trained yet this week; one nudge/member/week (deduped via users.streak_reminder_week); respects reminder_hours==0 (reminders off). In-app + email via notify_user.
+- Trial expiry follow-up (P2): send_trial_followups() in reminder_loop. One-time nudge 6h–7d after a booked free-trial session that wasn't attended (deduped via bookings.trial_followup_sent). In-app + email.
+- Both loop jobs verified to execute without error (0 sent — no eligible data). Champion test data cleaned up.
+
+### Remaining backlog
+- P2: "Add to calendar" — extend Google + add Apple (.ics) calendar links to ALL booking confirmation emails (currently Google link only in mark_booking_paid / paid Square bookings).
+- P3: SMS on booking (Twilio creds needed), Booking push notifications (Firebase needed).

@@ -17,6 +17,7 @@ export type User = {
   membership_form_completed?: boolean;
   vigyr_signup_reported?: boolean;
   membership_active?: boolean;
+  champion_disciplines?: string[];
 };
 
 export async function getToken(): Promise<string | null> {
@@ -93,6 +94,8 @@ export const api = {
     req("/api/me/quiet-hours", { method: "PUT", body: JSON.stringify(payload) }),
   logout: () => req("/api/auth/logout", { method: "POST" }),
   deleteAccount: () => req("/api/auth/account", { method: "DELETE" }),
+  changePassword: (current_password: string, new_password: string) =>
+    req("/api/auth/change-password", { method: "POST", body: JSON.stringify({ current_password, new_password }) }),
   verifyOtp: (email: string, code: string) =>
     req("/api/auth/verify-otp", { method: "POST", body: JSON.stringify({ email, code }) }),
   resendOtp: (email: string) =>

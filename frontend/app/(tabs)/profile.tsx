@@ -127,6 +127,12 @@ export default function Profile() {
                 <Text style={styles.adminBadgeText}>ADMIN</Text>
               </View>
             )}
+            {(user?.champion_disciplines || []).map((disc) => (
+              <View key={disc} style={styles.championBadge}>
+                <Ionicons name="trophy" size={12} color="#1A1200" />
+                <Text style={styles.championBadgeText}>{disc.toUpperCase()} CHAMPION</Text>
+              </View>
+            ))}
           </View>
 
           <View style={styles.statsRow}>
@@ -370,6 +376,8 @@ const styles = StyleSheet.create({
   badgeRow: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.sm, flexWrap: "wrap", justifyContent: "center" },
   memberBadge: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#16A34A", paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
   memberBadgeText: { color: "#fff", fontSize: 10, fontWeight: "900", letterSpacing: 1 },
+  championBadge: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#FFC53D", paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
+  championBadgeText: { color: "#1A1200", fontSize: 10, fontWeight: "900", letterSpacing: 0.6 },
   statsRow: { flexDirection: "row", marginTop: spacing.xl, gap: spacing.md, alignSelf: "stretch" },
   creditBanner: { flexDirection: "row", alignItems: "center", gap: spacing.sm, alignSelf: "stretch", marginTop: spacing.md, backgroundColor: colors.brandTertiary, borderRadius: radius.md, paddingVertical: 12, paddingHorizontal: spacing.md },
   creditBannerText: { color: colors.brand, fontSize: 13, fontWeight: "800", flex: 1 },

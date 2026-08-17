@@ -191,6 +191,16 @@ export default function InboxSettings() {
               : "Quiet hours are off. Turn on to silence alerts during set hours."}
           </Text>
 
+          <Text style={[styles.section, { marginTop: spacing.lg }]}>ACCOUNT</Text>
+          <Pressable testID="settings-account" style={styles.linkCard} onPress={() => router.push("/account")}>
+            <View style={styles.iconWrap}><Ionicons name="lock-closed" size={20} color={colors.brand} /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.title}>Password & account</Text>
+              <Text style={styles.sub}>Change your password or delete your account.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.brand} />
+          </Pressable>
+
           <Text style={[styles.section, { marginTop: spacing.lg }]}>PRIVACY</Text>
           <Pressable testID="settings-blocked" style={styles.linkCard} onPress={() => router.push("/blocked")}>
             <View style={styles.iconWrap}><Ionicons name="ban" size={20} color={colors.brand} /></View>

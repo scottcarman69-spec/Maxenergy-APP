@@ -1132,7 +1132,14 @@ async def auth_me(u: dict = Depends(require_user)):
     await ensure_handle(u["user_id"], u.get("name"))
     await _touch(u["user_id"])
     u = await db.users.find_one({"user_id": u["user_id"]}, {"_id": 0, "password_hash": 0})
-    return {"user": user_public(u)}
+    pub = user_public(u)
+    try:
+        champions = await compute_champions()
+        pub["champion_disciplines"] = champions.get(u["user_id"], [])
+    except Exception as e:
+        log.warning(f"champion compute: {e}")
+        pub["champion_disciplines"] = []
+    return {"user": pub}
 
 
 class ReminderPrefReq(BaseModel):
@@ -1287,6 +1294,47 @@ async def attendance_leaderboard(period: str = "all", discipline: str = "all", u
     }
 
 
+_champions_cache: dict = {"ts": 0.0, "data": {}}
+
+
+async def compute_champions() -> dict:
+    """Return {user_id: [discipline, ...]} for the current #1 all-time attendee of each
+    discipline (confirmed attendance). Excludes opted-out/test members and trial classes.
+    Cached ~5 minutes to keep it cheap on the hot /auth/me path."""
+    now_ts = time.monotonic()
+    if _champions_cache["data"] and (now_ts - _champions_cache["ts"] < 300):
+        return _champions_cache["data"]
+    rows = await db.bookings.aggregate([
+        {"$match": {"attended": True, "class_name": {"$ne": None}}},
+        {"$group": {"_id": {"cls": "$class_name", "uid": "$user_id"}, "count": {"$sum": 1}}},
+    ]).to_list(40000)
+    uids = {r["_id"].get("uid") for r in rows if r["_id"].get("uid")}
+    users = {}
+    if uids:
+        users = {us["user_id"]: us for us in await db.users.find(
+            {"user_id": {"$in": list(uids)}},
+            {"_id": 0, "user_id": 1, "first_name": 1, "last_name": 1, "name": 1, "leaderboard_opt_out": 1, "is_test": 1},
+        ).to_list(40000)}
+    by_disc: dict = {}
+    for r in rows:
+        cls = r["_id"].get("cls"); uid = r["_id"].get("uid")
+        if not cls or not uid or uid not in users:
+            continue
+        if str(cls).startswith("Free Trial"):
+            continue
+        if users[uid].get("leaderboard_opt_out") or users[uid].get("is_test"):
+            continue
+        by_disc.setdefault(cls, []).append({"uid": uid, "count": int(r["count"]), "u": users[uid]})
+    champions: dict = {}
+    for cls, parts in by_disc.items():
+        parts.sort(key=lambda x: (-x["count"], _leaderboard_name(x["u"]).lower()))
+        if parts and parts[0]["count"] > 0:
+            champions.setdefault(parts[0]["uid"], []).append(cls)
+    _champions_cache["ts"] = now_ts
+    _champions_cache["data"] = champions
+    return champions
+
+
 async def _msg_notifs_on(user_id: str) -> bool:
     """Whether a member wants message notifications (default on)."""
     doc = await db.users.find_one({"user_id": user_id}, {"_id": 0, "message_notifications": 1})
@@ -1333,6 +1381,32 @@ async def set_quiet_hours(body: QuietHoursReq, u: dict = Depends(require_user)):
     qh = {"enabled": bool(body.enabled), "start": body.start, "end": body.end}
     await db.users.update_one({"user_id": u["user_id"]}, {"$set": {"quiet_hours": qh}})
     return {"ok": True, "quiet_hours": qh}
+
+
+
+class ChangePasswordReq(BaseModel):
+    current_password: str
+    new_password: str
+
+
+@api.post("/auth/change-password")
+async def auth_change_password(body: ChangePasswordReq, u: dict = Depends(require_user)):
+    full = await db.users.find_one({"user_id": u["user_id"]})
+    if not full or not full.get("password_hash"):
+        raise HTTPException(400, "This account can't change password here.")
+    if not check_pw(body.current_password, full["password_hash"]):
+        raise HTTPException(400, "Your current password is incorrect.")
+    validate_password_strength(body.new_password)
+    if check_pw(body.new_password, full["password_hash"]):
+        raise HTTPException(400, "Your new password must be different from your current one.")
+    new_ver = int(full.get("token_version", 0) or 0) + 1
+    await db.users.update_one(
+        {"user_id": u["user_id"]},
+        {"$set": {"password_hash": hash_pw(body.new_password), "token_version": new_ver}},
+    )
+    # Log out other devices; keep this session by returning a fresh token.
+    await db.user_sessions.delete_many({"user_id": u["user_id"]})
+    return {"ok": True, "token": make_jwt(u["user_id"], new_ver)}
 
 
 
@@ -6126,6 +6200,118 @@ async def send_due_reminders() -> int:
     return sent
 
 
+async def send_streak_reminders() -> int:
+    """Nudge members whose weekly attendance streak (>=2 weeks) is at risk: it's the back
+    end of the QLD week (Fri-Sun) and they haven't attended a class yet this week.
+    One nudge per member per week (deduped via `streak_reminder_week`)."""
+    EPOCH_MON = datetime(1970, 1, 5)  # a Monday
+    local_now = qld_now_naive()
+    # Only nudge Fri(4), Sat(5), Sun(6) so there's still time to book this week.
+    if local_now.weekday() < 4:
+        return 0
+    cur_week = (local_now.date() - EPOCH_MON.date()).days // 7
+    docs = await db.bookings.find(
+        {"attended": True, "checked_in_at": {"$ne": None}},
+        {"_id": 0, "user_id": 1, "checked_in_at": 1},
+    ).to_list(40000)
+
+    def week_idx(dt: datetime) -> int:
+        local = (dt.replace(tzinfo=None) + timedelta(hours=10)) if dt.tzinfo is None else (dt.astimezone(timezone.utc).replace(tzinfo=None) + timedelta(hours=10))
+        return (local.date() - EPOCH_MON.date()).days // 7
+
+    weeks_by_user: dict = {}
+    for d in docs:
+        ci = d.get("checked_in_at")
+        if isinstance(ci, datetime):
+            weeks_by_user.setdefault(d["user_id"], set()).add(week_idx(ci))
+
+    def streak_upto(weeks_set: set, upto: int) -> int:
+        if upto not in weeks_set:
+            return 0
+        s, w = 1, upto
+        while (w - 1) in weeks_set:
+            s += 1; w -= 1
+        return s
+
+    sent = 0
+    for uid, weeks in weeks_by_user.items():
+        if cur_week in weeks:
+            continue  # already trained this week — streak is safe
+        prev_streak = streak_upto(weeks, cur_week - 1)
+        if prev_streak < 2:
+            continue
+        member = await db.users.find_one({"user_id": uid}, {"_id": 0})
+        if not member:
+            continue
+        if int(member.get("reminder_hours", 3)) == 0:
+            continue  # member turned reminders off
+        if member.get("streak_reminder_week") == cur_week:
+            continue  # already nudged this week
+        await notify_user(
+            uid, member.get("email"),
+            f"Keep your {prev_streak}-week streak alive! \U0001F525",
+            f"You've trained {prev_streak} weeks in a row — don't break the chain! Book a class before Sunday night to keep your streak going.",
+            "streak",
+            email_lines=[
+                f"You're on a <b>{prev_streak}-week training streak</b> \U0001F525 — one of the best ways to see real results.",
+                "You haven't logged a class yet this week, and the week's nearly over.",
+                "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
+                "Jump into the app and book a session before Sunday night to keep your streak alive.",
+                "See you on the mats! \U0001F94A",
+            ],
+            data={"nav": "leaderboard"},
+        )
+        await db.users.update_one({"user_id": uid}, {"$set": {"streak_reminder_week": cur_week}})
+        sent += 1
+    if sent:
+        log.info(f"sent {sent} streak reminder(s)")
+    return sent
+
+
+async def send_trial_followups() -> int:
+    """One-time nudge to members who booked a free trial but didn't turn up, sent a few
+    hours after their trial session (deduped via `trial_followup_sent`)."""
+    now = now_utc()
+    QLD = timedelta(hours=10)
+    recent_cutoff = now - timedelta(hours=6)   # session finished a few hours ago
+    old_cutoff = now - timedelta(days=7)         # don't nag about very old no-shows
+    trials = await db.bookings.find(
+        {"is_trial": True, "attended": {"$ne": True}, "trial_followup_sent": {"$ne": True},
+         "status": {"$ne": "cancelled"}},
+        {"_id": 0},
+    ).to_list(2000)
+    sent = 0
+    for b in trials:
+        start = b.get("class_start")
+        if not isinstance(start, datetime):
+            continue
+        s_local = start.replace(tzinfo=None) if start.tzinfo else start
+        start_utc = (s_local - QLD).replace(tzinfo=timezone.utc)
+        if not (old_cutoff <= start_utc <= recent_cutoff):
+            continue
+        member = await db.users.find_one({"user_id": b["user_id"]}, {"_id": 0})
+        if not member:
+            continue
+        await notify_user(
+            b["user_id"], member.get("email"),
+            "We missed you at your free trial \U0001F94A",
+            "Looks like you couldn't make your free trial class — no worries! We'd still love to see you. Open the app any time to book a Muay Thai session.",
+            "trial",
+            email_lines=[
+                "We noticed you couldn't make it to your free trial class — no worries at all!",
+                "Your spot on the mats is still waiting for you whenever you're ready.",
+                "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
+                "Open the Max Energy app to pick a new Muay Thai session that suits you.",
+                "Hope to see you soon! \U0001F94A",
+            ],
+        )
+        await db.bookings.update_one({"booking_id": b["booking_id"]}, {"$set": {"trial_followup_sent": True}})
+        sent += 1
+    if sent:
+        log.info(f"sent {sent} trial follow-up(s)")
+    return sent
+
+
 async def reminder_loop():
     # Small initial delay so startup/seed completes first
     await asyncio.sleep(20)
@@ -6134,6 +6320,14 @@ async def reminder_loop():
             await send_due_reminders()
         except Exception as e:
             log.error(f"reminder loop error: {e}")
+        try:
+            await send_streak_reminders()
+        except Exception as e:
+            log.error(f"streak reminder error: {e}")
+        try:
+            await send_trial_followups()
+        except Exception as e:
+            log.error(f"trial follow-up error: {e}")
         await asyncio.sleep(900)  # every 15 minutes for timely reminders
 
 
