@@ -945,6 +945,7 @@ class BookingCreate(BaseModel):
     cal_reminder_minutes: Optional[int] = None  # calendar alarm lead time: 60 (1h) or 1440 (1 day)
     child_age: Optional[int] = None          # age of the child attending (Kids classes)
     child_name: Optional[str] = None         # name of the child attending (Kids classes)
+    child_id: Optional[str] = None           # saved child's id (Kids classes; enables per-child dedupe)
 
 
 class CheckoutCreate(BaseModel):
@@ -1945,18 +1946,26 @@ async def booking_create(body: BookingCreate, u: dict = Depends(require_user)):
     min_age = cls.get("min_age")
     if isinstance(min_age, int) and isinstance(body.child_age, int) and body.child_age < min_age:
         raise HTTPException(400, f"Sorry, {cls['name']} is for ages {min_age} and over. Children under {min_age} can't be booked into this class.")
-    # One active booking per member per fixed class instance. Covers card, credit AND
-    # class-pass bookings (any of paid/pending/confirmed/reschedule_requested). Appointments
-    # are excluded — a member may book several PT/program sessions at different times.
+    # One active booking per fixed class instance. For age-gated Kids classes a parent
+    # may book MULTIPLE children into the SAME class — so the uniqueness key becomes
+    # (member + class + child). Each child can only be booked ONCE per class. For all
+    # other (non-child) classes the rule stays one booking per member per class.
+    # Class-pass bookings count too (paid/pending/confirmed/reschedule_requested).
+    # Appointments are excluded — a member may book several PT/program sessions.
     if not cls.get("by_appointment"):
-        existing = await db.bookings.find_one(
-            {"user_id": u["user_id"], "class_id": body.class_id,
-             "status": {"$in": ["paid", "pending", "confirmed", "reschedule_requested"]}},
-            {"_id": 0},
-        )
+        dupe_q = {
+            "user_id": u["user_id"], "class_id": body.class_id,
+            "status": {"$in": ["paid", "pending", "confirmed", "reschedule_requested"]},
+        }
+        if body.child_id:
+            dupe_q["child_id"] = body.child_id
+        existing = await db.bookings.find_one(dupe_q, {"_id": 0})
         if existing:
             if existing.get("status") == "pending":
                 return {"booking": existing}  # resume an unfinished (unpaid) booking
+            if body.child_id:
+                who = (body.child_name or "This child").strip() or "This child"
+                raise HTTPException(409, f"{who} is already booked into this class.")
             raise HTTPException(409, "You've already booked this class.")
     booking_id = new_id("bk")
     is_appt = bool(cls.get("by_appointment"))
@@ -2008,6 +2017,7 @@ async def booking_create(body: BookingCreate, u: dict = Depends(require_user)):
         "cal_reminder_minutes": 1440 if int(body.cal_reminder_minutes or u.get("cal_reminder_default") or 60) == 1440 else 60,
         "child_age": (int(body.child_age) if isinstance(body.child_age, int) or (isinstance(body.child_age, str) and str(body.child_age).isdigit()) else None),
         "child_name": ((body.child_name or "").strip()[:40] or None),
+        "child_id": (body.child_id or None),
         "status": "pending",
         "created_at": now_utc(),
     }

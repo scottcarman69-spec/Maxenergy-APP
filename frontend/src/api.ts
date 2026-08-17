@@ -127,8 +127,8 @@ export const api = {
     return req(`/api/classes${qs ? `?${qs}` : ""}`);
   },
   classDetail: (id: string) => req(`/api/classes/${id}`),
-  createBooking: (class_id: string, requested_time?: string, requested_at?: string, duration_min?: number, cal_reminder_minutes?: number, child_age?: number, child_name?: string) =>
-    req("/api/bookings", { method: "POST", body: JSON.stringify({ class_id, requested_time, requested_at, duration_min, cal_reminder_minutes, child_age, child_name }) }),
+  createBooking: (class_id: string, requested_time?: string, requested_at?: string, duration_min?: number, cal_reminder_minutes?: number, child_age?: number, child_name?: string, child_id?: string) =>
+    req("/api/bookings", { method: "POST", body: JSON.stringify({ class_id, requested_time, requested_at, duration_min, cal_reminder_minutes, child_age, child_name, child_id }) }),
   myChildren: (): Promise<{ children: Child[] }> => req("/api/me/children"),
   addChild: (name: string, age: number): Promise<{ children: Child[] }> => req("/api/me/children", { method: "POST", body: JSON.stringify({ name, age }) }),
   updateChild: (childId: string, name: string, age: number): Promise<{ children: Child[] }> => req(`/api/me/children/${childId}`, { method: "PUT", body: JSON.stringify({ name, age }) }),

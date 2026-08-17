@@ -69,7 +69,10 @@ export default function ClassDetail() {
   const [pickerErr, setPickerErr] = useState<string | null>(null);
   // Holds the chosen child so proceedBooking always reads the committed value
   // (React state updates are async and would be stale in the same tick).
-  const childRef = useRef<{ name: string; age: number | null }>({ name: "", age: null });
+  const childRef = useRef<{ name: string; age: number | null; child_id?: string }>({ name: "", age: null });
+  // child_ids (and name|age fallbacks) already booked into THIS class — so a parent
+  // can't book the same child twice; they're shown disabled in the picker.
+  const [bookedChildKeys, setBookedChildKeys] = useState<Set<string>>(new Set());
 
   const toggleWaitlist = async () => {
     if (!cls || wlBusy) return;
@@ -108,6 +111,18 @@ export default function ClassDetail() {
       const w = await api.waitlistsMe();
       setOnWaitlist((w.class_ids || []).includes(id));
     } catch {}
+    // Which of my children are ALREADY booked into this class (can't book twice).
+    try {
+      const mb = await api.myBookings();
+      const keys = new Set<string>();
+      for (const b of (mb.bookings || []) as any[]) {
+        if (b.class_id === id && ["paid", "pending", "confirmed", "reschedule_requested"].includes(b.status)) {
+          if (b.child_id) keys.add(`id:${b.child_id}`);
+          if (b.child_name) keys.add(`na:${b.child_name}|${b.child_age ?? ""}`);
+        }
+      }
+      setBookedChildKeys(keys);
+    } catch {}
     setLoading(false);
   }, [id]);
 
@@ -119,7 +134,7 @@ export default function ClassDetail() {
     setBusy(true);
     setMsg(null);
     try {
-      const { booking } = await api.createBooking(cls.class_id, requestedTime, requestedAt, durationMin, calReminder, childRef.current.age ?? undefined, childRef.current.name || undefined);
+      const { booking } = await api.createBooking(cls.class_id, requestedTime, requestedAt, durationMin, calReminder, childRef.current.age ?? undefined, childRef.current.name || undefined, childRef.current.child_id);
 
       if (booking.status === "paid") {
         setMsg("Already booked. See you there!");
@@ -208,8 +223,9 @@ export default function ClassDetail() {
         .then((r) => setTakenSlots(new Set(r.taken || [])))
         .catch(() => {});
       setApptOpen(true);
-    } else if (!!cls?.min_age && !!cls?.max_age && childAgeNum === null) {
-      // Kids class: pick which saved child is attending (or add a new one) before continuing.
+    } else if (!!cls?.min_age && !!cls?.max_age) {
+      // Kids class: always pick which child is attending (so a parent can book more
+      // than one child into the same class). The same child is blocked in the picker.
       const kids = user?.children || [];
       setPickerErr(null);
       setAddOpen(kids.length === 0);
@@ -222,8 +238,8 @@ export default function ClassDetail() {
     }
   };
 
-  const selectChild = (name: string, age: number) => {
-    childRef.current = { name, age };
+  const selectChild = (name: string, age: number, child_id?: string) => {
+    childRef.current = { name, age, child_id };
     setChildName(name);
     setChildAgeNum(age);
     setPickerOpen(false);
@@ -241,9 +257,11 @@ export default function ClassDetail() {
     }
     setSavingChild(true); setPickerErr(null);
     try {
-      await api.addChild(n, a);
+      const r = await api.addChild(n, a);
       await refresh();
-      selectChild(n, a);
+      // Grab the id of the child we just added so the booking dedupes per-child.
+      const added = (r.children || []).filter((c) => c.name === n && c.age === a).pop();
+      selectChild(n, a, added?.child_id);
     } catch (e: any) {
       setPickerErr(e?.message || "Couldn't save the child. Please try again.");
     }
@@ -643,22 +661,24 @@ export default function ClassDetail() {
                 {(user?.children || []).map((c) => {
                   const tooYoung = !!cls?.min_age && c.age < cls.min_age;
                   const tooOld = !!cls?.max_age && c.age > cls.max_age;
+                  const alreadyBooked = bookedChildKeys.has(`id:${c.child_id}`) || bookedChildKeys.has(`na:${c.name}|${c.age}`);
+                  const disabled = tooYoung || alreadyBooked;
                   return (
                     <Pressable
                       key={c.child_id}
                       testID={`pick-child-${c.child_id}`}
-                      disabled={tooYoung}
-                      onPress={() => selectChild(c.name, c.age)}
-                      style={[styles.childRow, tooYoung && styles.childRowDisabled]}
+                      disabled={disabled}
+                      onPress={() => selectChild(c.name, c.age, c.child_id)}
+                      style={[styles.childRow, disabled && styles.childRowDisabled]}
                     >
                       <View style={styles.childAvatar}><Text style={styles.childAvatarText}>{c.name.slice(0, 1).toUpperCase()}</Text></View>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.childName}>{c.name}</Text>
-                        <Text style={[styles.childAge, tooYoung && { color: colors.error }, tooOld && !tooYoung && { color: colors.warning }]}>
-                          {c.age} years{tooYoung ? ` · too young (ages ${cls?.min_age}+)` : tooOld ? " · above usual age range" : ""}
+                        <Text style={[styles.childAge, tooYoung && { color: colors.error }, tooOld && !tooYoung && { color: colors.warning }, alreadyBooked && !tooYoung && { color: colors.success }]}>
+                          {c.age} years{alreadyBooked ? " · already booked in this class" : tooYoung ? ` · too young (ages ${cls?.min_age}+)` : tooOld ? " · above usual age range" : ""}
                         </Text>
                       </View>
-                      {!tooYoung && <Ionicons name="chevron-forward" size={18} color={colors.brand} />}
+                      {alreadyBooked ? <Ionicons name="checkmark-circle" size={18} color={colors.success} /> : !tooYoung && <Ionicons name="chevron-forward" size={18} color={colors.brand} />}
                     </Pressable>
                   );
                 })}
