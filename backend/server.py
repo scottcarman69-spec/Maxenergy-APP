@@ -234,6 +234,7 @@ def user_public(u: dict) -> dict:
         "reminder_hours": int(u.get("reminder_hours", 3)),
         "cal_reminder_default": int(u.get("cal_reminder_default", 60)),
         "quick_actions_order": u.get("quick_actions_order") or [],
+        "child_age_default": u.get("child_age_default"),
         "message_notifications": bool(u.get("message_notifications", True)),
         "leaderboard_opt_out": bool(u.get("leaderboard_opt_out", False)),
         "quiet_hours": u.get("quiet_hours") or {"enabled": False, "start": "22:00", "end": "07:00"},
@@ -1956,6 +1957,9 @@ async def booking_create(body: BookingCreate, u: dict = Depends(require_user)):
         doc["requested_at"] = body.requested_at
     await db.bookings.insert_one(doc)
     doc.pop("_id", None)
+    # Remember the child's age on the parent's profile so they don't re-enter it.
+    if isinstance(doc.get("child_age"), int):
+        await db.users.update_one({"user_id": u["user_id"]}, {"$set": {"child_age_default": doc["child_age"]}})
     if is_appt:
         member_name = u.get("name") or u.get("email")
         pref = body.requested_time or "a time to be confirmed"
@@ -3794,6 +3798,7 @@ async def payment_receipt(booking_id: str, u: dict = Depends(require_user)):
         "member_name": u.get("name") or u.get("email"),
         "member_email": u.get("email"),
         "location": GYM_INFO["address"],
+        "child_age": b.get("child_age"),
     }
 
 

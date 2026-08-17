@@ -24,6 +24,7 @@ type Booking = {
   reference?: string;
   created_at?: string;
   attended?: boolean;
+  child_age?: number;
   checked_in_method?: string;
   checked_in_by?: string;
   checked_in_at?: string;
@@ -218,6 +219,12 @@ export default function AdminBookings() {
                           <View style={styles.paidChip}>
                             <Ionicons name="checkmark-circle" size={12} color="#fff" />
                             <Text style={styles.paidChipText}>Paid by {b.paid_via ? (PAID_VIA_LABEL[b.paid_via] || "Card") : "Card"}</Text>
+                          </View>
+                        )}
+                        {typeof b.child_age === "number" && (
+                          <View style={styles.ageChip}>
+                            <Ionicons name="body" size={11} color={colors.brand} />
+                            <Text style={styles.ageChipText}>Age {b.child_age}</Text>
                           </View>
                         )}
                       </View>
@@ -427,6 +434,8 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 6, marginTop: 5 },
   metaChip: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "700" },
   refChip: { color: colors.brand, fontSize: 11, fontWeight: "900", letterSpacing: 0.3 },
+  ageChip: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: colors.brandTertiary, paddingHorizontal: 7, paddingVertical: 2, borderRadius: radius.pill },
+  ageChipText: { color: colors.brand, fontSize: 11, fontWeight: "800" },
   squareRef: { color: colors.onSurfaceSecondary, fontSize: 10.5, fontWeight: "700", marginTop: 3 },
   paidChip: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: colors.success, borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 2 },
   paidChipText: { color: "#fff", fontSize: 9.5, fontWeight: "900", letterSpacing: 0.3 },

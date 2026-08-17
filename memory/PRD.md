@@ -954,3 +954,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Admin class editor (app/admin/classes.tsx) now has an "Age requirement (optional)" section: Min age + Max age inputs (populate on edit, blank = none). Helper text explains: both set (8-16) => age badge + child-age prompt at booking + under-min hard block; only Min (16) => simple "16+" note; blank => no limit.
 - Backend ClassUpsert +min_age/+max_age; admin_class_create & admin_class_update set them (null clears). Verified via admin API: create with 10-14, update to clear max (12+), delete.
 - Flows into existing member-side logic (timetable badge, class detail banner, booking age prompt/under-min block) already built. tsc clean; admin editor screenshot verified.
+
+## Session update (Jun 2026 fork) — Age on receipt + Remember child age (DONE)
+- Age on receipt: GET /api/payments/receipt/{id} now returns child_age; receipt screen shows "Child's age: N years" row + in the PDF/share HTML. Admin bookings list (already returns full docs incl child_age) now shows an "Age N" chip on the booking card.
+- Remember child: booking_create saves child_age to user.child_age_default; exposed in user_public. The Kids age modal (class/[id].tsx) pre-fills from user.child_age_default so parents don't re-enter it each time.
+- Verified end-to-end via API: booking with child_age=11 -> profile child_age_default=11, receipt child_age=11, admin list child_age=11. tsc clean.
+- LOGIN NOTE: user reported "Invalid credentials" — root cause was the earlier SEC-001 admin password rotation (old admin password no longer valid). Confirmed login system healthy (valid creds return 200). User confirmed working after using rotated password for info@maxenergy.com.au. Current admin creds in /app/memory/test_credentials.md.

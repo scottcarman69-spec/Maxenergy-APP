@@ -15,6 +15,7 @@ export type User = {
   reminder_hours?: number;
   cal_reminder_default?: number;
   quick_actions_order?: string[];
+  child_age_default?: number;
   credit_cents?: number;
   membership_form_completed?: boolean;
   vigyr_signup_reported?: boolean;

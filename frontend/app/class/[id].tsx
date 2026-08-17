@@ -201,8 +201,8 @@ export default function ClassDetail() {
         .catch(() => {});
       setApptOpen(true);
     } else if (!!cls?.min_age && !!cls?.max_age && childAgeNum === null) {
-      // Kids class: ask the child's age once before continuing.
-      setChildAge("");
+      // Kids class: ask the child's age once before continuing (pre-fill remembered age).
+      setChildAge(user?.child_age_default ? String(user.child_age_default) : "");
       setMsg(null);
       setAgeModalOpen(true);
     } else {
