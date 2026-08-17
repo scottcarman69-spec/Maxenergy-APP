@@ -410,9 +410,11 @@ export default function ClassDetail() {
               <Text style={styles.metaVal}>
                 {cls.by_appointment
                   ? "1-on-1"
-                  : typeof cls.spots_left === "number"
-                    ? cls.spots_left === 0 ? "Class full" : `${cls.spots_left} of ${cls.capacity} left`
-                    : `${cls.capacity} max`}
+                  : cls.capacity >= 500
+                    ? "Open class"
+                    : typeof cls.spots_left === "number"
+                      ? cls.spots_left === 0 ? "Class full" : `${cls.spots_left} of ${cls.capacity} left`
+                      : `${cls.capacity} max`}
               </Text>
             </View>
           </View>

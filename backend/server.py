@@ -6415,7 +6415,7 @@ async def seed_data():
                             "program": program,
                             "color": "#FF7A00",
                             "start_at": date + timedelta(hours=hour),
-                            "capacity": 20,
+                            "capacity": 999 if name == "Boot Camp" else 16,
                             "by_appointment": False,
                             "min_age": 8 if (name == "Muay Thai" and category == "Kids") else 16,
                             "max_age": 16 if (name == "Muay Thai" and category == "Kids") else None,
@@ -6506,6 +6506,22 @@ async def seed_data():
 
     await db.meta.update_one({"key": "seed_version"}, {"$set": {"value": SEED_VERSION}}, upsert=True)
     log.info(f"seed check complete -> {SEED_VERSION}")
+
+    # One-time capacity policy: max 16 spots for Kids/Adults/Muay Thai/Kickboxing
+    # (any non-appointment class); Boot Camp is effectively unlimited. Runs once
+    # (guarded by a meta flag) so it never overrides later admin capacity edits.
+    cap_flag = await db.meta.find_one({"key": "capacity_policy_v1"})
+    if not cap_flag:
+        r1 = await db.classes.update_many(
+            {"by_appointment": {"$ne": True}, "name": {"$ne": "Boot Camp"}, "capacity": {"$gt": 16}},
+            {"$set": {"capacity": 16}},
+        )
+        r2 = await db.classes.update_many(
+            {"by_appointment": {"$ne": True}, "name": "Boot Camp"},
+            {"$set": {"capacity": 999}},
+        )
+        await db.meta.update_one({"key": "capacity_policy_v1"}, {"$set": {"value": True}}, upsert=True)
+        log.info(f"capacity policy applied -> {r1.modified_count} capped to 16, {r2.modified_count} boot camp unlimited")
 
 
 async def seed_official_groups():
