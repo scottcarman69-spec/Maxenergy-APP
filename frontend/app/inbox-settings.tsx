@@ -190,6 +190,24 @@ export default function InboxSettings() {
               ? `Notifications are muted from ${fmt12(qhStart)} to ${fmt12(qhEnd)} (Queensland time). They'll still be waiting in your Inbox.`
               : "Quiet hours are off. Turn on to silence alerts during set hours."}
           </Text>
+
+          <Text style={[styles.section, { marginTop: spacing.lg }]}>PRIVACY</Text>
+          <Pressable testID="settings-blocked" style={styles.linkCard} onPress={() => router.push("/blocked")}>
+            <View style={styles.iconWrap}><Ionicons name="ban" size={20} color={colors.brand} /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.title}>Blocked members</Text>
+              <Text style={styles.sub}>Members you have blocked — view and unblock them.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.brand} />
+          </Pressable>
+          <Pressable testID="settings-privacy" style={styles.linkCard} onPress={() => router.push("/privacy")}>
+            <View style={styles.iconWrap}><Ionicons name="document-text" size={20} color={colors.brand} /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.title}>Privacy Policy</Text>
+              <Text style={styles.sub}>How we handle and protect your data.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.brand} />
+          </Pressable>
         </ScrollView>
       )}
 

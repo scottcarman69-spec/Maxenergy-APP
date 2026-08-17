@@ -199,6 +199,7 @@ export const api = {
   searchMembers: (q: string) => req(`/api/members/search?q=${encodeURIComponent(q)}`),
   friendRequest: (payload: { user_id?: string; handle?: string }) => req("/api/friends/request", { method: "POST", body: JSON.stringify(payload) }),
   friends: () => req("/api/friends"),
+  friendsBlocked: () => req("/api/friends/blocked"),
   friendRespond: (user_id: string, accept: boolean) => req("/api/friends/respond", { method: "POST", body: JSON.stringify({ user_id, accept }) }),
   friendBlock: (user_id: string) => req("/api/friends/block", { method: "POST", body: JSON.stringify({ user_id }) }),
   friendUnblock: (user_id: string) => req("/api/friends/unblock", { method: "POST", body: JSON.stringify({ user_id }) }),

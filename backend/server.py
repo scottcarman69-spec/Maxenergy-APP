@@ -2475,6 +2475,24 @@ async def friend_block(body: BlockReq, u: dict = Depends(require_user)):
     return {"ok": True}
 
 
+@api.get("/friends/blocked")
+async def friends_blocked(u: dict = Depends(require_user)):
+    rows = await db.blocks.find({"blocker_id": u["user_id"]}, {"_id": 0, "blocked_id": 1, "created_at": 1}).to_list(500)
+    uids = [r["blocked_id"] for r in rows]
+    users = await db.users.find({"user_id": {"$in": uids}}, {"_id": 0, "user_id": 1, "name": 1, "handle": 1, "avatar_url": 1}).to_list(500)
+    umap = {x["user_id"]: x for x in users}
+    out = []
+    for r in rows:
+        m = umap.get(r["blocked_id"], {})
+        out.append({
+            "user_id": r["blocked_id"],
+            "name": m.get("name") or "Member",
+            "handle": m.get("handle"),
+            "avatar_url": m.get("avatar_url"),
+        })
+    return {"blocked": out}
+
+
 @api.post("/friends/unblock")
 async def friend_unblock(body: BlockReq, u: dict = Depends(require_user)):
     await db.blocks.delete_one({"blocker_id": u["user_id"], "blocked_id": body.user_id})
