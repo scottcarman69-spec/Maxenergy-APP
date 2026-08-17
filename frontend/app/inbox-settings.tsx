@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from "react";
 import { View, Text, StyleSheet, Switch, ActivityIndicator, ScrollView, Pressable, Modal } from "react-native";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
@@ -17,6 +17,7 @@ function fmt12(hm: string): string {
 }
 
 export default function InboxSettings() {
+  const router = useRouter();
   const [enabled, setEnabled] = useState(true);
   const [remHours, setRemHours] = useState(3);
   const [qhEnabled, setQhEnabled] = useState(false);
@@ -76,6 +77,15 @@ export default function InboxSettings() {
         <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />
       ) : (
         <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}>
+          <Pressable testID="settings-view-notifications" style={styles.linkCard} onPress={() => router.push("/notifications")}>
+            <View style={styles.iconWrap}><Ionicons name="notifications" size={20} color={colors.brand} /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.title}>My notifications</Text>
+              <Text style={styles.sub}>View all your alerts, messages and reminders.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.brand} />
+          </Pressable>
+
           <Text style={styles.section}>NOTIFICATIONS</Text>
           <View style={styles.card}>
             <View style={styles.iconWrap}><Ionicons name="chatbubbles" size={20} color={colors.brand} /></View>
@@ -210,6 +220,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   section: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "900", letterSpacing: 1.5 },
   card: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md },
+  linkCard: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.brand, borderRadius: radius.lg, padding: spacing.md },
   iconWrap: { width: 42, height: 42, borderRadius: radius.sm, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center" },
   title: { color: colors.onSurface, fontSize: 15.5, fontWeight: "800" },
   sub: { color: colors.onSurfaceSecondary, fontSize: 12.5, marginTop: 2 },
