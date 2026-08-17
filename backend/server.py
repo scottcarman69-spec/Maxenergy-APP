@@ -1953,6 +1953,12 @@ async def booking_cancel(booking_id: str, u: dict = Depends(require_user)):
         email_lines=[f"<b>{esc(member_name)}</b> cancelled their <b>{esc(b['class_name'])}</b> booking."],
     )
     b = await db.bookings.find_one({"booking_id": booking_id}, {"_id": 0})
+    # A spot just freed up on a fixed class — offer it to the next member on the waitlist.
+    if b and b.get("class_id") and not b.get("by_appointment"):
+        try:
+            await notify_waitlist_spot(b["class_id"])
+        except Exception as e:
+            log.error(f"waitlist notify failed for {b.get('class_id')}: {e}")
     return {"booking": b}
 
 
@@ -4282,6 +4288,89 @@ async def my_applications(u: dict = Depends(require_user)):
         {"user_id": u["user_id"]}, {"_id": 0, "pdf_base64": 0}
     ).sort("created_at", -1).to_list(50)
     return {"applications": rows}
+
+
+# -------------------- class waitlist --------------------
+WAITLIST_ACTIVE_BOOKING = ["paid", "pending", "confirmed", "reschedule_requested"]
+
+
+async def _class_is_full(cls: dict) -> bool:
+    cap = int(cls.get("capacity") or 0)
+    if cap <= 0:
+        return False
+    booked = await db.bookings.count_documents(
+        {"class_id": cls["class_id"], "status": {"$in": WAITLIST_ACTIVE_BOOKING}}
+    )
+    return booked >= cap
+
+
+@api.get("/waitlists/me")
+async def waitlists_me(u: dict = Depends(require_user)):
+    rows = await db.waitlists.find(
+        {"user_id": u["user_id"], "status": "waiting"}, {"_id": 0, "class_id": 1}
+    ).to_list(200)
+    return {"class_ids": [r["class_id"] for r in rows]}
+
+
+@api.post("/classes/{class_id}/waitlist")
+async def waitlist_join(class_id: str, u: dict = Depends(require_user)):
+    cls = await db.classes.find_one({"class_id": class_id}, {"_id": 0})
+    if not cls or cls.get("by_appointment"):
+        raise HTTPException(404, "Class not found.")
+    # already booked?
+    booked = await db.bookings.find_one(
+        {"user_id": u["user_id"], "class_id": class_id, "status": {"$in": WAITLIST_ACTIVE_BOOKING}}, {"_id": 0}
+    )
+    if booked:
+        raise HTTPException(409, "You're already booked into this class.")
+    if not await _class_is_full(cls):
+        raise HTTPException(409, "This class still has spots — you can book it now.")
+    existing = await db.waitlists.find_one({"class_id": class_id, "user_id": u["user_id"], "status": "waiting"}, {"_id": 0})
+    if existing:
+        pos = await db.waitlists.count_documents({"class_id": class_id, "status": "waiting", "created_at": {"$lte": existing["created_at"]}})
+        return {"ok": True, "position": pos, "already": True}
+    doc = {"waitlist_id": new_id("wl"), "class_id": class_id, "user_id": u["user_id"], "status": "waiting", "created_at": now_utc()}
+    await db.waitlists.insert_one(doc)
+    pos = await db.waitlists.count_documents({"class_id": class_id, "status": "waiting"})
+    await create_notification(
+        u["user_id"], "You're on the waitlist",
+        f"You're #{pos} on the waitlist for {cls['name']}. We'll let you know if a spot opens.", "booking",
+    )
+    return {"ok": True, "position": pos}
+
+
+@api.delete("/classes/{class_id}/waitlist")
+async def waitlist_leave(class_id: str, u: dict = Depends(require_user)):
+    await db.waitlists.delete_many({"class_id": class_id, "user_id": u["user_id"], "status": "waiting"})
+    return {"ok": True}
+
+
+async def notify_waitlist_spot(class_id: str):
+    """A spot opened on a fixed class — tell the next member waiting (in-app + email)."""
+    cls = await db.classes.find_one({"class_id": class_id}, {"_id": 0})
+    if not cls or cls.get("by_appointment"):
+        return
+    if await _class_is_full(cls):
+        return  # still full (e.g. multiple active bookings) — nothing to offer
+    nxt = await db.waitlists.find_one({"class_id": class_id, "status": "waiting"}, {"_id": 0}, sort=[("created_at", 1)])
+    if not nxt:
+        return
+    await db.waitlists.update_one({"waitlist_id": nxt["waitlist_id"]}, {"$set": {"status": "notified", "notified_at": now_utc()}})
+    member = await db.users.find_one({"user_id": nxt["user_id"]}, {"_id": 0})
+    when = ""
+    st = cls.get("start_at")
+    if isinstance(st, datetime):
+        when = st.strftime("%A %d %B at %-I:%M %p")
+    await notify_user(
+        nxt["user_id"], (member or {}).get("email"),
+        "A spot just opened! 🎉",
+        f"A place opened up in {cls['name']}{(' on ' + when) if when else ''}. Book now before it's gone!",
+        "booking",
+        email_lines=[
+            f"Good news — a spot just opened in <b>{esc(cls['name'])}</b>{(' on <b>' + esc(when) + '</b>') if when else ''}.",
+            "Spots are first-come, first-served, so open the app and book it before someone else does! 🥊",
+        ],
+    )
 
 
 # -------------------- free trials --------------------

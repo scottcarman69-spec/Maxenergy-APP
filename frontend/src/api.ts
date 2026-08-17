@@ -173,6 +173,9 @@ export const api = {
   reviews: () => req("/api/reviews"),
 
   myTrials: () => req("/api/trials/me"),
+  waitlistsMe: () => req("/api/waitlists/me"),
+  waitlistJoin: (classId: string) => req(`/api/classes/${classId}/waitlist`, { method: "POST" }),
+  waitlistLeave: (classId: string) => req(`/api/classes/${classId}/waitlist`, { method: "DELETE" }),
   trialSessions: (category: string) => req(`/api/trials/sessions?category=${encodeURIComponent(category)}`),
   claimTrial: (category: string, extra?: { child_name?: string; child_age?: string; attendee_name?: string; class_id?: string }) =>
     req("/api/trials/claim", { method: "POST", body: JSON.stringify({ category, ...(extra || {}) }) }),

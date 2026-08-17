@@ -53,6 +53,28 @@ export default function ClassDetail() {
   const [credit, setCredit] = useState(0);
   const [passes, setPasses] = useState(0);
   const [creditOpen, setCreditOpen] = useState(false);
+  const [onWaitlist, setOnWaitlist] = useState(false);
+  const [wlBusy, setWlBusy] = useState(false);
+
+  const toggleWaitlist = async () => {
+    if (!cls || wlBusy) return;
+    setWlBusy(true);
+    setMsg(null);
+    try {
+      if (onWaitlist) {
+        await api.waitlistLeave(cls.class_id);
+        setOnWaitlist(false);
+        setMsg("You've left the waitlist.");
+      } else {
+        const r = await api.waitlistJoin(cls.class_id);
+        setOnWaitlist(true);
+        setMsg(`🎉 You're #${r.position} on the waitlist — we'll notify you if a spot opens.`);
+      }
+    } catch (e: any) {
+      setMsg(e?.message || "Couldn't update the waitlist.");
+    }
+    setWlBusy(false);
+  };
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -66,6 +88,10 @@ export default function ClassDetail() {
       const m = await api.me();
       setCredit(m?.user?.credit_cents || 0);
       setPasses(m?.user?.class_pass_credits || 0);
+    } catch {}
+    try {
+      const w = await api.waitlistsMe();
+      setOnWaitlist((w.class_ids || []).includes(id));
     } catch {}
     setLoading(false);
   }, [id]);
@@ -350,14 +376,24 @@ export default function ClassDetail() {
         </View>
         <Pressable
           testID="book-and-pay-button"
-          style={({ pressed }) => [styles.payBtn, isFull && styles.payBtnFull, pressed && !isFull && { opacity: 0.85 }]}
-          onPress={onBookPress}
-          disabled={busy || isFull}
+          style={({ pressed }) => [styles.payBtn, isFull && !onWaitlist && styles.payBtnWaitlist, isFull && onWaitlist && styles.payBtnFull, pressed && { opacity: 0.85 }]}
+          onPress={isFull ? toggleWaitlist : onBookPress}
+          disabled={busy || wlBusy}
         >
-          {busy ? (
+          {busy || wlBusy ? (
             <ActivityIndicator color={colors.onBrand} />
           ) : isFull ? (
-            <Text style={styles.payBtnTextFull}>CLASS FULL</Text>
+            onWaitlist ? (
+              <>
+                <Ionicons name="checkmark-circle" size={17} color={colors.onSurfaceSecondary} />
+                <Text style={styles.payBtnTextFull}>ON WAITLIST · TAP TO LEAVE</Text>
+              </>
+            ) : (
+              <>
+                <Ionicons name="notifications" size={17} color={colors.onBrand} />
+                <Text style={styles.payBtnText}>JOIN WAITLIST</Text>
+              </>
+            )
           ) : (
             <>
               <Text style={styles.payBtnText}>{cls.by_appointment ? "BOOK SESSION" : "BOOK & PAY"}</Text>
@@ -478,6 +514,15 @@ export default function ClassDetail() {
               {cls?.name} · ${((cls?.price_cents || 0) / 100).toFixed(2)}
             </Text>
 
+            {passes === 0 && credit > 0 && credit < (cls?.price_cents || 0) && (
+              <View style={styles.lowBalBox}>
+                <Ionicons name="alert-circle" size={16} color="#F59E0B" />
+                <Text style={styles.lowBalText}>
+                  Your ${(credit / 100).toFixed(2)} credit won't fully cover this ${((cls?.price_cents || 0) / 100).toFixed(2)} class — you'll pay the remaining ${(((cls?.price_cents || 0) - credit) / 100).toFixed(2)} by card.
+                </Text>
+              </View>
+            )}
+
             {passes > 0 && (
               <Pressable testID="pay-with-pass" style={styles.passPrimary} onPress={() => proceedBooking(undefined, undefined, false, true)} disabled={busy}>
                 {busy ? <ActivityIndicator color="#fff" /> : (
@@ -535,6 +580,8 @@ const styles = StyleSheet.create({
   creditIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center", marginBottom: spacing.md },
   creditTitle: { color: colors.onSurface, fontSize: 19, fontWeight: "900", textAlign: "center" },
   creditSub: { color: colors.onSurfaceSecondary, fontSize: 13, textAlign: "center", marginTop: 6, marginBottom: spacing.lg },
+  lowBalBox: { flexDirection: "row", alignItems: "flex-start", gap: 8, backgroundColor: "rgba(245,158,11,0.12)", borderWidth: 1, borderColor: "#F59E0B", borderRadius: radius.md, padding: spacing.md, alignSelf: "stretch", marginBottom: spacing.md },
+  lowBalText: { flex: 1, color: colors.onSurface, fontSize: 12.5, lineHeight: 18 },
   creditPrimary: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.brand, paddingVertical: 15, borderRadius: radius.md, alignSelf: "stretch" },
   creditPrimaryText: { color: colors.onBrand, fontWeight: "900", fontSize: 14 },
   passPrimary: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#22C55E", paddingVertical: 15, borderRadius: radius.md, alignSelf: "stretch", marginBottom: spacing.sm },
@@ -633,6 +680,7 @@ const styles = StyleSheet.create({
   },
   payBtnText: { color: colors.onBrand, fontWeight: "900", letterSpacing: 1 },
   payBtnFull: { backgroundColor: colors.surfaceTertiary },
+  payBtnWaitlist: { backgroundColor: "#F59E0B" },
   payBtnTextFull: { color: colors.onSurfaceSecondary, fontWeight: "900", letterSpacing: 1 },
   apptOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
   apptSheet: { backgroundColor: colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: spacing.xl, paddingBottom: Platform.OS === "ios" ? 34 : spacing.xl, borderWidth: 1, borderColor: colors.border },
