@@ -791,7 +791,7 @@ const styles = StyleSheet.create({
   linkRow: { flexDirection: "row", alignItems: "center", gap: 5, paddingRight: spacing.lg, marginBottom: spacing.md },
   linkText: { color: colors.brand, fontSize: 12, fontWeight: "800", letterSpacing: 0.5 },
   heroCard: {
-    height: 300,
+    height: 220,
     borderRadius: radius.lg,
     overflow: "hidden",
     justifyContent: "flex-end",
