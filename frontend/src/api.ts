@@ -268,6 +268,7 @@ export const api = {
     req(`/api/admin/bookings/${id}/attendance`, { method: "POST", body: JSON.stringify({ attended }) }),
   attendanceReport: () => req("/api/admin/attendance/report"),
   attendanceRoster: () => req("/api/admin/attendance/roster"),
+  passesReport: () => req("/api/admin/passes/report"),
   // messaging
   myMessages: () => req("/api/messages"),
   unreadMessages: () => req("/api/messages/unread"),

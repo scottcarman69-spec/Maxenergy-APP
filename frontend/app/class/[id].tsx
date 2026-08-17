@@ -49,6 +49,7 @@ export default function ClassDetail() {
   const [apptDay, setApptDay] = useState(0);
   const [apptHour, setApptHour] = useState<number | null>(null);
   const [apptDuration, setApptDuration] = useState<number | null>(null);
+  const [apptChoice, setApptChoice] = useState<{ label: string; iso: string; duration?: number; priceCents: number } | null>(null);
   const [takenSlots, setTakenSlots] = useState<Set<string>>(new Set());
   const [credit, setCredit] = useState(0);
   const [passes, setPasses] = useState(0);
@@ -224,8 +225,27 @@ export default function ClassDetail() {
     const m = apptHour % 60;
     const iso = slotIso(d, h, m);
     const label = `${classDate(iso, { weekday: "short", day: "2-digit", month: "short" })} · ${classTime(iso)}`;
+    const priceCents = (apptDuration != null && cls?.appt_durations?.length)
+      ? (cls.appt_durations.find((o) => o.minutes === apptDuration)?.price_cents ?? cls.price_cents)
+      : (cls?.price_cents ?? 0);
     setApptOpen(false);
-    proceedBooking(label, iso, undefined, undefined, apptDuration ?? undefined);
+    // If the member has passes or credit, let them choose how to pay; otherwise go straight to card.
+    if (passes > 0 || credit > 0) {
+      setApptChoice({ label, iso, duration: apptDuration ?? undefined, priceCents });
+      setMsg(null);
+      setCreditOpen(true);
+    } else {
+      proceedBooking(label, iso, undefined, undefined, apptDuration ?? undefined);
+    }
+  };
+
+  // Unified pay handler used by the payment popup (handles both fixed classes and appointments).
+  const payWith = (useCredit?: boolean, usePass?: boolean) => {
+    if (apptChoice) {
+      proceedBooking(apptChoice.label, apptChoice.iso, useCredit, usePass, apptChoice.duration);
+    } else {
+      proceedBooking(undefined, undefined, useCredit, usePass);
+    }
   };
 
   if (loading) {
@@ -242,6 +262,8 @@ export default function ClassDetail() {
       </SafeAreaView>
     );
   }
+
+  const payPrice = apptChoice ? apptChoice.priceCents : (cls.price_cents || 0);
 
   const isFull = !cls.by_appointment && cls.spots_left === 0;
 
@@ -503,7 +525,7 @@ export default function ClassDetail() {
         </View>
       </Modal>
 
-      <Modal visible={creditOpen} transparent animationType="fade" onRequestClose={() => setCreditOpen(false)}>
+      <Modal visible={creditOpen} transparent animationType="fade" onRequestClose={() => { setCreditOpen(false); setApptChoice(null); }}>
         <View style={styles.creditOverlay}>
           <View style={styles.creditCard}>
             <View style={styles.creditIcon}>
@@ -511,20 +533,20 @@ export default function ClassDetail() {
             </View>
             <Text style={styles.creditTitle}>How would you like to pay?</Text>
             <Text style={styles.creditSub}>
-              {cls?.name} · ${((cls?.price_cents || 0) / 100).toFixed(2)}
+              {cls?.name}{apptChoice ? ` · ${apptChoice.label}` : ""} · ${(payPrice / 100).toFixed(2)}
             </Text>
 
-            {passes === 0 && credit > 0 && credit < (cls?.price_cents || 0) && (
+            {passes === 0 && credit > 0 && credit < payPrice && (
               <View style={styles.lowBalBox}>
                 <Ionicons name="alert-circle" size={16} color="#F59E0B" />
                 <Text style={styles.lowBalText}>
-                  Your ${(credit / 100).toFixed(2)} credit won't fully cover this ${((cls?.price_cents || 0) / 100).toFixed(2)} class — you'll pay the remaining ${(((cls?.price_cents || 0) - credit) / 100).toFixed(2)} by card.
+                  Your ${(credit / 100).toFixed(2)} credit won't fully cover this ${(payPrice / 100).toFixed(2)} {apptChoice ? "session" : "class"} — you'll pay the remaining ${((payPrice - credit) / 100).toFixed(2)} by card.
                 </Text>
               </View>
             )}
 
             {passes > 0 && (
-              <Pressable testID="pay-with-pass" style={styles.passPrimary} onPress={() => proceedBooking(undefined, undefined, false, true)} disabled={busy}>
+              <Pressable testID="pay-with-pass" style={styles.passPrimary} onPress={() => payWith(false, true)} disabled={busy}>
                 {busy ? <ActivityIndicator color="#fff" /> : (
                   <>
                     <Ionicons name="ticket" size={16} color="#fff" />
@@ -535,22 +557,22 @@ export default function ClassDetail() {
             )}
 
             {credit > 0 && (
-              credit >= (cls?.price_cents || 0) ? (
-                <Pressable testID="credit-use-full" style={styles.creditPrimary} onPress={() => proceedBooking(undefined, undefined, true)} disabled={busy}>
+              credit >= payPrice ? (
+                <Pressable testID="credit-use-full" style={styles.creditPrimary} onPress={() => payWith(true)} disabled={busy}>
                   {busy ? <ActivityIndicator color={colors.onBrand} /> : (
                     <>
                       <Ionicons name="wallet" size={16} color={colors.onBrand} />
-                      <Text style={styles.creditPrimaryText}>Use ${((cls?.price_cents || 0) / 100).toFixed(2)} credit — book free</Text>
+                      <Text style={styles.creditPrimaryText}>Use ${(payPrice / 100).toFixed(2)} credit — book free</Text>
                     </>
                   )}
                 </Pressable>
               ) : (
-                <Pressable testID="credit-use-partial" style={styles.creditPrimary} onPress={() => proceedBooking(undefined, undefined, true)} disabled={busy}>
+                <Pressable testID="credit-use-partial" style={styles.creditPrimary} onPress={() => payWith(true)} disabled={busy}>
                   {busy ? <ActivityIndicator color={colors.onBrand} /> : (
                     <>
                       <Ionicons name="wallet" size={16} color={colors.onBrand} />
                       <Text style={styles.creditPrimaryText}>
-                        Use ${(credit / 100).toFixed(2)} credit + pay ${(((cls?.price_cents || 0) - credit) / 100).toFixed(2)}
+                        Use ${(credit / 100).toFixed(2)} credit + pay ${((payPrice - credit) / 100).toFixed(2)}
                       </Text>
                     </>
                   )}
@@ -558,12 +580,12 @@ export default function ClassDetail() {
               )
             )}
 
-            <Pressable testID="credit-pay-card" style={styles.creditGhost} onPress={() => proceedBooking(undefined, undefined, false)} disabled={busy}>
+            <Pressable testID="credit-pay-card" style={styles.creditGhost} onPress={() => payWith(false)} disabled={busy}>
               <Ionicons name="card-outline" size={16} color={colors.onSurface} />
-              <Text style={styles.creditGhostText}>Pay ${((cls?.price_cents || 0) / 100).toFixed(2)} by card</Text>
+              <Text style={styles.creditGhostText}>Pay ${(payPrice / 100).toFixed(2)} by card</Text>
             </Pressable>
 
-            <Pressable testID="credit-cancel" onPress={() => setCreditOpen(false)} disabled={busy}>
+            <Pressable testID="credit-cancel" onPress={() => { setCreditOpen(false); setApptChoice(null); }} disabled={busy}>
               <Text style={styles.creditCancel}>Cancel</Text>
             </Pressable>
           </View>

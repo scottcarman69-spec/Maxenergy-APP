@@ -3266,8 +3266,7 @@ async def payments_checkout(body: CheckoutCreate, request: Request, u: dict = De
 
     # ----- Pay with a class pass (deduct 1 pass, no card) -----
     if body.use_class_pass:
-        if booking.get("by_appointment"):
-            raise HTTPException(400, "Class passes can't be used for by-appointment sessions.")
+        # Pay with a class pass — works for both fixed classes and appointments.
         if booking.get("status") == "paid" or booking.get("paid_with_pass"):
             return {"paid_with_pass": True, "booking_id": booking["booking_id"]}
         now = now_utc()
@@ -4288,6 +4287,49 @@ async def my_applications(u: dict = Depends(require_user)):
         {"user_id": u["user_id"]}, {"_id": 0, "pdf_base64": 0}
     ).sort("created_at", -1).to_list(50)
     return {"applications": rows}
+
+
+@api.get("/admin/passes/report")
+async def admin_passes_report(u: dict = Depends(require_admin)):
+    """Who holds class passes and how many each member has used/has left."""
+    users = await db.users.find({}, {"_id": 0, "user_id": 1, "name": 1, "email": 1, "class_pass_credits": 1}).to_list(10000)
+    umap = {x["user_id"]: x for x in users}
+
+    # Usage = pass deductions in the ledger (covers class bookings, appointments AND walk-in scans).
+    usage: dict = {}
+    ledger = await db.pass_ledger.find({"delta": {"$lt": 0}}, {"_id": 0, "user_id": 1, "reason": 1, "created_at": 1}).to_list(50000)
+    for r in ledger:
+        d = usage.setdefault(r["user_id"], {"used": 0, "last": None, "last_reason": None})
+        d["used"] += 1
+        ts = r.get("created_at")
+        if isinstance(ts, datetime) and (d["last"] is None or ts > d["last"]):
+            d["last"] = ts
+            d["last_reason"] = r.get("reason")
+
+    members = []
+    total_remaining = 0
+    total_used = 0
+    for uid, x in umap.items():
+        remaining = int(x.get("class_pass_credits", 0) or 0)
+        used = usage.get(uid, {}).get("used", 0)
+        if remaining <= 0 and used <= 0:
+            continue
+        last = usage.get(uid, {}).get("last")
+        members.append({
+            "name": x.get("name") or x.get("email") or "Member",
+            "email": x.get("email"),
+            "remaining": remaining,
+            "used": used,
+            "last_used": last.strftime("%d %b %Y") if isinstance(last, datetime) else None,
+            "last_reason": usage.get(uid, {}).get("last_reason"),
+        })
+        total_remaining += remaining
+        total_used += used
+    members.sort(key=lambda m: (-m["remaining"], -m["used"]))
+    return {
+        "members": members,
+        "totals": {"members": len(members), "passes_outstanding": total_remaining, "passes_used": total_used},
+    }
 
 
 # -------------------- class waitlist --------------------
