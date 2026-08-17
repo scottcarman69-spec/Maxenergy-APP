@@ -897,3 +897,13 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 ### Remaining backlog
 - P2: "Add to calendar" — extend Google + add Apple (.ics) calendar links to ALL booking confirmation emails (currently Google link only in mark_booking_paid / paid Square bookings).
 - P3: SMS on booking (Twilio creds needed), Booking push notifications (Firebase needed).
+
+
+## Session update (Jun 2026 fork) — Calendar links in booking emails (DONE)
+- Booking confirmation emails now include TWO one-tap "Add to calendar" buttons: 📅 Google Calendar (link) + 🍎 Apple / Outlook (hosted .ics). Covers class bookings (card/pass/credit via mark_booking_paid) and free-trial confirmations (trials_claim). Appointments skipped (no fixed datetime).
+- NEW public endpoint GET /api/calendar/{booking_id}.ics?t=<signed token> — serves a standards-compliant VEVENT (with a -PT1H VALARM). Auth via sign_dl_token/verify_dl_token kind='cal' (same signed-link pattern as PDF/CSV). Verified: valid token → correct ICS, bad token → 403.
+- Fixed a pre-existing timezone bug: class/trial start times are stored as QLD-naive wall-clock; the old _gcal_link used .astimezone(utc) which was ~10h off. New _qld_naive_to_utc() converts QLD(UTC+10)→UTC. Verified 18:00 QLD → DTSTART 08:00Z.
+- Emergent email proxy does NOT support attachments (only to/subject/html/from_name/contact_email), so Apple support is via the hosted .ics link, not an attachment.
+- _public_base() now caches the last-seen public base URL (+ new http middleware warms it on every request) so background tasks (payment polling → mark_booking_paid, reminders) can build absolute .ics links even without a request in scope.
+- Verified end-to-end: real pass-payment booking flow ran clean (no errors), calendar button HTML + .ics validated. Test data cleaned.
+- Follow-up idea: extend calendar links to Event RSVP emails (events are keyed by event_id, would need a small /api/calendar/event/{id}.ics variant).

@@ -314,16 +314,23 @@ def _email_shell(heading: str, lines: list) -> str:
     )
 
 
+_LAST_PUBLIC_BASE = ""
+
+
 def _public_base(request: Optional[Request]) -> str:
     """Build the externally reachable base URL from the incoming request so
     email links work in both preview and deployed environments (the app's own
-    public domain is not stored in the environment)."""
+    public domain is not stored in the environment). The last-seen base is cached
+    so background tasks (payment polling, reminders) can build links too."""
+    global _LAST_PUBLIC_BASE
     if request is not None:
         proto = request.headers.get("x-forwarded-proto") or request.url.scheme or "https"
         host = request.headers.get("x-forwarded-host") or request.headers.get("host")
         if host:
-            return f"{proto}://{host}"
-    return os.environ.get("PUBLIC_BASE_URL", "")
+            base = f"{proto}://{host}"
+            _LAST_PUBLIC_BASE = base
+            return base
+    return _LAST_PUBLIC_BASE or os.environ.get("PUBLIC_BASE_URL", "")
 
 
 def _download_button(url: str, label: str) -> str:
@@ -552,16 +559,61 @@ async def notify_admins(title: str, body: str, ntype: str = "booking", email_lin
     await send_email(GYM_ADMIN_EMAIL, title, _email_shell(title, email_lines or [body]))
 
 
-def _gcal_link(title: str, start: datetime, minutes: int, location: str, details: str) -> str:
+QLD_OFFSET = timedelta(hours=10)  # Queensland is UTC+10, no daylight saving
+
+
+def _qld_naive_to_utc(dt: datetime) -> datetime:
+    """Class/trial start times are stored as QLD local wall-clock (naive, UTC+10)."""
+    naive = dt.replace(tzinfo=None) if dt.tzinfo else dt
+    return (naive - QLD_OFFSET).replace(tzinfo=timezone.utc)
+
+
+def _gcal_link(title: str, start_utc: datetime, minutes: int, location: str, details: str) -> str:
     from urllib.parse import quote_plus
-    end = start + timedelta(minutes=minutes or 60)
+    end = start_utc + timedelta(minutes=minutes or 60)
     fmt = "%Y%m%dT%H%M%SZ"
-    dates = f"{start.astimezone(timezone.utc).strftime(fmt)}/{end.astimezone(timezone.utc).strftime(fmt)}"
+    dates = f"{start_utc.strftime(fmt)}/{end.strftime(fmt)}"
     return (
         "https://calendar.google.com/calendar/render?action=TEMPLATE"
         f"&text={quote_plus(title)}&dates={dates}"
         f"&details={quote_plus(details)}&location={quote_plus(location)}"
     )
+
+
+def _build_ics(uid_seed: str, title: str, start_utc: datetime, minutes: int, location: str, description: str) -> str:
+    """Generate a standards-compliant single-event .ics that Apple Calendar,
+    Outlook and Google all import, with a 1-hour reminder alarm."""
+    def e(s: str) -> str:
+        return str(s or "").replace("\\", "\\\\").replace(",", "\\,").replace(";", "\\;").replace("\n", "\\n")
+    end_utc = start_utc + timedelta(minutes=minutes or 60)
+    fmt = "%Y%m%dT%H%M%SZ"
+    return "\r\n".join([
+        "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Maxenergy Fitness//Booking//EN",
+        "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
+        "BEGIN:VEVENT",
+        f"UID:{e(uid_seed)}@maxenergy.fitness",
+        f"DTSTAMP:{now_utc().strftime(fmt)}",
+        f"DTSTART:{start_utc.strftime(fmt)}",
+        f"DTEND:{end_utc.strftime(fmt)}",
+        f"SUMMARY:{e(title)}",
+        f"LOCATION:{e(location)}",
+        f"DESCRIPTION:{e(description)}",
+        "BEGIN:VALARM", "TRIGGER:-PT1H", "ACTION:DISPLAY", "DESCRIPTION:Reminder", "END:VALARM",
+        "END:VEVENT", "END:VCALENDAR", "",
+    ])
+
+
+def _calendar_buttons_html(title: str, start_utc: datetime, minutes: int, location: str,
+                           details: str, booking_id: str, base_url: str) -> str:
+    """Two one-tap 'add to calendar' buttons: Google (link) + Apple/Outlook (.ics).
+    The Apple/Outlook button only appears when we know the app's public URL."""
+    gcal = _gcal_link(title, start_utc, minutes, location, details)
+    btn = "display:inline-block;margin:4px 8px 4px 0;text-decoration:none;padding:11px 18px;border-radius:8px;font-weight:bold;font-size:14px"
+    buttons = f"<a href='{gcal}' style='{btn};background:#FF7A00;color:#fff'>\U0001F4C5 Google Calendar</a>"
+    if base_url:
+        ics = f"{base_url.rstrip('/')}/api/calendar/{booking_id}.ics?t={sign_dl_token('cal', booking_id)}"
+        buttons += f"<a href='{ics}' style='{btn};background:#111;color:#fff'>\U0001F34E Apple / Outlook</a>"
+    return f"<div style='margin:14px 0'><b>Add this to your calendar:</b><br>{buttons}</div>"
 
 
 async def mark_booking_paid(booking_id: str) -> None:
@@ -629,15 +681,16 @@ async def mark_booking_paid(booking_id: str) -> None:
         "booking",
     )
     cal_line = ""
-    if isinstance(start, datetime):
-        cal_url = _gcal_link(
+    if isinstance(start, datetime) and not is_appt_b:
+        cal_line = _calendar_buttons_html(
             f"{b['class_name']} — Max Energy",
-            start,
+            _qld_naive_to_utc(start),
             duration or 60,
             GYM_INFO["address"],
             f"{b['class_name']} at Maxenergy Fitness. Booking ref: {booking_ref_code(b['booking_id'])}.",
+            b["booking_id"],
+            _public_base(None),
         )
-        cal_line = f"<a href='{cal_url}' style='color:#FF7A00;font-weight:bold'>➕ Add this class to your calendar</a>"
     # Entry QR — valid through the class day (long-lived; single-use enforced by the attended flag).
     from urllib.parse import quote as _urlquote
     _qr_exp = (start + timedelta(days=2)) if isinstance(start, datetime) else (now_utc() + timedelta(days=120))
@@ -4586,7 +4639,7 @@ async def trials_sessions(category: str, u: dict = Depends(require_user)):
 
 
 @api.post("/trials/claim")
-async def trials_claim(body: TrialClaimReq, u: dict = Depends(require_user)):
+async def trials_claim(body: TrialClaimReq, request: Request, u: dict = Depends(require_user)):
     category = body.category
     if category not in ("Kids", "Adults"):
         raise HTTPException(400, "Invalid category")
@@ -4705,6 +4758,15 @@ async def trials_claim(body: TrialClaimReq, u: dict = Depends(require_user)):
         f"<b>Location:</b> {GYM_INFO['address']}",
         f"<b>Phone:</b> {GYM_INFO['phone']}",
         "<b>What to bring:</b> comfortable workout clothes, a water bottle and a towel. Gloves can be borrowed at the gym.",
+        _calendar_buttons_html(
+            f"Free Trial – Muay Thai ({category}) — Max Energy",
+            _qld_naive_to_utc(trial_start),
+            int(cls.get("duration_min") or (45 if category == "Kids" else 60)),
+            GYM_INFO["address"],
+            f"Free {category} Muay Thai trial at Maxenergy Fitness. Ref: {trial['trial_id']}.",
+            trial_booking_id,
+            _public_base(request),
+        ),
         "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
         "Turn up at your booked session and show your entry QR code at the front desk. See you on the mats! 🥊",
     ]
@@ -5350,6 +5412,38 @@ async def download_export_csv(export_id: str, t: Optional[str] = None, authoriza
     )
 
 
+@api.get("/calendar/{booking_id}.ics")
+async def booking_calendar_ics(booking_id: str, t: Optional[str] = None):
+    """Serve a calendar (.ics) file for a booking so Apple Calendar / Outlook users
+    can one-tap add their class. Access is via a signed link embedded in the
+    confirmation email (no auth session needed on the device opening it)."""
+    if not verify_dl_token(t, "cal", booking_id):
+        raise HTTPException(403, "Not authorised")
+    b = await db.bookings.find_one({"booking_id": booking_id}, {"_id": 0})
+    if not b:
+        raise HTTPException(404, "Booking not found")
+    start = b.get("class_start")
+    if not isinstance(start, datetime):
+        cls = await db.classes.find_one({"class_id": b.get("class_id")}, {"_id": 0})
+        start = (cls or {}).get("start_at")
+    if not isinstance(start, datetime):
+        raise HTTPException(400, "This booking has no scheduled time.")
+    minutes = int(b.get("duration_min") or 60)
+    ics = _build_ics(
+        booking_id,
+        f"{b.get('class_name', 'Class')} — Maxenergy Fitness",
+        _qld_naive_to_utc(start),
+        minutes,
+        GYM_INFO["address"],
+        f"{b.get('class_name', '')} at Maxenergy Fitness. Booking ref: {booking_ref_code(booking_id)}.",
+    )
+    return Response(
+        content=ics,
+        media_type="text/calendar; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="maxenergy-class.ics"'},
+    )
+
+
 @api.post("/admin/applications/{application_id}/status")
 async def admin_application_status(application_id: str, body: ApplicationStatusReq, u: dict = Depends(require_admin)):
     if body.status not in ("pending", "approved", "declined"):
@@ -5905,6 +5999,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def _cache_public_base(request: Request, call_next):
+    # Keep the app's public base URL warm so background tasks (payment polling,
+    # reminders) can build absolute email links (e.g. calendar .ics).
+    try:
+        _public_base(request)
+    except Exception:
+        pass
+    return await call_next(request)
 
 
 # -------------------- seed --------------------
