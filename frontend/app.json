@@ -13,7 +13,9 @@
       "bundleIdentifier": "com.emergent.classnotify.hl9igt",
       "infoPlist": {
         "NSCameraUsageDescription": "Scan member booking QR codes for class check-in",
-        "NSPhotoLibraryUsageDescription": "Attach a photo to your membership application"
+        "NSPhotoLibraryUsageDescription": "Attach a photo to your membership application",
+        "NSCalendarsUsageDescription": "Add your class bookings to your calendar",
+        "NSCalendarsWriteOnlyAccessUsageDescription": "Add your class bookings to your calendar"
       }
     },
     "android": {
@@ -25,7 +27,9 @@
       "package": "com.emergent.classnotify.hl9igt",
       "permissions": [
         "CAMERA",
-        "READ_MEDIA_IMAGES"
+        "READ_MEDIA_IMAGES",
+        "READ_CALENDAR",
+        "WRITE_CALENDAR"
       ]
     },
     "web": {
@@ -68,6 +72,12 @@
         "expo-camera",
         {
           "cameraPermission": "Scan member booking QR codes for class check-in"
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Add your class bookings to your calendar"
         }
       ],
       "expo-build-properties"

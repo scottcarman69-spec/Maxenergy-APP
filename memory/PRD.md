@@ -907,3 +907,17 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - _public_base() now caches the last-seen public base URL (+ new http middleware warms it on every request) so background tasks (payment polling → mark_booking_paid, reminders) can build absolute .ics links even without a request in scope.
 - Verified end-to-end: real pass-payment booking flow ran clean (no errors), calendar button HTML + .ics validated. Test data cleaned.
 - Follow-up idea: extend calendar links to Event RSVP emails (events are keyed by event_id, would need a small /api/calendar/event/{id}.ics variant).
+
+
+## Session update (Jun 2026 fork) — Calendar UX: appointments + reminder timing + in-app add (DONE)
+- (1) Appointment confirmation emails now include the Google + Apple/Outlook calendar buttons. Applied to BOTH admin confirm paths: POST /admin/bookings/{id}/confirm and POST /admin/bookings/{id}/accept (both now take request:Request for base URL). Uses the appointment's concrete requested_at time.
+- (2) Reminder timing choice at booking: class detail screen (fixed classes only) shows a "Calendar reminder" selector — "1 hour before" (default) / "1 day before". Stored per-booking as cal_reminder_minutes (60|1440) via BookingCreate. The .ics VALARM now uses TRIGGER:-PT{minutes}M (was hardcoded -PT1H). Note: only affects the Apple/Outlook .ics event (Google render URL can't set a custom reminder).
+- (3) In-app "Add to calendar" button on My Bookings (paid/confirmed, non-trial, future sessions). NEW backend GET /api/bookings/{id}/calendar (auth+owner) → {title,start,end,location,notes,reminder_minutes,google_url,ics_url}. New frontend util src/utils/calendar.ts: web → opens Google in new tab; native → expo-calendar createEventInCalendarAsync (system add-event sheet, pre-filled + alarm), falling back to opening the hosted .ics (iOS) / Google link.
+- Shared helper _booking_start_utc(b): appointments use requested_at, fixed classes use class_start (→ class doc fallback), all converted QLD→UTC. Used by the .ics endpoint + both new endpoints.
+- Installed expo-calendar@15.0.8; app.json: iOS NSCalendars(WriteOnly)UsageDescription, Android READ/WRITE_CALENDAR, expo-calendar config plugin.
+- Verified: .ics tz correct (18:00 QLD→08:00Z), cal_reminder_minutes stored (1440), /calendar endpoint returns correct payload, reminder selector renders (screenshot), "Add to calendar" button renders on paid booking (screenshot), tsc clean on changed files. NOTE: native expo-calendar add is best tested on a real device/build (works via link fallback in web/Expo Go).
+
+## Session update (Jun 2026 fork) — Default calendar reminder in Settings (DONE)
+- Members can set a default calendar reminder once in Settings → Notifications & Reminders → "CALENDAR REMINDER" (1 hour / 1 day). New bookings pre-select it; still overridable per booking on the class screen.
+- Backend: user.cal_reminder_default (default 60) added to user_public; NEW PUT /api/me/calendar-reminder (accepts 60|1440, else 400). booking_create now falls back to the member's default when cal_reminder_minutes isn't sent. Verified: /auth/me returns it, PUT valid+invalid, and a booking created without an explicit choice inherited 1440.
+- Frontend: api.setCalReminderDefault + User.cal_reminder_default; inbox-settings.tsx chip selector (saves + calls AuthContext refresh so the class screen picks it up); class/[id].tsx calReminder now inits from user.cal_reminder_default. tsc clean; Settings screenshot verified. testmember default reset to 60 after test.

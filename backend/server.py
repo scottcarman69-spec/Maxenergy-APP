@@ -232,6 +232,7 @@ def user_public(u: dict) -> dict:
         "is_test": bool(u.get("is_test", False)),
         "verified": bool(u.get("verified", False)),
         "reminder_hours": int(u.get("reminder_hours", 3)),
+        "cal_reminder_default": int(u.get("cal_reminder_default", 60)),
         "message_notifications": bool(u.get("message_notifications", True)),
         "leaderboard_opt_out": bool(u.get("leaderboard_opt_out", False)),
         "quiet_hours": u.get("quiet_hours") or {"enabled": False, "start": "22:00", "end": "07:00"},
@@ -580,13 +581,14 @@ def _gcal_link(title: str, start_utc: datetime, minutes: int, location: str, det
     )
 
 
-def _build_ics(uid_seed: str, title: str, start_utc: datetime, minutes: int, location: str, description: str) -> str:
+def _build_ics(uid_seed: str, title: str, start_utc: datetime, minutes: int, location: str, description: str, reminder_minutes: int = 60) -> str:
     """Generate a standards-compliant single-event .ics that Apple Calendar,
-    Outlook and Google all import, with a 1-hour reminder alarm."""
+    Outlook and Google all import, with a configurable reminder alarm."""
     def e(s: str) -> str:
         return str(s or "").replace("\\", "\\\\").replace(",", "\\,").replace(";", "\\;").replace("\n", "\\n")
     end_utc = start_utc + timedelta(minutes=minutes or 60)
     fmt = "%Y%m%dT%H%M%SZ"
+    rmin = int(reminder_minutes or 60)
     return "\r\n".join([
         "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Maxenergy Fitness//Booking//EN",
         "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
@@ -598,7 +600,7 @@ def _build_ics(uid_seed: str, title: str, start_utc: datetime, minutes: int, loc
         f"SUMMARY:{e(title)}",
         f"LOCATION:{e(location)}",
         f"DESCRIPTION:{e(description)}",
-        "BEGIN:VALARM", "TRIGGER:-PT1H", "ACTION:DISPLAY", "DESCRIPTION:Reminder", "END:VALARM",
+        "BEGIN:VALARM", f"TRIGGER:-PT{rmin}M", "ACTION:DISPLAY", "DESCRIPTION:Reminder", "END:VALARM",
         "END:VEVENT", "END:VCALENDAR", "",
     ])
 
@@ -614,6 +616,24 @@ def _calendar_buttons_html(title: str, start_utc: datetime, minutes: int, locati
         ics = f"{base_url.rstrip('/')}/api/calendar/{booking_id}.ics?t={sign_dl_token('cal', booking_id)}"
         buttons += f"<a href='{ics}' style='{btn};background:#111;color:#fff'>\U0001F34E Apple / Outlook</a>"
     return f"<div style='margin:14px 0'><b>Add this to your calendar:</b><br>{buttons}</div>"
+
+
+async def _booking_start_utc(b: dict) -> Optional[datetime]:
+    """Resolve a booking's real start time (UTC). Appointments use their confirmed
+    `requested_at`; fixed classes use `class_start` (falling back to the class doc)."""
+    start = None
+    if b.get("by_appointment") and b.get("requested_at"):
+        try:
+            start = datetime.fromisoformat(b["requested_at"])
+        except Exception:
+            start = None
+    if not isinstance(start, datetime):
+        s = b.get("class_start")
+        if not isinstance(s, datetime):
+            cls = await db.classes.find_one({"class_id": b.get("class_id")}, {"_id": 0})
+            s = (cls or {}).get("start_at")
+        start = s if isinstance(s, datetime) else None
+    return _qld_naive_to_utc(start) if isinstance(start, datetime) else None
 
 
 async def mark_booking_paid(booking_id: str) -> None:
@@ -919,6 +939,7 @@ class BookingCreate(BaseModel):
     requested_time: Optional[str] = None  # human-readable preferred time (appointment)
     requested_at: Optional[str] = None     # ISO naive Queensland wall-clock (appointment)
     duration_min: Optional[int] = None      # chosen session length (appointment classes with options)
+    cal_reminder_minutes: Optional[int] = None  # calendar alarm lead time: 60 (1h) or 1440 (1 day)
 
 
 class CheckoutCreate(BaseModel):
@@ -1205,6 +1226,18 @@ async def set_reminder_preference(body: ReminderPrefReq, u: dict = Depends(requi
         raise HTTPException(400, "Choose Off, 1, 3 or 12 hours.")
     await db.users.update_one({"user_id": u["user_id"]}, {"$set": {"reminder_hours": body.hours}})
     return {"ok": True, "reminder_hours": body.hours}
+
+
+class CalReminderPrefReq(BaseModel):
+    minutes: int
+
+
+@api.put("/me/calendar-reminder")
+async def set_calendar_reminder_default(body: CalReminderPrefReq, u: dict = Depends(require_user)):
+    if body.minutes not in (60, 1440):
+        raise HTTPException(400, "Choose 1 hour (60) or 1 day (1440).")
+    await db.users.update_one({"user_id": u["user_id"]}, {"$set": {"cal_reminder_default": body.minutes}})
+    return {"ok": True, "cal_reminder_default": body.minutes}
 
 
 class MessageNotifPrefReq(BaseModel):
@@ -1891,6 +1924,7 @@ async def booking_create(body: BookingCreate, u: dict = Depends(require_user)):
         "by_appointment": is_appt,
         "duration_min": chosen_minutes,
         "class_start": cls.get("start_at"),
+        "cal_reminder_minutes": 1440 if int(body.cal_reminder_minutes or u.get("cal_reminder_default") or 60) == 1440 else 60,
         "status": "pending",
         "created_at": now_utc(),
     }
@@ -5090,7 +5124,7 @@ class RefundResolveReq(BaseModel):
 
 
 @api.post("/admin/bookings/{booking_id}/confirm")
-async def admin_confirm_booking(booking_id: str, u: dict = Depends(require_admin)):
+async def admin_confirm_booking(booking_id: str, request: Request, u: dict = Depends(require_admin)):
     """Admin confirms a paid appointment booking; notifies the member."""
     b = await db.bookings.find_one({"booking_id": booking_id}, {"_id": 0})
     if not b:
@@ -5110,12 +5144,25 @@ async def admin_confirm_booking(booking_id: str, u: dict = Depends(require_admin
     )
     member = await db.users.find_one({"user_id": b["user_id"]}, {"_id": 0})
     if member and member.get("email"):
+        cal_line = ""
+        start_utc = await _booking_start_utc(b)
+        if isinstance(start_utc, datetime):
+            cal_line = _calendar_buttons_html(
+                f"{b['class_name']} — Max Energy",
+                start_utc,
+                int(b.get("duration_min") or 60),
+                GYM_INFO["address"],
+                f"{b['class_name']} at Maxenergy Fitness. Booking ref: {booking_ref_code(booking_id)}.",
+                booking_id,
+                _public_base(request),
+            )
         await send_email(
             member["email"],
             f"Booking confirmed — {b['class_name']}",
             _email_shell("Your booking is confirmed ✅", [
                 f"Hi {esc(member.get('name') or 'there')},",
                 f"Your <b>{esc(b['class_name'])}</b> session on <b>{esc(pref)}</b> has been <b>confirmed</b> by Maxenergy Fitness.",
+                cal_line,
                 "We look forward to seeing you!",
             ]),
         )
@@ -5422,26 +5469,52 @@ async def booking_calendar_ics(booking_id: str, t: Optional[str] = None):
     b = await db.bookings.find_one({"booking_id": booking_id}, {"_id": 0})
     if not b:
         raise HTTPException(404, "Booking not found")
-    start = b.get("class_start")
-    if not isinstance(start, datetime):
-        cls = await db.classes.find_one({"class_id": b.get("class_id")}, {"_id": 0})
-        start = (cls or {}).get("start_at")
-    if not isinstance(start, datetime):
+    start_utc = await _booking_start_utc(b)
+    if not isinstance(start_utc, datetime):
         raise HTTPException(400, "This booking has no scheduled time.")
     minutes = int(b.get("duration_min") or 60)
+    reminder = int(b.get("cal_reminder_minutes") or 60)
     ics = _build_ics(
         booking_id,
         f"{b.get('class_name', 'Class')} — Maxenergy Fitness",
-        _qld_naive_to_utc(start),
+        start_utc,
         minutes,
         GYM_INFO["address"],
         f"{b.get('class_name', '')} at Maxenergy Fitness. Booking ref: {booking_ref_code(booking_id)}.",
+        reminder,
     )
     return Response(
         content=ics,
         media_type="text/calendar; charset=utf-8",
         headers={"Content-Disposition": 'attachment; filename="maxenergy-class.ics"'},
     )
+
+
+@api.get("/bookings/{booking_id}/calendar")
+async def booking_calendar_details(booking_id: str, request: Request, u: dict = Depends(require_user)):
+    """Calendar event details for the in-app 'Add to calendar' button (owner only)."""
+    b = await db.bookings.find_one({"booking_id": booking_id, "user_id": u["user_id"]}, {"_id": 0})
+    if not b:
+        raise HTTPException(404, "Booking not found")
+    start_utc = await _booking_start_utc(b)
+    if not isinstance(start_utc, datetime):
+        raise HTTPException(400, "This booking has no scheduled time yet.")
+    minutes = int(b.get("duration_min") or 60)
+    reminder = int(b.get("cal_reminder_minutes") or 60)
+    title = f"{b.get('class_name', 'Class')} — Maxenergy Fitness"
+    details = f"{b.get('class_name', '')} at Maxenergy Fitness. Booking ref: {booking_ref_code(booking_id)}."
+    end_utc = start_utc + timedelta(minutes=minutes or 60)
+    base = _public_base(request)
+    return {
+        "title": title,
+        "start": start_utc.isoformat().replace("+00:00", "Z"),
+        "end": end_utc.isoformat().replace("+00:00", "Z"),
+        "location": GYM_INFO["address"],
+        "notes": details,
+        "reminder_minutes": reminder,
+        "google_url": _gcal_link(title, start_utc, minutes, GYM_INFO["address"], details),
+        "ics_url": f"{base.rstrip('/')}/api/calendar/{booking_id}.ics?t={sign_dl_token('cal', booking_id)}" if base else "",
+    }
 
 
 @api.post("/admin/applications/{application_id}/status")
@@ -5592,7 +5665,7 @@ async def _admin_get_booking(booking_id: str) -> dict:
 
 
 @api.post("/admin/bookings/{booking_id}/accept")
-async def admin_booking_accept(booking_id: str, u: dict = Depends(require_admin)):
+async def admin_booking_accept(booking_id: str, request: Request, u: dict = Depends(require_admin)):
     b = await _admin_get_booking(booking_id)
     # Don't confirm an appointment whose requested time has already passed.
     if b.get("by_appointment") and iso_is_past(b.get("requested_at")):
@@ -5622,6 +5695,18 @@ async def admin_booking_accept(booking_id: str, u: dict = Depends(require_admin)
     currency = (b.get("currency", "aud") or "aud").upper()
 
     when_line = f" Your session is confirmed for {when}." if (b.get("by_appointment") and when) else ""
+    cal_line = ""
+    start_utc = await _booking_start_utc(b)
+    if isinstance(start_utc, datetime):
+        cal_line = _calendar_buttons_html(
+            f"{b['class_name']} — Max Energy",
+            start_utc,
+            int(duration or 60),
+            GYM_INFO["address"],
+            f"{b['class_name']} at Maxenergy Fitness. Booking ref: {booking_ref_code(b['booking_id'])}.",
+            b["booking_id"],
+            _public_base(request),
+        )
     email_lines = [
         f"Hi {esc(mname)},",
         f"Great news — your booking for <b>{esc(b['class_name'])}</b> has been <b>accepted</b>!",
@@ -5633,6 +5718,7 @@ async def admin_booking_accept(booking_id: str, u: dict = Depends(require_admin)
         (f"<b>Amount paid:</b> ${amount:.2f} {currency}" if amount > 0 else "<b>Amount paid:</b> Free"),
         f"<b>Booking reference:</b> {booking_ref_code(b['booking_id'])}",
         f"<b>Location:</b> {GYM_INFO['address']}",
+        cal_line,
         "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
         "See you at the gym! 🥊",
     ]

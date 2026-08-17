@@ -13,6 +13,7 @@ export type User = {
   is_admin?: boolean;
   verified?: boolean;
   reminder_hours?: number;
+  cal_reminder_default?: number;
   credit_cents?: number;
   membership_form_completed?: boolean;
   vigyr_signup_reported?: boolean;
@@ -88,6 +89,8 @@ export const api = {
   me: () => req("/api/auth/me"),
   setReminderPreference: (hours: number) =>
     req("/api/me/reminder-preference", { method: "PUT", body: JSON.stringify({ hours }) }),
+  setCalReminderDefault: (minutes: number) =>
+    req("/api/me/calendar-reminder", { method: "PUT", body: JSON.stringify({ minutes }) }),
   setMessageNotifications: (enabled: boolean) =>
     req("/api/me/message-notifications", { method: "PUT", body: JSON.stringify({ enabled }) }),
   setQuietHours: (payload: { enabled: boolean; start: string; end: string }) =>
@@ -113,9 +116,10 @@ export const api = {
     return req(`/api/classes${qs ? `?${qs}` : ""}`);
   },
   classDetail: (id: string) => req(`/api/classes/${id}`),
-  createBooking: (class_id: string, requested_time?: string, requested_at?: string, duration_min?: number) =>
-    req("/api/bookings", { method: "POST", body: JSON.stringify({ class_id, requested_time, requested_at, duration_min }) }),
+  createBooking: (class_id: string, requested_time?: string, requested_at?: string, duration_min?: number, cal_reminder_minutes?: number) =>
+    req("/api/bookings", { method: "POST", body: JSON.stringify({ class_id, requested_time, requested_at, duration_min, cal_reminder_minutes }) }),
   myBookings: () => req("/api/bookings"),
+  bookingCalendar: (id: string) => req(`/api/bookings/${id}/calendar`),
   appointmentsTaken: () => req("/api/appointments/taken"),
   adminAddAppointment: (body: { class_id: string; requested_at: string; requested_time?: string; duration_min?: number; note?: string }) =>
     req("/api/admin/appointments", { method: "POST", body: JSON.stringify(body) }),

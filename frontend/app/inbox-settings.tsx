@@ -4,6 +4,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
+import { useAuth } from "@/src/AuthContext";
 import { colors, spacing, radius } from "@/src/theme";
 import ScreenHeader from "@/src/components/ScreenHeader";
 
@@ -18,12 +19,14 @@ function fmt12(hm: string): string {
 
 export default function InboxSettings() {
   const router = useRouter();
+  const { refresh } = useAuth();
   const [enabled, setEnabled] = useState(true);
   const [remHours, setRemHours] = useState(3);
   const [qhEnabled, setQhEnabled] = useState(false);
   const [qhStart, setQhStart] = useState("22:00");
   const [qhEnd, setQhEnd] = useState("07:00");
   const [lbHidden, setLbHidden] = useState(false);
+  const [calDefault, setCalDefault] = useState(60);
   const [picker, setPicker] = useState<null | "start" | "end">(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -36,10 +39,18 @@ export default function InboxSettings() {
       const qh = me?.user?.quiet_hours;
       if (qh) { setQhEnabled(!!qh.enabled); setQhStart(qh.start || "22:00"); setQhEnd(qh.end || "07:00"); }
       setLbHidden(me?.user?.leaderboard_opt_out === true);
+      setCalDefault(me?.user?.cal_reminder_default === 1440 ? 1440 : 60);
     } catch {}
     setLoading(false);
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const saveCalDefault = async (minutes: number) => {
+    const prev = calDefault;
+    setCalDefault(minutes);
+    try { await api.setCalReminderDefault(minutes); await refresh(); }
+    catch { setCalDefault(prev); }
+  };
 
   const toggleLeaderboard = async (hide: boolean) => {
     setLbHidden(hide);
@@ -155,6 +166,28 @@ export default function InboxSettings() {
             {remOn
               ? `We'll remind you about ${remHours} hour${remHours > 1 ? "s" : ""} before each booked class.`
               : "Class reminders are off. You won't be reminded before your booked classes."}
+          </Text>
+
+          <Text style={[styles.section, { marginTop: spacing.lg }]}>CALENDAR REMINDER</Text>
+          <View style={styles.card}>
+            <View style={styles.iconWrap}><Ionicons name="calendar" size={20} color={colors.brand} /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.title}>Default calendar reminder</Text>
+              <Text style={styles.sub}>Used when you add a booking to your calendar.</Text>
+            </View>
+          </View>
+          <View style={styles.chipRow}>
+            {[{ m: 60, label: "1 hour before" }, { m: 1440, label: "1 day before" }].map((o) => {
+              const on = calDefault === o.m;
+              return (
+                <Pressable key={o.m} testID={`cal-default-${o.m}`} style={[styles.chip, on && styles.chipOn]} onPress={() => saveCalDefault(o.m)}>
+                  <Text style={[styles.chipText, on && styles.chipTextOn]}>{o.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Text style={styles.note}>
+            New bookings will pre-select this reminder. You can still change it per booking on the class screen.
           </Text>
 
           <Text style={[styles.section, { marginTop: spacing.lg }]}>QUIET HOURS</Text>

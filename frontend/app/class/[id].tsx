@@ -56,6 +56,7 @@ export default function ClassDetail() {
   const [creditOpen, setCreditOpen] = useState(false);
   const [onWaitlist, setOnWaitlist] = useState(false);
   const [wlBusy, setWlBusy] = useState(false);
+  const [calReminder, setCalReminder] = useState(user?.cal_reminder_default || 60); // calendar alarm lead time (minutes)
 
   const toggleWaitlist = async () => {
     if (!cls || wlBusy) return;
@@ -105,7 +106,7 @@ export default function ClassDetail() {
     setBusy(true);
     setMsg(null);
     try {
-      const { booking } = await api.createBooking(cls.class_id, requestedTime, requestedAt, durationMin);
+      const { booking } = await api.createBooking(cls.class_id, requestedTime, requestedAt, durationMin, calReminder);
 
       if (booking.status === "paid") {
         setMsg("Already booked. See you there!");
@@ -380,6 +381,31 @@ export default function ClassDetail() {
               <Text style={styles.programBannerText}>
                 {(cls as any).program} · runs each school term. Enrol via Membership for the full term.
               </Text>
+            </View>
+          )}
+
+          {!cls.by_appointment && (
+            <View style={styles.reminderCard}>
+              <View style={styles.reminderHead}>
+                <Ionicons name="notifications-outline" size={16} color={colors.brand} />
+                <Text style={styles.reminderTitle}>Calendar reminder</Text>
+              </View>
+              <Text style={styles.reminderSub}>When should your calendar remind you before class?</Text>
+              <View style={styles.reminderRow}>
+                {[{ m: 60, label: "1 hour before" }, { m: 1440, label: "1 day before" }].map((o) => {
+                  const active = calReminder === o.m;
+                  return (
+                    <Pressable
+                      key={o.m}
+                      testID={`cal-reminder-${o.m}`}
+                      style={[styles.reminderChip, active && styles.reminderChipActive]}
+                      onPress={() => setCalReminder(o.m)}
+                    >
+                      <Text style={[styles.reminderChipText, active && styles.reminderChipTextActive]}>{o.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
           )}
 
@@ -673,6 +699,15 @@ const styles = StyleSheet.create({
   joinBody: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 2 },
   programBanner: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.brandTertiary, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.md },
   programBannerText: { color: colors.brand, fontSize: 13, fontWeight: "700", flex: 1 },
+  reminderCard: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.lg },
+  reminderHead: { flexDirection: "row", alignItems: "center", gap: 6 },
+  reminderTitle: { color: colors.onSurface, fontSize: 14, fontWeight: "800" },
+  reminderSub: { color: colors.onSurfaceSecondary, fontSize: 12.5, marginTop: 4, marginBottom: spacing.sm },
+  reminderRow: { flexDirection: "row", gap: spacing.sm },
+  reminderChip: { flex: 1, alignItems: "center", paddingVertical: 10, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface },
+  reminderChipActive: { borderColor: colors.brand, backgroundColor: colors.brandTertiary },
+  reminderChipText: { color: colors.onSurfaceSecondary, fontSize: 13, fontWeight: "700" },
+  reminderChipTextActive: { color: colors.brand, fontWeight: "900" },
   msg: { color: colors.brand, textAlign: "center", marginTop: spacing.md, fontWeight: "700" },
   footer: {
     position: "absolute",

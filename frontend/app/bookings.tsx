@@ -8,6 +8,7 @@ import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
 import { classTime, classDate, classStartMs, qldTodayUTC, qldNowUTC, stampDate, stampTime } from "@/src/datetime";
 import ScreenHeader from "@/src/components/ScreenHeader";
+import { addBookingToCalendar } from "@/src/utils/calendar";
 
 type Booking = { booking_id: string; class_name: string; status: string; amount: number; by_appointment?: boolean; is_trial?: boolean; requested_time?: string; requested_at?: string; scheduled_time?: string; proposed_time?: string; class_start?: string; duration_min?: number; attended?: boolean; checked_in_method?: string; checked_in_by?: string; checked_in_at?: string; paid_with_pass?: boolean };
 type ClassSlot = { class_id: string; name: string; start_at: string; spots_left?: number; capacity?: number };
@@ -41,6 +42,16 @@ export default function BookingsScreen() {
   const [takenSlots, setTakenSlots] = useState<Set<string>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
   const [cancelWindow, setCancelWindow] = useState(24);
+  const [calBusy, setCalBusy] = useState<string | null>(null);
+
+  const addToCalendar = async (b: Booking) => {
+    setCalBusy(b.booking_id);
+    setBanner(null);
+    const r = await addBookingToCalendar(b.booking_id);
+    setBanner(r.message);
+    setCalBusy(null);
+    setTimeout(() => setBanner(null), 3500);
+  };
 
   const isAppt = !!rescheduleFor?.by_appointment;
 
@@ -402,6 +413,24 @@ export default function BookingsScreen() {
                       >
                         <Ionicons name="receipt-outline" size={15} color={colors.brand} />
                         <Text style={styles.receiptBtnText}>View receipt</Text>
+                      </Pressable>
+                    )}
+                    {(b.status === "paid" || b.status === "confirmed") && !b.is_trial && !!startIso
+                      && !Number.isNaN(endMs) && qldNowUTC().getTime() < endMs && (
+                      <Pressable
+                        testID={`booking-calendar-${b.booking_id}`}
+                        style={styles.receiptBtn}
+                        onPress={() => addToCalendar(b)}
+                        disabled={calBusy === b.booking_id}
+                      >
+                        {calBusy === b.booking_id ? (
+                          <ActivityIndicator size="small" color={colors.brand} />
+                        ) : (
+                          <>
+                            <Ionicons name="calendar-outline" size={15} color={colors.brand} />
+                            <Text style={styles.receiptBtnText}>Add to calendar</Text>
+                          </>
+                        )}
                       </Pressable>
                     )}
                     {(b.status === "paid" || b.status === "confirmed") && (
