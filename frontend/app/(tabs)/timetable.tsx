@@ -388,7 +388,7 @@ export default function Timetable() {
                   )}
                 </View>
 
-                {typeof item.spots_left === "number" && (item.capacity || 0) > 0 && (item.capacity || 0) < 500 && (
+                {typeof item.spots_left === "number" && (item.capacity || 0) > 0 && (
                   <View style={styles.capWrap}>
                     <View style={styles.capTrack}>
                       <View

@@ -1013,3 +1013,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Added a "ladder" Quick Action to src/quickActions.ts (trophy icon, gold gradient, placed after academy => #7, within HOME_QUICK_COUNT=8 for new users; appended to 'More' for users with a saved order). Handler in home.tsx: router.navigate("/(tabs)/leaderboard").
 - leaderboard.tsx ScreenHeader now shows a back chevron (fallback /(tabs)/home) since it's opened as a shortcut rather than a tab.
 - Verified via screenshot: Ladder tile shows in Quick Actions, no Ladder in bottom bar, tapping opens Attendance Ladder with working back.
+
+## Session update (Jun 2026 fork) — Class capacity hard-capped at 16 (DONE)
+- Every class now has a MAXIMUM of 16 spots (appointments/PT stay at 1). Boot Camp included (user reversed the earlier 'unlimited' ask).
+- Backend: MAX_CLASS_CAPACITY=16 constant. Admin create + update clamp capacity via min(body.capacity, 16). Seed template capacity=16. One-time migration capacity_policy_v2 caps any existing non-appointment class >16 to 16 (fixed the 3 Boot Camp classes from 999->16). Verified: all seeded classes (Muay Thai, Kickboxing, Boot Camp) = 16; create/update with 50/99 both clamp to 16.
+- Frontend: admin editor default capacity 16, clamps input to 16, label 'Capacity (max 16)'. Reverted the temporary 'Open class'/>=500 unlimited display tweaks (no class exceeds 16 now).
