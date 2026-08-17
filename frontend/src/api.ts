@@ -226,6 +226,7 @@ export const api = {
   groups: () => req("/api/groups"),
   groupGet: (id: string) => req(`/api/groups/${id}`),
   groupSend: (id: string, body: string) => req(`/api/groups/${id}/messages`, { method: "POST", body: JSON.stringify({ body }) }),
+  groupDeleteMessage: (id: string, gmsgId: string) => req(`/api/groups/${id}/messages/${gmsgId}`, { method: "DELETE" }),
   groupRename: (id: string, name: string) => req(`/api/groups/${id}`, { method: "PATCH", body: JSON.stringify({ name }) }),
   groupAddMembers: (id: string, member_ids: string[]) => req(`/api/groups/${id}/members`, { method: "POST", body: JSON.stringify({ member_ids }) }),
   groupRemoveMember: (id: string, memberId: string) => req(`/api/groups/${id}/members/${memberId}`, { method: "DELETE" }),

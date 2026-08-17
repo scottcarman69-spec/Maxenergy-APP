@@ -1,7 +1,8 @@
 import React, { useCallback, useRef, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, Alert } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Swipeable } from "react-native-gesture-handler";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
@@ -26,6 +27,8 @@ export default function GroupChat() {
   const [pinned, setPinned] = useState<string | null>(null);
   const [pinExpanded, setPinExpanded] = useState(false);
   const [meId, setMeId] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [ownerId, setOwnerId] = useState("");
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -38,6 +41,8 @@ export default function GroupChat() {
       setMsgs(r.messages || []); setGname(r.group?.name || gname); setCount((r.group?.members || []).length);
       setPinned(r.group?.pinned_note || null);
       setMeId(me?.user?.user_id || "");
+      setIsAdmin(!!me?.user?.is_admin);
+      setOwnerId(r.group?.owner_id || "");
     } catch {
       // Not a member (e.g. tapped the Academy shortcut without joining).
       setDenied(true);
@@ -55,6 +60,26 @@ export default function GroupChat() {
     try { const r = await api.groupSend(String(id), body); setMsgs((m) => [...m, r.message]); setTimeout(() => ref.current?.scrollToEnd({ animated: true }), 100); }
     catch { setText(body); }
     setSending(false);
+  };
+
+  const unsend = (m: GM) => {
+    const own = m.from_id === meId;
+    Alert.alert(
+      own ? "Unsend message?" : "Delete message?",
+      "This removes the message for everyone in the group.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: own ? "Unsend" : "Delete",
+          style: "destructive",
+          onPress: async () => {
+            setMsgs((cur) => cur.filter((x) => x.gmsg_id !== m.gmsg_id));
+            try { await api.groupDeleteMessage(String(id), m.gmsg_id); }
+            catch { load(); }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -104,13 +129,36 @@ export default function GroupChat() {
                   </View>
                 );
               }
-              return (
-                <View key={m.gmsg_id} style={[styles.bubble, mine ? styles.me : styles.them]}>
+              const canDelete = mine || isAdmin || ownerId === meId;
+              const bubble = (
+                <View style={[styles.bubble, mine ? styles.me : styles.them]}>
                   {!mine && <Text style={styles.sender}>{shortName(m.sender_name)}</Text>}
                   <Text style={[styles.msg, mine && { color: colors.onBrand }]}>{m.body}</Text>
                 </View>
               );
+              if (!canDelete) {
+                return <View key={m.gmsg_id} style={{ alignSelf: mine ? "flex-end" : "flex-start", maxWidth: "82%" }}>{bubble}</View>;
+              }
+              return (
+                <Swipeable
+                  key={m.gmsg_id}
+                  containerStyle={{ alignSelf: mine ? "flex-end" : "flex-start", maxWidth: "82%" }}
+                  renderRightActions={() => (
+                    <Pressable testID={`group-unsend-${m.gmsg_id}`} style={styles.unsendAction} onPress={() => unsend(m)}>
+                      <Ionicons name="trash" size={18} color="#fff" />
+                      <Text style={styles.unsendText}>{mine ? "Unsend" : "Delete"}</Text>
+                    </Pressable>
+                  )}
+                  overshootRight={false}
+                  rightThreshold={40}
+                >
+                  {bubble}
+                </Swipeable>
+              );
             })}
+            {msgs.some((m) => m.from_id === meId) && (
+              <Text style={styles.swipeHint}>Swipe a message left to unsend it</Text>
+            )}
           </ScrollView>
         )}
         <View style={styles.bar}>
@@ -148,6 +196,9 @@ const styles = StyleSheet.create({
   announceLabel: { color: colors.brand, fontSize: 10.5, fontWeight: "900", letterSpacing: 1 },
   announceBody: { color: colors.onSurface, fontSize: 14.5, lineHeight: 20 },
   msg: { color: colors.onSurface, fontSize: 15, lineHeight: 20 },
+  unsendAction: { backgroundColor: colors.error, justifyContent: "center", alignItems: "center", width: 78, borderRadius: radius.lg, marginLeft: spacing.sm, gap: 2 },
+  unsendText: { color: "#fff", fontWeight: "800", fontSize: 12 },
+  swipeHint: { color: colors.onSurfaceSecondary, fontSize: 11, textAlign: "center", marginTop: 4, opacity: 0.7 },
   bar: { flexDirection: "row", alignItems: "flex-end", gap: spacing.sm, padding: spacing.md, borderTopWidth: 1, borderTopColor: colors.border },
   input: { flex: 1, maxHeight: 120, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: 10, color: colors.onSurface, fontSize: 15 },
   sendBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },

@@ -2974,6 +2974,23 @@ async def group_send(gid: str, body: DMSendReq, u: dict = Depends(require_user))
     return {"message": msg}
 
 
+@api.delete("/groups/{gid}/messages/{gmsg_id}")
+async def group_delete_message(gid: str, gmsg_id: str, u: dict = Depends(require_user)):
+    g = await _group_or_403(gid, u["user_id"])
+    msg = await db.group_messages.find_one({"gmsg_id": gmsg_id, "group_id": gid}, {"_id": 0})
+    if not msg:
+        raise HTTPException(404, "Message not found.")
+    is_moderator = g.get("owner_id") == u["user_id"] or bool(u.get("is_admin"))
+    # System/announcement messages can only be removed by an owner/admin.
+    if msg.get("from_id") == "system" and not is_moderator:
+        raise HTTPException(403, "Only a group admin can remove announcements.")
+    # Regular members may only unsend their own messages.
+    if msg.get("from_id") != u["user_id"] and not is_moderator:
+        raise HTTPException(403, "You can only unsend your own messages.")
+    await db.group_messages.delete_one({"gmsg_id": gmsg_id, "group_id": gid})
+    return {"ok": True, "gmsg_id": gmsg_id}
+
+
 class GroupRenameReq(BaseModel):
     name: str
 
