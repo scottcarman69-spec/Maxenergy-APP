@@ -45,6 +45,12 @@ EMAIL_BASE_URL = os.environ["EMAIL_BASE_URL"]
 EMERGENT_AUTH_SESSION_URL = os.environ["EMERGENT_AUTH_SESSION_URL"]
 SEED_VERSION = "v14"
 MAX_CLASS_CAPACITY = 16   # hard maximum spots per class (appointments stay at 1)
+BOOTCAMP_CAPACITY = 20    # Boot Camp is allowed a higher cap than other classes
+
+
+def _cap_limit(name: Optional[str]) -> int:
+    """Max spots allowed for a class: Boot Camp gets 20, everything else 16."""
+    return BOOTCAMP_CAPACITY if (name or "").strip().lower() == "boot camp" else MAX_CLASS_CAPACITY
 
 GYM_INFO = {
     "name": "Maxenergy Fitness",
@@ -5141,7 +5147,7 @@ async def admin_class_create(body: ClassUpsert, u: dict = Depends(require_admin)
         "description": body.description or "",
         "color": "#FF7A00",
         "start_at": _parse_dt(body.start_at) if body.start_at else now_utc(),
-        "capacity": 1 if by_appt else min(int(body.capacity or 16), MAX_CLASS_CAPACITY),
+        "capacity": 1 if by_appt else min(int(body.capacity or 16), _cap_limit(body.name)),
         "by_appointment": by_appt,
         "min_age": body.min_age if isinstance(body.min_age, int) else None,
         "max_age": body.max_age if isinstance(body.max_age, int) else None,
@@ -5170,7 +5176,7 @@ async def admin_class_update(class_id: str, body: ClassUpsert, u: dict = Depends
         # Only fixed-time classes carry a schedule slot / capacity.
         if body.start_at:
             upd["start_at"] = _parse_dt(body.start_at)
-        upd["capacity"] = min(int(body.capacity or 16), MAX_CLASS_CAPACITY)
+        upd["capacity"] = min(int(body.capacity or 16), _cap_limit(body.name))
     if body.image:
         upd["image"] = body.image
     if body.description is not None:
@@ -6416,7 +6422,7 @@ async def seed_data():
                             "program": program,
                             "color": "#FF7A00",
                             "start_at": date + timedelta(hours=hour),
-                            "capacity": 16,
+                            "capacity": 20 if name == "Boot Camp" else 16,
                             "by_appointment": False,
                             "min_age": 8 if (name == "Muay Thai" and category == "Kids") else 16,
                             "max_age": 16 if (name == "Muay Thai" and category == "Kids") else None,
@@ -6518,6 +6524,16 @@ async def seed_data():
         )
         await db.meta.update_one({"key": "capacity_policy_v2"}, {"$set": {"value": True}}, upsert=True)
         log.info(f"capacity policy v2 applied -> {r1.modified_count} classes capped to 16")
+
+    # Boot Camp is allowed up to 20 spots (all other classes stay at 16).
+    cap_flag3 = await db.meta.find_one({"key": "capacity_policy_v3"})
+    if not cap_flag3:
+        r3 = await db.classes.update_many(
+            {"by_appointment": {"$ne": True}, "name": "Boot Camp", "capacity": {"$lt": 20}},
+            {"$set": {"capacity": 20}},
+        )
+        await db.meta.update_one({"key": "capacity_policy_v3"}, {"$set": {"value": True}}, upsert=True)
+        log.info(f"capacity policy v3 applied -> {r3.modified_count} boot camp classes set to 20")
 
 
 async def seed_official_groups():

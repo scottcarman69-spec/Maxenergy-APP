@@ -1024,3 +1024,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - app/(tabs)/_layout.tsx refresh() now also fetches api.announcements() and counts those newer than the per-user baseline last_seen_notice_ts_<uid> (AsyncStorage/localStorage), same key the Home popup uses. Suppressed for admins. Badge styled like the others. Recomputed on 15s poll, app-foreground, and navigation (segments) changes.
 - app/(tabs)/events.tsx now writes last_seen_notice_ts_<uid> = newest announcement ts on load/focus, so opening the Notices tab clears the badge.
 - Verified via screenshots (member testmember@gmail.com): forcing baseline old -> Notices tab shows "3"; after opening Notices tab and navigating away -> badge cleared. Inbox/Alerts badges unaffected.
+
+## Session update (Jun 2026 fork) — Boot Camp capacity 20 (others stay 16) (DONE)
+- Boot Camp now allows up to 20 members; all other classes remain capped at 16 (appointments still 1).
+- Backend: BOOTCAMP_CAPACITY=20 + helper _cap_limit(name) (20 for 'boot camp', else MAX_CLASS_CAPACITY=16). Admin create+update clamp via _cap_limit(body.name). Seed template Boot Camp=20. One-time migration capacity_policy_v3 bumped existing Boot Camp classes 16->20.
+- Frontend admin editor: capacity clamp + 'Capacity (max N)' label now class-aware (20 for Boot Camp, 16 otherwise).
+- Verified: seeded Boot Camp=20, Muay Thai/Kickboxing=16; create Boot Camp cap 50 -> 20, Kickboxing cap 50 -> 16. All 23 seeded classes intact.

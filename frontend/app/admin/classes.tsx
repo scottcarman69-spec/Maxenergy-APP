@@ -130,7 +130,7 @@ export default function AdminClasses() {
       level: form.level,
       duration_min: parseInt(form.duration_min || "60", 10),
       price_cents: Math.round(parseFloat(form.price || "0") * 100),
-      capacity: appt ? 1 : Math.min(parseInt(form.capacity || "16", 10) || 16, 16),
+      capacity: appt ? 1 : Math.min(parseInt(form.capacity || "16", 10) || 16, form.name.trim().toLowerCase() === "boot camp" ? 20 : 16),
       description: form.description,
       by_appointment: appt,
       min_age: form.min_age.trim() ? parseInt(form.min_age, 10) : null,
@@ -326,7 +326,7 @@ export default function AdminClasses() {
                   </View>
                   {!form.by_appointment && (
                     <View style={[styles.field, { flex: 1 }]}>
-                      <Text style={styles.label}>Capacity (max 16)</Text>
+                      <Text style={styles.label}>Capacity (max {form.name.trim().toLowerCase() === "boot camp" ? 20 : 16})</Text>
                       <TextInput testID="adminc-capacity" value={form.capacity} onChangeText={(t) => setForm({ ...form, capacity: t })} keyboardType="number-pad" placeholderTextColor={colors.onSurfaceSecondary} style={styles.input} />
                     </View>
                   )}
