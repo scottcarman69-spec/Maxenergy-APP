@@ -1,5 +1,5 @@
-import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Platform, Modal, TextInput } from "react-native";
+import React, { useCallback, useRef, useState } from "react";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Platform, Modal, TextInput, KeyboardAvoidingView } from "react-native";
 import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -59,9 +59,17 @@ export default function ClassDetail() {
   const [onWaitlist, setOnWaitlist] = useState(false);
   const [wlBusy, setWlBusy] = useState(false);
   const [calReminder, setCalReminder] = useState(user?.cal_reminder_default || 60); // calendar alarm lead time (minutes)
-  const [ageModalOpen, setAgeModalOpen] = useState(false);
-  const [childAge, setChildAge] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [childAgeNum, setChildAgeNum] = useState<number | null>(null);
+  const [childName, setChildName] = useState<string>("");
+  const [addOpen, setAddOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newAge, setNewAge] = useState("");
+  const [savingChild, setSavingChild] = useState(false);
+  const [pickerErr, setPickerErr] = useState<string | null>(null);
+  // Holds the chosen child so proceedBooking always reads the committed value
+  // (React state updates are async and would be stale in the same tick).
+  const childRef = useRef<{ name: string; age: number | null }>({ name: "", age: null });
 
   const toggleWaitlist = async () => {
     if (!cls || wlBusy) return;
@@ -111,7 +119,7 @@ export default function ClassDetail() {
     setBusy(true);
     setMsg(null);
     try {
-      const { booking } = await api.createBooking(cls.class_id, requestedTime, requestedAt, durationMin, calReminder, childAgeNum ?? undefined);
+      const { booking } = await api.createBooking(cls.class_id, requestedTime, requestedAt, durationMin, calReminder, childRef.current.age ?? undefined, childRef.current.name || undefined);
 
       if (booking.status === "paid") {
         setMsg("Already booked. See you there!");
@@ -201,22 +209,45 @@ export default function ClassDetail() {
         .catch(() => {});
       setApptOpen(true);
     } else if (!!cls?.min_age && !!cls?.max_age && childAgeNum === null) {
-      // Kids class: ask the child's age once before continuing (pre-fill remembered age).
-      setChildAge(user?.child_age_default ? String(user.child_age_default) : "");
+      // Kids class: pick which saved child is attending (or add a new one) before continuing.
+      const kids = user?.children || [];
+      setPickerErr(null);
+      setAddOpen(kids.length === 0);
+      setNewName("");
+      setNewAge("");
       setMsg(null);
-      setAgeModalOpen(true);
+      setPickerOpen(true);
     } else {
       continueFixed();
     }
   };
 
-  const confirmAge = () => {
-    const n = parseInt(childAge, 10);
-    if (!Number.isFinite(n) || n <= 0) return;
-    if (cls?.min_age && n < cls.min_age) return; // under the minimum age — blocked
-    setChildAgeNum(n);
-    setAgeModalOpen(false);
+  const selectChild = (name: string, age: number) => {
+    childRef.current = { name, age };
+    setChildName(name);
+    setChildAgeNum(age);
+    setPickerOpen(false);
     continueFixed();
+  };
+
+  const saveNewChild = async () => {
+    const n = newName.trim();
+    const a = parseInt(newAge, 10);
+    if (!n) { setPickerErr("Please enter the child's name."); return; }
+    if (!Number.isFinite(a) || a < 1 || a > 100) { setPickerErr("Please enter a valid age."); return; }
+    if (cls?.min_age && a < cls.min_age) {
+      setPickerErr(`Sorry, ${cls.name} is for ages ${cls.min_age}+. ${n} is too young to be booked in.`);
+      return;
+    }
+    setSavingChild(true); setPickerErr(null);
+    try {
+      await api.addChild(n, a);
+      await refresh();
+      selectChild(n, a);
+    } catch (e: any) {
+      setPickerErr(e?.message || "Couldn't save the child. Please try again.");
+    }
+    setSavingChild(false);
   };
 
   // Preferred-time picker (appointment classes): Mon–Thu only, 10:30am–4:00pm (Queensland).
@@ -596,71 +627,97 @@ export default function ClassDetail() {
         </View>
       </Modal>
 
-      <Modal visible={ageModalOpen} transparent animationType="fade" onRequestClose={() => setAgeModalOpen(false)}>
-        <View style={styles.creditOverlay}>
+      <Modal visible={pickerOpen} transparent animationType="fade" onRequestClose={() => setPickerOpen(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.creditOverlay}>
           <View style={styles.creditCard}>
             <View style={styles.creditIcon}>
-              <Ionicons name="body" size={26} color={colors.brand} />
+              <Ionicons name="people-circle" size={26} color={colors.brand} />
             </View>
-            <Text style={styles.ageModalTitle}>How old is the child attending?</Text>
+            <Text style={styles.ageModalTitle}>Who's attending?</Text>
             <Text style={styles.ageModalSub}>
               This class is designed for ages {cls?.min_age}–{cls?.max_age}.
             </Text>
-            <TextInput
-              testID="child-age-input"
-              style={styles.ageInput}
-              value={childAge}
-              onChangeText={(t) => setChildAge(t.replace(/[^0-9]/g, "").slice(0, 2))}
-              keyboardType="number-pad"
-              placeholder="Age in years"
-              placeholderTextColor={colors.onSurfaceSecondary}
-              maxLength={2}
-              autoFocus
-            />
-            {(() => {
-              const n = parseInt(childAge, 10);
-              if (!Number.isFinite(n)) return null;
-              if (n < (cls?.min_age || 0)) {
-                return (
+
+            {!addOpen && (
+              <View style={{ alignSelf: "stretch", marginTop: spacing.md, gap: spacing.sm }}>
+                {(user?.children || []).map((c) => {
+                  const tooYoung = !!cls?.min_age && c.age < cls.min_age;
+                  const tooOld = !!cls?.max_age && c.age > cls.max_age;
+                  return (
+                    <Pressable
+                      key={c.child_id}
+                      testID={`pick-child-${c.child_id}`}
+                      disabled={tooYoung}
+                      onPress={() => selectChild(c.name, c.age)}
+                      style={[styles.childRow, tooYoung && styles.childRowDisabled]}
+                    >
+                      <View style={styles.childAvatar}><Text style={styles.childAvatarText}>{c.name.slice(0, 1).toUpperCase()}</Text></View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.childName}>{c.name}</Text>
+                        <Text style={[styles.childAge, tooYoung && { color: colors.error }, tooOld && !tooYoung && { color: colors.warning }]}>
+                          {c.age} years{tooYoung ? ` · too young (ages ${cls?.min_age}+)` : tooOld ? " · above usual age range" : ""}
+                        </Text>
+                      </View>
+                      {!tooYoung && <Ionicons name="chevron-forward" size={18} color={colors.brand} />}
+                    </Pressable>
+                  );
+                })}
+                <Pressable testID="picker-add-toggle" style={styles.addChildBtn} onPress={() => { setAddOpen(true); setPickerErr(null); }}>
+                  <Ionicons name="add-circle-outline" size={18} color={colors.brand} />
+                  <Text style={styles.addChildBtnText}>Add another child</Text>
+                </Pressable>
+              </View>
+            )}
+
+            {addOpen && (
+              <View style={{ alignSelf: "stretch", marginTop: spacing.md }}>
+                <TextInput
+                  testID="new-child-name"
+                  style={styles.ageInput}
+                  value={newName}
+                  onChangeText={setNewName}
+                  placeholder="Child's name"
+                  placeholderTextColor={colors.onSurfaceSecondary}
+                  maxLength={40}
+                  autoFocus
+                />
+                <TextInput
+                  testID="new-child-age"
+                  style={[styles.ageInput, { marginTop: spacing.sm }]}
+                  value={newAge}
+                  onChangeText={(t) => setNewAge(t.replace(/[^0-9]/g, "").slice(0, 3))}
+                  keyboardType="number-pad"
+                  placeholder="Age in years"
+                  placeholderTextColor={colors.onSurfaceSecondary}
+                  maxLength={3}
+                />
+                {pickerErr && (
                   <View style={styles.ageBlock}>
                     <Ionicons name="close-circle" size={15} color={colors.error} />
-                    <Text style={styles.ageBlockText}>
-                      Sorry, this class is for ages {cls?.min_age}+. Children under {cls?.min_age} can't be booked in.
-                    </Text>
+                    <Text style={styles.ageBlockText}>{pickerErr}</Text>
                   </View>
-                );
-              }
-              if (n > (cls?.max_age || 99)) {
-                return (
-                  <View style={styles.ageWarn}>
-                    <Ionicons name="alert-circle" size={15} color={colors.warning} />
-                    <Text style={styles.ageWarnText}>
-                      Heads up — this class is best suited to ages {cls?.min_age}–{cls?.max_age}. You can still continue if you'd like.
-                    </Text>
-                  </View>
-                );
-              }
-              return null;
-            })()}
-            {(() => {
-              const n = parseInt(childAge, 10);
-              const ok = n > 0 && !(cls?.min_age && n < cls.min_age);
-              return (
+                )}
                 <Pressable
-                  testID="child-age-continue"
-                  style={[styles.payBtn, { marginTop: spacing.md, opacity: ok ? 1 : 0.5 }]}
-                  onPress={confirmAge}
-                  disabled={!ok}
+                  testID="new-child-save"
+                  style={[styles.payBtn, { marginTop: spacing.md, justifyContent: "center", opacity: savingChild ? 0.6 : 1 }]}
+                  onPress={saveNewChild}
+                  disabled={savingChild}
                 >
-                  <Text style={styles.payBtnText}>CONTINUE</Text>
+                  {savingChild ? <ActivityIndicator color={colors.onBrand} /> : <Text style={styles.payBtnText}>SAVE & CONTINUE</Text>}
                 </Pressable>
-              );
-            })()}
-            <Pressable testID="child-age-cancel" style={styles.ageCancel} onPress={() => setAgeModalOpen(false)}>
+                {(user?.children || []).length > 0 && (
+                  <Pressable testID="picker-back" style={styles.ageCancel} onPress={() => { setAddOpen(false); setPickerErr(null); }}>
+                    <Text style={styles.ageCancelText}>Back to my children</Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
+
+            <Pressable testID="picker-cancel" style={styles.ageCancel} onPress={() => setPickerOpen(false)}>
               <Text style={styles.ageCancelText}>Cancel</Text>
             </Pressable>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <Modal visible={creditOpen} transparent animationType="fade" onRequestClose={() => { setCreditOpen(false); setApptChoice(null); }}>
@@ -787,6 +844,14 @@ const styles = StyleSheet.create({
   ageBlockText: { flex: 1, color: colors.error, fontSize: 12.5, lineHeight: 18, fontWeight: "700" },
   ageCancel: { alignItems: "center", paddingVertical: 12, marginTop: 4 },
   ageCancelText: { color: colors.onSurfaceSecondary, fontSize: 14, fontWeight: "700" },
+  childRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md },
+  childRowDisabled: { opacity: 0.5 },
+  childAvatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
+  childAvatarText: { color: colors.onBrand, fontSize: 16, fontWeight: "900" },
+  childName: { color: colors.onSurface, fontSize: 15, fontWeight: "800" },
+  childAge: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 1 },
+  addChildBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 13, borderRadius: radius.md, borderWidth: 1, borderColor: colors.brand, borderStyle: "dashed", marginTop: 2 },
+  addChildBtnText: { color: colors.brand, fontWeight: "800", fontSize: 14 },
   metaGrid: { flexDirection: "row", gap: spacing.md },
   metaCol: {
     flex: 1,

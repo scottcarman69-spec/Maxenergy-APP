@@ -235,6 +235,7 @@ def user_public(u: dict) -> dict:
         "cal_reminder_default": int(u.get("cal_reminder_default", 60)),
         "quick_actions_order": u.get("quick_actions_order") or [],
         "child_age_default": u.get("child_age_default"),
+        "children": u.get("children") or [],
         "message_notifications": bool(u.get("message_notifications", True)),
         "leaderboard_opt_out": bool(u.get("leaderboard_opt_out", False)),
         "quiet_hours": u.get("quiet_hours") or {"enabled": False, "start": "22:00", "end": "07:00"},
@@ -943,6 +944,7 @@ class BookingCreate(BaseModel):
     duration_min: Optional[int] = None      # chosen session length (appointment classes with options)
     cal_reminder_minutes: Optional[int] = None  # calendar alarm lead time: 60 (1h) or 1440 (1 day)
     child_age: Optional[int] = None          # age of the child attending (Kids classes)
+    child_name: Optional[str] = None         # name of the child attending (Kids classes)
 
 
 class CheckoutCreate(BaseModel):
@@ -1256,6 +1258,62 @@ async def set_quick_actions_order(body: QuickActionsOrderReq, u: dict = Depends(
     order = [str(k)[:40] for k in (body.order or [])][:30]
     await db.users.update_one({"user_id": u["user_id"]}, {"$set": {"quick_actions_order": order}})
     return {"ok": True, "quick_actions_order": order}
+
+
+class ChildReq(BaseModel):
+    name: str
+    age: int
+
+
+def _clean_child(body: ChildReq):
+    name = (body.name or "").strip()[:40]
+    if not name:
+        raise HTTPException(400, "Please enter the child's name.")
+    try:
+        age = int(body.age)
+    except Exception:
+        raise HTTPException(400, "Please enter a valid age.")
+    if not (1 <= age <= 100):
+        raise HTTPException(400, "Please enter a valid age between 1 and 100.")
+    return name, age
+
+
+async def _children_of(user_id: str) -> list:
+    fresh = await db.users.find_one({"user_id": user_id}, {"_id": 0, "children": 1})
+    return (fresh or {}).get("children") or []
+
+
+@api.get("/me/children")
+async def list_children(u: dict = Depends(require_user)):
+    return {"children": await _children_of(u["user_id"])}
+
+
+@api.post("/me/children")
+async def add_child(body: ChildReq, u: dict = Depends(require_user)):
+    name, age = _clean_child(body)
+    if len(await _children_of(u["user_id"])) >= 15:
+        raise HTTPException(400, "You can save up to 15 children.")
+    child = {"child_id": new_id("kid"), "name": name, "age": age}
+    await db.users.update_one({"user_id": u["user_id"]}, {"$push": {"children": child}})
+    return {"children": await _children_of(u["user_id"])}
+
+
+@api.put("/me/children/{child_id}")
+async def update_child(child_id: str, body: ChildReq, u: dict = Depends(require_user)):
+    name, age = _clean_child(body)
+    r = await db.users.update_one(
+        {"user_id": u["user_id"], "children.child_id": child_id},
+        {"$set": {"children.$.name": name, "children.$.age": age}},
+    )
+    if r.matched_count == 0:
+        raise HTTPException(404, "Child not found.")
+    return {"children": await _children_of(u["user_id"])}
+
+
+@api.delete("/me/children/{child_id}")
+async def delete_child(child_id: str, u: dict = Depends(require_user)):
+    await db.users.update_one({"user_id": u["user_id"]}, {"$pull": {"children": {"child_id": child_id}}})
+    return {"children": await _children_of(u["user_id"])}
 
 
 class MessageNotifPrefReq(BaseModel):
@@ -1949,6 +2007,7 @@ async def booking_create(body: BookingCreate, u: dict = Depends(require_user)):
         "class_start": cls.get("start_at"),
         "cal_reminder_minutes": 1440 if int(body.cal_reminder_minutes or u.get("cal_reminder_default") or 60) == 1440 else 60,
         "child_age": (int(body.child_age) if isinstance(body.child_age, int) or (isinstance(body.child_age, str) and str(body.child_age).isdigit()) else None),
+        "child_name": ((body.child_name or "").strip()[:40] or None),
         "status": "pending",
         "created_at": now_utc(),
     }
@@ -2340,6 +2399,8 @@ async def admin_checkin_scan(body: ScanCheckinReq, request: Request, u: dict = D
                 "when": f"Booking confirmed · {when_str} — no pass deducted",
                 "existing_booking": True,
                 "passes_left": int(member.get("class_pass_credits", 0)),
+                "child_name": bk.get("child_name"),
+                "child_age": bk.get("child_age"),
             }
 
         # ----- No booking today → treat as a casual walk-in and deduct 1 class pass. -----
@@ -2411,6 +2472,8 @@ async def admin_checkin_scan(body: ScanCheckinReq, request: Request, u: dict = D
             "member_name": mname,
             "class_name": b["class_name"],
             "when": when_str,
+            "child_name": b.get("child_name"),
+            "child_age": b.get("child_age"),
         }
 
     admin_name = u.get("name") or u.get("email") or "Staff"
@@ -2438,6 +2501,8 @@ async def admin_checkin_scan(body: ScanCheckinReq, request: Request, u: dict = D
         "member_name": mname,
         "class_name": b["class_name"],
         "when": when_str,
+        "child_name": b.get("child_name"),
+        "child_age": b.get("child_age"),
     }
 
 @api.get("/messages/unread")
@@ -3816,6 +3881,7 @@ async def payment_receipt(booking_id: str, u: dict = Depends(require_user)):
         "member_email": u.get("email"),
         "location": GYM_INFO["address"],
         "child_age": b.get("child_age"),
+        "child_name": b.get("child_name"),
     }
 
 

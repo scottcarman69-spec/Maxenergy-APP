@@ -256,6 +256,16 @@ export default function Profile() {
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.brand} />
           </Pressable>
+          <Pressable testID="profile-link-children" style={[styles.membershipRow, styles.linkRowDivider]} onPress={() => router.push("/children")}>
+            <View style={styles.membershipIcon}>
+              <Ionicons name="people-circle" size={20} color={colors.onBrand} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.membershipLabel}>My Children</Text>
+              <Text style={styles.membershipSub}>Save kids' names & ages for quick booking</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.brand} />
+          </Pressable>
           <Pressable testID="profile-link-freetrial" style={styles.membershipRow} onPress={() => router.push("/free-trial")}>
             <View style={styles.membershipIcon}>
               <Ionicons name="gift" size={20} color={colors.onBrand} />

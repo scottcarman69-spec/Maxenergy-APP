@@ -25,6 +25,8 @@ type Booking = {
   trainer_photo?: string;
   duration_min?: number;
   level?: string;
+  child_name?: string;
+  child_age?: number;
 };
 
 function fmtDate(iso?: string) {
@@ -42,15 +44,19 @@ export default function CheckIn() {
   const [rows, setRows] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [banner, setBanner] = useState<string | null>(null);
-  const [qr, setQr] = useState<{ code: string; title: string } | null>(null);
+  const [qr, setQr] = useState<{ code: string; title: string; child?: string } | null>(null);
   const [qrLoading, setQrLoading] = useState(false);
   const autoShown = React.useRef(false);
+
+  const childLabel = (b: Booking) =>
+    b.child_name ? `${b.child_name}${typeof b.child_age === "number" ? ` · age ${b.child_age}` : ""}`
+      : typeof b.child_age === "number" ? `Age ${b.child_age}` : undefined;
 
   const showQr = async (b: Booking) => {
     setQrLoading(true);
     try {
       const r = await api.checkinCode(b.booking_id);
-      setQr({ code: r.code, title: b.class_name });
+      setQr({ code: r.code, title: b.class_name, child: childLabel(b) });
     } catch (e: any) {
       setBanner(e?.message || "Could not load your QR code.");
     }
@@ -160,6 +166,12 @@ export default function CheckIn() {
                     <Ionicons name="bookmark-outline" size={15} color={colors.brand} />
                     <Text style={styles.detailText}>Ref: {b.booking_id.replace("bk_", "").toUpperCase().slice(0, 8)}</Text>
                   </View>
+                  {!!childLabel(b) && (
+                    <View style={styles.detailRow}>
+                      <Ionicons name="body-outline" size={15} color={colors.brand} />
+                      <Text style={styles.detailText}>Attending: {childLabel(b)}</Text>
+                    </View>
+                  )}
                 </View>
 
                 {!b.attended && (
@@ -184,6 +196,12 @@ export default function CheckIn() {
           <Pressable style={styles.qrCard} onPress={() => {}}>
             <Text style={styles.qrTitle}>{qr?.title}</Text>
             <Text style={styles.qrSub}>Show this to gym staff to check in</Text>
+            {!!qr?.child && (
+              <View style={styles.qrChild}>
+                <Ionicons name="body" size={15} color={colors.brand} />
+                <Text style={styles.qrChildText}>Attending: {qr.child}</Text>
+              </View>
+            )}
             <View style={styles.qrBox}>
               {qr ? <QRCode value={qr.code} size={220} backgroundColor="#fff" color="#000" /> : null}
             </View>
@@ -229,6 +247,8 @@ const styles = StyleSheet.create({
   qrCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.xl, alignItems: "center", width: "100%", maxWidth: 340, borderWidth: 1, borderColor: colors.border },
   qrTitle: { color: colors.onSurface, fontSize: 20, fontWeight: "900" },
   qrSub: { color: colors.onSurfaceSecondary, fontSize: 13, marginTop: 4, marginBottom: spacing.lg },
+  qrChild: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.brandTertiary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.pill, marginBottom: spacing.md },
+  qrChildText: { color: colors.brand, fontSize: 14, fontWeight: "900" },
   qrBox: { backgroundColor: "#fff", padding: 16, borderRadius: radius.md },
   qrHint: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: spacing.lg, paddingHorizontal: spacing.md },
   qrHintText: { color: colors.onSurfaceSecondary, fontSize: 12, textAlign: "center", flexShrink: 1 },

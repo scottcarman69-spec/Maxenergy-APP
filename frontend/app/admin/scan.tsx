@@ -8,7 +8,7 @@ import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
 import ScreenHeader from "@/src/components/ScreenHeader";
 
-type Result = { ok: boolean; already?: boolean; member_name?: string; class_name?: string; when?: string; error?: string };
+type Result = { ok: boolean; already?: boolean; member_name?: string; class_name?: string; when?: string; error?: string; child_name?: string; child_age?: number };
 
 export default function AdminScan() {
   const router = useRouter();
@@ -26,7 +26,7 @@ export default function AdminScan() {
     setChecking(true);
     try {
       const r = await api.scanCheckin(data);
-      setResult({ ok: true, already: r.already, member_name: r.member_name, class_name: r.class_name, when: r.when });
+      setResult({ ok: true, already: r.already, member_name: r.member_name, class_name: r.class_name, when: r.when, child_name: r.child_name, child_age: r.child_age });
     } catch (e: any) {
       setResult({ ok: false, error: e?.message || "Could not check in." });
     }
@@ -114,6 +114,14 @@ export default function AdminScan() {
                 <Text style={styles.resultTitle}>{result.already ? "Already checked in" : "Checked in!"}</Text>
                 <Text style={styles.resultName}>{result.member_name}</Text>
                 <Text style={styles.resultMeta}>{result.class_name}{result.when ? ` · ${result.when}` : ""}</Text>
+                {(result.child_name || typeof result.child_age === "number") && (
+                  <View testID="scan-child" style={styles.childBadge}>
+                    <Ionicons name="body" size={16} color="#fff" />
+                    <Text style={styles.childBadgeText}>
+                      Attending: {result.child_name || "Child"}{typeof result.child_age === "number" ? ` · age ${result.child_age}` : ""}
+                    </Text>
+                  </View>
+                )}
               </>
             ) : (
               <>
@@ -144,6 +152,8 @@ const styles = StyleSheet.create({
   resultTitle: { color: "#fff", fontSize: 26, fontFamily: font.display, marginTop: spacing.md },
   resultName: { color: "#fff", fontSize: 22, fontWeight: "900", marginTop: 4 },
   resultMeta: { color: "#fff", fontSize: 15, fontWeight: "600", textAlign: "center", marginTop: 2, opacity: 0.95 },
+  childBadge: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "rgba(0,0,0,0.28)", paddingHorizontal: 16, paddingVertical: 10, borderRadius: radius.pill, marginTop: spacing.md },
+  childBadgeText: { color: "#fff", fontSize: 16, fontWeight: "900" },
   againBtn: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#fff", paddingHorizontal: spacing.xl, paddingVertical: 14, borderRadius: radius.pill, marginTop: spacing.xl },
   againText: { color: colors.surface, fontWeight: "900", fontSize: 15 },
   centerBox: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xl, gap: spacing.md },

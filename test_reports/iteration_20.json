@@ -1,0 +1,37 @@
+{
+  "summary": "Multiple-Children feature: BACKEND 100% PASS (13/13 pytest — /app/backend/tests/test_children_feature.py, xml at /app/test_reports/pytest/pytest_children_feature.xml). FRONTEND child-picker modal works visually and correctly disables under-min-age rows, flags over-max-age rows, and shows the inline 'too young' error in the add-form. BUT a CRITICAL integration bug was found: when selecting an existing child (or saving a new one) via the picker, the resulting POST /api/bookings has child_name=None and child_age=None. Backend children CRUD (GET/POST/PUT/DELETE /api/me/children), validation (blank name / age 0 / age 101), /api/auth/me returning `children`, server-side under-8 hard block, and booking child_name+child_age persistence when called DIRECTLY over the API (both TEST_Bobby age 10 and TEST_TeenOver age 18 rows visible in /api/admin/bookings) all verified. The child-picker UI flow itself proceeded end-to-end to the Square Sandbox hosted checkout page (redirect confirmed), but the booking row that got created (bk_ddc89d7d5a3a) had child_name=None child_age=None — see rca_of_issue.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Kids class BOOK & PAY → 'Who's attending?' picker → select saved child → POST /api/bookings",
+        "issue": "The booking is created with child_name=null and child_age=null even though the picker selected a valid child. The backend fields ARE wired correctly (POST /api/bookings persists them when the payload includes them; admin/bookings + receipt return them). The bug is entirely in the frontend: /app/frontend/app/class/[id].tsx `selectChild` (line 222) sets React state (setChildName / setChildAgeNum) and then synchronously calls `continueFixed()` in the same tick — `continueFixed` → `proceedBooking` (line 113) reads `childName` and `childAgeNum` from the closure, which still holds the pre-update values ('' and null), so `api.createBooking(..., childAgeNum ?? undefined, childName || undefined)` sends undefined for both fields. Repro: login as testmember, seed a child aged 10, open Kids Muay Thai class cls_a38f3d888984, tap BOOK & PAY, tap the child row → booking is created, but /api/admin/bookings shows child_name=null child_age=null for that booking. Fix: pass the chosen name+age as arguments through to `proceedBooking` instead of relying on React state (e.g. `proceedBooking(..., childOverride={name, age})`) OR wrap the continue call in a `useEffect([childName, childAgeNum])` that fires once the state is committed. Same bug path applies to the 'Add another child → SAVE & CONTINUE' branch (`saveNewChild` line 229 → `selectChild(n, a)` → same closure problem).",
+        "affected_testIDs": ["pick-child-<id>", "new-child-save"]
+      }
+    ],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_children_feature.py",
+    "/app/test_reports/pytest/pytest_children_feature.xml"
+  ],
+  "action_items": [
+    "[CRITICAL] Fix state-closure bug in /app/frontend/app/class/[id].tsx `selectChild` (line 222) + `saveNewChild` (line 229): pass name+age directly to proceedBooking rather than reading them from React state that hasn't committed yet. Suggested patch: give proceedBooking optional overrides (`proceedBooking(requestedTime, requestedAt, useCredit, useClassPass, durationMin, {name, age})`) and use those in the `api.createBooking(...)` call at line 119, falling back to state when no override is supplied. Without this, every UI-driven Kids booking is stored WITHOUT the child's name/age → the receipt 'Attending' row and the admin/bookings child chip will never appear for UI-created bookings (they DO appear when the API is called directly)."
+  ],
+  "critical_code_review_comments": [
+    "server.py children CRUD (lines 1281–1316) is clean — 15-child cap, name trim, age 1–100 validation via `_clean_child`, 404 on unknown child_id in PUT, `$pull` on DELETE (idempotent, no 404 which is fine). All four endpoints return the fresh full list — good.",
+    "server.py booking_create (lines 1946-1947) enforces `min_age` server-side but does NOT enforce `max_age` — matches the review request wording ('over-16 selectable with a note'). Fine.",
+    "class/[id].tsx line 208: `if (!!cls?.min_age && !!cls?.max_age && childAgeNum === null)` — the picker only appears when BOTH min_age AND max_age are set (matches requirements) AND when childAgeNum is null. If the user picks a child, then dismisses the modal, then taps BOOK & PAY again on the SAME page load, the picker will NOT reappear (childAgeNum is now set). Minor UX concern but not blocking; consider resetting childAgeNum on picker cancel."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_children_feature.py (new — 13 pytest tests, all pass)"
+  ],
+  "success_rate": {"backend": "100% (13/13)", "frontend": "80% — CRUD screen + picker UI work, but the booking payload is missing child_name/child_age (state-closure bug)"},
+  "seed_data_creation": "During UI test: seeded 3 children on testmember (TEST_Tommy age 6, TEST_Sara age 10, TEST_Zoe age 17). All cleaned up (deleted via API). One pending booking bk_ddc89d7d5a3a created on cls_a38f3d888984 by the picker UI flow — cancelled via admin. During pytest: brief create-then-cancel bookings TEST_Bobby & TEST_TeenOver — cancelled in finally block (they remain in admin/bookings with status=cancelled). Testmember credit unchanged, no Square live charges.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Run: `pytest /app/backend/tests/test_children_feature.py -p no:xdist -o addopts= -v`. To reproduce the frontend state-closure bug: login testmember → seed a child aged 10 via /children → open class cls_a38f3d888984 (Kids Muay Thai) → BOOK & PAY → tap the child row → wait until Square opens → check /api/admin/bookings — the newly-created booking has child_name=null. To verify the fix, after main agent's patch, repeat and confirm the booking row has child_name+child_age populated AND the receipt for it renders an 'Attending' row.",
+  "rca_of_issue": "Root cause of the missing child_name in UI-created bookings: React state updates are asynchronous/batched. In /app/frontend/app/class/[id].tsx `selectChild(name, age)` (line 222) calls setChildName(name) + setChildAgeNum(age) and then IMMEDIATELY calls continueFixed() in the same synchronous tick. continueFixed → proceedBooking (line 113) reads `childName` and `childAgeNum` from the enclosing component's closure, which still holds the pre-update values ('' and null). Result: api.createBooking(cls.class_id, ..., childAgeNum ?? undefined, childName || undefined) sends child_age=undefined and child_name=undefined. Backend happily accepts (they're Optional) and stores both as null. Mitigation: pass the picked child's name+age directly through the call chain instead of relying on state that hasn't committed. Empirical proof: pytest calls POST /api/bookings directly with the child fields → child_name+child_age persist correctly in the booking row (see TEST_Bobby / TEST_TeenOver rows in admin/bookings). UI-driven booking bk_ddc89d7d5a3a on the SAME class ended up with child_name=null child_age=null."
+}

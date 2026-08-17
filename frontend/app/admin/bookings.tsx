@@ -25,6 +25,7 @@ type Booking = {
   created_at?: string;
   attended?: boolean;
   child_age?: number;
+  child_name?: string;
   checked_in_method?: string;
   checked_in_by?: string;
   checked_in_at?: string;
@@ -221,10 +222,12 @@ export default function AdminBookings() {
                             <Text style={styles.paidChipText}>Paid by {b.paid_via ? (PAID_VIA_LABEL[b.paid_via] || "Card") : "Card"}</Text>
                           </View>
                         )}
-                        {typeof b.child_age === "number" && (
+                        {(b.child_name || typeof b.child_age === "number") && (
                           <View style={styles.ageChip}>
                             <Ionicons name="body" size={11} color={colors.brand} />
-                            <Text style={styles.ageChipText}>Age {b.child_age}</Text>
+                            <Text style={styles.ageChipText}>
+                              {b.child_name ? `${b.child_name}${typeof b.child_age === "number" ? ` · ${b.child_age}` : ""}` : `Age ${b.child_age}`}
+                            </Text>
                           </View>
                         )}
                       </View>

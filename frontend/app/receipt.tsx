@@ -28,6 +28,7 @@ type Receipt = {
   member_email?: string;
   location?: string;
   child_age?: number;
+  child_name?: string;
 };
 
 // "Paid on" is a real UTC instant → show in Queensland time (GMT+10).
@@ -76,7 +77,9 @@ export default function ReceiptScreen() {
       ["Class", r.class_name],
       ["Coach", r.trainer || "—"],
       ["When", when],
-      ...(typeof r.child_age === "number" ? [["Child's age", `${r.child_age} years`]] : []),
+      ...(r.child_name
+        ? [["Attending", `${r.child_name}${typeof r.child_age === "number" ? ` (age ${r.child_age})` : ""}`]]
+        : typeof r.child_age === "number" ? [["Child's age", `${r.child_age} years`]] : []),
       ["Booking No.", r.booking_no ? String(r.booking_no) : "—"],
       ["Paid on", fmtDateTime(r.paid_at)],
       ["Payment method", r.payment_method],
@@ -173,7 +176,9 @@ export default function ReceiptScreen() {
               <Row label="Class" value={receipt.class_name} />
               {!!receipt.trainer && <Row label="Coach" value={receipt.trainer} />}
               <Row label="When" value={receipt.by_appointment ? (receipt.requested_time || "By appointment") : fmtClassWhen(receipt.class_start)} />
-              {typeof receipt.child_age === "number" && <Row label="Child's age" value={`${receipt.child_age} years`} />}
+              {receipt.child_name
+                ? <Row label="Attending" value={`${receipt.child_name}${typeof receipt.child_age === "number" ? ` (age ${receipt.child_age})` : ""}`} />
+                : typeof receipt.child_age === "number" && <Row label="Child's age" value={`${receipt.child_age} years`} />}
               {!!receipt.booking_no && <Row label="Booking No." value={String(receipt.booking_no)} />}
               <Row label="Paid on" value={fmtDateTime(receipt.paid_at)} />
               <Row label="Payment method" value={receipt.payment_method} />

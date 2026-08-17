@@ -3,6 +3,12 @@ import { storage } from "@/src/utils/storage";
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 const TOKEN_KEY = "auth_token";
 
+export type Child = {
+  child_id: string;
+  name: string;
+  age: number;
+};
+
 export type User = {
   user_id: string;
   email: string;
@@ -16,6 +22,7 @@ export type User = {
   cal_reminder_default?: number;
   quick_actions_order?: string[];
   child_age_default?: number;
+  children?: Child[];
   credit_cents?: number;
   membership_form_completed?: boolean;
   vigyr_signup_reported?: boolean;
@@ -120,8 +127,12 @@ export const api = {
     return req(`/api/classes${qs ? `?${qs}` : ""}`);
   },
   classDetail: (id: string) => req(`/api/classes/${id}`),
-  createBooking: (class_id: string, requested_time?: string, requested_at?: string, duration_min?: number, cal_reminder_minutes?: number, child_age?: number) =>
-    req("/api/bookings", { method: "POST", body: JSON.stringify({ class_id, requested_time, requested_at, duration_min, cal_reminder_minutes, child_age }) }),
+  createBooking: (class_id: string, requested_time?: string, requested_at?: string, duration_min?: number, cal_reminder_minutes?: number, child_age?: number, child_name?: string) =>
+    req("/api/bookings", { method: "POST", body: JSON.stringify({ class_id, requested_time, requested_at, duration_min, cal_reminder_minutes, child_age, child_name }) }),
+  myChildren: (): Promise<{ children: Child[] }> => req("/api/me/children"),
+  addChild: (name: string, age: number): Promise<{ children: Child[] }> => req("/api/me/children", { method: "POST", body: JSON.stringify({ name, age }) }),
+  updateChild: (childId: string, name: string, age: number): Promise<{ children: Child[] }> => req(`/api/me/children/${childId}`, { method: "PUT", body: JSON.stringify({ name, age }) }),
+  deleteChild: (childId: string): Promise<{ children: Child[] }> => req(`/api/me/children/${childId}`, { method: "DELETE" }),
   myBookings: () => req("/api/bookings"),
   bookingCalendar: (id: string) => req(`/api/bookings/${id}/calendar`),
   appointmentsTaken: () => req("/api/appointments/taken"),

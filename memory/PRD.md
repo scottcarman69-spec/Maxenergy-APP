@@ -972,3 +972,17 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - User's managed Mongo (customer-apps.m4pwrf...): preview cannot reach it (network/IP restriction, not self-serve). Guidance: set MONGO_URL in Deployment Panel -> Secrets, redeploy; live app seeds admin+base on first boot. App now deployed to prod (https://class-notify-8.emergent.host).
 - Privacy Policy MOVED out of Settings (inbox-settings.tsx) to Profile page GYM INFO section (below Contact & Gym Info). Verified via screenshot.
 - Group chat unsend/delete: new backend DELETE /api/groups/{gid}/messages/{gmsg_id} (sender can unsend own; owner/admin can delete any incl. announcements). api.groupDeleteMessage added. group/[id].tsx: own messages (and any msg for owner/admin) wrapped in Swipeable -> swipe left reveals "Unsend"/"Delete" button -> Alert confirm -> optimistic removal. Hint shown when user has own messages. Backend tested (send->delete->verified gone); frontend renders fine.
+
+## Session update (Jun 2026 fork) — Multiple Children feature (DONE)
+- Parents can save multiple children (name + age) and pick who's attending each Kids class.
+- Backend: user.children array [{child_id,name,age}]; endpoints GET/POST/PUT/DELETE /api/me/children (validation: name required, age 1-100, max 15); user_public returns children; BookingCreate.child_name added; booking doc stores child_name; receipt endpoint + admin/bookings return child_name.
+- Frontend: NEW /app/frontend/app/children.tsx management screen (add/edit/delete, empty state) linked from Profile > MEMBERSHIP > 'My Children'. class/[id].tsx booking flow replaced single-age modal with a 'Who's attending?' child-picker: lists saved children (under-min disabled 'too young', over-max selectable w/ note), 'Add another child' inline form; api.createBooking now passes child_name.
+- Receipt shows 'Attending: Name (age N)'; admin Bookings chip shows 'Name · age'.
+- BUGFIX during build: selectChild/saveNewChild set React state then called proceedBooking in same tick -> stale closure sent child_name/child_age as undefined on UI bookings. Fixed with a childRef useRef that proceedBooking reads. Verified E2E by testing agent (iteration_21): POST body carries child fields; populated on admin row, admin chip, and receipt. Backend 13/13 pytest pass (test_children_feature.py).
+- KNOWN pre-existing (NOT this feature, not fixed): pass-paid bookings may not set paid_with_pass on the booking row, so admin-cancel doesn't auto-refund a class pass (server.py ~5180). Flagged for later.
+
+## Session update (Jun 2026 fork) — Kids QR Note: show attending child on check-in (DONE)
+- Backend: POST /api/admin/checkin/scan now returns child_name + child_age in all success responses (checkin path: new + already-attended; classpass path: existing-booking-confirm). Pulled from the booking doc.
+- Frontend admin/scan.tsx: scan result overlay shows a prominent "Attending: <name> · age N" badge (testID scan-child) so front desk can verify instantly.
+- Frontend check-in.tsx (member QR): Booking type + myBookings now carry child_name/child_age; booking card shows an "Attending: Name · age N" row and the QR modal shows an "Attending: ..." chip above the QR (so staff can verify while looking at the phone).
+- Verified: scan endpoint returns {child_name:'Bobby QRtest', child_age:9} for a kids booking (curl, class-day aligned). tsc clean; check-in screen smoke-tested. NOTE: admin camera scanner is native-only (can't be screenshotted in web preview) but data flow + result render logic verified.
