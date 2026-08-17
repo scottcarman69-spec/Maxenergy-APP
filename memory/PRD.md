@@ -1030,3 +1030,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Backend: BOOTCAMP_CAPACITY=20 + helper _cap_limit(name) (20 for 'boot camp', else MAX_CLASS_CAPACITY=16). Admin create+update clamp via _cap_limit(body.name). Seed template Boot Camp=20. One-time migration capacity_policy_v3 bumped existing Boot Camp classes 16->20.
 - Frontend admin editor: capacity clamp + 'Capacity (max N)' label now class-aware (20 for Boot Camp, 16 otherwise).
 - Verified: seeded Boot Camp=20, Muay Thai/Kickboxing=16; create Boot Camp cap 50 -> 20, Kickboxing cap 50 -> 16. All 23 seeded classes intact.
+
+## Session update (Jun 2026 fork) — Prominent "My Wallet" card on Home (DONE)
+- Added a member-facing "My Wallet" card at the top of Home (below greeting), replacing reliance on the tiny header credit chip for discoverability (chip kept as quick glance).
+- Shows Credit balance ($ from user.credit_cents) and Class passes (user.class_pass_credits) side-by-side with a "View" affordance + hint "Tap to top up, view history, or use credit & passes to book faster." Whole card taps to /credits. Hidden for admins.
+- Added class_pass_credits to frontend User type. Verified via screenshot (member): card shows $0.00 credit + 0 passes, renders cleanly.

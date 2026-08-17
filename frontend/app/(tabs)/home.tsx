@@ -382,6 +382,33 @@ export default function Home() {
           </View>
         </View>
 
+        {user && !user.is_admin && (
+          <Pressable testID="home-wallet-card" style={styles.walletCard} onPress={() => router.push("/credits")}>
+            <View style={styles.walletHeader}>
+              <View style={styles.walletTitleRow}>
+                <Ionicons name="wallet" size={16} color={colors.brand} />
+                <Text style={styles.walletTitle}>My Wallet</Text>
+              </View>
+              <View style={styles.walletView}>
+                <Text style={styles.walletViewText}>View</Text>
+                <Ionicons name="chevron-forward" size={14} color={colors.brand} />
+              </View>
+            </View>
+            <View style={styles.walletStats}>
+              <View style={styles.walletStat}>
+                <Text style={styles.walletValue}>${((user?.credit_cents || 0) / 100).toFixed(2)}</Text>
+                <Text style={styles.walletLabel}>Credit balance</Text>
+              </View>
+              <View style={styles.walletDivider} />
+              <View style={styles.walletStat}>
+                <Text style={styles.walletValue}>{user?.class_pass_credits || 0}</Text>
+                <Text style={styles.walletLabel}>Class {(user?.class_pass_credits || 0) === 1 ? "pass" : "passes"}</Text>
+              </View>
+            </View>
+            <Text style={styles.walletHint}>Tap to top up, view history, or use credit &amp; passes to book faster.</Text>
+          </Pressable>
+        )}
+
         {showWelcome && (
           <WelcomeTour
             visible={showWelcome}
@@ -777,6 +804,18 @@ const styles = StyleSheet.create({
   avatarText: { color: colors.onSurface, fontFamily: font.display, fontSize: 18 },
   avatarDot: { position: "absolute", top: 2, right: 2, width: 11, height: 11, borderRadius: 6, backgroundColor: colors.brand, borderWidth: 2, borderColor: colors.surface },
   greetBlock: { paddingHorizontal: spacing.lg, marginTop: spacing.sm },
+  walletCard: { marginHorizontal: spacing.lg, marginTop: spacing.lg, backgroundColor: colors.brandTertiary, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.brand, padding: spacing.md },
+  walletHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  walletTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  walletTitle: { color: colors.onSurface, fontSize: 15, fontFamily: font.heading, letterSpacing: 0.3 },
+  walletView: { flexDirection: "row", alignItems: "center", gap: 2 },
+  walletViewText: { color: colors.brand, fontSize: 13, fontWeight: "800" },
+  walletStats: { flexDirection: "row", alignItems: "center", marginTop: spacing.md },
+  walletStat: { flex: 1, alignItems: "center" },
+  walletDivider: { width: 1, alignSelf: "stretch", backgroundColor: colors.brand, opacity: 0.35, marginVertical: 2 },
+  walletValue: { color: colors.onSurface, fontSize: 24, fontFamily: font.heading },
+  walletLabel: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 2 },
+  walletHint: { color: colors.onSurfaceSecondary, fontSize: 11.5, textAlign: "center", marginTop: spacing.sm, opacity: 0.9 },
   shortcutRow: { flexDirection: "row", gap: spacing.md, paddingHorizontal: spacing.lg, marginTop: spacing.lg },
   shortcutBtn: { flex: 1, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md },
   shortcutIcon: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", marginBottom: spacing.sm },

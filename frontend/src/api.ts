@@ -24,6 +24,7 @@ export type User = {
   child_age_default?: number;
   children?: Child[];
   credit_cents?: number;
+  class_pass_credits?: number;
   membership_form_completed?: boolean;
   vigyr_signup_reported?: boolean;
   membership_active?: boolean;
