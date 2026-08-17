@@ -6249,16 +6249,10 @@ async def seed_data():
     except Exception as e:
         log.warning(f"kids age migration warn: {e}")
 
-    meta = await db.meta.find_one({"key": "seed_version"})
-    version = meta.get("value") if meta else None
-
-    if version != SEED_VERSION:
-        # Reseed catalog collections (safe: does not touch users/bookings)
-        await db.classes.delete_many({})
-        await db.events.delete_many({})
-        await db.announcements.delete_many({})
-        await db.membership_plans.delete_many({})
-
+    # NON-DESTRUCTIVE seeding: each catalog collection is seeded ONLY when empty.
+    # This safely populates a fresh database (e.g. a new production DB) with base
+    # data while NEVER deleting admin-created classes/events/plans/announcements.
+    if await db.classes.count_documents({}) == 0:
         # Classes for next 21 days based on weekday templates
         base = now_utc().replace(hour=0, minute=0, second=0, microsecond=0)
         docs = []
@@ -6343,7 +6337,8 @@ async def seed_data():
             }
         )
 
-        # Membership plans
+    # Membership plans
+    if await db.membership_plans.count_documents({}) == 0:
         plans = [
             {"plan_id": new_id("plan"), "sort": 1, "name": "Kids Muay Thai Casual Visit", "category": "Kids", "price_display": "15/class", "price_cents": 1500, "interval": "class", "features": ["Pay as you go", "Mon & Wed 5:00–5:45pm", "Muay Thai - Kids", "No lock-in"]},
             {"plan_id": new_id("plan"), "sort": 2, "name": "Kids 10 Week Term", "category": "Kids", "price_display": "300 / term", "price_cents": 30000, "interval": "term", "features": ["10-week term program", "Mon & Wed 5:00–5:45pm", "Or direct debit $35/week", "No joining fee"]},
@@ -6351,7 +6346,8 @@ async def seed_data():
         ]
         await db.membership_plans.insert_many(plans)
 
-        # Announcements (gym notices)
+    # Announcements (gym notices)
+    if await db.announcements.count_documents({}) == 0:
         anns = [
             {"announcement_id": new_id("ann"), "title": "Public Holiday Hours", "body": "The academy front desk will be closed this Monday, but 24/7 gym access remains open for members.", "pinned": True, "author": "Max Energy", "created_at": now_utc()},
             {"announcement_id": new_id("ann"), "title": "Kids Term Enrolments Open", "body": "Muay Thai - Kids runs Mondays & Thursdays 5:00–5:45pm as a 10-week term program. Enrol via Join Membership — spots are limited!", "pinned": False, "author": "Coach Alex", "created_at": now_utc() - timedelta(days=1)},
@@ -6359,7 +6355,8 @@ async def seed_data():
         ]
         await db.announcements.insert_many(anns)
 
-        # Events
+    # Events
+    if await db.events.count_documents({}) == 0:
         base_e = now_utc().replace(hour=18, minute=0, second=0, microsecond=0)
         events = [
             {"event_id": new_id("evt"), "title": "Community Fight Night", "start_at": base_e + timedelta(days=6), "location": "Maxenergy Fitness, Smithfield", "image": "https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=1200&q=80", "description": "Amateur showcase night. Come cheer on our fighters. Doors open at 6pm.", "created_at": now_utc()},
@@ -6368,8 +6365,8 @@ async def seed_data():
         ]
         await db.events.insert_many(events)
 
-        await db.meta.update_one({"key": "seed_version"}, {"$set": {"value": SEED_VERSION}}, upsert=True)
-        log.info(f"seed complete -> {SEED_VERSION}")
+    await db.meta.update_one({"key": "seed_version"}, {"$set": {"value": SEED_VERSION}}, upsert=True)
+    log.info(f"seed check complete -> {SEED_VERSION}")
 
 
 async def seed_official_groups():
