@@ -283,7 +283,7 @@ export default function Profile() {
               <Ionicons name="options" size={20} color={colors.onBrand} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.membershipLabel}>Notifications & Reminders</Text>
+              <Text style={styles.membershipLabel}>Settings</Text>
               <Text style={styles.membershipSub}>Message alerts, class reminders & quiet hours</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.brand} />
