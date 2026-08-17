@@ -319,14 +319,19 @@ def _email_shell(heading: str, lines: list) -> str:
 
 
 _LAST_PUBLIC_BASE = ""
+# A fixed, trusted public URL for building links inside outbound emails. When set,
+# request-supplied Host/X-Forwarded-Host headers are IGNORED (prevents host-header
+# cache poisoning that could redirect email links to an attacker's domain).
+_TRUSTED_PUBLIC_BASE = (os.environ.get("PUBLIC_APP_URL") or "").rstrip("/")
 
 
 def _public_base(request: Optional[Request]) -> str:
-    """Build the externally reachable base URL from the incoming request so
-    email links work in both preview and deployed environments (the app's own
-    public domain is not stored in the environment). The last-seen base is cached
-    so background tasks (payment polling, reminders) can build links too."""
+    """Return the app's externally reachable base URL for email links.
+    Prefers a trusted configured domain (PUBLIC_APP_URL); only if that's unset do
+    we fall back to the request host (dev/preview convenience)."""
     global _LAST_PUBLIC_BASE
+    if _TRUSTED_PUBLIC_BASE:
+        return _TRUSTED_PUBLIC_BASE
     if request is not None:
         proto = request.headers.get("x-forwarded-proto") or request.url.scheme or "https"
         host = request.headers.get("x-forwarded-host") or request.headers.get("host")
@@ -4512,11 +4517,11 @@ async def membership_apply(body: MembershipApplyReq, request: Request, u: dict =
         <h1 style="color:#ffffff;margin:0;font-size:20px">New membership application</h1>
       </div>
       <div style="padding:24px;background:#ffffff;border:1px solid #eee;border-top:none;border-radius:0 0 10px 10px;color:#333;font-size:15px;line-height:1.5">
-        <p style="margin:0 0 8px;color:#333"><strong>Name:</strong> {body.full_name}</p>
-        <p style="margin:0 0 8px;color:#333"><strong>Email:</strong> {u['email']}</p>
-        <p style="margin:0 0 8px;color:#333"><strong>Phone:</strong> {body.phone}</p>
-        <p style="margin:0 0 8px;color:#333"><strong>Plan:</strong> {plan_name}{f" (${plan['price_display']})" if plan else ""}</p>
-        <p style="margin:0 0 8px;color:#333"><strong>Category:</strong> {body.category}</p>
+        <p style="margin:0 0 8px;color:#333"><strong>Name:</strong> {esc(body.full_name)}</p>
+        <p style="margin:0 0 8px;color:#333"><strong>Email:</strong> {esc(u['email'])}</p>
+        <p style="margin:0 0 8px;color:#333"><strong>Phone:</strong> {esc(body.phone)}</p>
+        <p style="margin:0 0 8px;color:#333"><strong>Plan:</strong> {esc(plan_name)}{f" (${esc(plan['price_display'])})" if plan else ""}</p>
+        <p style="margin:0 0 8px;color:#333"><strong>Category:</strong> {esc(body.category)}</p>
         {details_html}
         <!--PDFSLOT-->
         {_email_contact_footer()}
@@ -4560,7 +4565,7 @@ async def membership_apply(body: MembershipApplyReq, request: Request, u: dict =
         <h1 style="color:#ffffff;margin:0;font-size:20px">Your membership form</h1>
       </div>
       <div style="padding:24px;background:#ffffff;border:1px solid #eee;border-top:none;border-radius:0 0 10px 10px;color:#333;font-size:15px;line-height:1.5">
-        <p style="margin:0 0 12px;color:#333">Hi {body.full_name}, thanks for completing the <strong>{plan_name}</strong> membership form at Maxenergy Fitness.</p>
+        <p style="margin:0 0 12px;color:#333">Hi {esc(body.full_name)}, thanks for completing the <strong>{esc(plan_name)}</strong> membership form at Maxenergy Fitness.</p>
         <p style="margin:0 0 4px;color:#333">You can download a PDF copy of your completed membership form using the button below. Our team will review it and be in touch shortly.</p>
         {_download_button(pdf_link, "Download my membership form (PDF)") if pdf_link else "<p style='color:#333'>Your completed form is saved to your account.</p>"}
         {_membership_terms_html()}
