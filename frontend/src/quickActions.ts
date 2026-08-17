@@ -14,6 +14,7 @@ export const QUICK_ACTIONS_META: QuickActionMeta[] = [
   { key: "checkin", label: "Class Check-In", icon: "checkmark-done", grad: ["#16A34A", "#4ADE80"] },
   { key: "classpass", label: "Class Pass", icon: "ticket", grad: ["#DC2626", "#F87171"] },
   { key: "academy", label: "Muay Thai Academy", icon: "shield-half", grad: ["#B45309", "#F59E0B"] },
+  { key: "ladder", label: "Ladder", icon: "trophy", grad: ["#CA8A04", "#FACC15"] },
   { key: "calendar", label: "Calendar", icon: "calendar-number", grad: ["#7C3AED", "#A78BFA"] },
   { key: "membership", label: "Join Membership", icon: "ribbon", grad: ["#2563EB", "#60A5FA"] },
   { key: "notices", label: "Gym Notices", icon: "megaphone", grad: ["#D97706", "#FBBF24"] },

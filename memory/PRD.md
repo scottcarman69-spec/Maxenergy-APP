@@ -1007,3 +1007,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Frontend: AuthContext.registerEmail no longer sets token; new finishAuth(token,user). verify.tsx now stores the returned token and logs in, removed 'I'll verify later'/skip (verification is mandatory to finish signup), back button -> login, added note, resend cooldown aligned to 60s (starts on screen load), testID verify-later->verify-back.
 - Verified: main-agent script (7 cases) + testing agent iteration_23 (backend 10/10 pytest test_verify_then_login_regression.py + full frontend journey incl. no-skip, back-to-login, wrong/correct code, admin login regression). PASS.
 - DEPLOY: no new secrets needed for this; recall PUBLIC_APP_URL secret still needed for SEC-001 on prod.
+
+## Session update (Jun 2026 fork) — Move "Ladder" from bottom tab to Quick Actions (DONE)
+- Removed the Leaderboard ("Ladder", trophy) tab from the bottom tab bar in app/(tabs)/_layout.tsx (set options={{href:null}} so the route still exists but is hidden). Bottom bar now: Home, Classes, Notices, Inbox, Alerts, Profile.
+- Added a "ladder" Quick Action to src/quickActions.ts (trophy icon, gold gradient, placed after academy => #7, within HOME_QUICK_COUNT=8 for new users; appended to 'More' for users with a saved order). Handler in home.tsx: router.navigate("/(tabs)/leaderboard").
+- leaderboard.tsx ScreenHeader now shows a back chevron (fallback /(tabs)/home) since it's opened as a shortcut rather than a tab.
+- Verified via screenshot: Ladder tile shows in Quick Actions, no Ladder in bottom bar, tapping opens Attendance Ladder with working back.

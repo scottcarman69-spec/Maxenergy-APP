@@ -310,6 +310,7 @@ export default function Home() {
     membership: () => router.push("/vigyr-signon"),
     classpass: () => router.push("/credits"),
     academy: () => (user?.is_admin ? router.push("/group/grp_muaythai_academy") : openAcademy()),
+    ladder: () => router.navigate("/(tabs)/leaderboard"),
     notices: () => router.navigate("/(tabs)/events"),
     contact: () => router.push("/contact"),
     settings: () => router.push("/inbox-settings"),

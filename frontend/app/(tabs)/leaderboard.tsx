@@ -77,7 +77,7 @@ export default function LeaderboardScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      <ScreenHeader title="Attendance Ladder" showBack={false} />
+      <ScreenHeader title="Attendance Ladder" fallback="/(tabs)/home" />
 
       <View style={styles.tabs}>
         {PERIODS.map((p) => (
