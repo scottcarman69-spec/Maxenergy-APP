@@ -6,6 +6,7 @@ import { Platform, AppState, Text } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
 import { useAuth } from "@/src/AuthContext";
+import { storage } from "@/src/utils/storage";
 
 // Fixed-size, non-scaling tab labels so they never truncate on devices with a
 // large system font scale.
@@ -22,6 +23,7 @@ export default function TabsLayout() {
   const segments = useSegments();
   const [unread, setUnread] = useState(0);
   const [alerts, setAlerts] = useState(0);
+  const [notices, setNotices] = useState(0);
 
   const refresh = useCallback(async () => {
     if (!user) return;
@@ -29,6 +31,17 @@ export default function TabsLayout() {
       const [m, n] = await Promise.all([api.unreadMessages(), api.unreadNotifications()]);
       setUnread(m.count || 0);
       setAlerts(n.count || 0);
+    } catch {}
+    // "New notices" dot on the Notices tab — count gym announcements posted since
+    // the member last opened the Notices tab (per-user, mirrors the Home badge).
+    if (user.is_admin) { setNotices(0); return; }
+    try {
+      const r = await api.announcements();
+      const anns: any[] = r?.announcements || [];
+      const stored = await storage.getItem<number>(`last_seen_notice_ts_${user.user_id}`, 0);
+      if (!stored) { setNotices(0); return; } // silent baseline set by Home on first run
+      const unseen = anns.filter((a) => new Date(a.created_at).getTime() > stored).length;
+      setNotices(unseen);
     } catch {}
   }, [user]);
 
@@ -85,6 +98,8 @@ export default function TabsLayout() {
           title: "Notices",
           tabBarLabel: tabLabel("Notices"),
           tabBarIcon: ({ color, size }) => <Ionicons name="megaphone" size={size} color={color} />,
+          tabBarBadge: notices > 0 ? notices : undefined,
+          tabBarBadgeStyle: { backgroundColor: colors.brand, color: colors.onBrand, fontSize: 10, fontWeight: "900" },
         }}
       />
       <Tabs.Screen

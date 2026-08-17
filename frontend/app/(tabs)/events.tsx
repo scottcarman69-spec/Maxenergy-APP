@@ -6,6 +6,8 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
+import { useAuth } from "@/src/AuthContext";
+import { storage } from "@/src/utils/storage";
 import { colors, spacing, radius, type, font } from "@/src/theme";
 import { classTime, classDate } from "@/src/datetime";
 import ScreenBg from "@/src/components/ScreenBg";
@@ -26,6 +28,7 @@ function fmtEvt(iso: string) {
 
 export default function Notices() {
   const router = useRouter();
+  const { user } = useAuth();
   const [anns, setAnns] = useState<Ann[]>([]);
   const [events, setEvents] = useState<Evt[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,11 +49,17 @@ export default function Notices() {
   const load = useCallback(async () => {
     try {
       const [a, e] = await Promise.all([api.announcements(), api.events()]);
-      setAnns(a.announcements || []);
+      const list: Ann[] = a.announcements || [];
+      setAnns(list);
       setEvents(e.events || []);
+      // Mark all current notices as seen so the Notices tab badge clears.
+      if (user?.user_id && list.length) {
+        const newestTs = list.reduce((m, x) => Math.max(m, new Date(x.created_at).getTime()), 0);
+        await storage.setItem(`last_seen_notice_ts_${user.user_id}`, newestTs);
+      }
     } catch {}
     setLoading(false);
-  }, []);
+  }, [user?.user_id]);
 
   useFocusEffect(useCallback(() => { load(); api.trackNoticesView().catch(() => {}); }, [load]));
 

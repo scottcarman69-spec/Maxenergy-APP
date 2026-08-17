@@ -1018,3 +1018,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Every class now has a MAXIMUM of 16 spots (appointments/PT stay at 1). Boot Camp included (user reversed the earlier 'unlimited' ask).
 - Backend: MAX_CLASS_CAPACITY=16 constant. Admin create + update clamp capacity via min(body.capacity, 16). Seed template capacity=16. One-time migration capacity_policy_v2 caps any existing non-appointment class >16 to 16 (fixed the 3 Boot Camp classes from 999->16). Verified: all seeded classes (Muay Thai, Kickboxing, Boot Camp) = 16; create/update with 50/99 both clamp to 16.
 - Frontend: admin editor default capacity 16, clamps input to 16, label 'Capacity (max 16)'. Reverted the temporary 'Open class'/>=500 unlimited display tweaks (no class exceeds 16 now).
+
+## Session update (Jun 2026 fork) — Tab bar badges: Notices "new" badge (DONE)
+- Bottom tab bar already showed unread counts on Inbox (messages) and Alerts (notifications). Added a matching "new" count badge on the Notices (events) tab.
+- app/(tabs)/_layout.tsx refresh() now also fetches api.announcements() and counts those newer than the per-user baseline last_seen_notice_ts_<uid> (AsyncStorage/localStorage), same key the Home popup uses. Suppressed for admins. Badge styled like the others. Recomputed on 15s poll, app-foreground, and navigation (segments) changes.
+- app/(tabs)/events.tsx now writes last_seen_notice_ts_<uid> = newest announcement ts on load/focus, so opening the Notices tab clears the badge.
+- Verified via screenshots (member testmember@gmail.com): forcing baseline old -> Notices tab shows "3"; after opening Notices tab and navigating away -> badge cleared. Inbox/Alerts badges unaffected.
