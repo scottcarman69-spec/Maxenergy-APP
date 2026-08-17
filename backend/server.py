@@ -6226,6 +6226,15 @@ async def seed_data():
             {"name": "Muay Thai", "category": "Kids"},
             {"$set": {"min_age": 8, "max_age": 16, "level": "Ages 8-16"}},
         )
+        # Adult group classes: simple 16+ note (display only — no age prompt/block).
+        await db.classes.update_many(
+            {"category": {"$ne": "Kids"}, "by_appointment": {"$ne": True}, "min_age": {"$in": [None, False]}},
+            {"$set": {"min_age": 16}},
+        )
+        await db.classes.update_many(
+            {"category": {"$ne": "Kids"}, "by_appointment": {"$ne": True}, "min_age": {"$exists": False}},
+            {"$set": {"min_age": 16}},
+        )
     except Exception as e:
         log.warning(f"kids age migration warn: {e}")
 
@@ -6264,7 +6273,7 @@ async def seed_data():
                             "start_at": date + timedelta(hours=hour),
                             "capacity": 20,
                             "by_appointment": False,
-                            "min_age": 8 if (name == "Muay Thai" and category == "Kids") else None,
+                            "min_age": 8 if (name == "Muay Thai" and category == "Kids") else 16,
                             "max_age": 16 if (name == "Muay Thai" and category == "Kids") else None,
                             "created_at": now_utc(),
                         }

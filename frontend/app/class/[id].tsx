@@ -318,14 +318,23 @@ export default function ClassDetail() {
         </View>
 
         <View style={styles.body}>
-          {!!cls.min_age && !!cls.max_age && (
+          {!!cls.min_age && (
             <View style={styles.ageBanner}>
               <View style={styles.ageIconWrap}>
                 <Ionicons name="body" size={16} color="#fff" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.ageBannerTitle}>Ages {cls.min_age}–{cls.max_age} only</Text>
-                <Text style={styles.ageBannerSub}>This class is for children aged {cls.min_age} to {cls.max_age} years.</Text>
+                {cls.max_age ? (
+                  <>
+                    <Text style={styles.ageBannerTitle}>Ages {cls.min_age}–{cls.max_age} only</Text>
+                    <Text style={styles.ageBannerSub}>This class is for children aged {cls.min_age} to {cls.max_age} years.</Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.ageBannerTitle}>Ages {cls.min_age}+</Text>
+                    <Text style={styles.ageBannerSub}>This class is for ages {cls.min_age} and over.</Text>
+                  </>
+                )}
               </View>
             </View>
           )}

@@ -945,3 +945,7 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Session update (Jun 2026 fork) — Hard block under-min-age on Kids booking (DONE)
 - Kids Muay Thai now HARD-BLOCKS children under 8 (min_age). Frontend: age modal shows red "Sorry, this class is for ages 8+. Children under 8 cant be booked in." and disables CONTINUE when age < min_age; over max_age still shows the gentle amber note (allowed). Backend: booking_create rejects child_age < cls.min_age with 400 (server-side, cannot be bypassed). Verified: curl under-8 -> 400, age 10 -> success; screenshot shows red block + disabled Continue.
+
+## Session update (Jun 2026 fork) — 16+ note on adult classes (DONE)
+- Adult group classes (Muay Thai Adults, Kickboxing, Boot Camp) now carry min_age=16 (no max_age) -> display-only "16+" badge on timetable cards + "Ages 16+" banner on class detail, consistent with Kids "AGES 8-16". Appointments (PT/Programs) unchanged (no age). Idempotent startup migration sets min_age=16 for non-Kids non-appointment classes; CLASS_TEMPLATES updated for reseeds.
+- No age prompt/block for adults: the child-age modal only triggers when BOTH min_age && max_age are set (Kids only), so adults just see the note. Frontend badge/banner render "AGES {min}-{max}" when both present else "{min}+". Verified via screenshot (Adults Muay Thai shows 16+).

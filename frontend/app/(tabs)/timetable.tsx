@@ -342,10 +342,10 @@ export default function Timetable() {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.className} numberOfLines={1}>{item.name}</Text>
                     <Text style={styles.trainer}>with {item.trainer}</Text>
-                    {!!item.min_age && !!item.max_age && (
+                    {!!item.min_age && (
                       <View style={styles.ageBadge}>
                         <Ionicons name="body" size={11} color="#fff" />
-                        <Text style={styles.ageBadgeText}>AGES {item.min_age}–{item.max_age}</Text>
+                        <Text style={styles.ageBadgeText}>{item.max_age ? `AGES ${item.min_age}–${item.max_age}` : `${item.min_age}+`}</Text>
                       </View>
                     )}
                   </View>
