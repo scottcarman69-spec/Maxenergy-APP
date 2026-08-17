@@ -269,6 +269,7 @@ export const api = {
   attendanceReport: () => req("/api/admin/attendance/report"),
   attendanceRoster: () => req("/api/admin/attendance/roster"),
   passesReport: () => req("/api/admin/passes/report"),
+  adminWaitlists: () => req("/api/admin/waitlists"),
   // messaging
   myMessages: () => req("/api/messages"),
   unreadMessages: () => req("/api/messages/unread"),

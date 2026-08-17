@@ -4332,6 +4332,41 @@ async def admin_passes_report(u: dict = Depends(require_admin)):
     }
 
 
+@api.get("/admin/waitlists")
+async def admin_waitlists(u: dict = Depends(require_admin)):
+    """Every class that has members waiting, with the ordered list under each."""
+    rows = await db.waitlists.find({"status": "waiting"}, {"_id": 0}).sort("created_at", 1).to_list(5000)
+    if not rows:
+        return {"classes": [], "totals": {"classes": 0, "waiting": 0}}
+    cids = list({r["class_id"] for r in rows})
+    uids = list({r["user_id"] for r in rows})
+    cls_map = {c["class_id"]: c for c in await db.classes.find(
+        {"class_id": {"$in": cids}}, {"_id": 0, "class_id": 1, "name": 1, "start_at": 1, "capacity": 1}).to_list(2000)}
+    users = await db.users.find({"user_id": {"$in": uids}}, {"_id": 0, "user_id": 1, "name": 1, "email": 1}).to_list(5000)
+    umap = {x["user_id"]: x for x in users}
+
+    grouped: dict = {}
+    for r in rows:
+        c = cls_map.get(r["class_id"]) or {}
+        g = grouped.setdefault(r["class_id"], {
+            "class_id": r["class_id"],
+            "class_name": c.get("name", "Class"),
+            "start_at": c.get("start_at").isoformat() if isinstance(c.get("start_at"), datetime) else None,
+            "when": c.get("start_at").strftime("%a %d %b · %-I:%M %p") if isinstance(c.get("start_at"), datetime) else "",
+            "members": [],
+        })
+        m = umap.get(r["user_id"], {})
+        joined = r.get("created_at")
+        g["members"].append({
+            "position": len(g["members"]) + 1,
+            "name": m.get("name") or m.get("email") or "Member",
+            "email": m.get("email"),
+            "joined": joined.strftime("%d %b, %-I:%M %p") if isinstance(joined, datetime) else None,
+        })
+    classes = sorted(grouped.values(), key=lambda x: (x["start_at"] or "z"))
+    return {"classes": classes, "totals": {"classes": len(classes), "waiting": len(rows)}}
+
+
 # -------------------- class waitlist --------------------
 WAITLIST_ACTIVE_BOOKING = ["paid", "pending", "confirmed", "reschedule_requested"]
 
