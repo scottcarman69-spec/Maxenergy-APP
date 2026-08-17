@@ -1035,3 +1035,6 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Added a member-facing "My Wallet" card at the top of Home (below greeting), replacing reliance on the tiny header credit chip for discoverability (chip kept as quick glance).
 - Shows Credit balance ($ from user.credit_cents) and Class passes (user.class_pass_credits) side-by-side with a "View" affordance + hint "Tap to top up, view history, or use credit & passes to book faster." Whole card taps to /credits. Hidden for admins.
 - Added class_pass_credits to frontend User type. Verified via screenshot (member): card shows $0.00 credit + 0 passes, renders cleanly.
+
+## Session update (Jun 2026 fork) — Reverted "My Wallet" home card
+- Per user request, removed the "My Wallet" card + its styles from app/(tabs)/home.tsx. Home is back to prior layout (header wallet chip retained). class_pass_credits kept on frontend User type (harmless).
