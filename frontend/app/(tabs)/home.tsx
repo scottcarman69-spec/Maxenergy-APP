@@ -96,6 +96,7 @@ export default function Home() {
   const [academy, setAcademy] = useState<{ name: string; members?: number; description?: string; join_status?: string } | null>(null);
   const [academyBusy, setAcademyBusy] = useState(false);
   const [academyMsg, setAcademyMsg] = useState<string | null>(null);
+  const [badges, setBadges] = useState<{ bookings: number; notices: number }>({ bookings: 0, notices: 0 });
 
   const openAcademy = useCallback(async () => {
     setAcademyMsg(null);
@@ -241,15 +242,17 @@ export default function Home() {
 
   const load = useCallback(async () => {
     try {
-      const [c, n, s] = await Promise.all([
+      const [c, n, s, b] = await Promise.all([
         api.classes(),
         api.unreadNotifications().catch(() => ({ count: 0 })),
         api.meStats().catch(() => ({ attended_this_month: 0, month: "" })),
+        api.homeBadges().catch(() => ({ bookings: 0, notices: 0 })),
       ]);
       setClasses(c.classes || []);
       setHasAlerts((n?.count || 0) > 0);
       setAttendedMonth(s?.attended_this_month || 0);
       setMonthName(s?.month || "");
+      setBadges({ bookings: b?.bookings || 0, notices: b?.notices || 0 });
     } catch {}
     setLoading(false);
   }, []);
@@ -523,6 +526,11 @@ export default function Home() {
                   style={({ pressed }) => [styles.quickCard, pressed && styles.quickCardPressed]}
                   onPress={a.onPress}
                 >
+                  {(badges as any)[a.key] > 0 && (
+                    <View style={styles.quickBadge} testID={`quick-badge-${a.key}`}>
+                      <Text style={styles.quickBadgeText}>{(badges as any)[a.key] > 9 ? "9+" : (badges as any)[a.key]}</Text>
+                    </View>
+                  )}
                   <View style={styles.quickCardTop}>
                     <LinearGradient
                       colors={a.grad as unknown as [string, string]}
@@ -905,6 +913,22 @@ const styles = StyleSheet.create({
     minHeight: 96,
   },
   quickCardPressed: { opacity: 0.85, transform: [{ scale: 0.97 }] },
+  quickBadge: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 5,
+    backgroundColor: "#DC2626",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: colors.surface,
+    zIndex: 5,
+  },
+  quickBadgeText: { color: "#fff", fontSize: 11, fontWeight: "900" },
   quickCardTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   quickIcon: {
     width: 40,

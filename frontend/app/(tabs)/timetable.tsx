@@ -46,6 +46,8 @@ type Cls = {
   capacity?: number;
   booked?: number;
   spots_left?: number;
+  min_age?: number;
+  max_age?: number;
 };
 
 const CATEGORIES = ["All", "Adults", "Kids"];
@@ -340,6 +342,12 @@ export default function Timetable() {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.className} numberOfLines={1}>{item.name}</Text>
                     <Text style={styles.trainer}>with {item.trainer}</Text>
+                    {!!item.min_age && !!item.max_age && (
+                      <View style={styles.ageBadge}>
+                        <Ionicons name="body" size={11} color="#fff" />
+                        <Text style={styles.ageBadgeText}>AGES {item.min_age}–{item.max_age}</Text>
+                      </View>
+                    )}
                   </View>
                   <View style={[styles.bookPill, item.spots_left === 0 && styles.bookPillFull, booked && styles.bookPillBooked]}>
                     <Text style={[styles.bookPillText, item.spots_left === 0 && styles.bookPillTextFull, booked && styles.bookPillTextBooked]}>
@@ -476,6 +484,8 @@ const styles = StyleSheet.create({
   catTag: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: radius.pill, alignSelf: "center" },
   catTagText: { fontSize: 11, fontWeight: "900", letterSpacing: 0.4 },
   trainer: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 3 },
+  ageBadge: { flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start", marginTop: 6, backgroundColor: colors.brand, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },
+  ageBadgeText: { color: "#fff", fontSize: 10.5, fontWeight: "900", letterSpacing: 0.5 },
   programTag: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6, alignSelf: "flex-start", backgroundColor: colors.brandTertiary, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },
   programText: { color: colors.brand, fontSize: 10, fontWeight: "800", letterSpacing: 0.5 },
   metaRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8, marginTop: spacing.md },

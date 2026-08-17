@@ -3902,6 +3902,40 @@ async def track_announcement_view(announcement_id: str, u: dict = Depends(requir
     return {"ok": True}
 
 
+@api.post("/views/bookings")
+async def track_bookings_view(u: dict = Depends(require_user)):
+    await _record_view("bookings", "bookings", u)
+    return {"ok": True}
+
+
+@api.get("/home/badges")
+async def home_badges(u: dict = Depends(require_user)):
+    """Small 'something new' counts for the Home quick actions.
+    - notices: announcements posted since the member last opened the Notices tab
+    - bookings: bookings created/confirmed since the member last opened My Bookings
+    Both clear once the member opens the relevant screen (which records a view)."""
+    me = u["user_id"]
+    nv = await db.content_views.find_one(
+        {"view_type": "notices", "key": "notices", "user_id": me}, {"_id": 0, "last_at": 1}
+    )
+    since_n = nv.get("last_at") if nv else None
+    notices = await db.announcements.count_documents({} if since_n is None else {"created_at": {"$gt": since_n}})
+
+    bv = await db.content_views.find_one(
+        {"view_type": "bookings", "key": "bookings", "user_id": me}, {"_id": 0, "last_at": 1}
+    )
+    since_b = bv.get("last_at") if bv else None
+    bookings = 0
+    async for b in db.bookings.find(
+        {"user_id": me, "status": {"$nin": ["cancelled", "refunded", "expired", "no_show"]}},
+        {"_id": 0, "created_at": 1, "confirmed_at": 1, "paid_at": 1},
+    ):
+        t = b.get("confirmed_at") or b.get("paid_at") or b.get("created_at")
+        if since_b is None or (isinstance(t, datetime) and t > since_b):
+            bookings += 1
+    return {"bookings": bookings, "notices": notices}
+
+
 @api.get("/admin/views")
 async def admin_views(u: dict = Depends(require_admin)):
     # Notices tab: distinct viewers + total views
@@ -6115,7 +6149,7 @@ async def _cache_public_base(request: Request, call_next):
 # -------------------- seed --------------------
 CLASS_TEMPLATES = [
     # (name, category, trainer, level, duration, price_cents, day_of_week(0=Mon), hour, image, desc, program)
-    ("Muay Thai", "Kids", "Coach Alex", "Ages 6-16", 45, 1500, [0, 2], 17, "https://images.unsplash.com/photo-1595078475328-1ab05d0a6a0e?w=1200&q=80", "Kids Muay Thai Classes\n🥊 Mondays & Wednesdays | 5:00–5:45pm\nHelp your child build confidence, focus, discipline and fitness in a fun and supportive environment.\nPricing:\n• $15 casual per class\n• $300 upfront for the full 10-week term\n• Or $35/week by direct debit\n• No joining fee!\nA great way for kids to stay active, learn new skills and grow in confidence.\n\nAll fitness and experience levels welcome.", "10 Week Term"),
+    ("Muay Thai", "Kids", "Coach Alex", "Ages 8-16", 45, 1500, [0, 2], 17, "https://images.unsplash.com/photo-1595078475328-1ab05d0a6a0e?w=1200&q=80", "Kids Muay Thai Classes\n🥊 Mondays & Wednesdays | 5:00–5:45pm\nHelp your child build confidence, focus, discipline and fitness in a fun and supportive environment.\nPricing:\n• $15 casual per class\n• $300 upfront for the full 10-week term\n• Or $35/week by direct debit\n• No joining fee!\nA great way for kids to stay active, learn new skills and grow in confidence.\n\nSuitable for ages 8–16. All fitness and experience levels welcome.", "10 Week Term"),
     ("Muay Thai", "Adults", "Coach Alex", "All levels", 60, 2500, [0, 2], 18, "https://images.unsplash.com/photo-1591117207239-788bf8de6c3b?w=1200&q=80", "Adults Muay Thai Classes\n🥊 Mondays & Wednesdays | 6:00pm\nBuild real strength, fitness and confidence in a high-energy class that welcomes all levels.\nWhat you'll do:\n• Pad work and technique drills\n• Clinch work and combinations\n• Strength and conditioning\nWhether you're training for fitness or fighting form, our coaches will meet you where you're at. No experience needed — just bring your energy!\n\nAll fitness and experience levels welcome.", ""),
     ("Boot Camp", "Boot Camp", "Coach Alex", "All levels", 60, 2500, [5], 7, "https://images.unsplash.com/photo-1518611012118-696072aa579a?w=1200&q=80", "Saturday Boot Camp\n💪 Saturdays | 7:00am\nKick-start your weekend with a high-energy, full-body workout combining strength, cardio and conditioning.\nWhat to expect:\n• Functional strength & circuits\n• Cardio and core\n• Scalable for every fitness level\nAll levels welcome — just bring water and your energy!", ""),
     ("Kickboxing", "Adults", "Coach Alex", "All levels", 60, 2500, [1, 3], 18, "https://images.unsplash.com/photo-1549824506-7f0f8b7f5b23?w=1200&q=80", "Kickboxing Classes\nTuesdays & Thursdays | 6:00pm\n\nBuild your fitness, improve your technique and relieve stress with our high-energy kickboxing classes. Designed for all fitness and experience levels, each session combines practical kickboxing skills with a challenging full-body workout.\nWhat you'll learn:\n• Strikes, kicks and combinations\n• Proper technique and movement\n• Cardio, fitness and conditioning\n• Strength, coordination and confidence\nWhether you're completely new to kickboxing or have previous experience, our classes provide a friendly and supportive environment where everyone is welcome.\n\nAll fitness and experience levels welcome.", ""),
@@ -6179,6 +6213,15 @@ async def seed_data():
     else:
         await db.users.update_one({"email": admin2_email}, {"$set": {"is_admin": True}})
 
+    # Age requirement for Kids Muay Thai (idempotent; keeps class_ids & bookings intact)
+    try:
+        await db.classes.update_many(
+            {"name": "Muay Thai", "category": "Kids"},
+            {"$set": {"min_age": 8, "max_age": 16, "level": "Ages 8-16"}},
+        )
+    except Exception as e:
+        log.warning(f"kids age migration warn: {e}")
+
     meta = await db.meta.find_one({"key": "seed_version"})
     version = meta.get("value") if meta else None
 
@@ -6214,6 +6257,8 @@ async def seed_data():
                             "start_at": date + timedelta(hours=hour),
                             "capacity": 20,
                             "by_appointment": False,
+                            "min_age": 8 if (name == "Muay Thai" and category == "Kids") else None,
+                            "max_age": 16 if (name == "Muay Thai" and category == "Kids") else None,
                             "created_at": now_utc(),
                         }
                     )

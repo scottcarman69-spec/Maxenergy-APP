@@ -157,7 +157,7 @@ export default function BookingsScreen() {
     setRefreshing(false);
   }, [load]);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => { load(); api.trackBookingsView().catch(() => {}); }, [load]));
 
   const doCancel = async (b: Booking) => {
     setActioning(b.booking_id);

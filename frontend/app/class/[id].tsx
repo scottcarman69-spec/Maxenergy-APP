@@ -31,6 +31,8 @@ type Cls = {
   spots_left?: number;
   by_appointment?: boolean;
   appt_durations?: { minutes: number; price_cents: number }[];
+  min_age?: number;
+  max_age?: number;
 };
 
 function fmt(iso: string) {
@@ -293,6 +295,17 @@ export default function ClassDetail() {
         </View>
 
         <View style={styles.body}>
+          {!!cls.min_age && !!cls.max_age && (
+            <View style={styles.ageBanner}>
+              <View style={styles.ageIconWrap}>
+                <Ionicons name="body" size={16} color="#fff" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.ageBannerTitle}>Ages {cls.min_age}–{cls.max_age} only</Text>
+                <Text style={styles.ageBannerSub}>This class is for children aged {cls.min_age} to {cls.max_age} years.</Text>
+              </View>
+            </View>
+          )}
           {typeof cls.spots_left === "number" && cls.spots_left > 0 && cls.spots_left <= 3 && !cls.by_appointment && (
             <View style={styles.nudgeBanner}>
               <Ionicons name="flame" size={16} color={colors.onBrand} />
@@ -662,6 +675,10 @@ const styles = StyleSheet.create({
   title: { color: colors.onSurface, fontSize: 36, fontWeight: "900", letterSpacing: -0.5 },
   trainer: { color: colors.onSurfaceSecondary, fontSize: 14, marginTop: 4 },
   body: { padding: spacing.xl, gap: spacing.md },
+  ageBanner: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: colors.brandTertiary, borderWidth: 1, borderColor: colors.brand, borderRadius: radius.md, padding: spacing.md },
+  ageIconWrap: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
+  ageBannerTitle: { color: colors.onSurface, fontSize: 14, fontWeight: "900" },
+  ageBannerSub: { color: colors.onSurfaceSecondary, fontSize: 12.5, marginTop: 1 },
   metaGrid: { flexDirection: "row", gap: spacing.md },
   metaCol: {
     flex: 1,
