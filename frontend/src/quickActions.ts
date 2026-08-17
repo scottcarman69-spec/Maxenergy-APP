@@ -25,7 +25,7 @@ export const QUICK_ACTIONS_META: QuickActionMeta[] = [
 export const DEFAULT_QUICK_ORDER = QUICK_ACTIONS_META.map((a) => a.key);
 
 // Number of tiles shown on the Home screen before "More actions".
-export const HOME_QUICK_COUNT = 6;
+export const HOME_QUICK_COUNT = 8;
 
 /** Order the given keys by a saved preference, appending any keys not in the pref. */
 export function orderKeys(allKeys: string[], pref?: string[] | null): string[] {
