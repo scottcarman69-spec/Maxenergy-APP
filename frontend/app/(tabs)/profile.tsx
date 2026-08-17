@@ -92,6 +92,7 @@ export default function Profile() {
     { key: "services", icon: "barbell", label: "Our Services", onPress: () => router.push("/services") },
     { key: "about", icon: "people", label: "About Us & Team", onPress: () => router.push("/about") },
     { key: "contact", icon: "call", label: "Contact & Gym Info", onPress: () => router.push("/contact") },
+    { key: "privacy", icon: "document-text", label: "Privacy Policy", onPress: () => router.push("/privacy") },
   ];
 
   return (

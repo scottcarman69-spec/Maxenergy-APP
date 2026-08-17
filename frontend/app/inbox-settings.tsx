@@ -222,14 +222,6 @@ export default function InboxSettings() {
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceSecondary} />
           </Pressable>
-          <Pressable testID="settings-privacy" style={styles.linkCard} onPress={() => router.push("/privacy")}>
-            <View style={styles.iconWrap}><Ionicons name="document-text" size={20} color={colors.brand} /></View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.title}>Privacy Policy</Text>
-              <Text style={styles.sub}>How we handle and protect your data.</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceSecondary} />
-          </Pressable>
         </ScrollView>
       )}
 
