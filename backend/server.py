@@ -233,6 +233,7 @@ def user_public(u: dict) -> dict:
         "verified": bool(u.get("verified", False)),
         "reminder_hours": int(u.get("reminder_hours", 3)),
         "cal_reminder_default": int(u.get("cal_reminder_default", 60)),
+        "quick_actions_order": u.get("quick_actions_order") or [],
         "message_notifications": bool(u.get("message_notifications", True)),
         "leaderboard_opt_out": bool(u.get("leaderboard_opt_out", False)),
         "quiet_hours": u.get("quiet_hours") or {"enabled": False, "start": "22:00", "end": "07:00"},
@@ -1238,6 +1239,19 @@ async def set_calendar_reminder_default(body: CalReminderPrefReq, u: dict = Depe
         raise HTTPException(400, "Choose 1 hour (60) or 1 day (1440).")
     await db.users.update_one({"user_id": u["user_id"]}, {"$set": {"cal_reminder_default": body.minutes}})
     return {"ok": True, "cal_reminder_default": body.minutes}
+
+
+class QuickActionsOrderReq(BaseModel):
+    order: List[str]
+
+
+@api.put("/me/quick-actions")
+async def set_quick_actions_order(body: QuickActionsOrderReq, u: dict = Depends(require_user)):
+    # Store the member's preferred Quick Actions order (list of action keys). Keys are
+    # validated on the client against the known set; we cap length + string type here.
+    order = [str(k)[:40] for k in (body.order or [])][:30]
+    await db.users.update_one({"user_id": u["user_id"]}, {"$set": {"quick_actions_order": order}})
+    return {"ok": True, "quick_actions_order": order}
 
 
 class MessageNotifPrefReq(BaseModel):

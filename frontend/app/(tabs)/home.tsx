@@ -31,6 +31,7 @@ import WelcomeTour from "@/src/components/WelcomeTour";
 import NoticePopup, { Notice } from "@/src/components/NoticePopup";
 import AlertPopup, { AlertItem } from "@/src/components/AlertPopup";
 import { storage } from "@/src/utils/storage";
+import { QUICK_ACTIONS_META, DEFAULT_QUICK_ORDER, HOME_QUICK_COUNT, orderKeys } from "@/src/quickActions";
 
 const CARD_W = Math.min(Dimensions.get("window").width, 480);
 
@@ -297,28 +298,32 @@ export default function Home() {
     if (i !== slide) setSlide(i);
   };
 
-  const quickActions = [
-    { key: "booknext", label: "Book Next Class", icon: "flash", grad: ["#FF7A00", "#FFB259"], onPress: () => (scheduled[0] ? router.push({ pathname: "/class/[id]", params: { id: scheduled[0].class_id } }) : router.navigate("/(tabs)/timetable")) },
-    { key: "bookings", label: "My Bookings", icon: "bookmark", grad: ["#0D9488", "#2DD4BF"], onPress: () => router.push("/bookings") },
-    { key: "schedule", label: "View Schedule", icon: "calendar", grad: ["#FF7A00", "#FFB259"], onPress: () => router.navigate("/(tabs)/timetable") },
-    { key: "calendar", label: "Calendar", icon: "calendar-number", grad: ["#7C3AED", "#A78BFA"], onPress: () => router.push(user?.is_admin ? "/admin/calendar" : "/calendar") },
-    { key: "checkin", label: "Class Check-In", icon: "checkmark-done", grad: ["#16A34A", "#4ADE80"], onPress: () => router.push("/check-in") },
-    { key: "membership", label: "Join Membership", icon: "ribbon", grad: ["#2563EB", "#60A5FA"], onPress: () => router.push("/vigyr-signon") },
-    { key: "classpass", label: "Class Pass", icon: "ticket", grad: ["#DC2626", "#F87171"], onPress: () => router.push("/credits") },
-    { key: "academy", label: "Muay Thai Academy", icon: "shield-half", grad: ["#B45309", "#F59E0B"], onPress: () => (user?.is_admin ? router.push("/group/grp_muaythai_academy") : openAcademy()) },
-    { key: "notices", label: "Gym Notices", icon: "megaphone", grad: ["#D97706", "#FBBF24"], onPress: () => router.navigate("/(tabs)/events") },
-    { key: "contact", label: "Contact Us", icon: "chatbubbles", grad: ["#DB2777", "#F472B6"], onPress: () => router.push("/contact") },
-    { key: "settings", label: "Settings", icon: "options", grad: ["#475569", "#94A3B8"], onPress: () => router.push("/inbox-settings") },
-    { key: "facebook", label: "Facebook", icon: "logo-facebook", grad: ["#1877F2", "#4293FB"], onPress: () => router.push("/social") },
-  ] as const;
+  const quickActionHandlers: Record<string, () => void> = {
+    booknext: () => (scheduled[0] ? router.push({ pathname: "/class/[id]", params: { id: scheduled[0].class_id } }) : router.navigate("/(tabs)/timetable")),
+    bookings: () => router.push("/bookings"),
+    schedule: () => router.navigate("/(tabs)/timetable"),
+    calendar: () => router.push(user?.is_admin ? "/admin/calendar" : "/calendar"),
+    checkin: () => router.push("/check-in"),
+    membership: () => router.push("/vigyr-signon"),
+    classpass: () => router.push("/credits"),
+    academy: () => (user?.is_admin ? router.push("/group/grp_muaythai_academy") : openAcademy()),
+    notices: () => router.navigate("/(tabs)/events"),
+    contact: () => router.push("/contact"),
+    settings: () => router.push("/inbox-settings"),
+    facebook: () => router.push("/social"),
+  };
 
-  // Declutter: show 6 essentials by default, tuck the rest under "More".
-  // Contextual: hide "Join Membership" once the member is active.
-  const ESSENTIAL_KEYS = ["booknext", "bookings", "schedule", "checkin", "classpass", "academy"];
-  const availableActions = quickActions.filter((a) => !(a.key === "membership" && !!user?.membership_active));
-  const primaryActions = availableActions.filter((a) => ESSENTIAL_KEYS.includes(a.key));
-  const secondaryActions = availableActions.filter((a) => !ESSENTIAL_KEYS.includes(a.key));
-  const visibleActions = showMoreActions ? [...primaryActions, ...secondaryActions] : primaryActions;
+  // Personalised order (drag-to-reorder in Customize). Contextual: hide "Join
+  // Membership" once the member is active. First HOME_QUICK_COUNT show up top.
+  const availableMeta = QUICK_ACTIONS_META.filter((a) => !(a.key === "membership" && !!user?.membership_active));
+  const ordered = orderKeys(availableMeta.map((a) => a.key), user?.quick_actions_order)
+    .map((k) => QUICK_ACTIONS_META.find((a) => a.key === k))
+    .filter(Boolean)
+    .filter((a: any) => !(a.key === "membership" && !!user?.membership_active))
+    .map((a: any) => ({ ...a, onPress: quickActionHandlers[a.key] }));
+  const primaryActions = ordered.slice(0, HOME_QUICK_COUNT);
+  const secondaryActions = ordered.slice(HOME_QUICK_COUNT);
+  const visibleActions = showMoreActions ? ordered : primaryActions;
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
@@ -503,7 +508,13 @@ export default function Home() {
               </View>
             )}
 
-            <Text style={[styles.sectionTitle, { marginTop: spacing.xl }]}>QUICK ACTIONS</Text>
+            <View style={[styles.sectionHeader, { marginTop: spacing.xl }]}>
+              <Text style={styles.sectionTitle}>QUICK ACTIONS</Text>
+              <Pressable testID="quick-customize" onPress={() => router.push("/customize-actions")} style={styles.linkRow}>
+                <Ionicons name="options-outline" size={13} color={colors.brand} />
+                <Text style={styles.linkText}>CUSTOMISE</Text>
+              </Pressable>
+            </View>
             <View style={styles.quickGrid}>
               {visibleActions.map((a) => (
                 <Pressable

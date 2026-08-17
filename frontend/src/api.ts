@@ -14,6 +14,7 @@ export type User = {
   verified?: boolean;
   reminder_hours?: number;
   cal_reminder_default?: number;
+  quick_actions_order?: string[];
   credit_cents?: number;
   membership_form_completed?: boolean;
   vigyr_signup_reported?: boolean;
@@ -91,6 +92,8 @@ export const api = {
     req("/api/me/reminder-preference", { method: "PUT", body: JSON.stringify({ hours }) }),
   setCalReminderDefault: (minutes: number) =>
     req("/api/me/calendar-reminder", { method: "PUT", body: JSON.stringify({ minutes }) }),
+  setQuickActionsOrder: (order: string[]) =>
+    req("/api/me/quick-actions", { method: "PUT", body: JSON.stringify({ order }) }),
   setMessageNotifications: (enabled: boolean) =>
     req("/api/me/message-notifications", { method: "PUT", body: JSON.stringify({ enabled }) }),
   setQuietHours: (payload: { enabled: boolean; start: string; end: string }) =>
