@@ -1038,3 +1038,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Session update (Jun 2026 fork) — Reverted "My Wallet" home card
 - Per user request, removed the "My Wallet" card + its styles from app/(tabs)/home.tsx. Home is back to prior layout (header wallet chip retained). class_pass_credits kept on frontend User type (harmless).
+
+## Session update (Jun 2026 fork) — User's own MongoDB Atlas seeded
+- User created their own Atlas cluster (cluster0.rb3hip8.mongodb.net) and allowlisted 0.0.0.0/0. Connection verified from preview.
+- Seeded FRESH via server.seed_data() + seed_official_groups() pointed at Atlas (preview .env UNCHANGED): 2 admins (admin@ + info@maxenergy.com.au), 23 classes (Boot Camp 20, rest 16), 3 plans, 3 announcements, 3 events, Muay Thai Academy group, all indexes. Admin login verified against Atlas with existing ADMIN2_PASSWORD.
+- REMAINING (user action): set MONGO_URL (+ DB_NAME=maxenergy_db) in Deployment Panel > Secrets and redeploy so the LIVE app uses Atlas. Recommend rotating the DB password afterwards (string was shared in chat) and updating the secret.
