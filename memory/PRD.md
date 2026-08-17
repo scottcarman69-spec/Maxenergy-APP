@@ -942,3 +942,6 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - When booking a Kids class (min_age/max_age set), a modal now asks "How old is the child attending?" before payment. Numeric input; if the age is outside 8-16 it shows a GENTLE amber flag ("best suited to ages 8-16, you can still continue") but does NOT hard-block. Asked once per class-detail session (childAgeNum state), then continues the normal pay flow (credit/pass popup or card).
 - Backend: BookingCreate.child_age (Optional[int]); stored on booking doc as child_age. Verified persists (=10 in curl test).
 - Frontend class/[id].tsx: onBookPress routes Kids classes to the age modal first; confirmAge saves & continues; child_age passed through proceedBooking -> api.createBooking. Verified via screenshot (modal + out-of-range warning).
+
+## Session update (Jun 2026 fork) — Hard block under-min-age on Kids booking (DONE)
+- Kids Muay Thai now HARD-BLOCKS children under 8 (min_age). Frontend: age modal shows red "Sorry, this class is for ages 8+. Children under 8 cant be booked in." and disables CONTINUE when age < min_age; over max_age still shows the gentle amber note (allowed). Backend: booking_create rejects child_age < cls.min_age with 400 (server-side, cannot be bypassed). Verified: curl under-8 -> 400, age 10 -> success; screenshot shows red block + disabled Continue.

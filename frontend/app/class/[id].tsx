@@ -213,6 +213,7 @@ export default function ClassDetail() {
   const confirmAge = () => {
     const n = parseInt(childAge, 10);
     if (!Number.isFinite(n) || n <= 0) return;
+    if (cls?.min_age && n < cls.min_age) return; // under the minimum age — blocked
     setChildAgeNum(n);
     setAgeModalOpen(false);
     continueFixed();
@@ -609,7 +610,18 @@ export default function ClassDetail() {
             />
             {(() => {
               const n = parseInt(childAge, 10);
-              if (Number.isFinite(n) && (n < (cls?.min_age || 0) || n > (cls?.max_age || 99))) {
+              if (!Number.isFinite(n)) return null;
+              if (n < (cls?.min_age || 0)) {
+                return (
+                  <View style={styles.ageBlock}>
+                    <Ionicons name="close-circle" size={15} color={colors.error} />
+                    <Text style={styles.ageBlockText}>
+                      Sorry, this class is for ages {cls?.min_age}+. Children under {cls?.min_age} can't be booked in.
+                    </Text>
+                  </View>
+                );
+              }
+              if (n > (cls?.max_age || 99)) {
                 return (
                   <View style={styles.ageWarn}>
                     <Ionicons name="alert-circle" size={15} color={colors.warning} />
@@ -621,14 +633,20 @@ export default function ClassDetail() {
               }
               return null;
             })()}
-            <Pressable
-              testID="child-age-continue"
-              style={[styles.payBtn, { marginTop: spacing.md, opacity: parseInt(childAge, 10) > 0 ? 1 : 0.5 }]}
-              onPress={confirmAge}
-              disabled={!(parseInt(childAge, 10) > 0)}
-            >
-              <Text style={styles.payBtnText}>CONTINUE</Text>
-            </Pressable>
+            {(() => {
+              const n = parseInt(childAge, 10);
+              const ok = n > 0 && !(cls?.min_age && n < cls.min_age);
+              return (
+                <Pressable
+                  testID="child-age-continue"
+                  style={[styles.payBtn, { marginTop: spacing.md, opacity: ok ? 1 : 0.5 }]}
+                  onPress={confirmAge}
+                  disabled={!ok}
+                >
+                  <Text style={styles.payBtnText}>CONTINUE</Text>
+                </Pressable>
+              );
+            })()}
             <Pressable testID="child-age-cancel" style={styles.ageCancel} onPress={() => setAgeModalOpen(false)}>
               <Text style={styles.ageCancelText}>Cancel</Text>
             </Pressable>
@@ -756,6 +774,8 @@ const styles = StyleSheet.create({
   ageInput: { marginTop: spacing.md, backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 12, fontSize: 18, fontWeight: "800", color: colors.onSurface, textAlign: "center" },
   ageWarn: { flexDirection: "row", alignItems: "flex-start", gap: 8, backgroundColor: colors.warning + "1F", borderRadius: radius.md, padding: 10, marginTop: spacing.md },
   ageWarnText: { flex: 1, color: colors.onSurface, fontSize: 12.5, lineHeight: 18 },
+  ageBlock: { flexDirection: "row", alignItems: "flex-start", gap: 8, backgroundColor: colors.error + "1F", borderRadius: radius.md, padding: 10, marginTop: spacing.md },
+  ageBlockText: { flex: 1, color: colors.error, fontSize: 12.5, lineHeight: 18, fontWeight: "700" },
   ageCancel: { alignItems: "center", paddingVertical: 12, marginTop: 4 },
   ageCancelText: { color: colors.onSurfaceSecondary, fontSize: 14, fontWeight: "700" },
   metaGrid: { flexDirection: "row", gap: spacing.md },

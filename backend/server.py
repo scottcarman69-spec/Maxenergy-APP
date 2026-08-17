@@ -1879,6 +1879,11 @@ async def booking_create(body: BookingCreate, u: dict = Depends(require_user)):
         raise HTTPException(404, "Class not found")
     if cls.get("cancelled"):
         raise HTTPException(409, "This class has been cancelled.")
+    # Minimum-age requirement (e.g. Kids Muay Thai is 8+). Enforced server-side so it
+    # can't be bypassed; the app collects the child's age before booking.
+    min_age = cls.get("min_age")
+    if isinstance(min_age, int) and isinstance(body.child_age, int) and body.child_age < min_age:
+        raise HTTPException(400, f"Sorry, {cls['name']} is for ages {min_age} and over. Children under {min_age} can't be booked into this class.")
     # One active booking per member per fixed class instance. Covers card, credit AND
     # class-pass bookings (any of paid/pending/confirmed/reschedule_requested). Appointments
     # are excluded — a member may book several PT/program sessions at different times.
