@@ -76,18 +76,48 @@ export default function PrivacyPolicy() {
           <P>We may also disclose information where required by law.</P>
         </Section>
 
-        <Section title="4. Data storage & security">
+        <Section title="4. How we store & protect your data">
           <P>
-            Your information is stored securely and access is restricted to authorised staff. Passwords are encrypted
-            and payment card details are handled by Square, not stored by us. While we take reasonable steps to protect
-            your data, no method of transmission over the internet is completely secure.
+            We take the security of your information seriously. Here is how your data is stored and protected:
+          </P>
+          <Bullet>
+            <Text style={styles.bold}>Passwords:</Text> Your password is never stored in a readable form. It is
+            protected using bcrypt one-way hashing with a unique salt, so it cannot be reversed back into your
+            original password — not even by us.
+          </Bullet>
+          <Bullet>
+            <Text style={styles.bold}>Your information:</Text> Member accounts, bookings, attendance records and
+            related details are stored in a secure database, with access restricted to authorised staff.
+          </Bullet>
+          <Bullet>
+            <Text style={styles.bold}>Uploaded images:</Text> Any photos you upload (such as with a membership
+            application) are kept in secure managed cloud storage, separate from the main database.
+          </Bullet>
+          <Bullet>
+            <Text style={styles.bold}>Payments:</Text> Card payments are processed securely by Square. We do not
+            store your full card details.
+          </Bullet>
+          <Bullet>
+            <Text style={styles.bold}>In transit:</Text> Information is sent between the app and our servers over
+            an encrypted (HTTPS) connection.
+          </Bullet>
+          <P>
+            {/* TODO: Confirm the following details with your hosting provider before publishing. */}
+            Our app and database are hosted with [HOSTING PROVIDER], with data stored in [DATA REGION / COUNTRY].
+            [State here whether any information is stored or processed outside Australia.] Regular backups are
+            maintained in [BACKUP LOCATION]. For details of our hosting and data-processing arrangements, contact
+            us using the details below.
+          </P>
+          <P>
+            While we take reasonable steps to protect your data, no method of transmission or storage over the
+            internet is completely secure.
           </P>
         </Section>
 
         <Section title="5. Your rights">
           <Bullet>Access or update your personal information.</Bullet>
-          <Bullet>Request deletion of your account and associated data.</Bullet>
-          <Bullet>Opt out of class reminders at any time in the app.</Bullet>
+          <Bullet>Request deletion of your account and associated data (Profile → Settings → Password &amp; account).</Bullet>
+          <Bullet>Opt out of class reminders and notifications at any time in the app.</Bullet>
           <P>To make a request, contact us using the details below.</P>
         </Section>
 
@@ -137,6 +167,7 @@ const styles = StyleSheet.create({
   bulletRow: { flexDirection: "row", gap: 10, marginBottom: 8, paddingRight: spacing.sm },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.brand, marginTop: 8 },
   bulletText: { color: colors.onSurface, fontSize: 14, lineHeight: 21, flex: 1 },
+  bold: { fontWeight: "800", color: colors.onSurface },
   contactRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8 },
   contactText: { color: colors.onSurface, fontSize: 14, fontWeight: "600", flex: 1 },
   footer: { color: colors.onSurfaceSecondary, fontSize: 12, textAlign: "center", marginTop: spacing.xl },
