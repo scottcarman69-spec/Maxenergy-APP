@@ -9,7 +9,11 @@ import { colors, spacing, radius } from "@/src/theme";
 import ScreenHeader from "@/src/components/ScreenHeader";
 import EmojiButton from "@/src/components/EmojiButton";
 
-type GM = { gmsg_id: string; from_id: string; sender_name: string; body: string; created_at: string; seen_count?: number; member_count?: number; edited_at?: string };
+type Reaction = { emoji: string; count: number; mine: boolean };
+type ReplyTo = { gmsg_id: string; sender_name: string; body: string };
+type GM = { gmsg_id: string; from_id: string; sender_name: string; body: string; created_at: string; seen_count?: number; member_count?: number; edited_at?: string; reaction_summary?: Reaction[]; reply_to?: ReplyTo | null };
+
+const REACTIONS = ["👍", "🔥", "😂", "❤️", "😮", "🙏"];
 
 function shortName(full?: string): string {
   const parts = (full || "").trim().split(/\s+/).filter(Boolean);
@@ -19,7 +23,7 @@ function shortName(full?: string): string {
 }
 
 // Memoised so typing / new messages don't re-render every existing bubble (keeps the chat smooth).
-const MessageRow = React.memo(function MessageRow({ m, mine, canDelete, showReceipt, onUnsend, onEdit }: { m: GM; mine: boolean; canDelete: boolean; showReceipt: boolean; onUnsend: (m: GM) => void; onEdit: (m: GM) => void }) {
+const MessageRow = React.memo(function MessageRow({ m, mine, canDelete, showReceipt, onUnsend, onLongPress, onReact }: { m: GM; mine: boolean; canDelete: boolean; showReceipt: boolean; onUnsend: (m: GM) => void; onLongPress: (m: GM) => void; onReact: (m: GM, emoji: string) => void }) {
   if (m.from_id === "system") {
     return (
       <View style={styles.announce}>
@@ -31,20 +35,35 @@ const MessageRow = React.memo(function MessageRow({ m, mine, canDelete, showRece
       </View>
     );
   }
+  const reactions = m.reaction_summary || [];
   const bubbleInner = (
     <View style={[styles.bubble, mine ? styles.me : styles.them]}>
       {!mine && <Text style={styles.sender}>{shortName(m.sender_name)}</Text>}
+      {!!m.reply_to && (
+        <View style={[styles.replyQuote, mine && { borderLeftColor: "rgba(255,255,255,0.6)" }]}>
+          <Text style={[styles.replyName, mine && { color: "rgba(255,255,255,0.9)" }]} numberOfLines={1}>{shortName(m.reply_to.sender_name)}</Text>
+          <Text style={[styles.replyBody, mine && { color: "rgba(255,255,255,0.8)" }]} numberOfLines={1}>{m.reply_to.body}</Text>
+        </View>
+      )}
       <Text style={[styles.msg, mine && { color: colors.onBrand }]}>{m.body}</Text>
       {!!m.edited_at && <Text style={[styles.editedTag, mine && { color: "rgba(255,255,255,0.75)" }]}>edited</Text>}
     </View>
   );
   const bubble = (
     <View style={styles.rowWrap}>
-      {mine ? (
-        <Pressable onLongPress={() => onEdit(m)} delayLongPress={300} style={{ alignSelf: "flex-end", maxWidth: "82%" }}>
-          {bubbleInner}
-        </Pressable>
-      ) : bubbleInner}
+      <Pressable onLongPress={() => onLongPress(m)} delayLongPress={300} style={{ alignSelf: mine ? "flex-end" : "flex-start", maxWidth: "82%" }}>
+        {bubbleInner}
+      </Pressable>
+      {reactions.length > 0 && (
+        <View style={[styles.reactionRow, { alignSelf: mine ? "flex-end" : "flex-start" }]}>
+          {reactions.map((r) => (
+            <Pressable key={r.emoji} onPress={() => onReact(m, r.emoji)} style={[styles.reactionChip, r.mine && styles.reactionChipMine]}>
+              <Text style={styles.reactionEmoji}>{r.emoji}</Text>
+              <Text style={[styles.reactionCount, r.mine && { color: colors.brand }]}>{r.count}</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
       {mine && showReceipt && (
         <Text style={styles.receipt}>{(m.seen_count || 0) > 0 ? `Seen by ${m.seen_count}` : "Sent"}</Text>
       )}
@@ -89,6 +108,8 @@ export default function GroupChat() {
   const [editing, setEditing] = useState<GM | null>(null);
   const [editText, setEditText] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
+  const [replyTo, setReplyTo] = useState<GM | null>(null);
+  const [actionMsg, setActionMsg] = useState<GM | null>(null);
   const ref = useRef<ScrollView>(null);
 
   const load = useCallback(async () => {
@@ -112,11 +133,21 @@ export default function GroupChat() {
 
   const send = async () => {
     const body = text.trim(); if (!body) return;
-    setSending(true); setText("");
-    try { const r = await api.groupSend(String(id), body); setMsgs((m) => [...m, r.message]); setTimeout(() => ref.current?.scrollToEnd({ animated: true }), 100); }
+    const replyId = replyTo?.gmsg_id;
+    setSending(true); setText(""); setReplyTo(null);
+    try { const r = await api.groupSend(String(id), body, replyId); setMsgs((m) => [...m, r.message]); setTimeout(() => ref.current?.scrollToEnd({ animated: true }), 100); }
     catch { setText(body); }
     setSending(false);
   };
+
+  const react = useCallback(async (m: GM, emoji: string) => {
+    try {
+      const r = await api.groupReact(String(id), m.gmsg_id, emoji);
+      setMsgs((cur) => cur.map((x) => (x.gmsg_id === m.gmsg_id ? { ...x, reaction_summary: r.reaction_summary } : x)));
+    } catch {}
+  }, [id]);
+
+  const openActions = useCallback((m: GM) => setActionMsg(m), []);
 
   const unsend = useCallback((m: GM) => {
     const own = m.from_id === meId;
@@ -198,12 +229,24 @@ export default function GroupChat() {
             ) : msgs.map((m, i) => {
               const mine = m.from_id === meId;
               const canDelete = m.from_id !== "system" && (mine || isAdmin || ownerId === meId);
-              return <MessageRow key={m.gmsg_id} m={m} mine={mine} canDelete={canDelete} showReceipt={i === lastOwnIndex} onUnsend={unsend} onEdit={startEdit} />;
+              return <MessageRow key={m.gmsg_id} m={m} mine={mine} canDelete={canDelete} showReceipt={i === lastOwnIndex} onUnsend={unsend} onLongPress={openActions} onReact={react} />;
             })}
-            {msgs.some((m) => m.from_id === meId) && (
-              <Text style={styles.swipeHint}>Swipe left to unsend · hold your message to edit</Text>
+            {msgs.length > 0 && (
+              <Text style={styles.swipeHint}>Hold a message to react, reply or edit · swipe left to unsend</Text>
             )}
           </ScrollView>
+        )}
+        {!!replyTo && (
+          <View style={styles.replyBar}>
+            <View style={styles.replyBarLine} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.replyBarName}>Replying to {shortName(replyTo.sender_name)}</Text>
+              <Text style={styles.replyBarBody} numberOfLines={1}>{replyTo.body}</Text>
+            </View>
+            <Pressable testID="group-reply-cancel" hitSlop={10} onPress={() => setReplyTo(null)}>
+              <Ionicons name="close-circle" size={22} color={colors.onSurfaceSecondary} />
+            </Pressable>
+          </View>
         )}
         <View style={styles.bar}>
           <EmojiButton testID="group-emoji" onPick={(e) => setText((t) => t + e)} />
@@ -240,6 +283,36 @@ export default function GroupChat() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      <Modal visible={!!actionMsg} transparent animationType="fade" onRequestClose={() => setActionMsg(null)}>
+        <Pressable style={styles.sheetOverlay} onPress={() => setActionMsg(null)}>
+          <Pressable style={styles.sheet} onPress={() => {}}>
+            <View style={styles.reactionPicker}>
+              {REACTIONS.map((e) => (
+                <Pressable key={e} testID={`react-${e}`} style={styles.reactionPick} onPress={() => { if (actionMsg) react(actionMsg, e); setActionMsg(null); }}>
+                  <Text style={{ fontSize: 26 }}>{e}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <Pressable testID="action-reply" style={styles.sheetItem} onPress={() => { setReplyTo(actionMsg); setActionMsg(null); }}>
+              <Ionicons name="arrow-undo" size={20} color={colors.onSurface} />
+              <Text style={styles.sheetItemText}>Reply</Text>
+            </Pressable>
+            {actionMsg?.from_id === meId && (
+              <Pressable testID="action-edit" style={styles.sheetItem} onPress={() => { const m = actionMsg; setActionMsg(null); if (m) startEdit(m); }}>
+                <Ionicons name="create-outline" size={20} color={colors.onSurface} />
+                <Text style={styles.sheetItemText}>Edit</Text>
+              </Pressable>
+            )}
+            {(actionMsg?.from_id === meId || isAdmin || ownerId === meId) && actionMsg?.from_id !== "system" && (
+              <Pressable testID="action-unsend" style={styles.sheetItem} onPress={() => { const m = actionMsg; setActionMsg(null); if (m) unsend(m); }}>
+                <Ionicons name="trash-outline" size={20} color={colors.error} />
+                <Text style={[styles.sheetItemText, { color: colors.error }]}>{actionMsg?.from_id === meId ? "Unsend" : "Delete"}</Text>
+              </Pressable>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -269,6 +342,24 @@ const styles = StyleSheet.create({
   msg: { color: colors.onSurface, fontSize: 15, lineHeight: 20 },
   editedTag: { fontSize: 10, color: colors.onSurfaceSecondary, marginTop: 3, fontStyle: "italic" },
   receipt: { alignSelf: "flex-end", color: colors.onSurfaceSecondary, fontSize: 10.5, marginTop: 3, marginRight: 2 },
+  replyQuote: { borderLeftWidth: 3, borderLeftColor: colors.brand, paddingLeft: 8, marginBottom: 6, opacity: 0.95 },
+  replyName: { color: colors.brand, fontSize: 11.5, fontWeight: "800" },
+  replyBody: { color: colors.onSurfaceSecondary, fontSize: 12 },
+  reactionRow: { flexDirection: "row", flexWrap: "wrap", gap: 5, marginTop: 4 },
+  reactionChip: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 3 },
+  reactionChipMine: { borderColor: colors.brand, backgroundColor: colors.brandTertiary },
+  reactionEmoji: { fontSize: 13 },
+  reactionCount: { fontSize: 12, fontWeight: "800", color: colors.onSurfaceSecondary },
+  replyBar: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: spacing.md, paddingVertical: 8, backgroundColor: colors.surfaceSecondary, borderTopWidth: 1, borderTopColor: colors.border },
+  replyBarLine: { width: 3, alignSelf: "stretch", backgroundColor: colors.brand, borderRadius: 2 },
+  replyBarName: { color: colors.brand, fontSize: 12, fontWeight: "800" },
+  replyBarBody: { color: colors.onSurfaceSecondary, fontSize: 12.5 },
+  sheetOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
+  sheet: { backgroundColor: colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: spacing.lg, paddingBottom: 32, gap: 4 },
+  reactionPicker: { flexDirection: "row", justifyContent: "space-around", backgroundColor: colors.surfaceSecondary, borderRadius: radius.pill, paddingVertical: 8, marginBottom: spacing.md },
+  reactionPick: { paddingHorizontal: 4 },
+  sheetItem: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 14, paddingHorizontal: 6 },
+  sheetItemText: { color: colors.onSurface, fontSize: 16, fontWeight: "700" },
   unsendWrap: { justifyContent: "center", paddingLeft: spacing.sm },
   unsendAction: { backgroundColor: colors.error, justifyContent: "center", alignItems: "center", width: 84, alignSelf: "stretch", borderRadius: radius.lg, gap: 2 },
   unsendText: { color: "#fff", fontWeight: "800", fontSize: 12 },

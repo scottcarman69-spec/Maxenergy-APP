@@ -2651,6 +2651,19 @@ async def _friend_status(me: str, other: str) -> str:
     return "pending_out" if f.get("requester_id") == me else "pending_in"
 
 
+ALLOWED_REACTIONS = ["👍", "🔥", "😂", "❤️", "😮", "🙏"]
+
+
+def _reactions_summary(msg: dict, uid: str) -> list:
+    rx = msg.get("reactions") or {}
+    out = []
+    for emoji in ALLOWED_REACTIONS:
+        users = rx.get(emoji) or []
+        if users:
+            out.append({"emoji": emoji, "count": len(users), "mine": uid in users})
+    return out
+
+
 def _member_card(u: dict) -> dict:
     la = u.get("last_active_at")
     return {"user_id": u.get("user_id"), "name": u.get("name"), "handle": u.get("handle"), "picture": u.get("picture"),
@@ -3079,20 +3092,32 @@ async def group_get(gid: str, u: dict = Depends(require_user)):
         rb = r.get("read_by") or []
         r["seen_count"] = len([x for x in rb if x != r.get("from_id")])
         r["member_count"] = mcount
+        r["reaction_summary"] = _reactions_summary(r, u["user_id"])
     return {"group": {"group_id": gid, "name": g["name"], "owner_id": g.get("owner_id"),
                       "slug": g.get("slug"), "is_official": bool(g.get("is_official")),
                       "pinned_note": g.get("pinned_note"), "member_count": mcount,
                       "members": [_member_card(m) for m in mem]}, "messages": rows}
 
 
+class GroupSendReq(BaseModel):
+    body: str
+    reply_to_id: Optional[str] = None
+
+
 @api.post("/groups/{gid}/messages")
-async def group_send(gid: str, body: DMSendReq, u: dict = Depends(require_user)):
+async def group_send(gid: str, body: GroupSendReq, u: dict = Depends(require_user)):
     g = await _group_or_403(gid, u["user_id"])
     text = (body.body or "").strip()
     if not text:
         raise HTTPException(400, "Message cannot be empty.")
+    reply_to = None
+    if body.reply_to_id:
+        parent = await db.group_messages.find_one({"gmsg_id": body.reply_to_id, "group_id": gid}, {"_id": 0})
+        if parent:
+            reply_to = {"gmsg_id": parent["gmsg_id"], "sender_name": parent.get("sender_name") or "Member", "body": (parent.get("body") or "")[:120]}
     msg = {"gmsg_id": new_id("gm"), "group_id": gid, "from_id": u["user_id"],
-           "sender_name": u.get("name") or u.get("email"), "body": text, "read_by": [u["user_id"]], "created_at": now_utc()}
+           "sender_name": u.get("name") or u.get("email"), "body": text, "read_by": [u["user_id"]],
+           "reply_to": reply_to, "reactions": {}, "created_at": now_utc()}
     await db.group_messages.insert_one(msg)
     # In-app notification only (no email) for group chat messages; respect member's toggle.
     for mid in g.get("member_ids", []):
@@ -3106,7 +3131,30 @@ async def group_send(gid: str, body: DMSendReq, u: dict = Depends(require_user))
     msg.pop("_id", None)
     msg["seen_count"] = 0
     msg["member_count"] = len(g.get("member_ids", []))
+    msg["reaction_summary"] = []
     return {"message": msg}
+
+
+class ReactReq(BaseModel):
+    emoji: str
+
+
+@api.post("/groups/{gid}/messages/{gmsg_id}/react")
+async def group_react(gid: str, gmsg_id: str, body: ReactReq, u: dict = Depends(require_user)):
+    await _group_or_403(gid, u["user_id"])
+    emoji = (body.emoji or "").strip()
+    if emoji not in ALLOWED_REACTIONS:
+        raise HTTPException(400, "Unsupported reaction.")
+    msg = await db.group_messages.find_one({"gmsg_id": gmsg_id, "group_id": gid}, {"_id": 0})
+    if not msg:
+        raise HTTPException(404, "Message not found.")
+    users = (msg.get("reactions") or {}).get(emoji) or []
+    if u["user_id"] in users:
+        await db.group_messages.update_one({"gmsg_id": gmsg_id, "group_id": gid}, {"$pull": {f"reactions.{emoji}": u["user_id"]}})
+    else:
+        await db.group_messages.update_one({"gmsg_id": gmsg_id, "group_id": gid}, {"$addToSet": {f"reactions.{emoji}": u["user_id"]}})
+    fresh = await db.group_messages.find_one({"gmsg_id": gmsg_id, "group_id": gid}, {"_id": 0})
+    return {"gmsg_id": gmsg_id, "reaction_summary": _reactions_summary(fresh, u["user_id"])}
 
 
 class GroupEditReq(BaseModel):
@@ -3133,6 +3181,7 @@ async def group_edit_message(gid: str, gmsg_id: str, body: GroupEditReq, u: dict
     rb = msg.get("read_by") or []
     msg["seen_count"] = len([x for x in rb if x != msg.get("from_id")])
     msg["member_count"] = len(g.get("member_ids", []))
+    msg["reaction_summary"] = _reactions_summary(msg, u["user_id"])
     return {"message": msg}
 async def group_delete_message(gid: str, gmsg_id: str, u: dict = Depends(require_user)):
     g = await _group_or_403(gid, u["user_id"])

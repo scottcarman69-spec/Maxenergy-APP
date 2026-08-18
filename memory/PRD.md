@@ -1054,3 +1054,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - READ RECEIPTS: reuse existing per-message read_by[]. group_get computes seen_count (read_by excluding sender) + member_count per message and on group; group_send returns seen_count 0. Frontend shows a subtle right-aligned 'Seen by N' (or 'Sent' when 0) under the member's LAST own message only (keeps it clean).
 - api.groupEditMessage added. Hint updated: 'Swipe left to unsend · hold your message to edit'.
 - Verified: backend curl (edit body+edited_at, seen/member counts); screenshots (long-press opens Edit modal prefilled; 'Sent' receipt + hint render). Cleaned test messages.
+
+## Session update (Jun 2026 fork) — Group chat: Reactions + Reply/Quote (DONE)
+- Long-press ANY message now opens a bottom action sheet: reaction row (👍🔥😂❤️😮🙏) + Reply + Edit (own) + Unsend/Delete (own/admin). Replaces the old direct long-press-to-edit.
+- REACTIONS: backend POST /api/groups/{gid}/messages/{gmsg_id}/react {emoji} toggles caller in msg.reactions[emoji] (ALLOWED_REACTIONS whitelist, 400 otherwise). _reactions_summary() -> [{emoji,count,mine}] returned by group_get/send/edit/react. Frontend shows tappable reaction chips under the bubble (tap chip to toggle); mine highlighted.
+- REPLY: GroupSendReq adds reply_to_id; group_send stores reply_to snippet {gmsg_id,sender_name,body[:120]}. Compose shows a reply banner above input (cancel X); bubble renders a quoted reply block above the text. api.groupSend(body, replyToId), api.groupReact added.
+- Verified: backend curl (reply snippet, react add/toggle/invalid 400) + screenshots (action sheet with reactions/Reply/Edit/Unsend; 🔥 chip applied). Cleaned test messages. Hint: 'Hold a message to react, reply or edit · swipe left to unsend'.
