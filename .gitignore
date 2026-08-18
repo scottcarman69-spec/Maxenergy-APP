@@ -30,11 +30,11 @@ next-env.d.ts
 dist/
 dist
 
-# Environment files (comprehensive coverage)
-.env
-.env.*
-**/.env
-**/.env.*
+# Environment files
+# NOTE: deploy-required env files (frontend/.env, backend/.env) are intentionally
+# NOT ignored so the EAS/K8s build context can pick up rewritten env values.
+.env.local
+.env.*.local
 !.env.example
 *token.json*
 *credentials.json*

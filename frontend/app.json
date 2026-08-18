@@ -79,8 +79,7 @@
         {
           "calendarPermission": "Add your class bookings to your calendar"
         }
-      ],
-      "expo-build-properties"
+      ]
     ],
     "experiments": {
       "typedRoutes": true
