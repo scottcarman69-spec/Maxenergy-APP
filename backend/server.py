@@ -3248,6 +3248,9 @@ async def group_edit_message(gid: str, gmsg_id: str, body: GroupEditReq, u: dict
     msg["member_count"] = len(g.get("member_ids", []))
     msg["reaction_summary"] = _reactions_summary(msg, u["user_id"])
     return {"message": msg}
+
+
+@api.delete("/groups/{gid}/messages/{gmsg_id}")
 async def group_delete_message(gid: str, gmsg_id: str, u: dict = Depends(require_user)):
     g = await _group_or_403(gid, u["user_id"])
     msg = await db.group_messages.find_one({"gmsg_id": gmsg_id, "group_id": gid}, {"_id": 0})
@@ -3276,7 +3279,7 @@ class GroupPinReq(BaseModel):
     note: str = ""
 
 
-@api.post("/groups/{gid}/pin")
+@api.post("/groups/{gid}/pin-note")
 async def group_set_pin(gid: str, body: GroupPinReq, u: dict = Depends(require_user)):
     g = await _group_or_403(gid, u["user_id"])
     if g.get("owner_id") != u["user_id"]:

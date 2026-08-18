@@ -1072,3 +1072,10 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - ONLINE DOT FIX: group chat roster avatar removed overflow:hidden (moved borderRadius/overflow to rosterImg) so the green online dot is no longer clipped.
 - JUMP TO PINNED: tapping the pinned-message bar (testID group-pinned-jump) scrolls the chat ScrollView to that message (row y tracked via onLayout) and briefly highlights it (~1.6s brandTertiary bg).
 - Verified: testing_agent iteration_24 — all 5 items PASS (backend enrich curl + pytest test_bookings_enrichment.py; frontend NEXT UP ribbon/chips/single-ribbon, un-clipped dots, pinned-jump highlight). Test seed data cleaned up.
+
+## Session update (Jun 2026) — Deployment fix + Security audit (DONE)
+- DEPLOY (EAS Android build was failing): (1) .gitignore no longer excludes deploy-required env files (removed broad .env/.env.* rules; keep only *.local). (2) Removed DUPLICATE bare "expo-build-properties" plugin from frontend/app.json (kept the configured one). deployment_agent re-check = PASS, zero blockers. User must redeploy + regenerate Android build.
+- SECURITY AUDIT (security_audit_agent): Verdict PASS — no Critical/High. LOW/P3 hardening only (secrets kept out of VCS, wildcard CORS default, 30-day signed PII download links). SEC-001/SEC-002 prior patches verified present.
+- FIXED 2 real FUNCTIONAL bugs the audit surfaced in group chat routes:
+  1. group_delete_message (unsend) had LOST its route decorator -> DELETE /api/groups/{gid}/messages/{gmsg_id} was unregistered (unsend broken). Added @api.delete(...). Verified live -> 200.
+  2. Duplicate POST /api/groups/{gid}/pin: group_pin (pin a MESSAGE, {gmsg_id}) shadowed group_set_pin (set pinned NOTE, {note}) -> note endpoint unreachable/422. Moved note endpoint to POST /api/groups/{gid}/pin-note (backend + frontend api.ts groupSetPin, used by group/manage.tsx). Verified live -> correct owner-gated handler (403 owner-only, no collision).
