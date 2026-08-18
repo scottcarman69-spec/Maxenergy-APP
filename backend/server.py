@@ -3074,9 +3074,14 @@ async def group_get(gid: str, u: dict = Depends(require_user)):
     rows = await db.group_messages.find({"group_id": gid}, {"_id": 0}).sort("created_at", 1).to_list(1000)
     await db.group_messages.update_many({"group_id": gid, "read_by": {"$ne": u["user_id"]}}, {"$addToSet": {"read_by": u["user_id"]}})
     mem = await db.users.find({"user_id": {"$in": g.get("member_ids", [])}}, {"_id": 0, "user_id": 1, "name": 1, "picture": 1}).to_list(100)
+    mcount = len(g.get("member_ids", []))
+    for r in rows:
+        rb = r.get("read_by") or []
+        r["seen_count"] = len([x for x in rb if x != r.get("from_id")])
+        r["member_count"] = mcount
     return {"group": {"group_id": gid, "name": g["name"], "owner_id": g.get("owner_id"),
                       "slug": g.get("slug"), "is_official": bool(g.get("is_official")),
-                      "pinned_note": g.get("pinned_note"),
+                      "pinned_note": g.get("pinned_note"), "member_count": mcount,
                       "members": [_member_card(m) for m in mem]}, "messages": rows}
 
 
@@ -3099,10 +3104,36 @@ async def group_send(gid: str, body: DMSendReq, u: dict = Depends(require_user))
                                   f"{msg['sender_name']}: {text[:100]}", "message",
                                   data={"nav": "member_inbox"})
     msg.pop("_id", None)
+    msg["seen_count"] = 0
+    msg["member_count"] = len(g.get("member_ids", []))
     return {"message": msg}
 
 
-@api.delete("/groups/{gid}/messages/{gmsg_id}")
+class GroupEditReq(BaseModel):
+    body: str
+
+
+@api.put("/groups/{gid}/messages/{gmsg_id}")
+async def group_edit_message(gid: str, gmsg_id: str, body: GroupEditReq, u: dict = Depends(require_user)):
+    g = await _group_or_403(gid, u["user_id"])
+    msg = await db.group_messages.find_one({"gmsg_id": gmsg_id, "group_id": gid}, {"_id": 0})
+    if not msg:
+        raise HTTPException(404, "Message not found.")
+    if msg.get("from_id") == "system":
+        raise HTTPException(403, "Announcements can't be edited.")
+    if msg.get("from_id") != u["user_id"]:
+        raise HTTPException(403, "You can only edit your own messages.")
+    text = (body.body or "").strip()
+    if not text:
+        raise HTTPException(400, "Message cannot be empty.")
+    now = now_utc()
+    await db.group_messages.update_one({"gmsg_id": gmsg_id, "group_id": gid}, {"$set": {"body": text, "edited_at": now}})
+    msg["body"] = text
+    msg["edited_at"] = now
+    rb = msg.get("read_by") or []
+    msg["seen_count"] = len([x for x in rb if x != msg.get("from_id")])
+    msg["member_count"] = len(g.get("member_ids", []))
+    return {"message": msg}
 async def group_delete_message(gid: str, gmsg_id: str, u: dict = Depends(require_user)):
     g = await _group_or_403(gid, u["user_id"])
     msg = await db.group_messages.find_one({"gmsg_id": gmsg_id, "group_id": gid}, {"_id": 0})

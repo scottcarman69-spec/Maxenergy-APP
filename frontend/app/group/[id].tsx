@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, Alert, Modal } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import ReanimatedSwipeable from "react-native-gesture-handler/ReanimatedSwipeable";
@@ -9,7 +9,7 @@ import { colors, spacing, radius } from "@/src/theme";
 import ScreenHeader from "@/src/components/ScreenHeader";
 import EmojiButton from "@/src/components/EmojiButton";
 
-type GM = { gmsg_id: string; from_id: string; sender_name: string; body: string; created_at: string };
+type GM = { gmsg_id: string; from_id: string; sender_name: string; body: string; created_at: string; seen_count?: number; member_count?: number; edited_at?: string };
 
 function shortName(full?: string): string {
   const parts = (full || "").trim().split(/\s+/).filter(Boolean);
@@ -19,7 +19,7 @@ function shortName(full?: string): string {
 }
 
 // Memoised so typing / new messages don't re-render every existing bubble (keeps the chat smooth).
-const MessageRow = React.memo(function MessageRow({ m, mine, canDelete, onUnsend }: { m: GM; mine: boolean; canDelete: boolean; onUnsend: (m: GM) => void }) {
+const MessageRow = React.memo(function MessageRow({ m, mine, canDelete, showReceipt, onUnsend, onEdit }: { m: GM; mine: boolean; canDelete: boolean; showReceipt: boolean; onUnsend: (m: GM) => void; onEdit: (m: GM) => void }) {
   if (m.from_id === "system") {
     return (
       <View style={styles.announce}>
@@ -31,12 +31,23 @@ const MessageRow = React.memo(function MessageRow({ m, mine, canDelete, onUnsend
       </View>
     );
   }
+  const bubbleInner = (
+    <View style={[styles.bubble, mine ? styles.me : styles.them]}>
+      {!mine && <Text style={styles.sender}>{shortName(m.sender_name)}</Text>}
+      <Text style={[styles.msg, mine && { color: colors.onBrand }]}>{m.body}</Text>
+      {!!m.edited_at && <Text style={[styles.editedTag, mine && { color: "rgba(255,255,255,0.75)" }]}>edited</Text>}
+    </View>
+  );
   const bubble = (
     <View style={styles.rowWrap}>
-      <View style={[styles.bubble, mine ? styles.me : styles.them]}>
-        {!mine && <Text style={styles.sender}>{shortName(m.sender_name)}</Text>}
-        <Text style={[styles.msg, mine && { color: colors.onBrand }]}>{m.body}</Text>
-      </View>
+      {mine ? (
+        <Pressable onLongPress={() => onEdit(m)} delayLongPress={300} style={{ alignSelf: "flex-end", maxWidth: "82%" }}>
+          {bubbleInner}
+        </Pressable>
+      ) : bubbleInner}
+      {mine && showReceipt && (
+        <Text style={styles.receipt}>{(m.seen_count || 0) > 0 ? `Seen by ${m.seen_count}` : "Sent"}</Text>
+      )}
     </View>
   );
   if (!canDelete) return bubble;
@@ -75,6 +86,9 @@ export default function GroupChat() {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [denied, setDenied] = useState(false);
+  const [editing, setEditing] = useState<GM | null>(null);
+  const [editText, setEditText] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
   const ref = useRef<ScrollView>(null);
 
   const load = useCallback(async () => {
@@ -124,6 +138,29 @@ export default function GroupChat() {
     );
   }, [id, meId, load]);
 
+  const startEdit = useCallback((m: GM) => {
+    setEditing(m);
+    setEditText(m.body);
+  }, []);
+
+  const saveEdit = async () => {
+    if (!editing) return;
+    const body = editText.trim();
+    if (!body || body === editing.body) { setEditing(null); return; }
+    setSavingEdit(true);
+    const gmsgId = editing.gmsg_id;
+    setMsgs((cur) => cur.map((x) => (x.gmsg_id === gmsgId ? { ...x, body, edited_at: new Date().toISOString() } : x)));
+    try { await api.groupEditMessage(String(id), gmsgId, body); }
+    catch { load(); }
+    setSavingEdit(false);
+    setEditing(null);
+  };
+
+  const lastOwnIndex = (() => {
+    for (let i = msgs.length - 1; i >= 0; i--) { if (msgs[i].from_id === meId) return i; }
+    return -1;
+  })();
+
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
       <ScreenHeader title={denied ? "Members only" : gname} subtitle={denied ? undefined : `${count} members`} fallback="/(tabs)/inbox"
@@ -158,13 +195,13 @@ export default function GroupChat() {
           <ScrollView ref={ref} contentContainerStyle={{ padding: spacing.lg, gap: spacing.sm, paddingBottom: 20 }}>
             {msgs.length === 0 ? (
               <View style={styles.empty}><Ionicons name="people-outline" size={38} color={colors.onSurfaceSecondary} /><Text style={styles.emptyText}>Start the conversation with your crew 🥊</Text></View>
-            ) : msgs.map((m) => {
+            ) : msgs.map((m, i) => {
               const mine = m.from_id === meId;
               const canDelete = m.from_id !== "system" && (mine || isAdmin || ownerId === meId);
-              return <MessageRow key={m.gmsg_id} m={m} mine={mine} canDelete={canDelete} onUnsend={unsend} />;
+              return <MessageRow key={m.gmsg_id} m={m} mine={mine} canDelete={canDelete} showReceipt={i === lastOwnIndex} onUnsend={unsend} onEdit={startEdit} />;
             })}
             {msgs.some((m) => m.from_id === meId) && (
-              <Text style={styles.swipeHint}>Swipe a message left to unsend it</Text>
+              <Text style={styles.swipeHint}>Swipe left to unsend · hold your message to edit</Text>
             )}
           </ScrollView>
         )}
@@ -177,6 +214,32 @@ export default function GroupChat() {
         </View>
       </KeyboardAvoidingView>
       )}
+
+      <Modal visible={!!editing} transparent animationType="fade" onRequestClose={() => setEditing(null)}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.editOverlay}>
+          <View style={styles.editCard}>
+            <Text style={styles.editTitle}>Edit message</Text>
+            <TextInput
+              testID="group-edit-input"
+              value={editText}
+              onChangeText={setEditText}
+              style={styles.editInput}
+              placeholder="Update your message…"
+              placeholderTextColor={colors.onSurfaceSecondary}
+              multiline
+              autoFocus
+            />
+            <View style={styles.editActions}>
+              <Pressable style={styles.editCancel} onPress={() => setEditing(null)} disabled={savingEdit}>
+                <Text style={styles.editCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable testID="group-edit-save" style={[styles.editSave, savingEdit && { opacity: 0.6 }]} onPress={saveEdit} disabled={savingEdit}>
+                {savingEdit ? <ActivityIndicator color={colors.onBrand} /> : <Text style={styles.editSaveText}>SAVE</Text>}
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -204,6 +267,8 @@ const styles = StyleSheet.create({
   announceLabel: { color: colors.brand, fontSize: 10.5, fontWeight: "900", letterSpacing: 1 },
   announceBody: { color: colors.onSurface, fontSize: 14.5, lineHeight: 20 },
   msg: { color: colors.onSurface, fontSize: 15, lineHeight: 20 },
+  editedTag: { fontSize: 10, color: colors.onSurfaceSecondary, marginTop: 3, fontStyle: "italic" },
+  receipt: { alignSelf: "flex-end", color: colors.onSurfaceSecondary, fontSize: 10.5, marginTop: 3, marginRight: 2 },
   unsendWrap: { justifyContent: "center", paddingLeft: spacing.sm },
   unsendAction: { backgroundColor: colors.error, justifyContent: "center", alignItems: "center", width: 84, alignSelf: "stretch", borderRadius: radius.lg, gap: 2 },
   unsendText: { color: "#fff", fontWeight: "800", fontSize: 12 },
@@ -211,4 +276,13 @@ const styles = StyleSheet.create({
   bar: { flexDirection: "row", alignItems: "flex-end", gap: spacing.sm, padding: spacing.md, borderTopWidth: 1, borderTopColor: colors.border },
   input: { flex: 1, maxHeight: 120, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: 10, color: colors.onSurface, fontSize: 15 },
   sendBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
+  editOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", padding: spacing.xl },
+  editCard: { backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg },
+  editTitle: { color: colors.onSurface, fontSize: 17, fontWeight: "900", marginBottom: spacing.md },
+  editInput: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md, color: colors.onSurface, fontSize: 15, minHeight: 80, textAlignVertical: "top" },
+  editActions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.lg },
+  editCancel: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 13, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
+  editCancelText: { color: colors.onSurface, fontWeight: "800" },
+  editSave: { flex: 2, alignItems: "center", justifyContent: "center", paddingVertical: 13, borderRadius: radius.md, backgroundColor: colors.brand },
+  editSaveText: { color: colors.onBrand, fontWeight: "900", letterSpacing: 1 },
 });

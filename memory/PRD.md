@@ -1048,3 +1048,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Fixed clipped Unsend button: previously the Swipeable container had maxWidth 82% + alignSelf which clipped the revealed action ("nsend" cut off). Rebuilt so the row is full-width (rowWrap) with the bubble aligned inside; the right action (unsendWrap+unsendAction width 84, alignSelf stretch) now reveals fully and is entirely tappable.
 - Smoothness: swapped legacy Swipeable -> ReanimatedSwipeable (react-native-gesture-handler/ReanimatedSwipeable, 60fps via reanimated 4). Extracted a React.memo MessageRow so typing/new messages no longer re-render every bubble; unsend wrapped in useCallback. Tuned friction 1.6, rightThreshold 36, dragOffsetFromRightEdge 16.
 - Verified via screenshots: chat renders, swipe reveals full Unsend button beside the bubble. Backend DELETE /api/groups/{gid}/messages/{id} previously verified. Cleaned test message.
+
+## Session update (Jun 2026 fork) — Group chat: Edit message + Read receipts (DONE)
+- EDIT: tap-and-hold (long-press, 300ms) your own group message -> Edit modal (prefilled TextInput, Save/Cancel). Backend PUT /api/groups/{gid}/messages/{gmsg_id} {body} — sender-only, non-system, sets edited_at. Edited messages show a small italic 'edited' tag. Optimistic local update + refetch on error.
+- READ RECEIPTS: reuse existing per-message read_by[]. group_get computes seen_count (read_by excluding sender) + member_count per message and on group; group_send returns seen_count 0. Frontend shows a subtle right-aligned 'Seen by N' (or 'Sent' when 0) under the member's LAST own message only (keeps it clean).
+- api.groupEditMessage added. Hint updated: 'Swipe left to unsend · hold your message to edit'.
+- Verified: backend curl (edit body+edited_at, seen/member counts); screenshots (long-press opens Edit modal prefilled; 'Sent' receipt + hint render). Cleaned test messages.
