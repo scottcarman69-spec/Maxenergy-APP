@@ -3095,7 +3095,7 @@ async def group_get(gid: str, u: dict = Depends(require_user)):
         r["reaction_summary"] = _reactions_summary(r, u["user_id"])
     return {"group": {"group_id": gid, "name": g["name"], "owner_id": g.get("owner_id"),
                       "slug": g.get("slug"), "is_official": bool(g.get("is_official")),
-                      "pinned_note": g.get("pinned_note"), "member_count": mcount,
+                      "pinned_note": g.get("pinned_note"), "pinned_msg": g.get("pinned_msg"), "member_count": mcount,
                       "members": [_member_card(m) for m in mem]}, "messages": rows}
 
 
@@ -3155,6 +3155,59 @@ async def group_react(gid: str, gmsg_id: str, body: ReactReq, u: dict = Depends(
         await db.group_messages.update_one({"gmsg_id": gmsg_id, "group_id": gid}, {"$addToSet": {f"reactions.{emoji}": u["user_id"]}})
     fresh = await db.group_messages.find_one({"gmsg_id": gmsg_id, "group_id": gid}, {"_id": 0})
     return {"gmsg_id": gmsg_id, "reaction_summary": _reactions_summary(fresh, u["user_id"])}
+
+
+class PinReq(BaseModel):
+    gmsg_id: str
+
+
+def _is_group_mod(g: dict, u: dict) -> bool:
+    return g.get("owner_id") == u["user_id"] or bool(u.get("is_admin"))
+
+
+@api.post("/groups/{gid}/pin")
+async def group_pin(gid: str, body: PinReq, u: dict = Depends(require_user)):
+    g = await _group_or_403(gid, u["user_id"])
+    if not _is_group_mod(g, u):
+        raise HTTPException(403, "Only a group admin can pin messages.")
+    msg = await db.group_messages.find_one({"gmsg_id": body.gmsg_id, "group_id": gid}, {"_id": 0})
+    if not msg:
+        raise HTTPException(404, "Message not found.")
+    pin = {"gmsg_id": msg["gmsg_id"], "sender_name": msg.get("sender_name") or "Member", "body": (msg.get("body") or "")[:200]}
+    await db.group_chats.update_one({"group_id": gid}, {"$set": {"pinned_msg": pin}})
+    return {"pinned_msg": pin}
+
+
+@api.post("/groups/{gid}/unpin")
+async def group_unpin(gid: str, u: dict = Depends(require_user)):
+    g = await _group_or_403(gid, u["user_id"])
+    if not _is_group_mod(g, u):
+        raise HTTPException(403, "Only a group admin can unpin messages.")
+    await db.group_chats.update_one({"group_id": gid}, {"$unset": {"pinned_msg": ""}})
+    return {"ok": True}
+
+
+@api.post("/groups/{gid}/typing")
+async def group_typing(gid: str, u: dict = Depends(require_user)):
+    await _group_or_403(gid, u["user_id"])
+    first = (u.get("name") or "Someone").split()[0]
+    await db.group_typing.update_one(
+        {"group_id": gid, "user_id": u["user_id"]},
+        {"$set": {"group_id": gid, "user_id": u["user_id"], "name": first, "updated_at": now_utc()}},
+        upsert=True,
+    )
+    return {"ok": True}
+
+
+@api.get("/groups/{gid}/typing")
+async def group_typing_get(gid: str, u: dict = Depends(require_user)):
+    await _group_or_403(gid, u["user_id"])
+    cutoff = now_utc() - timedelta(seconds=6)
+    rows = await db.group_typing.find(
+        {"group_id": gid, "user_id": {"$ne": u["user_id"]}, "updated_at": {"$gte": cutoff}},
+        {"_id": 0, "name": 1},
+    ).to_list(10)
+    return {"typing": [r["name"] for r in rows]}
 
 
 class GroupEditReq(BaseModel):

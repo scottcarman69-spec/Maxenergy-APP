@@ -110,6 +110,9 @@ export default function GroupChat() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [replyTo, setReplyTo] = useState<GM | null>(null);
   const [actionMsg, setActionMsg] = useState<GM | null>(null);
+  const [pinnedMsg, setPinnedMsg] = useState<ReplyTo | null>(null);
+  const [typingNames, setTypingNames] = useState<string[]>([]);
+  const lastTypingPing = useRef(0);
   const ref = useRef<ScrollView>(null);
 
   const load = useCallback(async () => {
@@ -117,6 +120,7 @@ export default function GroupChat() {
       const [r, me] = await Promise.all([api.groupGet(String(id)), api.me()]);
       setMsgs(r.messages || []); setGname(r.group?.name || gname); setCount((r.group?.members || []).length);
       setPinned(r.group?.pinned_note || null);
+      setPinnedMsg(r.group?.pinned_msg || null);
       setMeId(me?.user?.user_id || "");
       setIsAdmin(!!me?.user?.is_admin);
       setOwnerId(r.group?.owner_id || "");
@@ -148,6 +152,37 @@ export default function GroupChat() {
   }, [id]);
 
   const openActions = useCallback((m: GM) => setActionMsg(m), []);
+
+  const pinMsg = useCallback(async (m: GM) => {
+    setPinnedMsg({ gmsg_id: m.gmsg_id, sender_name: m.sender_name, body: (m.body || "").slice(0, 200) });
+    try { await api.groupPin(String(id), m.gmsg_id); } catch { load(); }
+  }, [id, load]);
+
+  const unpinMsg = useCallback(async () => {
+    setPinnedMsg(null);
+    try { await api.groupUnpin(String(id)); } catch { load(); }
+  }, [id, load]);
+
+  const onTypeChange = (t: string) => {
+    setText(t);
+    const now = Date.now();
+    if (t && now - lastTypingPing.current > 2500) {
+      lastTypingPing.current = now;
+      api.groupTyping(String(id)).catch(() => {});
+    }
+  };
+
+  // Poll who's typing while the chat is open.
+  useFocusEffect(useCallback(() => {
+    if (denied) return;
+    let alive = true;
+    const tick = async () => {
+      try { const r = await api.groupTypingGet(String(id)); if (alive) setTypingNames(r.typing || []); } catch {}
+    };
+    tick();
+    const iv = setInterval(tick, 3000);
+    return () => { alive = false; clearInterval(iv); };
+  }, [id, denied]));
 
   const unsend = useCallback((m: GM) => {
     const own = m.from_id === meId;
@@ -222,6 +257,20 @@ export default function GroupChat() {
             </View>
           </Pressable>
         )}
+        {!!pinnedMsg && (
+          <View style={styles.pinMsgBar}>
+            <Ionicons name="pin" size={15} color={colors.brand} style={{ marginTop: 1 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.pinMsgTitle}>PINNED · {shortName(pinnedMsg.sender_name)}</Text>
+              <Text style={styles.pinMsgBody} numberOfLines={2}>{pinnedMsg.body}</Text>
+            </View>
+            {(isAdmin || ownerId === meId) && (
+              <Pressable testID="group-unpin" hitSlop={10} onPress={unpinMsg}>
+                <Ionicons name="close" size={18} color={colors.onSurfaceSecondary} />
+              </Pressable>
+            )}
+          </View>
+        )}
         {loading ? <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} /> : (
           <ScrollView ref={ref} contentContainerStyle={{ padding: spacing.lg, gap: spacing.sm, paddingBottom: 20 }}>
             {msgs.length === 0 ? (
@@ -235,6 +284,9 @@ export default function GroupChat() {
               <Text style={styles.swipeHint}>Hold a message to react, reply or edit · swipe left to unsend</Text>
             )}
           </ScrollView>
+        )}
+        {typingNames.length > 0 && (
+          <Text style={styles.typing}>{typingNames.length === 1 ? `${typingNames[0]} is typing…` : `${typingNames.slice(0, 2).join(", ")} are typing…`}</Text>
         )}
         {!!replyTo && (
           <View style={styles.replyBar}>
@@ -250,7 +302,7 @@ export default function GroupChat() {
         )}
         <View style={styles.bar}>
           <EmojiButton testID="group-emoji" onPick={(e) => setText((t) => t + e)} />
-          <TextInput testID="group-input" value={text} onChangeText={setText} placeholder="Message the group…" placeholderTextColor={colors.onSurfaceSecondary} style={styles.input} multiline />
+          <TextInput testID="group-input" value={text} onChangeText={onTypeChange} placeholder="Message the group…" placeholderTextColor={colors.onSurfaceSecondary} style={styles.input} multiline />
           <Pressable testID="group-send" style={styles.sendBtn} onPress={send} disabled={sending || !text.trim()}>
             {sending ? <ActivityIndicator size="small" color={colors.onBrand} /> : <Ionicons name="send" size={18} color={colors.onBrand} />}
           </Pressable>
@@ -298,6 +350,19 @@ export default function GroupChat() {
               <Ionicons name="arrow-undo" size={20} color={colors.onSurface} />
               <Text style={styles.sheetItemText}>Reply</Text>
             </Pressable>
+            {(isAdmin || ownerId === meId) && actionMsg?.from_id !== "system" && (
+              pinnedMsg?.gmsg_id === actionMsg?.gmsg_id ? (
+                <Pressable testID="action-unpin" style={styles.sheetItem} onPress={() => { setActionMsg(null); unpinMsg(); }}>
+                  <Ionicons name="pin" size={20} color={colors.onSurface} />
+                  <Text style={styles.sheetItemText}>Unpin message</Text>
+                </Pressable>
+              ) : (
+                <Pressable testID="action-pin" style={styles.sheetItem} onPress={() => { const m = actionMsg; setActionMsg(null); if (m) pinMsg(m); }}>
+                  <Ionicons name="pin-outline" size={20} color={colors.onSurface} />
+                  <Text style={styles.sheetItemText}>Pin message</Text>
+                </Pressable>
+              )
+            )}
             {actionMsg?.from_id === meId && (
               <Pressable testID="action-edit" style={styles.sheetItem} onPress={() => { const m = actionMsg; setActionMsg(null); if (m) startEdit(m); }}>
                 <Ionicons name="create-outline" size={20} color={colors.onSurface} />
@@ -360,6 +425,10 @@ const styles = StyleSheet.create({
   reactionPick: { paddingHorizontal: 4 },
   sheetItem: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 14, paddingHorizontal: 6 },
   sheetItemText: { color: colors.onSurface, fontSize: 16, fontWeight: "700" },
+  pinMsgBar: { flexDirection: "row", alignItems: "flex-start", gap: 8, backgroundColor: colors.brandTertiary, borderBottomWidth: 1, borderBottomColor: colors.border, paddingHorizontal: spacing.md, paddingVertical: 8 },
+  pinMsgTitle: { color: colors.brand, fontSize: 10.5, fontWeight: "900", letterSpacing: 0.5 },
+  pinMsgBody: { color: colors.onSurface, fontSize: 13, marginTop: 1 },
+  typing: { color: colors.onSurfaceSecondary, fontSize: 12, fontStyle: "italic", paddingHorizontal: spacing.lg, paddingBottom: 4 },
   unsendWrap: { justifyContent: "center", paddingLeft: spacing.sm },
   unsendAction: { backgroundColor: colors.error, justifyContent: "center", alignItems: "center", width: 84, alignSelf: "stretch", borderRadius: radius.lg, gap: 2 },
   unsendText: { color: "#fff", fontWeight: "800", fontSize: 12 },
