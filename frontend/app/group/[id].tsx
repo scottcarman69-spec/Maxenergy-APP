@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, Alert, Modal } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, Alert, Modal, Image } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import ReanimatedSwipeable from "react-native-gesture-handler/ReanimatedSwipeable";
@@ -112,6 +112,7 @@ export default function GroupChat() {
   const [actionMsg, setActionMsg] = useState<GM | null>(null);
   const [pinnedMsg, setPinnedMsg] = useState<ReplyTo | null>(null);
   const [typingNames, setTypingNames] = useState<string[]>([]);
+  const [members, setMembers] = useState<{ user_id: string; name?: string; picture?: string }[]>([]);
   const lastTypingPing = useRef(0);
   const ref = useRef<ScrollView>(null);
 
@@ -119,6 +120,7 @@ export default function GroupChat() {
     try {
       const [r, me] = await Promise.all([api.groupGet(String(id)), api.me()]);
       setMsgs(r.messages || []); setGname(r.group?.name || gname); setCount((r.group?.members || []).length);
+      setMembers(r.group?.members || []);
       setPinned(r.group?.pinned_note || null);
       setPinnedMsg(r.group?.pinned_msg || null);
       setMeId(me?.user?.user_id || "");
@@ -247,6 +249,23 @@ export default function GroupChat() {
         </View>
       ) : (
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }} keyboardVerticalOffset={80}>
+        {members.length > 0 && (
+          <Pressable testID="group-roster" style={styles.rosterBar} onPress={() => router.push({ pathname: "/group/members", params: { id: String(id) } } as any)}>
+            <View style={styles.rosterAvatars}>
+              {members.slice(0, 5).map((mm, idx) => (
+                <View key={mm.user_id} style={[styles.rosterAvatar, { marginLeft: idx === 0 ? 0 : -10, zIndex: 5 - idx }]}>
+                  {mm.picture ? (
+                    <Image source={{ uri: mm.picture }} style={styles.rosterImg} />
+                  ) : (
+                    <Text style={styles.rosterInitial}>{(mm.name || "?").slice(0, 1).toUpperCase()}</Text>
+                  )}
+                </View>
+              ))}
+            </View>
+            <Text style={styles.rosterText}>{count} {count === 1 ? "member" : "members"}</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.onSurfaceSecondary} />
+          </Pressable>
+        )}
         {!!pinned && (
           <Pressable style={styles.pinBar} onPress={() => setPinExpanded((v) => !v)}>
             <Ionicons name="pin" size={16} color={colors.brand} style={{ marginTop: 1 }} />
@@ -429,6 +448,12 @@ const styles = StyleSheet.create({
   pinMsgTitle: { color: colors.brand, fontSize: 10.5, fontWeight: "900", letterSpacing: 0.5 },
   pinMsgBody: { color: colors.onSurface, fontSize: 13, marginTop: 1 },
   typing: { color: colors.onSurfaceSecondary, fontSize: 12, fontStyle: "italic", paddingHorizontal: spacing.lg, paddingBottom: 4 },
+  rosterBar: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: spacing.md, paddingVertical: 8, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border },
+  rosterAvatars: { flexDirection: "row", alignItems: "center" },
+  rosterAvatar: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: colors.surface, overflow: "hidden" },
+  rosterImg: { width: "100%", height: "100%" },
+  rosterInitial: { color: colors.onBrand, fontSize: 12, fontWeight: "900" },
+  rosterText: { flex: 1, color: colors.onSurface, fontSize: 13.5, fontWeight: "700" },
   unsendWrap: { justifyContent: "center", paddingLeft: spacing.sm },
   unsendAction: { backgroundColor: colors.error, justifyContent: "center", alignItems: "center", width: 84, alignSelf: "stretch", borderRadius: radius.lg, gap: 2 },
   unsendText: { color: "#fff", fontWeight: "800", fontSize: 12 },
