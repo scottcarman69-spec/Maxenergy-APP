@@ -1043,3 +1043,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - User created their own Atlas cluster (cluster0.rb3hip8.mongodb.net) and allowlisted 0.0.0.0/0. Connection verified from preview.
 - Seeded FRESH via server.seed_data() + seed_official_groups() pointed at Atlas (preview .env UNCHANGED): 2 admins (admin@ + info@maxenergy.com.au), 23 classes (Boot Camp 20, rest 16), 3 plans, 3 announcements, 3 events, Muay Thai Academy group, all indexes. Admin login verified against Atlas with existing ADMIN2_PASSWORD.
 - REMAINING (user action): set MONGO_URL (+ DB_NAME=maxenergy_db) in Deployment Panel > Secrets and redeploy so the LIVE app uses Atlas. Recommend rotating the DB password afterwards (string was shared in chat) and updating the secret.
+
+## Session update (Jun 2026 fork) — Group chat unsend fix + smoother chat (DONE)
+- Fixed clipped Unsend button: previously the Swipeable container had maxWidth 82% + alignSelf which clipped the revealed action ("nsend" cut off). Rebuilt so the row is full-width (rowWrap) with the bubble aligned inside; the right action (unsendWrap+unsendAction width 84, alignSelf stretch) now reveals fully and is entirely tappable.
+- Smoothness: swapped legacy Swipeable -> ReanimatedSwipeable (react-native-gesture-handler/ReanimatedSwipeable, 60fps via reanimated 4). Extracted a React.memo MessageRow so typing/new messages no longer re-render every bubble; unsend wrapped in useCallback. Tuned friction 1.6, rightThreshold 36, dragOffsetFromRightEdge 16.
+- Verified via screenshots: chat renders, swipe reveals full Unsend button beside the bubble. Backend DELETE /api/groups/{gid}/messages/{id} previously verified. Cleaned test message.

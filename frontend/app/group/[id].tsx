@@ -2,7 +2,7 @@ import React, { useCallback, useRef, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, Alert } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Swipeable } from "react-native-gesture-handler";
+import ReanimatedSwipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
@@ -17,6 +17,48 @@ function shortName(full?: string): string {
   if (parts.length === 1) return parts[0];
   return `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.`;
 }
+
+// Memoised so typing / new messages don't re-render every existing bubble (keeps the chat smooth).
+const MessageRow = React.memo(function MessageRow({ m, mine, canDelete, onUnsend }: { m: GM; mine: boolean; canDelete: boolean; onUnsend: (m: GM) => void }) {
+  if (m.from_id === "system") {
+    return (
+      <View style={styles.announce}>
+        <View style={styles.announceHead}>
+          <Ionicons name="megaphone" size={14} color={colors.brand} />
+          <Text style={styles.announceLabel}>GYM ANNOUNCEMENT</Text>
+        </View>
+        <Text style={styles.announceBody}>{m.body}</Text>
+      </View>
+    );
+  }
+  const bubble = (
+    <View style={styles.rowWrap}>
+      <View style={[styles.bubble, mine ? styles.me : styles.them]}>
+        {!mine && <Text style={styles.sender}>{shortName(m.sender_name)}</Text>}
+        <Text style={[styles.msg, mine && { color: colors.onBrand }]}>{m.body}</Text>
+      </View>
+    </View>
+  );
+  if (!canDelete) return bubble;
+  return (
+    <ReanimatedSwipeable
+      renderRightActions={() => (
+        <View style={styles.unsendWrap}>
+          <Pressable testID={`group-unsend-${m.gmsg_id}`} style={styles.unsendAction} onPress={() => onUnsend(m)}>
+            <Ionicons name="trash" size={18} color="#fff" />
+            <Text style={styles.unsendText}>{mine ? "Unsend" : "Delete"}</Text>
+          </Pressable>
+        </View>
+      )}
+      overshootRight={false}
+      friction={1.6}
+      rightThreshold={36}
+      dragOffsetFromRightEdge={16}
+    >
+      {bubble}
+    </ReanimatedSwipeable>
+  );
+});
 
 export default function GroupChat() {
   const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
@@ -62,7 +104,7 @@ export default function GroupChat() {
     setSending(false);
   };
 
-  const unsend = (m: GM) => {
+  const unsend = useCallback((m: GM) => {
     const own = m.from_id === meId;
     Alert.alert(
       own ? "Unsend message?" : "Delete message?",
@@ -80,7 +122,7 @@ export default function GroupChat() {
         },
       ]
     );
-  };
+  }, [id, meId, load]);
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
@@ -118,43 +160,8 @@ export default function GroupChat() {
               <View style={styles.empty}><Ionicons name="people-outline" size={38} color={colors.onSurfaceSecondary} /><Text style={styles.emptyText}>Start the conversation with your crew 🥊</Text></View>
             ) : msgs.map((m) => {
               const mine = m.from_id === meId;
-              if (m.from_id === "system") {
-                return (
-                  <View key={m.gmsg_id} style={styles.announce}>
-                    <View style={styles.announceHead}>
-                      <Ionicons name="megaphone" size={14} color={colors.brand} />
-                      <Text style={styles.announceLabel}>GYM ANNOUNCEMENT</Text>
-                    </View>
-                    <Text style={styles.announceBody}>{m.body}</Text>
-                  </View>
-                );
-              }
-              const canDelete = mine || isAdmin || ownerId === meId;
-              const bubble = (
-                <View style={[styles.bubble, mine ? styles.me : styles.them]}>
-                  {!mine && <Text style={styles.sender}>{shortName(m.sender_name)}</Text>}
-                  <Text style={[styles.msg, mine && { color: colors.onBrand }]}>{m.body}</Text>
-                </View>
-              );
-              if (!canDelete) {
-                return <View key={m.gmsg_id} style={{ alignSelf: mine ? "flex-end" : "flex-start", maxWidth: "82%" }}>{bubble}</View>;
-              }
-              return (
-                <Swipeable
-                  key={m.gmsg_id}
-                  containerStyle={{ alignSelf: mine ? "flex-end" : "flex-start", maxWidth: "82%" }}
-                  renderRightActions={() => (
-                    <Pressable testID={`group-unsend-${m.gmsg_id}`} style={styles.unsendAction} onPress={() => unsend(m)}>
-                      <Ionicons name="trash" size={18} color="#fff" />
-                      <Text style={styles.unsendText}>{mine ? "Unsend" : "Delete"}</Text>
-                    </Pressable>
-                  )}
-                  overshootRight={false}
-                  rightThreshold={40}
-                >
-                  {bubble}
-                </Swipeable>
-              );
+              const canDelete = m.from_id !== "system" && (mine || isAdmin || ownerId === meId);
+              return <MessageRow key={m.gmsg_id} m={m} mine={mine} canDelete={canDelete} onUnsend={unsend} />;
             })}
             {msgs.some((m) => m.from_id === meId) && (
               <Text style={styles.swipeHint}>Swipe a message left to unsend it</Text>
@@ -188,6 +195,7 @@ const styles = StyleSheet.create({
   pinBody: { color: colors.onSurface, fontSize: 13, lineHeight: 18, marginTop: 3 },
   pinToggle: { color: colors.brand, fontSize: 11.5, fontWeight: "800", marginTop: 4 },
   bubble: { maxWidth: "82%", padding: spacing.md, borderRadius: radius.lg },
+  rowWrap: { width: "100%" },
   me: { alignSelf: "flex-end", backgroundColor: colors.brand, borderBottomRightRadius: 4 },
   them: { alignSelf: "flex-start", backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderBottomLeftRadius: 4 },
   sender: { color: colors.brand, fontSize: 11, fontWeight: "800", marginBottom: 3 },
@@ -196,7 +204,8 @@ const styles = StyleSheet.create({
   announceLabel: { color: colors.brand, fontSize: 10.5, fontWeight: "900", letterSpacing: 1 },
   announceBody: { color: colors.onSurface, fontSize: 14.5, lineHeight: 20 },
   msg: { color: colors.onSurface, fontSize: 15, lineHeight: 20 },
-  unsendAction: { backgroundColor: colors.error, justifyContent: "center", alignItems: "center", width: 78, borderRadius: radius.lg, marginLeft: spacing.sm, gap: 2 },
+  unsendWrap: { justifyContent: "center", paddingLeft: spacing.sm },
+  unsendAction: { backgroundColor: colors.error, justifyContent: "center", alignItems: "center", width: 84, alignSelf: "stretch", borderRadius: radius.lg, gap: 2 },
   unsendText: { color: "#fff", fontWeight: "800", fontSize: 12 },
   swipeHint: { color: colors.onSurfaceSecondary, fontSize: 11, textAlign: "center", marginTop: 4, opacity: 0.7 },
   bar: { flexDirection: "row", alignItems: "flex-end", gap: spacing.sm, padding: spacing.md, borderTopWidth: 1, borderTopColor: colors.border },
