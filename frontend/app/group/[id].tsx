@@ -8,6 +8,7 @@ import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
 import ScreenHeader from "@/src/components/ScreenHeader";
 import EmojiButton from "@/src/components/EmojiButton";
+import { isOnline } from "@/src/presence";
 
 type Reaction = { emoji: string; count: number; mine: boolean };
 type ReplyTo = { gmsg_id: string; sender_name: string; body: string };
@@ -112,9 +113,21 @@ export default function GroupChat() {
   const [actionMsg, setActionMsg] = useState<GM | null>(null);
   const [pinnedMsg, setPinnedMsg] = useState<ReplyTo | null>(null);
   const [typingNames, setTypingNames] = useState<string[]>([]);
-  const [members, setMembers] = useState<{ user_id: string; name?: string; picture?: string }[]>([]);
+  const [members, setMembers] = useState<{ user_id: string; name?: string; picture?: string; last_active_at?: string }[]>([]);
   const lastTypingPing = useRef(0);
   const ref = useRef<ScrollView>(null);
+  const rowYs = useRef<Record<string, number>>({});
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+
+  const jumpToPinned = useCallback(() => {
+    const gid = pinnedMsg?.gmsg_id;
+    if (!gid) return;
+    const y = rowYs.current[gid];
+    if (typeof y !== "number") return;
+    ref.current?.scrollTo({ y: Math.max(y - 24, 0), animated: true });
+    setHighlightId(gid);
+    setTimeout(() => setHighlightId((cur) => (cur === gid ? null : cur)), 1600);
+  }, [pinnedMsg]);
 
   const load = useCallback(async () => {
     try {
@@ -259,10 +272,13 @@ export default function GroupChat() {
                   ) : (
                     <Text style={styles.rosterInitial}>{(mm.name || "?").slice(0, 1).toUpperCase()}</Text>
                   )}
+                  {isOnline(mm.last_active_at) && <View style={styles.onlineDot} />}
                 </View>
               ))}
             </View>
-            <Text style={styles.rosterText}>{count} {count === 1 ? "member" : "members"}</Text>
+            {(() => { const on = members.filter((mm) => isOnline(mm.last_active_at)).length; return (
+              <Text style={styles.rosterText}>{count} {count === 1 ? "member" : "members"}{on > 0 ? ` · ${on} online` : ""}</Text>
+            ); })()}
             <Ionicons name="chevron-forward" size={16} color={colors.onSurfaceSecondary} />
           </Pressable>
         )}
@@ -277,7 +293,7 @@ export default function GroupChat() {
           </Pressable>
         )}
         {!!pinnedMsg && (
-          <View style={styles.pinMsgBar}>
+          <Pressable testID="group-pinned-jump" style={styles.pinMsgBar} onPress={jumpToPinned}>
             <Ionicons name="pin" size={15} color={colors.brand} style={{ marginTop: 1 }} />
             <View style={{ flex: 1 }}>
               <Text style={styles.pinMsgTitle}>PINNED · {shortName(pinnedMsg.sender_name)}</Text>
@@ -288,7 +304,7 @@ export default function GroupChat() {
                 <Ionicons name="close" size={18} color={colors.onSurfaceSecondary} />
               </Pressable>
             )}
-          </View>
+          </Pressable>
         )}
         {loading ? <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} /> : (
           <ScrollView ref={ref} contentContainerStyle={{ padding: spacing.lg, gap: spacing.sm, paddingBottom: 20 }}>
@@ -297,7 +313,15 @@ export default function GroupChat() {
             ) : msgs.map((m, i) => {
               const mine = m.from_id === meId;
               const canDelete = m.from_id !== "system" && (mine || isAdmin || ownerId === meId);
-              return <MessageRow key={m.gmsg_id} m={m} mine={mine} canDelete={canDelete} showReceipt={i === lastOwnIndex} onUnsend={unsend} onLongPress={openActions} onReact={react} />;
+              return (
+                <View
+                  key={m.gmsg_id}
+                  onLayout={(e) => { rowYs.current[m.gmsg_id] = e.nativeEvent.layout.y; }}
+                  style={highlightId === m.gmsg_id ? styles.highlightRow : undefined}
+                >
+                  <MessageRow m={m} mine={mine} canDelete={canDelete} showReceipt={i === lastOwnIndex} onUnsend={unsend} onLongPress={openActions} onReact={react} />
+                </View>
+              );
             })}
             {msgs.length > 0 && (
               <Text style={styles.swipeHint}>Hold a message to react, reply or edit · swipe left to unsend</Text>
@@ -449,10 +473,11 @@ const styles = StyleSheet.create({
   pinMsgBody: { color: colors.onSurface, fontSize: 13, marginTop: 1 },
   typing: { color: colors.onSurfaceSecondary, fontSize: 12, fontStyle: "italic", paddingHorizontal: spacing.lg, paddingBottom: 4 },
   rosterBar: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: spacing.md, paddingVertical: 8, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border },
-  rosterAvatars: { flexDirection: "row", alignItems: "center" },
-  rosterAvatar: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: colors.surface, overflow: "hidden" },
-  rosterImg: { width: "100%", height: "100%" },
+  rosterAvatars: { flexDirection: "row", alignItems: "center" },  rosterAvatar: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: colors.surface },
+  rosterImg: { width: "100%", height: "100%", borderRadius: 14 },
   rosterInitial: { color: colors.onBrand, fontSize: 12, fontWeight: "900" },
+  onlineDot: { position: "absolute", right: -1, bottom: -1, width: 10, height: 10, borderRadius: 5, backgroundColor: "#22C55E", borderWidth: 1.5, borderColor: colors.surface },
+  highlightRow: { backgroundColor: colors.brandTertiary, borderRadius: radius.md, marginHorizontal: -4, paddingHorizontal: 4, paddingVertical: 2 },
   rosterText: { flex: 1, color: colors.onSurface, fontSize: 13.5, fontWeight: "700" },
   unsendWrap: { justifyContent: "center", paddingLeft: spacing.sm },
   unsendAction: { backgroundColor: colors.error, justifyContent: "center", alignItems: "center", width: 84, alignSelf: "stretch", borderRadius: radius.lg, gap: 2 },

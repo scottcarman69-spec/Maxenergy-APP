@@ -2135,6 +2135,12 @@ async def _enrich_bookings(rows: list) -> None:
         c["class_id"]: c
         for c in await db.classes.find({"class_id": {"$in": class_ids}}, {"_id": 0}).to_list(1000)
     }
+    # Live spots-left per class (active bookings only) so members see how full their class is.
+    agg = await db.bookings.aggregate([
+        {"$match": {"class_id": {"$in": class_ids}, "status": {"$in": ["paid", "confirmed"]}}},
+        {"$group": {"_id": "$class_id", "n": {"$sum": 1}}},
+    ]).to_list(5000)
+    booked_map = {a["_id"]: a["n"] for a in agg}
     for r in rows:
         c = classes.get(r.get("class_id")) or {}
         if c.get("start_at") is not None:
@@ -2144,6 +2150,12 @@ async def _enrich_bookings(rows: list) -> None:
         r["duration_min"] = c.get("duration_min")
         r["level"] = c.get("level")
         r["category"] = c.get("category")
+        if c and not c.get("by_appointment"):
+            cap = c.get("capacity") or 0
+            booked = booked_map.get(r.get("class_id"), 0)
+            r["capacity"] = cap
+            r["booked"] = booked
+            r["spots_left"] = max(cap - booked, 0)
 
 
 @api.get("/bookings/history")
@@ -3086,7 +3098,7 @@ async def group_get(gid: str, u: dict = Depends(require_user)):
     g = await _group_or_403(gid, u["user_id"])
     rows = await db.group_messages.find({"group_id": gid}, {"_id": 0}).sort("created_at", 1).to_list(1000)
     await db.group_messages.update_many({"group_id": gid, "read_by": {"$ne": u["user_id"]}}, {"$addToSet": {"read_by": u["user_id"]}})
-    mem = await db.users.find({"user_id": {"$in": g.get("member_ids", [])}}, {"_id": 0, "user_id": 1, "name": 1, "picture": 1}).to_list(100)
+    mem = await db.users.find({"user_id": {"$in": g.get("member_ids", [])}}, {"_id": 0, "user_id": 1, "name": 1, "picture": 1, "last_active_at": 1}).to_list(100)
     mcount = len(g.get("member_ids", []))
     for r in rows:
         rb = r.get("read_by") or []

@@ -10,8 +10,24 @@ import { classTime, classDate, classStartMs, qldTodayUTC, qldNowUTC, stampDate, 
 import ScreenHeader from "@/src/components/ScreenHeader";
 import { addBookingToCalendar } from "@/src/utils/calendar";
 
-type Booking = { booking_id: string; class_name: string; status: string; amount: number; by_appointment?: boolean; is_trial?: boolean; requested_time?: string; requested_at?: string; scheduled_time?: string; proposed_time?: string; class_start?: string; duration_min?: number; attended?: boolean; checked_in_method?: string; checked_in_by?: string; checked_in_at?: string; paid_with_pass?: boolean };
+type Booking = { booking_id: string; class_name: string; status: string; amount: number; by_appointment?: boolean; is_trial?: boolean; requested_time?: string; requested_at?: string; scheduled_time?: string; proposed_time?: string; class_start?: string; duration_min?: number; attended?: boolean; checked_in_method?: string; checked_in_by?: string; checked_in_at?: string; paid_with_pass?: boolean; child_name?: string; child_age?: number; trainer?: string; spots_left?: number; booked?: number; capacity?: number };
 type ClassSlot = { class_id: string; name: string; start_at: string; spots_left?: number; capacity?: number };
+
+// Friendly countdown to a session start ("Starts in 45 min", "Tomorrow", "In 3 days").
+function countdown(iso?: string): { label: string; urgent: boolean } | null {
+  if (!iso) return null;
+  const ms = classStartMs(iso) - qldNowUTC().getTime();
+  if (Number.isNaN(ms) || ms <= 0) return null;
+  const mins = Math.round(ms / 60000);
+  const hrs = Math.floor(mins / 60);
+  const days = Math.floor(hrs / 24);
+  if (mins < 60) return { label: `Starts in ${mins} min`, urgent: true };
+  if (hrs < 24) return { label: `Starts in ${hrs} hr${hrs === 1 ? "" : "s"}`, urgent: true };
+  if (days === 1) return { label: "Tomorrow", urgent: false };
+  if (days < 7) return { label: `In ${days} days`, urgent: false };
+  const wks = Math.round(days / 7);
+  return { label: `In ${wks} wk${wks === 1 ? "" : "s"}`, urgent: false };
+}
 
 const STATUS_META: Record<string, { label: string; bg: string; fg: string }> = {
   paid: { label: "PAID", bg: colors.brand, fg: colors.onBrand },
@@ -54,6 +70,37 @@ export default function BookingsScreen() {
   };
 
   const isAppt = !!rescheduleFor?.by_appointment;
+
+  // The member's very next upcoming session (soonest active booking) gets a "NEXT UP" highlight.
+  const nextUpId = React.useMemo(() => {
+    const now = qldNowUTC().getTime();
+    let best: { id: string; ms: number } | null = null;
+    for (const b of bookings) {
+      if (b.status !== "paid" && b.status !== "confirmed") continue;
+      const iso = b.by_appointment ? b.requested_at : b.class_start;
+      const ms = iso ? classStartMs(iso) : NaN;
+      if (Number.isNaN(ms) || ms <= now) continue;
+      if (!best || ms < best.ms) best = { id: b.booking_id, ms };
+    }
+    return best?.id || null;
+  }, [bookings]);
+
+  // Show upcoming, active sessions first (soonest at top); everything else keeps recency order.
+  const sortedBookings = React.useMemo(() => {
+    const now = qldNowUTC().getTime();
+    const startMs = (b: Booking) => {
+      const iso = b.by_appointment ? b.requested_at : b.class_start;
+      return iso ? classStartMs(iso) : NaN;
+    };
+    const isUpcoming = (b: Booking) => {
+      if (b.status !== "paid" && b.status !== "confirmed") return false;
+      const ms = startMs(b);
+      return !Number.isNaN(ms) && ms > now;
+    };
+    const upcoming = bookings.filter(isUpcoming).sort((a, b) => startMs(a) - startMs(b));
+    const rest = bookings.filter((b) => !isUpcoming(b));
+    return [...upcoming, ...rest];
+  }, [bookings]);
 
   // For appointment bookings, load which PT/Program slots are already taken.
   useEffect(() => {
@@ -291,7 +338,7 @@ export default function BookingsScreen() {
               </Pressable>
             </View>
           ) : (
-            bookings.map((b) => {
+            sortedBookings.map((b) => {
               const meta = STATUS_META[b.status] || { label: b.status.toUpperCase(), bg: colors.surfaceTertiary, fg: colors.onSurface };
               const canManage = b.status !== "cancelled" && !b.is_trial;
               // "No-show": paid/confirmed, never checked in, and the session end time has passed.
@@ -299,6 +346,8 @@ export default function BookingsScreen() {
               const endMs = startIso ? classStartMs(startIso) + ((b.duration_min || 60) * 60000) : NaN;
               const missed = !b.attended && (b.status === "paid" || b.status === "confirmed")
                 && !Number.isNaN(endMs) && qldNowUTC().getTime() > endMs;
+              const isNext = b.booking_id === nextUpId;
+              const cd = countdown(startIso);
               return (
                 <Swipeable
                   key={b.booking_id}
@@ -312,7 +361,14 @@ export default function BookingsScreen() {
                   overshootRight={false}
                   rightThreshold={40}
                 >
-                  <View style={styles.bookingCard}>
+                  <View style={[styles.bookingCard, isNext && styles.bookingCardNext]}>
+                    {isNext && (
+                      <View style={styles.nextRibbon}>
+                        <Ionicons name="flash" size={12} color={colors.onBrand} />
+                        <Text style={styles.nextRibbonText}>NEXT UP</Text>
+                        {cd && <Text style={styles.nextRibbonWhen}>{cd.label}</Text>}
+                      </View>
+                    )}
                     <View style={styles.cardTopSection}>
                     <View style={styles.bookingRow}>
                       <View style={{ flex: 1 }}>
@@ -333,6 +389,46 @@ export default function BookingsScreen() {
                           {b.status === "reschedule_requested" && b.requested_time ? ` · asked: ${b.requested_time}` : ""}
                           {b.status === "admin_proposed" && b.proposed_time ? ` · proposed: ${b.proposed_time}` : ""}
                         </Text>
+                        {(() => {
+                          const chips: React.ReactNode[] = [];
+                          if (cd && !isNext && b.status !== "cancelled") {
+                            chips.push(
+                              <View key="cd" style={[styles.metaChip, cd.urgent && styles.metaChipUrgent]}>
+                                <Ionicons name="hourglass-outline" size={11} color={cd.urgent ? "#F59E0B" : colors.brand} />
+                                <Text style={[styles.metaChipText, cd.urgent && { color: "#F59E0B" }]}>{cd.label}</Text>
+                              </View>
+                            );
+                          }
+                          if (b.child_name) {
+                            chips.push(
+                              <View key="child" style={styles.metaChip}>
+                                <Ionicons name="happy-outline" size={11} color={colors.brand} />
+                                <Text style={styles.metaChipText}>{b.child_name}{typeof b.child_age === "number" ? ` · ${b.child_age}y` : ""}</Text>
+                              </View>
+                            );
+                          }
+                          if (b.trainer || b.duration_min) {
+                            chips.push(
+                              <View key="coach" style={styles.metaChip}>
+                                <Ionicons name="barbell-outline" size={11} color={colors.brand} />
+                                <Text style={styles.metaChipText}>{[b.trainer, b.duration_min ? `${b.duration_min} min` : null].filter(Boolean).join(" · ")}</Text>
+                              </View>
+                            );
+                          }
+                          if (!b.by_appointment && typeof b.spots_left === "number" && (b.status === "paid" || b.status === "confirmed")) {
+                            const s = b.spots_left;
+                            const full = s === 0;
+                            const low = s > 0 && s <= 3;
+                            const goingLabel = full ? "Class full" : low ? `Only ${s} spot${s === 1 ? "" : "s"} left` : `${b.booked ?? 0} going`;
+                            chips.push(
+                              <View key="spots" style={[styles.metaChip, (full || low) && styles.metaChipHot]}>
+                                <Ionicons name={full ? "people" : "people-outline"} size={11} color={full ? colors.error : low ? "#F59E0B" : "#22C55E"} />
+                                <Text style={[styles.metaChipText, { color: full ? colors.error : low ? "#F59E0B" : "#22C55E" }]}>{goingLabel}</Text>
+                              </View>
+                            );
+                          }
+                          return chips.length ? <View style={styles.metaRow}>{chips}</View> : null;
+                        })()}
                       </View>
                       <View style={[styles.statusPill, { backgroundColor: meta.bg }]}>
                         <Text style={[styles.statusText, { color: meta.fg }]}>{meta.label}</Text>
@@ -658,6 +754,15 @@ const styles = StyleSheet.create({
   swipeHint: { color: colors.onSurfaceSecondary, fontSize: 11, textAlign: "center", marginTop: 4, opacity: 0.7 },
   bookingRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md },
   bookingCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, overflow: "hidden" },
+  bookingCardNext: { borderColor: colors.brand, borderWidth: 1.5, shadowColor: colors.brand, shadowOpacity: 0.25, shadowRadius: 10, shadowOffset: { width: 0, height: 3 } },
+  nextRibbon: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.brand, paddingHorizontal: spacing.md, paddingVertical: 6 },
+  nextRibbonText: { color: colors.onBrand, fontSize: 11, fontWeight: "900", letterSpacing: 1 },
+  nextRibbonWhen: { color: colors.onBrand, fontSize: 11, fontWeight: "800", marginLeft: "auto", opacity: 0.95 },
+  metaRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 },
+  metaChip: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.surfaceTertiary, borderRadius: radius.pill, paddingHorizontal: 9, paddingVertical: 4 },
+  metaChipUrgent: { backgroundColor: "rgba(245,158,11,0.12)" },
+  metaChipHot: { backgroundColor: colors.surfaceTertiary },
+  metaChipText: { color: colors.onSurface, fontSize: 11, fontWeight: "700" },
   cardTopSection: { padding: spacing.md },
   bookingActions: { flexDirection: "row", borderTopWidth: 1, borderTopColor: colors.border },
   qrInfoBar: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, borderTopWidth: 1, borderTopColor: colors.border },
