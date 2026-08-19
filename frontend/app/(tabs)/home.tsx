@@ -362,6 +362,17 @@ export default function Home() {
           </View>
         </View>
 
+        {user?.is_admin && (
+          <Pressable
+            testID="home-admin-scan"
+            onPress={() => router.push("/admin/scan")}
+            style={({ pressed }) => [styles.adminScanBtn, pressed && { opacity: 0.85 }]}
+          >
+            <Ionicons name="qr-code" size={18} color={colors.onBrand} />
+            <Text style={styles.adminScanText}>Scan Check-In QR</Text>
+          </Pressable>
+        )}
+
         <View style={styles.greetBlock}>
           <Text style={styles.greetSmall}>{greetingText()}</Text>
           <Text style={styles.greetName}>{user?.name?.split(" ")[0] || "Champ"} 👋</Text>
@@ -777,6 +788,8 @@ const styles = StyleSheet.create({
   avatarText: { color: colors.onSurface, fontFamily: font.display, fontSize: 18 },
   avatarDot: { position: "absolute", top: 2, right: 2, width: 11, height: 11, borderRadius: 6, backgroundColor: colors.brand, borderWidth: 2, borderColor: colors.surface },
   greetBlock: { paddingHorizontal: spacing.lg, marginTop: spacing.sm },
+  adminScanBtn: { flexDirection: "row", alignItems: "center", gap: 7, alignSelf: "flex-end", marginRight: spacing.lg, marginTop: spacing.sm, backgroundColor: colors.brand, paddingHorizontal: 14, paddingVertical: 9, borderRadius: radius.pill },
+  adminScanText: { color: colors.onBrand, fontFamily: font.heading, fontSize: 13, letterSpacing: 0.3 },
   shortcutRow: { flexDirection: "row", gap: spacing.md, paddingHorizontal: spacing.lg, marginTop: spacing.lg },
   shortcutBtn: { flex: 1, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md },
   shortcutIcon: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", marginBottom: spacing.sm },
