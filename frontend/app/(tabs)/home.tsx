@@ -345,7 +345,8 @@ export default function Home() {
           <View style={styles.headerActions}>
             <Pressable testID="home-credit-btn" onPress={() => router.push("/credits")} style={styles.creditChip} hitSlop={8}>
               <Ionicons name="wallet" size={14} color={colors.brand} />
-              <Text style={styles.creditChipText}>${((user?.credit_cents || 0) / 100).toFixed(0)}</Text>
+              <Text style={styles.creditChipText}>${(() => { const c = user?.credit_cents || 0; return (c / 100).toFixed(c % 100 === 0 ? 0 : 2); })()}</Text>
+              <Text style={styles.creditChipLabel}>credit</Text>
             </Pressable>
             <Pressable testID="home-calendar-btn" onPress={() => router.push(user?.is_admin ? "/admin/calendar" : "/calendar")} style={styles.calChip} hitSlop={8}>
               <Text allowFontScaling={false} style={styles.calChipMonth}>{qldTodayUTC().toLocaleDateString("en-AU", { month: "short", timeZone: "UTC" }).toUpperCase()}</Text>
@@ -779,8 +780,9 @@ const styles = StyleSheet.create({
   headerLogo: { width: 150, height: 84 },
   headerActions: { position: "absolute", right: spacing.lg, top: spacing.md, flexDirection: "row", alignItems: "center", gap: spacing.sm },
   iconBtn: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border },
-  creditChip: { flexDirection: "row", alignItems: "center", gap: 4, height: 44, paddingHorizontal: 12, borderRadius: 12, backgroundColor: colors.brandTertiary, borderWidth: 1, borderColor: colors.brand },
+  creditChip: { flexDirection: "row", alignItems: "center", gap: 3, height: 44, paddingHorizontal: 11, borderRadius: 12, backgroundColor: colors.brandTertiary, borderWidth: 1, borderColor: colors.brand },
   creditChipText: { color: colors.brand, fontWeight: "900", fontSize: 14 },
+  creditChipLabel: { color: colors.brand, fontWeight: "700", fontSize: 9.5, opacity: 0.85, marginLeft: 1 },
   calChip: { width: 44, height: 44, borderRadius: 12, overflow: "hidden", backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.brand, alignItems: "stretch" },
   calChipMonth: { backgroundColor: colors.brand, color: colors.onBrand, fontSize: 9, fontWeight: "900", letterSpacing: 1, textAlign: "center", height: 15, lineHeight: 15 },
   calChipDayWrap: { flex: 1, alignItems: "center", justifyContent: "center" },
