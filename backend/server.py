@@ -3589,6 +3589,98 @@ STORE_PRODUCTS = {
 KEYTAG_CENTS = 4000
 FIRST_PURCHASE_DISCOUNT = 0.10
 
+# -------------------- gift cards --------------------
+GIFTCARD_MIN_CENTS = 1000    # $10
+GIFTCARD_MAX_CENTS = 50000   # $500
+
+
+async def gen_giftcard_code() -> str:
+    """Human-friendly unique gift card code, e.g. MEG-4F7A-9C21."""
+    import secrets
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no ambiguous chars
+    for _ in range(15):
+        code = "MEG-" + "-".join("".join(secrets.choice(alphabet) for _ in range(4)) for _ in range(2))
+        if not await db.gift_cards.find_one({"code": code}):
+            return code
+    return "MEG-" + uuid.uuid4().hex[:8].upper()
+
+
+async def fulfill_giftcard_purchase(tx: dict) -> None:
+    """Once a gift card payment clears on Square, create the card, email the recipient & buyer."""
+    if tx.get("fulfilled"):
+        return
+    now = now_utc()
+    uid = tx["user_id"]
+    buyer = await db.users.find_one({"user_id": uid}) or {}
+    amount_cents = int(tx.get("amount", 0))
+    code = await gen_giftcard_code()
+    gift_card_id = new_id("gc")
+    recipient_name = (tx.get("recipient_name") or "").strip()
+    recipient_email = (tx.get("recipient_email") or "").strip()
+    message = (tx.get("gift_message") or "").strip()
+    buyer_name = buyer.get("name") or buyer.get("email") or "A friend"
+    await db.gift_cards.insert_one({
+        "gift_card_id": gift_card_id,
+        "code": code,
+        "amount_cents": amount_cents,
+        "balance_cents": amount_cents,
+        "status": "active",
+        "purchaser_user_id": uid,
+        "purchaser_name": buyer_name,
+        "purchaser_email": buyer.get("email"),
+        "recipient_name": recipient_name or None,
+        "recipient_email": recipient_email or None,
+        "message": message or None,
+        "order_ref": tx.get("order_ref"),
+        "adjustments": [],
+        "redeemed_by_user_id": None,
+        "redeemed_at": None,
+        "created_at": now,
+    })
+    await db.payment_transactions.update_one(
+        {"session_id": tx["session_id"]},
+        {"$set": {"fulfilled": True, "fulfilled_at": now, "gift_card_id": gift_card_id, "gift_card_code": code}},
+    )
+    amount_str = f"${amount_cents / 100:.2f} AUD"
+    # ----- Recipient email with the redeemable code -----
+    if recipient_email:
+        rlines = [
+            f"Hi {esc(recipient_name or 'there')},",
+            f"🎁 <b>{esc(buyer_name)}</b> has sent you a <b>{amount_str}</b> Maxenergy Fitness gift card!",
+            (f"<div style='margin:12px 0;padding:14px;background:#fff7ef;border:1px solid #ffe0c2;border-radius:10px;font-style:italic'>“{esc(message)}”</div>" if message else ""),
+            "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
+            "Your gift card code:",
+            f"<div style='font-size:22px;font-weight:bold;letter-spacing:2px;text-align:center;margin:14px 0;padding:16px;background:#fff;border:1px dashed #FF7A00;border-radius:10px'>{esc(code)}</div>",
+            "Open the Maxenergy Fitness app → My Wallet → <b>Redeem gift card</b>, enter this code, and the balance is added to your account. You can also use it in-store.",
+        ]
+        await send_email(recipient_email, f"You've received a {amount_str} Maxenergy Fitness gift card 🎁",
+                         _email_shell("Your Gift Card", rlines))
+    # ----- Buyer confirmation -----
+    blines = [
+        f"Hi {esc((buyer_name or '').split(' ')[0] or buyer_name)},",
+        f"Your <b>{amount_str}</b> gift card purchase is confirmed. Thanks for supporting Maxenergy Fitness! 🥊",
+        "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
+        f"<b>Amount:</b> {amount_str}",
+        (f"<b>Sent to:</b> {esc(recipient_name)} ({esc(recipient_email)})" if recipient_email else ""),
+        f"<b>Code:</b> {esc(code)}",
+        f"<b>Purchased on:</b> {esc(now.strftime('%a %d %b %Y · %-I:%M %p'))}",
+    ]
+    await notify_user(uid, buyer.get("email"), "Gift card purchased",
+                      f"Your {amount_str} gift card is confirmed" + (f" and sent to {recipient_name}." if recipient_name else "."),
+                      "booking", email_lines=blines)
+    # ----- Gym admin email -----
+    admin_lines = [
+        f"<b>{esc(buyer_name)}</b> purchased a <b>{amount_str}</b> gift card.",
+        (f"Recipient: <b>{esc(recipient_name)}</b> ({esc(recipient_email)})" if recipient_email else "Recipient: —"),
+        f"Code: <b>{esc(code)}</b>",
+        f"Purchased on: {esc(now.strftime('%a %d %b %Y · %-I:%M %p'))}",
+    ]
+    for a in await db.users.find({"is_admin": True}, {"_id": 0, "user_id": 1}).to_list(20):
+        await create_notification(a["user_id"], "New gift card purchase", f"{buyer_name} bought a {amount_str} gift card.", "admin")
+    await send_email(GYM_ADMIN_EMAIL, f"New gift card — {amount_str} by {buyer_name}",
+                     _email_shell("New Gift Card Purchase", admin_lines))
+
+
 
 async def compute_store_price(user: dict, product_id: str, add_key_tag: bool) -> dict:
     p = STORE_PRODUCTS.get(product_id)
@@ -3744,7 +3836,9 @@ async def sync_square_payment(tx: dict) -> tuple:
             {"$set": {"payment_status": payment_status, "status": status, "updated_at": now_utc()}},
         )
         if payment_status == "paid":
-            if tx.get("kind") == "store":
+            if tx.get("kind") == "giftcard":
+                await fulfill_giftcard_purchase(tx)
+            elif tx.get("kind") == "store":
                 await fulfill_store_purchase(tx)
             else:
                 await mark_booking_paid(tx["booking_id"])
@@ -4014,7 +4108,154 @@ async def store_status(session_id: str, u: dict = Depends(require_user)):
     return {"payment_status": payment_status, "status": status, "product_id": tx.get("product_id")}
 
 
-@api.get("/store/receipt/latest")
+# -------------------- gift cards --------------------
+class GiftCardCheckoutReq(BaseModel):
+    amount_cents: int
+    origin_url: str
+    recipient_name: Optional[str] = None
+    recipient_email: Optional[str] = None
+    message: Optional[str] = None
+
+
+@api.post("/giftcards/checkout")
+async def giftcard_checkout(body: GiftCardCheckoutReq, u: dict = Depends(require_user)):
+    amount = int(body.amount_cents or 0)
+    if amount < GIFTCARD_MIN_CENTS or amount > GIFTCARD_MAX_CENTS:
+        raise HTTPException(400, f"Gift card amount must be between ${GIFTCARD_MIN_CENTS//100} and ${GIFTCARD_MAX_CENTS//100}.")
+    rname = (body.recipient_name or "").strip()[:80]
+    remail = (body.recipient_email or "").strip()[:120]
+    if not remail or "@" not in remail:
+        raise HTTPException(400, "Please enter the recipient's email so we can send them the gift card.")
+    message = (body.message or "").strip()[:300]
+    order_ref = new_id("gift")
+    label = f"Gift Card ${amount/100:.0f}"
+    redirect_url = f"{body.origin_url.rstrip('/')}/payment-return?status=success&giftcard=1"
+    payload = {
+        "idempotency_key": str(uuid.uuid4()),
+        "quick_pay": {"name": label, "price_money": {"amount": amount, "currency": "AUD"}, "location_id": SQUARE_LOCATION_ID},
+        "payment_note": f"{label} — Order No. {booking_ref_no(order_ref)} — from {u.get('name') or u.get('email') or 'Member'} (Gift Card)",
+        "pre_populated_data": {"buyer_email": u.get("email", "")},
+        "checkout_options": {"redirect_url": redirect_url},
+    }
+    async with httpx.AsyncClient(timeout=20) as client:
+        resp = await client.post(f"{SQUARE_BASE}/online-checkout/payment-links", headers={**_square_headers(), "Content-Type": "application/json"}, json=payload)
+    if resp.status_code >= 400:
+        log.error(f"giftcard checkout error {resp.status_code}: {resp.text[:300]}")
+        raise HTTPException(502, "Unable to create checkout")
+    link = resp.json().get("payment_link", {})
+    order_id = link.get("order_id")
+    if not order_id or not link.get("url"):
+        raise HTTPException(502, "Invalid Square response")
+    await db.payment_transactions.insert_one({
+        "session_id": order_id, "square_order_id": order_id, "provider": "square", "kind": "giftcard",
+        "user_id": u["user_id"], "amount": amount, "currency": "aud",
+        "recipient_name": rname or None, "recipient_email": remail, "gift_message": message or None,
+        "payment_status": "initiated", "status": "open", "created_at": now_utc(), "order_ref": order_ref,
+    })
+    return {"url": link.get("url"), "session_id": order_id}
+
+
+@api.get("/giftcards/status/{session_id}")
+async def giftcard_status(session_id: str, u: dict = Depends(require_user)):
+    tx = await db.payment_transactions.find_one({"session_id": session_id, "user_id": u["user_id"]}, {"_id": 0})
+    if not tx:
+        raise HTTPException(404, "Session not found")
+    payment_status, status = await sync_square_payment(tx)
+    fresh = await db.payment_transactions.find_one({"session_id": session_id}, {"_id": 0, "gift_card_code": 1})
+    return {"payment_status": payment_status, "status": status, "code": (fresh or {}).get("gift_card_code")}
+
+
+class GiftCardRedeemReq(BaseModel):
+    code: str
+
+
+@api.post("/giftcards/redeem")
+async def giftcard_redeem(body: GiftCardRedeemReq, u: dict = Depends(require_user)):
+    code = (body.code or "").strip().upper()
+    if not code:
+        raise HTTPException(400, "Please enter a gift card code.")
+    gc = await db.gift_cards.find_one({"code": code})
+    if not gc:
+        raise HTTPException(404, "That gift card code wasn't found. Please check and try again.")
+    if int(gc.get("balance_cents", 0)) <= 0 or gc.get("status") != "active":
+        raise HTTPException(409, "This gift card has already been used up.")
+    amount = int(gc["balance_cents"])
+    now = now_utc()
+    # Move the remaining balance into the member's account credit.
+    res = await db.users.find_one_and_update(
+        {"user_id": u["user_id"]}, {"$inc": {"credit_cents": amount}}, return_document=True
+    )
+    new_credit = int((res or {}).get("credit_cents", amount))
+    await db.gift_cards.update_one(
+        {"gift_card_id": gc["gift_card_id"]},
+        {"$set": {"balance_cents": 0, "status": "redeemed", "redeemed_by_user_id": u["user_id"], "redeemed_at": now}},
+    )
+    await db.credit_ledger.insert_one({
+        "ledger_id": new_id("cl"), "user_id": u["user_id"], "delta_cents": amount,
+        "reason": f"Gift card redeemed ({code})", "balance_after": new_credit, "created_at": now,
+    })
+    return {"ok": True, "amount_cents": amount, "credit_cents": new_credit}
+
+
+@api.get("/giftcards/mine")
+async def giftcards_mine(u: dict = Depends(require_user)):
+    bought = await db.gift_cards.find(
+        {"purchaser_user_id": u["user_id"]}, {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    redeemed = await db.gift_cards.find(
+        {"redeemed_by_user_id": u["user_id"]}, {"_id": 0}
+    ).sort("redeemed_at", -1).to_list(100)
+    return {"purchased": bought, "redeemed": redeemed,
+            "min_cents": GIFTCARD_MIN_CENTS, "max_cents": GIFTCARD_MAX_CENTS}
+
+
+# ----- admin gift card management -----
+@api.get("/admin/giftcards")
+async def admin_giftcards(q: Optional[str] = None, u: dict = Depends(require_admin)):
+    query: dict = {}
+    if q:
+        term = q.strip().upper()
+        query = {"$or": [
+            {"code": {"$regex": term, "$options": "i"}},
+            {"recipient_email": {"$regex": q.strip(), "$options": "i"}},
+            {"purchaser_email": {"$regex": q.strip(), "$options": "i"}},
+        ]}
+    cards = await db.gift_cards.find(query, {"_id": 0}).sort("created_at", -1).to_list(200)
+    return {"gift_cards": cards}
+
+
+class GiftCardAdjustReq(BaseModel):
+    code: str
+    new_balance_cents: int
+    note: Optional[str] = None
+
+
+@api.post("/admin/giftcards/adjust")
+async def admin_giftcard_adjust(body: GiftCardAdjustReq, u: dict = Depends(require_admin)):
+    code = (body.code or "").strip().upper()
+    gc = await db.gift_cards.find_one({"code": code})
+    if not gc:
+        raise HTTPException(404, "Gift card not found.")
+    new_bal = int(body.new_balance_cents)
+    if new_bal < 0 or new_bal > int(gc.get("amount_cents", 0)):
+        raise HTTPException(400, f"New balance must be between $0 and the original ${int(gc.get('amount_cents',0))//100}.")
+    old_bal = int(gc.get("balance_cents", 0))
+    now = now_utc()
+    adjustment = {
+        "delta_cents": new_bal - old_bal, "balance_after": new_bal,
+        "note": (body.note or "In-store adjustment").strip()[:200],
+        "admin_id": u["user_id"], "admin_name": u.get("name") or u.get("email"), "at": now,
+    }
+    status = "redeemed" if new_bal == 0 else "active"
+    await db.gift_cards.update_one(
+        {"gift_card_id": gc["gift_card_id"]},
+        {"$set": {"balance_cents": new_bal, "status": status}, "$push": {"adjustments": adjustment}},
+    )
+    gc = await db.gift_cards.find_one({"gift_card_id": gc["gift_card_id"]}, {"_id": 0})
+    return {"ok": True, "gift_card": gc}
+
+
+
 async def store_receipt_latest(u: dict = Depends(require_user)):
     cutoff = now_utc() - timedelta(hours=6)
     tx = await db.payment_transactions.find_one(

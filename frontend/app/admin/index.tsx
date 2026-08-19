@@ -52,6 +52,7 @@ export default function AdminHome() {
     { key: "refunds", icon: "cash", label: "Refunds & Credits", desc: "Members owed after a cancellation", route: "/admin/refunds", count: stats?.refunds_pending, badge: true },
     { key: "settings", icon: "settings", label: "Booking Settings", desc: "Set the cancel & reschedule cutoff window", route: "/admin/settings" },
     { key: "passes", icon: "ticket", label: "Class Pass Report", desc: "Who holds passes and how many they've used", route: "/admin/passes" },
+    { key: "gift-cards", icon: "gift", label: "Gift Cards", desc: "Look up cards & adjust balances for in-store use", route: "/admin/gift-cards" },
     { key: "waitlists", icon: "people", label: "Waitlists", desc: "See who's waiting on full classes", route: "/admin/waitlists" },
   ];
 

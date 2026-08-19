@@ -174,6 +174,15 @@ export const api = {
   storeStatus: (session_id: string) => req(`/api/store/status/${session_id}`),
   storeReceipt: (session_id: string) => req(`/api/store/receipt/${session_id}`),
   storeReceiptLatest: () => req(`/api/store/receipt/latest`),
+  // Gift cards
+  giftcardCheckout: (amount_cents: number, origin_url: string, recipient_name: string, recipient_email: string, message?: string) =>
+    req("/api/giftcards/checkout", { method: "POST", body: JSON.stringify({ amount_cents, origin_url, recipient_name, recipient_email, message }) }),
+  giftcardStatus: (session_id: string) => req(`/api/giftcards/status/${session_id}`),
+  giftcardRedeem: (code: string) => req("/api/giftcards/redeem", { method: "POST", body: JSON.stringify({ code }) }),
+  giftcardsMine: () => req("/api/giftcards/mine"),
+  adminGiftcards: (q?: string) => req(`/api/admin/giftcards${q ? `?q=${encodeURIComponent(q)}` : ""}`),
+  adminGiftcardAdjust: (code: string, new_balance_cents: number, note?: string) =>
+    req("/api/admin/giftcards/adjust", { method: "POST", body: JSON.stringify({ code, new_balance_cents, note }) }),
   checkinCode: (booking_id: string) => req(`/api/bookings/${booking_id}/checkin-code`),
   classPassQr: () => req(`/api/passes/qr`),
   scanCheckin: (code: string) =>

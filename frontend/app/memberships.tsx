@@ -6,7 +6,7 @@ import * as WebBrowser from "expo-web-browser";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { api, BACKEND_URL } from "@/src/api";
-import { colors, spacing, radius } from "@/src/theme";
+import { colors, spacing, radius, font } from "@/src/theme";
 import ScreenHeader from "@/src/components/ScreenHeader";
 import { classDate, classTime, qldTodayUTC } from "@/src/datetime";
 
@@ -206,6 +206,17 @@ export default function MembershipsScreen() {
             );
           })}
           <Text style={styles.footNote}>Key Tag 24/7 access is required with all upfront memberships and is included in the price shown.</Text>
+
+          <Pressable testID="store-giftcards" style={styles.giftCardCta} onPress={() => router.push("/gift-cards")}>
+            <View style={styles.giftIcon}>
+              <Ionicons name="gift" size={22} color={colors.onBrand} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.giftTitle}>Send a Gift Card</Text>
+              <Text style={styles.giftSub}>Choose any amount — they redeem it in-app or use it in-store</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.brand} />
+          </Pressable>
         </ScrollView>
       )}
       </View>
@@ -337,4 +348,8 @@ const styles = StyleSheet.create({
   buyBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.brand, paddingVertical: 13, borderRadius: radius.md, marginTop: spacing.md },
   buyText: { color: colors.onBrand, fontWeight: "900", fontSize: 14 },
   footNote: { color: colors.onSurfaceSecondary, fontSize: 12, textAlign: "center", marginTop: spacing.sm, lineHeight: 18 },
+  giftCardCta: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: "rgba(13,13,15,0.74)", borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.brand, padding: spacing.lg, marginTop: spacing.sm },
+  giftIcon: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
+  giftTitle: { color: colors.onSurface, fontSize: 16, fontFamily: font.heading },
+  giftSub: { color: colors.onSurfaceSecondary, fontSize: 12.5, marginTop: 2, lineHeight: 17 },
 });
