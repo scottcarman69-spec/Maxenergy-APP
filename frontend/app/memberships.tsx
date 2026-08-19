@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Platform, Modal, Image, useWindowDimensions } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Platform, Modal } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as WebBrowser from "expo-web-browser";
@@ -9,12 +9,6 @@ import { api, BACKEND_URL } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
 import ScreenHeader from "@/src/components/ScreenHeader";
 import { classDate, classTime, qldTodayUTC } from "@/src/datetime";
-
-// Class-pass products render as the actual promo poster artwork (tappable to buy).
-const PASS_IMAGES: Record<string, { src: any; aspect: number }> = {
-  pass_1class: { src: require("@/assets/images/pass-single.png"), aspect: 1047 / 667 },
-  pass_10class: { src: require("@/assets/images/pass-10.png"), aspect: 1062 / 642 },
-};
 
 type Product = {
   product_id: string;
@@ -31,8 +25,6 @@ type Product = {
 
 export default function MembershipsScreen() {
   const router = useRouter();
-  const { width: winW } = useWindowDimensions();
-  const passW = winW - spacing.lg * 2;
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -118,6 +110,13 @@ export default function MembershipsScreen() {
 
   const money = (c: number) => `$${(c / 100).toFixed(c % 100 === 0 ? 0 : 2)}`;
 
+  // Show class passes first, then memberships (keeps each group's original order).
+  const orderedProducts = React.useMemo(() => {
+    const passes = products.filter((p) => p.type === "class_pass");
+    const rest = products.filter((p) => p.type !== "class_pass");
+    return [...passes, ...rest];
+  }, [products]);
+
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
       <ScreenHeader title="Memberships & Passes" backTestID="store-back" />
@@ -160,26 +159,7 @@ export default function MembershipsScreen() {
             <Text style={styles.heroSub}>Pick a plan and start training today 💪</Text>
           </LinearGradient>
 
-          {products.map((p) => {
-            const passImg = p.type === "class_pass" ? PASS_IMAGES[p.product_id] : undefined;
-            if (passImg) {
-              return (
-                <Pressable
-                  key={p.product_id}
-                  testID={`store-buy-${p.product_id}`}
-                  style={[styles.passImageWrap, busy === p.product_id && { opacity: 0.6 }]}
-                  onPress={() => onBuyPress(p)}
-                  disabled={!!busy}
-                >
-                  <Image source={passImg.src} style={{ width: passW, height: Math.round(passW / passImg.aspect) }} resizeMode="cover" />
-                  {busy === p.product_id && (
-                    <View style={styles.passImageBusy}>
-                      <ActivityIndicator color="#fff" />
-                    </View>
-                  )}
-                </Pressable>
-              );
-            }
+          {orderedProducts.map((p) => {
             const popular = p.product_id === "mem_3m";
             return (
             <View key={p.product_id} testID={`store-${p.product_id}`} style={[styles.card, popular && styles.cardPopular]}>
@@ -222,21 +202,6 @@ export default function MembershipsScreen() {
             );
           })}
           <Text style={styles.footNote}>Key Tag 24/7 access is required with all upfront memberships and is included in the price shown.</Text>
-
-          <View style={styles.bottomStrip}>
-            {[
-              { icon: "shield-checkmark", label: "NO LOCK IN", sub: "TRAIN FREELY" },
-              { icon: "calendar", label: "FLEXIBLE", sub: "TRAIN YOUR WAY" },
-              { icon: "people", label: "ALL LEVELS", sub: "WELCOME" },
-              { icon: "star", label: "COMMUNITY", sub: "THAT PUSHES YOU" },
-            ].map((s, i) => (
-              <View key={i} style={styles.stripCol}>
-                <Ionicons name={s.icon as any} size={20} color={colors.brand} />
-                <Text style={styles.stripLabel}>{s.label}</Text>
-                <Text style={styles.stripSub}>{s.sub}</Text>
-              </View>
-            ))}
-          </View>
         </ScrollView>
       )}
 
@@ -364,14 +329,4 @@ const styles = StyleSheet.create({
   buyBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.brand, paddingVertical: 13, borderRadius: radius.md, marginTop: spacing.md },
   buyText: { color: colors.onBrand, fontWeight: "900", fontSize: 14 },
   footNote: { color: colors.onSurfaceSecondary, fontSize: 12, textAlign: "center", marginTop: spacing.sm, lineHeight: 18 },
-
-  // Poster-style class-pass cards (actual promo artwork)
-  passImageWrap: { borderRadius: radius.lg, overflow: "hidden", backgroundColor: "#0A0A0A" },
-  passImageBusy: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.35)" },
-
-  // Bottom feature strip
-  bottomStrip: { flexDirection: "row", backgroundColor: "#0D0D0D", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", borderRadius: radius.lg, paddingVertical: spacing.md, marginTop: spacing.sm },
-  stripCol: { flex: 1, alignItems: "center", gap: 3, paddingHorizontal: 4 },
-  stripLabel: { color: "#fff", fontSize: 10.5, fontWeight: "900", textAlign: "center", letterSpacing: 0.2 },
-  stripSub: { color: colors.onSurfaceSecondary, fontSize: 8.5, fontWeight: "700", textAlign: "center", letterSpacing: 0.2 },
 });
