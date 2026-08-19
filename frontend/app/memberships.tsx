@@ -119,9 +119,11 @@ export default function MembershipsScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
+      <ScreenHeader title="Memberships & Passes" backTestID="store-back" />
+
+      <View style={styles.body}>
       <Image source={require("@/assets/images/memberships-bg.webp")} style={styles.bgImage} resizeMode="cover" />
       <View style={styles.bgScrim} pointerEvents="none" />
-      <ScreenHeader title="Memberships & Passes" backTestID="store-back" />
 
       {loading ? (
         <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />
@@ -206,6 +208,7 @@ export default function MembershipsScreen() {
           <Text style={styles.footNote}>Key Tag 24/7 access is required with all upfront memberships and is included in the price shown.</Text>
         </ScrollView>
       )}
+      </View>
 
       <Modal visible={!!setupFor} transparent animationType="slide" onRequestClose={() => setSetupFor(null)}>
         <View style={styles.modalOverlay}>
@@ -281,6 +284,7 @@ export default function MembershipsScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
+  body: { flex: 1 },
   bgImage: { ...StyleSheet.absoluteFillObject, width: "100%", height: "100%" },
   bgScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)" },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
