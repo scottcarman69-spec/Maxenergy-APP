@@ -285,7 +285,7 @@ export default function MembershipsScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   body: { flex: 1 },
-  bgImage: { ...StyleSheet.absoluteFillObject, width: "100%", height: "100%" },
+  bgImage: { ...StyleSheet.absoluteFillObject, width: "100%", height: "100%", opacity: 0.8 },
   bgScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)" },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
   headerTitle: { color: colors.onSurface, fontSize: 17, fontWeight: "900" },
