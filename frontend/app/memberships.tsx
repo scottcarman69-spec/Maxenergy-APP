@@ -1,40 +1,19 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Platform, Modal } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Platform, Modal, Image, useWindowDimensions } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as WebBrowser from "expo-web-browser";
 import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { api, BACKEND_URL } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
 import ScreenHeader from "@/src/components/ScreenHeader";
 import { classDate, classTime, qldTodayUTC } from "@/src/datetime";
 
-// Poster-style layout for the class-pass products (icon + title + subtitle rows).
-type PassFeature = { icon: string; lib?: "ion" | "mci"; num?: string; title: string; sub: string };
-const PASS_DESIGN: Record<string, { titleTop: string; titleBottom: string; tagline: string; badge?: string; features: PassFeature[] }> = {
-  pass_1class: {
-    titleTop: "SINGLE",
-    titleBottom: "CLASS PASS",
-    tagline: "Flexible. Simple. Train on your terms.",
-    features: [
-      { icon: "flash", title: "1 CLASS CREDIT", sub: "Use anytime" },
-      { icon: "boxing-glove", lib: "mci", title: "BOOT CAMP, MUAY THAI & KICKBOXING", sub: "All classes included" },
-      { icon: "calendar", title: "CREDIT NEVER EXPIRES", sub: "Train when it suits you" },
-    ],
-  },
-  pass_10class: {
-    titleTop: "10 CLASS",
-    titleBottom: "PASS",
-    tagline: "More classes. More value. More results.",
-    badge: "BEST VALUE",
-    features: [
-      { icon: "", num: "10", title: "10 CLASS CREDITS", sub: "Use anytime" },
-      { icon: "boxing-glove", lib: "mci", title: "BOOT CAMP, MUAY THAI & KICKBOXING", sub: "All classes included" },
-      { icon: "calendar", title: "CREDITS NEVER EXPIRE", sub: "Train when it suits you" },
-      { icon: "trophy", title: "PERFECT FOR CASUAL TRAINING", sub: "Great value, maximum flexibility" },
-    ],
-  },
+// Class-pass products render as the actual promo poster artwork (tappable to buy).
+const PASS_IMAGES: Record<string, { src: any; aspect: number }> = {
+  pass_1class: { src: require("@/assets/images/pass-single.png"), aspect: 1047 / 667 },
+  pass_10class: { src: require("@/assets/images/pass-10.png"), aspect: 1062 / 642 },
 };
 
 type Product = {
@@ -52,6 +31,8 @@ type Product = {
 
 export default function MembershipsScreen() {
   const router = useRouter();
+  const { width: winW } = useWindowDimensions();
+  const passW = winW - spacing.lg * 2;
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -180,58 +161,23 @@ export default function MembershipsScreen() {
           </LinearGradient>
 
           {products.map((p) => {
-            const passDesign = p.type === "class_pass" ? PASS_DESIGN[p.product_id] : undefined;
-            if (passDesign) {
+            const passImg = p.type === "class_pass" ? PASS_IMAGES[p.product_id] : undefined;
+            if (passImg) {
               return (
-                <View key={p.product_id} testID={`store-${p.product_id}`} style={[styles.passCard, !!passDesign.badge && styles.passCardBest]}>
-                  <View style={styles.passHeader}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.passTitleTop}>{passDesign.titleTop}</Text>
-                      <Text style={styles.passTitleBottom}>{passDesign.titleBottom}</Text>
-                      <Text style={styles.passTagline}>{passDesign.tagline}</Text>
+                <Pressable
+                  key={p.product_id}
+                  testID={`store-buy-${p.product_id}`}
+                  style={[styles.passImageWrap, busy === p.product_id && { opacity: 0.6 }]}
+                  onPress={() => onBuyPress(p)}
+                  disabled={!!busy}
+                >
+                  <Image source={passImg.src} style={{ width: passW, height: Math.round(passW / passImg.aspect) }} resizeMode="cover" />
+                  {busy === p.product_id && (
+                    <View style={styles.passImageBusy}>
+                      <ActivityIndicator color="#fff" />
                     </View>
-                    <View style={styles.passPriceCol}>
-                      <View style={styles.passPriceBadge}>
-                        <Text style={styles.passPriceText}>{money(p.total)}</Text>
-                      </View>
-                      {!!passDesign.badge && <Text style={styles.passBadgeText}>{passDesign.badge}</Text>}
-                    </View>
-                  </View>
-
-                  <View style={styles.passFeatures}>
-                    {passDesign.features.map((f, i) => (
-                      <View key={i} style={styles.passFeatureRow}>
-                        <View style={styles.passIconCircle}>
-                          {f.num ? (
-                            <Text style={styles.passIconNum}>{f.num}</Text>
-                          ) : f.lib === "mci" ? (
-                            <MaterialCommunityIcons name={f.icon as any} size={20} color={colors.brand} />
-                          ) : (
-                            <Ionicons name={f.icon as any} size={20} color={colors.brand} />
-                          )}
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.passFeatureTitle}>{f.title}</Text>
-                          <Text style={styles.passFeatureSub}>{f.sub}</Text>
-                        </View>
-                      </View>
-                    ))}
-                  </View>
-
-                  <Pressable
-                    testID={`store-buy-${p.product_id}`}
-                    style={[styles.passBuyBtn, busy === p.product_id && { opacity: 0.6 }]}
-                    onPress={() => onBuyPress(p)}
-                    disabled={!!busy}
-                  >
-                    {busy === p.product_id ? <ActivityIndicator color={colors.onBrand} /> : (
-                      <>
-                        <Ionicons name="flash" size={18} color={colors.onBrand} />
-                        <Text style={styles.passBuyText}>GET STARTED — {money(p.total)}</Text>
-                      </>
-                    )}
-                  </Pressable>
-                </View>
+                  )}
+                </Pressable>
               );
             }
             const popular = p.product_id === "mem_3m";
@@ -419,25 +365,9 @@ const styles = StyleSheet.create({
   buyText: { color: colors.onBrand, fontWeight: "900", fontSize: 14 },
   footNote: { color: colors.onSurfaceSecondary, fontSize: 12, textAlign: "center", marginTop: spacing.sm, lineHeight: 18 },
 
-  // Poster-style class-pass cards
-  passCard: { backgroundColor: "#0D0D0D", borderWidth: 1.5, borderColor: colors.brand, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.md, overflow: "hidden" },
-  passCardBest: { shadowColor: colors.brand, shadowOpacity: 0.3, shadowRadius: 14, shadowOffset: { width: 0, height: 4 } },
-  passHeader: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md },
-  passTitleTop: { color: "#fff", fontSize: 26, fontWeight: "900", fontStyle: "italic", letterSpacing: 0.5, lineHeight: 28 },
-  passTitleBottom: { color: colors.brand, fontSize: 26, fontWeight: "900", fontStyle: "italic", letterSpacing: 0.5, lineHeight: 28 },
-  passTagline: { color: colors.brand, fontSize: 11, fontWeight: "800", letterSpacing: 0.4, marginTop: 8, textTransform: "uppercase" },
-  passPriceCol: { alignItems: "center", gap: 5 },
-  passPriceBadge: { backgroundColor: colors.brand, borderRadius: radius.md, paddingHorizontal: 16, paddingVertical: 9, alignItems: "center", justifyContent: "center" },
-  passPriceText: { color: "#fff", fontSize: 26, fontWeight: "900", fontStyle: "italic" },
-  passBadgeText: { color: colors.brand, fontSize: 10, fontWeight: "900", letterSpacing: 0.6 },
-  passFeatures: { gap: spacing.sm },
-  passFeatureRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, borderWidth: 1, borderColor: "rgba(255,122,0,0.28)", borderRadius: radius.md, paddingVertical: 10, paddingHorizontal: 12 },
-  passIconCircle: { width: 40, height: 40, borderRadius: 20, borderWidth: 2, borderColor: colors.brand, alignItems: "center", justifyContent: "center" },
-  passIconNum: { color: colors.brand, fontSize: 16, fontWeight: "900" },
-  passFeatureTitle: { color: "#fff", fontSize: 13, fontWeight: "900", letterSpacing: 0.2 },
-  passFeatureSub: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 2 },
-  passBuyBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.brand, paddingVertical: 15, borderRadius: radius.md, marginTop: 2 },
-  passBuyText: { color: colors.onBrand, fontWeight: "900", fontSize: 15, letterSpacing: 0.5 },
+  // Poster-style class-pass cards (actual promo artwork)
+  passImageWrap: { borderRadius: radius.lg, overflow: "hidden", backgroundColor: "#0A0A0A" },
+  passImageBusy: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.35)" },
 
   // Bottom feature strip
   bottomStrip: { flexDirection: "row", backgroundColor: "#0D0D0D", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", borderRadius: radius.lg, paddingVertical: spacing.md, marginTop: spacing.sm },
