@@ -126,7 +126,7 @@ export default function MembershipsScreen() {
       {loading ? (
         <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />
       ) : (
-        <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: 40, gap: spacing.md }}>
+        <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingTop: 180, paddingBottom: 40, gap: spacing.md }}>
           {msg && (
             <Pressable style={styles.banner} onPress={() => setMsg(null)}>
               <Text style={styles.bannerText}>{msg}</Text>
