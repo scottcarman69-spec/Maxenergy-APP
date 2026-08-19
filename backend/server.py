@@ -3592,6 +3592,55 @@ FIRST_PURCHASE_DISCOUNT = 0.10
 # -------------------- gift cards --------------------
 GIFTCARD_MIN_CENTS = 1000    # $10
 GIFTCARD_MAX_CENTS = 50000   # $500
+GIFTCARD_MAX_FAILS = 3       # wrong tries allowed before lockout
+GIFTCARD_LOCK_MIN = 15       # minutes locked out after too many wrong tries
+
+
+async def _giftcard_guard(user_id: str) -> None:
+    """Block gift card redemption if the member is currently locked out."""
+    doc = await db.giftcard_attempts.find_one({"_id": user_id})
+    lu = (doc or {}).get("locked_until")
+    if isinstance(lu, datetime):
+        lu_cmp = lu.replace(tzinfo=None) if lu.tzinfo else lu
+        now_naive = now_utc().replace(tzinfo=None)
+        if lu_cmp > now_naive:
+            secs = int((lu_cmp - now_naive).total_seconds())
+            mins = max(1, round(secs / 60))
+            raise HTTPException(
+                status_code=429,
+                detail=f"Too many incorrect codes. Redeeming is locked for {mins} more minute{'s' if mins != 1 else ''}.",
+                headers={"Retry-After": str(secs)},
+            )
+
+
+async def _giftcard_register_fail(user_id: str) -> None:
+    """Record a wrong-code attempt; lock the member once they exceed the allowed tries."""
+    now = now_utc()
+    doc = await db.giftcard_attempts.find_one_and_update(
+        {"_id": user_id},
+        {"$inc": {"fails": 1}, "$set": {"last_at": now}, "$setOnInsert": {"expires_at": now + timedelta(days=1)}},
+        upsert=True, return_document=ReturnDocument.AFTER,
+    )
+    fails = int(doc.get("fails", 1))
+    if fails > GIFTCARD_MAX_FAILS:
+        lock_until = now + timedelta(minutes=GIFTCARD_LOCK_MIN)
+        await db.giftcard_attempts.update_one(
+            {"_id": user_id},
+            {"$set": {"locked_until": lock_until, "fails": 0, "expires_at": lock_until + timedelta(minutes=5)}},
+        )
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many incorrect codes. Redeeming is locked for {GIFTCARD_LOCK_MIN} minutes.",
+            headers={"Retry-After": str(GIFTCARD_LOCK_MIN * 60)},
+        )
+    remaining = GIFTCARD_MAX_FAILS - fails
+    if remaining <= 0:
+        raise HTTPException(404, "Incorrect code. One more wrong attempt will lock redeeming for 15 minutes.")
+    raise HTTPException(404, f"That gift card code wasn't found. {remaining} attempt{'s' if remaining != 1 else ''} remaining.")
+
+
+async def _giftcard_reset(user_id: str) -> None:
+    await db.giftcard_attempts.delete_one({"_id": user_id})
 
 
 async def gen_giftcard_code() -> str:
@@ -4174,11 +4223,16 @@ async def giftcard_redeem(body: GiftCardRedeemReq, u: dict = Depends(require_use
     code = (body.code or "").strip().upper()
     if not code:
         raise HTTPException(400, "Please enter a gift card code.")
+    # Brute-force protection: block if locked out from earlier wrong attempts.
+    await _giftcard_guard(u["user_id"])
     gc = await db.gift_cards.find_one({"code": code})
     if not gc:
-        raise HTTPException(404, "That gift card code wasn't found. Please check and try again.")
+        # Wrong code — count the failure (may raise a lockout).
+        await _giftcard_register_fail(u["user_id"])
     if int(gc.get("balance_cents", 0)) <= 0 or gc.get("status") != "active":
         raise HTTPException(409, "This gift card has already been used up.")
+    # Valid code — clear any accumulated wrong-attempt counter.
+    await _giftcard_reset(u["user_id"])
     amount = int(gc["balance_cents"])
     now = now_utc()
     # Move the remaining balance into the member's account credit.
@@ -6748,6 +6802,7 @@ async def seed_data():
         await db.membership_applications.create_index("application_id", unique=True)
         await db.free_trials.create_index([("user_id", 1), ("category", 1)], unique=True)
         await db.rate_limits.create_index("expires_at", expireAfterSeconds=0)
+        await db.giftcard_attempts.create_index("expires_at", expireAfterSeconds=0)
     except Exception as e:
         log.warning(f"index warn: {e}")
 
