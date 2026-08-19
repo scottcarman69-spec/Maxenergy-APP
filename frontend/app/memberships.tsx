@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Platform, Modal } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Platform, Modal, Image } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as WebBrowser from "expo-web-browser";
@@ -119,6 +119,8 @@ export default function MembershipsScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
+      <Image source={require("@/assets/images/memberships-bg.webp")} style={styles.bgImage} resizeMode="cover" />
+      <View style={styles.bgScrim} pointerEvents="none" />
       <ScreenHeader title="Memberships & Passes" backTestID="store-back" />
 
       {loading ? (
@@ -279,6 +281,8 @@ export default function MembershipsScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
+  bgImage: { ...StyleSheet.absoluteFillObject, width: "100%", height: "100%" },
+  bgScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)" },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
   headerTitle: { color: colors.onSurface, fontSize: 17, fontWeight: "900" },
   banner: { backgroundColor: colors.brandTertiary, padding: spacing.md, borderRadius: radius.md },
@@ -292,8 +296,8 @@ const styles = StyleSheet.create({
   formPromptSub: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 2 },
   promo: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: colors.brand, borderRadius: radius.md, padding: spacing.md },
   promoText: { color: colors.onBrand, fontWeight: "900", fontSize: 13, flex: 1 },
-  card: { backgroundColor: "rgba(255,255,255,0.045)", borderWidth: 1, borderColor: "rgba(255,255,255,0.09)", borderRadius: radius.lg, padding: spacing.lg },
-  cardPopular: { backgroundColor: "rgba(255,122,0,0.08)", borderColor: colors.brand, borderWidth: 2 },
+  card: { backgroundColor: "rgba(13,13,15,0.74)", borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", borderRadius: radius.lg, padding: spacing.lg },
+  cardPopular: { backgroundColor: "rgba(30,17,4,0.80)", borderColor: colors.brand, borderWidth: 2 },
   popularTag: { alignSelf: "flex-start", backgroundColor: colors.brand, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill, marginBottom: spacing.sm },
   popularText: { color: colors.onBrand, fontSize: 10, fontWeight: "900", letterSpacing: 0.5 },
   hero: { borderRadius: radius.lg, padding: spacing.xl, alignItems: "center", gap: 4 },
