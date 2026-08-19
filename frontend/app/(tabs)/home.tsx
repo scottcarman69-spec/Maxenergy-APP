@@ -309,6 +309,8 @@ export default function Home() {
     checkin: () => router.push("/check-in"),
     membership: () => router.push("/vigyr-signon"),
     classpass: () => router.push("/credits"),
+    store: () => router.push("/memberships"),
+    giftcards: () => router.push("/gift-cards"),
     academy: () => (user?.is_admin ? router.push("/group/grp_muaythai_academy") : openAcademy()),
     ladder: () => router.navigate("/(tabs)/leaderboard"),
     notices: () => router.navigate("/(tabs)/events"),
