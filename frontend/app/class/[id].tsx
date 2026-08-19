@@ -30,6 +30,8 @@ type Cls = {
   booked?: number;
   spots_left?: number;
   by_appointment?: boolean;
+  started?: boolean;
+  ended?: boolean;
   appt_durations?: { minutes: number; price_cents: number }[];
   min_age?: number;
   max_age?: number;
@@ -341,6 +343,7 @@ export default function ClassDetail() {
   const payPrice = apptChoice ? apptChoice.priceCents : (cls.price_cents || 0);
 
   const isFull = !cls.by_appointment && cls.spots_left === 0;
+  const closed = !cls.by_appointment && !!cls.started;
 
   return (
     <View style={styles.root}>
@@ -518,12 +521,17 @@ export default function ClassDetail() {
         </View>
         <Pressable
           testID="book-and-pay-button"
-          style={({ pressed }) => [styles.payBtn, isFull && !onWaitlist && styles.payBtnWaitlist, isFull && onWaitlist && styles.payBtnFull, pressed && { opacity: 0.85 }]}
-          onPress={isFull ? toggleWaitlist : onBookPress}
-          disabled={busy || wlBusy}
+          style={({ pressed }) => [styles.payBtn, closed && styles.payBtnFull, isFull && !onWaitlist && styles.payBtnWaitlist, isFull && onWaitlist && styles.payBtnFull, pressed && !closed && { opacity: 0.85 }]}
+          onPress={closed ? undefined : isFull ? toggleWaitlist : onBookPress}
+          disabled={busy || wlBusy || closed}
         >
           {busy || wlBusy ? (
             <ActivityIndicator color={colors.onBrand} />
+          ) : closed ? (
+            <>
+              <Ionicons name="lock-closed" size={16} color={colors.onSurfaceSecondary} />
+              <Text style={styles.payBtnTextFull}>BOOKINGS CLOSED · CLASS STARTED</Text>
+            </>
           ) : isFull ? (
             onWaitlist ? (
               <>

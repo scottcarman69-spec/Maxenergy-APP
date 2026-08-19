@@ -46,6 +46,7 @@ type Cls = {
   capacity?: number;
   booked?: number;
   spots_left?: number;
+  started?: boolean;
   min_age?: number;
   max_age?: number;
 };
@@ -349,9 +350,9 @@ export default function Timetable() {
                       </View>
                     )}
                   </View>
-                  <View style={[styles.bookPill, item.spots_left === 0 && styles.bookPillFull, booked && styles.bookPillBooked]}>
-                    <Text style={[styles.bookPillText, item.spots_left === 0 && styles.bookPillTextFull, booked && styles.bookPillTextBooked]}>
-                      {booked ? "Booked" : item.spots_left === 0 ? "Full" : "Book"}
+                  <View style={[styles.bookPill, (item.spots_left === 0 || item.started) && styles.bookPillFull, booked && styles.bookPillBooked]}>
+                    <Text style={[styles.bookPillText, (item.spots_left === 0 || item.started) && styles.bookPillTextFull, booked && styles.bookPillTextBooked]}>
+                      {booked ? "Booked" : item.started ? "Closed" : item.spots_left === 0 ? "Full" : "Book"}
                     </Text>
                   </View>
                 </View>
@@ -362,7 +363,13 @@ export default function Timetable() {
                     <Text style={styles.bookedTagText}>You have already booked this class!</Text>
                   </View>
                 )}
-                {!booked && typeof item.spots_left === "number" && item.spots_left > 0 && item.spots_left <= 3 && (
+                {!booked && item.started && (
+                  <View style={styles.closedTag}>
+                    <Ionicons name="lock-closed" size={12} color={colors.onSurfaceSecondary} />
+                    <Text style={styles.closedTagText}>In progress — bookings closed</Text>
+                  </View>
+                )}
+                {!booked && !item.started && typeof item.spots_left === "number" && item.spots_left > 0 && item.spots_left <= 3 && (
                   <View style={styles.nudgeTag}>
                     <Ionicons name="flame" size={12} color={colors.onBrand} />
                     <Text style={styles.nudgeText}>ONLY {item.spots_left} SPOT{item.spots_left === 1 ? "" : "S"} LEFT — BOOK EARLY!</Text>
@@ -522,4 +529,6 @@ const styles = StyleSheet.create({
   bookPillTextBooked: { color: colors.success },
   bookedTag: { flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start", backgroundColor: colors.success + "22", paddingHorizontal: 8, paddingVertical: 4, borderRadius: radius.pill, marginTop: 6 },
   bookedTagText: { color: colors.success, fontSize: 11, fontWeight: "800", letterSpacing: 0.2 },
+  closedTag: { flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start", backgroundColor: colors.surfaceTertiary, paddingHorizontal: 8, paddingVertical: 4, borderRadius: radius.pill, marginTop: 6 },
+  closedTagText: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "800", letterSpacing: 0.2 },
 });

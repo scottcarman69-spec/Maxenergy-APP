@@ -1864,16 +1864,20 @@ async def classes_list(category: Optional[str] = None, include_ended: bool = Fal
     out = []
     for r in rows:
         ended = False
+        started = False
         if not r.get("by_appointment"):
             start = r.get("start_at")
             if isinstance(start, datetime):
                 s = start.replace(tzinfo=None) if start.tzinfo else start
                 if s + timedelta(minutes=r.get("duration_min") or 0) < now_local:
                     ended = True
+                elif s <= now_local:
+                    started = True  # in progress — bookings closed
         # Home/upcoming (default) hides ended classes; timetable requests include_ended to show status.
         if ended and not include_ended:
             continue
         r["ended"] = ended
+        r["started"] = started
         if not r.get("by_appointment"):
             cap = r.get("capacity") or 0
             booked = booked_map.get(r["class_id"], 0)
@@ -1893,6 +1897,18 @@ async def class_detail(class_id: str):
         booked = await db.bookings.count_documents({"class_id": class_id, "status": {"$in": ["paid", "confirmed"]}})
         c["booked"] = booked
         c["spots_left"] = max(cap - booked, 0)
+        started = False
+        ended = False
+        start = c.get("start_at")
+        if isinstance(start, datetime):
+            s = start.replace(tzinfo=None) if start.tzinfo else start
+            now_local = (now_utc() + timedelta(hours=10)).replace(tzinfo=None)
+            if s + timedelta(minutes=c.get("duration_min") or 0) < now_local:
+                ended = True
+            elif s <= now_local:
+                started = True
+        c["started"] = started
+        c["ended"] = ended
     return with_coach(c)
 
 
@@ -1994,6 +2010,14 @@ async def booking_create(body: BookingCreate, u: dict = Depends(require_user)):
         raise HTTPException(404, "Class not found")
     if cls.get("cancelled"):
         raise HTTPException(409, "This class has been cancelled.")
+    # Bookings close once a fixed (scheduled) class has started.
+    if not cls.get("by_appointment"):
+        start = cls.get("start_at")
+        if isinstance(start, datetime):
+            s = start.replace(tzinfo=None) if start.tzinfo else start
+            now_local = (now_utc() + timedelta(hours=10)).replace(tzinfo=None)
+            if s <= now_local:
+                raise HTTPException(409, "This class has already started — online bookings are closed.")
     # Minimum-age requirement (e.g. Kids Muay Thai is 8+). Enforced server-side so it
     # can't be bypassed; the app collects the child's age before booking.
     min_age = cls.get("min_age")
