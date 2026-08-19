@@ -104,108 +104,44 @@ export default function VigyrSignOn() {
               <View style={styles.noticeIcon}>
                 <Ionicons name="clipboard" size={20} color={colors.brand} />
               </View>
-              <Text style={styles.noticeTitle}>New Member Registration Required</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.noticeTitle}>New here? Register once</Text>
+                <Text style={styles.noticeSub}>We'll set up your details and door access — you won't need to do this again.</Text>
+              </View>
             </View>
-            <Text style={styles.noticeBody}>
-              If you are a new member, please complete the registration form below. You only need to register once.
-            </Text>
-            <Text style={styles.noticeBody}>
-              This allows us to securely add your details to our gym management system and confirm your booking.
-            </Text>
             <View style={styles.noticeSecure}>
               <Ionicons name="lock-closed" size={14} color="#22C55E" />
               <Text style={styles.noticeSecureText}>
-                Your information is handled securely and safely. Any payment or banking information is processed through secure payment systems and is not stored directly within our app.
+                Payments are processed securely by our providers. Card & banking details are never stored in the app.
               </Text>
             </View>
-            <Text style={styles.noticeFoot}>
-              Once your registration is complete, you won't need to fill out this form again for future bookings.
-            </Text>
           </View>
 
-          <Text style={styles.pageTitle}>Choose How You'd Like to Join</Text>
-          <Text style={styles.pageSub}>Please select the option that best suits you.</Text>
+          <Text style={styles.pageTitle}>Choose how you'd like to join</Text>
+          <Text style={styles.pageSub}>Pick the option that suits you best.</Text>
 
-          {/* Option 1 — Direct Debit */}
-          <View style={[styles.optionCard, { borderColor: colors.brand }]}>
-            <View style={styles.optTopRow}>
-              <View style={styles.optIcon}>
-                <Ionicons name="repeat" size={22} color={colors.brand} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.optTitle}>6 or 12 Month Membership</Text>
-                <Text style={styles.optTag}>Direct Debit</Text>
-              </View>
-            </View>
-
-            <View style={styles.newBadge}>
-              <Ionicons name="sparkles" size={12} color={colors.brand} />
-              <Text style={styles.newBadgeText}>New members only</Text>
-            </View>
-
-            <Text style={styles.optBody}>
-              Use this option if you are signing up for a 6-month or 12-month membership and would like to pay by direct debit.
-            </Text>
-            <Text style={styles.optBody}>
-              You'll be redirected to our secure membership registration and payment page to complete your sign-up.
-            </Text>
-
-            <View style={styles.secureBox}>
-              <View style={styles.secureHead}>
-                <Ionicons name="lock-closed" size={15} color="#22C55E" />
-                <Text style={styles.secureTitle}>Your Information Is Secure</Text>
-              </View>
-              <Text style={styles.secureText}>
-                Your banking or credit card information is entered and processed securely through our payment provider.
-              </Text>
-              <Text style={styles.secureText}>
-                Your payment details are not stored within the Maxenergy Fitness app. We do not have access to or keep your banking or credit card information.
-              </Text>
-            </View>
-
-            <Pressable
-              testID="vigyr-start"
-              style={({ pressed }) => [styles.primaryBtn, { marginTop: spacing.lg }, pressed && { opacity: 0.9 }]}
-              onPress={startSignUp}
-              disabled={opening}
-            >
-              {opening ? (
-                <ActivityIndicator color={colors.onBrand} />
-              ) : (
-                <>
-                  <Text style={styles.primaryBtnText}>SET UP MEMBERSHIP DIRECT DEBIT</Text>
-                  <Ionicons name="arrow-forward" size={18} color={colors.onBrand} />
-                </>
-              )}
-            </Pressable>
-          </View>
-
-          {/* Option 2 — Upfront Payments & Bookings */}
-          <View style={styles.optionCard}>
+          {/* Option 1 — Upfront Payments & Bookings (primary) */}
+          <View style={[styles.optionCard, styles.optionCardPrimary]}>
             <View style={styles.optTopRow}>
               <View style={styles.optIcon}>
                 <Ionicons name="card-outline" size={22} color={colors.brand} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.optTitle}>Upfront Payments & Bookings</Text>
+                <Text style={styles.optTag}>Pay as you go · via Square</Text>
               </View>
             </View>
 
             <Text style={styles.optBody}>
-              Want to pay upfront, purchase a class or make a booking?
-            </Text>
-            <Text style={styles.optBody}>
-              These payments are processed securely through Square and do not require you to complete the direct debit membership form.
+              Pay upfront, grab a class pass or make a booking — no membership form needed.
             </Text>
 
-            <Text style={styles.useForLabel}>Use this option for:</Text>
+            <Text style={styles.useForLabel}>Great for:</Text>
             <View style={styles.useList}>
               {[
                 "Upfront membership payments",
-                "Casual classes",
-                "Class passes",
-                "Bookings",
-                "Other one-time payments",
+                "Casual classes & class passes",
+                "Bookings & one-off payments",
               ].map((item) => (
                 <View key={item} style={styles.useRow}>
                   <Ionicons name="checkmark-circle" size={17} color={colors.brand} />
@@ -216,11 +152,55 @@ export default function VigyrSignOn() {
 
             <Pressable
               testID="vigyr-upfront"
-              style={({ pressed }) => [styles.outlineBtn, pressed && { opacity: 0.85 }]}
+              style={({ pressed }) => [styles.primaryBtn, { marginTop: spacing.lg }, pressed && { opacity: 0.9 }]}
               onPress={() => router.push("/memberships")}
             >
-              <Ionicons name="pricetags" size={18} color={colors.brand} />
-              <Text style={styles.outlineBtnText}>VIEW UPFRONT PAYMENTS & BOOKINGS</Text>
+              <Ionicons name="pricetags" size={18} color={colors.onBrand} />
+              <Text style={styles.primaryBtnText}>VIEW UPFRONT PAYMENTS & BOOKINGS</Text>
+            </Pressable>
+          </View>
+
+          {/* Option 2 — Direct Debit */}
+          <View style={styles.optionCard}>
+            <View style={styles.optTopRow}>
+              <View style={styles.optIcon}>
+                <Ionicons name="repeat" size={22} color={colors.brand} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.optTitle}>6 or 12 Month Membership</Text>
+                <Text style={styles.optTag}>Direct Debit</Text>
+              </View>
+              <View style={styles.newBadge}>
+                <Ionicons name="sparkles" size={12} color={colors.brand} />
+                <Text style={styles.newBadgeText}>New members</Text>
+              </View>
+            </View>
+
+            <Text style={styles.optBody}>
+              Signing up for a 6 or 12-month membership on direct debit? You'll head to our secure registration & payment page to finish up.
+            </Text>
+
+            <View style={styles.noticeSecure}>
+              <Ionicons name="lock-closed" size={14} color="#22C55E" />
+              <Text style={styles.noticeSecureText}>
+                Banking details are entered and processed by our payment provider — never stored in the app.
+              </Text>
+            </View>
+
+            <Pressable
+              testID="vigyr-start"
+              style={({ pressed }) => [styles.outlineBtn, pressed && { opacity: 0.85 }]}
+              onPress={startSignUp}
+              disabled={opening}
+            >
+              {opening ? (
+                <ActivityIndicator color={colors.brand} />
+              ) : (
+                <>
+                  <Text style={styles.outlineBtnText}>SET UP DIRECT DEBIT MEMBERSHIP</Text>
+                  <Ionicons name="arrow-forward" size={18} color={colors.brand} />
+                </>
+              )}
             </Pressable>
           </View>
         </ScrollView>
@@ -248,11 +228,10 @@ const styles = StyleSheet.create({
   },
   noticeHead: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginBottom: spacing.md },
   noticeIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
-  noticeTitle: { flex: 1, color: colors.onSurface, fontSize: 17, fontFamily: font.heading },
-  noticeBody: { color: colors.onSurface, fontSize: 14, lineHeight: 20, marginBottom: spacing.sm },
-  noticeSecure: { flexDirection: "row", gap: 8, backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: "#22C55E44", padding: spacing.md, marginTop: spacing.xs, marginBottom: spacing.md },
+  noticeTitle: { color: colors.onSurface, fontSize: 16.5, fontFamily: font.heading },
+  noticeSub: { color: colors.onSurfaceSecondary, fontSize: 13, lineHeight: 18, marginTop: 3 },
+  noticeSecure: { flexDirection: "row", gap: 8, backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: "#22C55E44", padding: spacing.md, marginTop: spacing.md },
   noticeSecureText: { flex: 1, color: colors.onSurfaceSecondary, fontSize: 12.5, lineHeight: 18 },
-  noticeFoot: { color: colors.brand, fontSize: 13, lineHeight: 19, fontFamily: font.semibold },
 
   optionCard: {
     backgroundColor: colors.surfaceSecondary,
@@ -262,18 +241,14 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     marginBottom: spacing.lg,
   },
+  optionCardPrimary: { borderColor: colors.brand, borderWidth: 1.5, backgroundColor: colors.brandTertiary },
   optTopRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  optIcon: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center" },
-  optTitle: { color: colors.onSurface, fontSize: 18, fontFamily: font.heading },
+  optIcon: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
+  optTitle: { color: colors.onSurface, fontSize: 17, fontFamily: font.heading },
   optTag: { color: colors.brand, fontSize: 12.5, fontFamily: font.semibold, letterSpacing: 0.5, marginTop: 2 },
-  newBadge: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 5, backgroundColor: colors.brandTertiary, paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill, marginTop: spacing.md },
-  newBadgeText: { color: colors.brand, fontSize: 11.5, fontFamily: font.semibold, letterSpacing: 0.3 },
-  optBody: { color: colors.onSurfaceSecondary, fontSize: 14, lineHeight: 20, marginTop: spacing.md },
-
-  secureBox: { backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: "#22C55E44", padding: spacing.md, marginTop: spacing.lg, gap: 6 },
-  secureHead: { flexDirection: "row", alignItems: "center", gap: 7 },
-  secureTitle: { color: colors.onSurface, fontSize: 14, fontFamily: font.heading },
-  secureText: { color: colors.onSurfaceSecondary, fontSize: 12.5, lineHeight: 18 },
+  newBadge: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 5, backgroundColor: colors.surface, paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.brand },
+  newBadgeText: { color: colors.brand, fontSize: 11, fontFamily: font.semibold, letterSpacing: 0.3 },
+  optBody: { color: colors.onSurface, fontSize: 14, lineHeight: 20, marginTop: spacing.md },
 
   useForLabel: { color: colors.onSurface, fontSize: 14, fontFamily: font.heading, marginTop: spacing.lg },
   useList: { marginTop: spacing.sm, gap: 8 },
