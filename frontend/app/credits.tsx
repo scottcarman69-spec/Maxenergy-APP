@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, RefreshControl, Modal } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, RefreshControl, Modal, TextInput } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -22,6 +22,10 @@ export default function CreditsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [qr, setQr] = useState<string | null>(null);
   const [qrLoading, setQrLoading] = useState(false);
+  const [gcCode, setGcCode] = useState("");
+  const [gcBusy, setGcBusy] = useState(false);
+  const [gcErr, setGcErr] = useState<string | null>(null);
+  const [gcOk, setGcOk] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -46,6 +50,22 @@ export default function CreditsScreen() {
     setQrLoading(false);
   };
 
+  const redeemGift = async () => {
+    setGcErr(null); setGcOk(null);
+    const code = gcCode.trim().toUpperCase();
+    if (!code) { setGcErr("Enter a gift card code."); return; }
+    setGcBusy(true);
+    try {
+      const r = await api.giftcardRedeem(code);
+      setGcOk(`$${(r.amount_cents / 100).toFixed(2)} added to your credit!`);
+      setGcCode("");
+      await load();
+    } catch (e: any) {
+      setGcErr(e?.message || "Could not redeem that code.");
+    }
+    setGcBusy(false);
+  };
+
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
       <ScreenHeader title="My Wallet" backTestID="credits-back" fallback="/(tabs)/profile" />
@@ -62,6 +82,35 @@ export default function CreditsScreen() {
             <Text style={styles.balanceLabel}>AVAILABLE CREDIT</Text>
             <Text style={styles.balanceAmount}>${(balance / 100).toFixed(2)}</Text>
             <Text style={styles.balanceHint}>Use it when you book a class — it's applied before your card.</Text>
+          </View>
+
+          {/* Redeem a gift card */}
+          <View style={styles.giftCard}>
+            <View style={styles.giftTop}>
+              <View style={styles.giftIcon}><Ionicons name="gift" size={20} color={colors.brand} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.giftTitle}>Redeem a gift card</Text>
+                <Text style={styles.giftSub}>Enter your code to add the balance to your credit.</Text>
+              </View>
+            </View>
+            <View style={styles.giftRow}>
+              <TextInput
+                testID="wallet-gift-code"
+                style={styles.giftInput}
+                placeholder="MEG-XXXX-XXXX"
+                placeholderTextColor={colors.onSurfaceSecondary}
+                autoCapitalize="characters"
+                value={gcCode}
+                onChangeText={setGcCode}
+                onSubmitEditing={redeemGift}
+                returnKeyType="done"
+              />
+              <Pressable testID="wallet-gift-redeem" style={[styles.giftBtn, gcBusy && { opacity: 0.6 }]} onPress={redeemGift} disabled={gcBusy}>
+                {gcBusy ? <ActivityIndicator color={colors.onBrand} size="small" /> : <Text style={styles.giftBtnText}>Redeem</Text>}
+              </Pressable>
+            </View>
+            {gcErr && <Text style={styles.giftErr}>{gcErr}</Text>}
+            {gcOk && <Text style={styles.giftOk}>{gcOk}</Text>}
           </View>
 
           {/* Class Pass Credits — a separate currency */}
@@ -187,6 +236,17 @@ const styles = StyleSheet.create({
   balanceLabel: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "800", letterSpacing: 1, marginTop: spacing.sm },
   balanceAmount: { color: colors.brand, fontSize: 40, fontWeight: "900" },
   balanceHint: { color: colors.onSurfaceSecondary, fontSize: 12, textAlign: "center", marginTop: 4, lineHeight: 18 },
+  giftCard: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.brand, borderRadius: radius.lg, padding: spacing.lg, marginTop: spacing.md },
+  giftTop: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginBottom: spacing.md },
+  giftIcon: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center" },
+  giftTitle: { color: colors.onSurface, fontSize: 15.5, fontWeight: "900" },
+  giftSub: { color: colors.onSurfaceSecondary, fontSize: 12.5, marginTop: 2, lineHeight: 17 },
+  giftRow: { flexDirection: "row", gap: spacing.sm },
+  giftInput: { flex: 1, backgroundColor: colors.surfaceTertiary, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, color: colors.onSurface, fontSize: 15, letterSpacing: 1, paddingHorizontal: spacing.md, paddingVertical: 12 },
+  giftBtn: { backgroundColor: colors.brand, paddingHorizontal: 18, borderRadius: radius.md, alignItems: "center", justifyContent: "center", minWidth: 90 },
+  giftBtnText: { color: colors.onBrand, fontWeight: "900", fontSize: 14 },
+  giftErr: { color: colors.error, fontSize: 12.5, marginTop: spacing.sm },
+  giftOk: { color: "#22C55E", fontSize: 13, fontWeight: "700", marginTop: spacing.sm },
   passCard: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: "rgba(34,197,94,0.35)", borderRadius: radius.lg, padding: spacing.lg, marginTop: spacing.md },
   passTop: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   passIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: "rgba(34,197,94,0.15)", alignItems: "center", justifyContent: "center" },
