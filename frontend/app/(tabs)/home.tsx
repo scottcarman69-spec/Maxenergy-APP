@@ -23,7 +23,6 @@ import { useAuth } from "@/src/AuthContext";
 import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
 import { classTime, classDate, qldHour, scheduleDay, qldTodayUTC } from "@/src/datetime";
-import ScreenBg from "@/src/components/ScreenBg";
 import { gymPhotos } from "@/src/gymPhotos";
 import { coachSource } from "@/src/coaches";
 import LiveNowBanner from "@/src/components/LiveNowBanner";
@@ -331,7 +330,16 @@ export default function Home() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      <ScreenBg />
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.surface }]} />
+        <Image
+          source={require("../../assets/images/home-bg.webp")}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+        />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(10,10,11,0.5)" }]} />
+      </View>
       <ScrollView
         contentContainerStyle={{ paddingBottom: 40 }}
         refreshControl={<RefreshControl tintColor={colors.brand} refreshing={refreshing} onRefresh={onRefresh} />}
