@@ -3548,7 +3548,7 @@ def _square_headers():
 # -------------------- membership / pass store --------------------
 STORE_PRODUCTS = {
     "pass_7day":  {"name": "7 Day Pass",                  "price_cents": 8000,  "type": "pass",       "days": 7,   "requires_keytag": False, "discount": False,
-                   "perks": ["7 days unlimited classes", "Great way to try us out", "No lock-in contract"]},
+                   "perks": ["Gym Access for 7 days 24/7", "Great way to try us out", "No lock-in contract"]},
     "mem_1m":     {"name": "1 Month Upfront Membership",  "price_cents": 15000, "type": "membership", "days": 30,  "requires_keytag": True,  "discount": False,
                    "perks": ["24/7 gym access with key tag", "Access-card setup at sign-up"]},
     "mem_3m":     {"name": "3 Month Upfront Membership",  "price_cents": 38000, "type": "membership", "days": 90,  "requires_keytag": True,  "discount": False,
