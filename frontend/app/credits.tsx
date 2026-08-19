@@ -26,6 +26,14 @@ export default function CreditsScreen() {
   const [gcBusy, setGcBusy] = useState(false);
   const [gcErr, setGcErr] = useState<string | null>(null);
   const [gcOk, setGcOk] = useState<string | null>(null);
+  const [gcLock, setGcLock] = useState(0);
+
+  React.useEffect(() => {
+    if (gcLock <= 0) return;
+    const t = setInterval(() => setGcLock((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(t);
+  }, [gcLock]);
+  const gcMmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
   const load = useCallback(async () => {
     try {
@@ -61,6 +69,7 @@ export default function CreditsScreen() {
       setGcCode("");
       await load();
     } catch (e: any) {
+      if (e?.status === 429 && e?.retryAfter) setGcLock(e.retryAfter);
       setGcErr(e?.message || "Could not redeem that code.");
     }
     setGcBusy(false);
@@ -104,12 +113,19 @@ export default function CreditsScreen() {
                 onChangeText={setGcCode}
                 onSubmitEditing={redeemGift}
                 returnKeyType="done"
+                editable={gcLock <= 0}
               />
-              <Pressable testID="wallet-gift-redeem" style={[styles.giftBtn, gcBusy && { opacity: 0.6 }]} onPress={redeemGift} disabled={gcBusy}>
-                {gcBusy ? <ActivityIndicator color={colors.onBrand} size="small" /> : <Text style={styles.giftBtnText}>Redeem</Text>}
+              <Pressable testID="wallet-gift-redeem" style={[styles.giftBtn, (gcBusy || gcLock > 0) && { opacity: 0.6 }]} onPress={redeemGift} disabled={gcBusy || gcLock > 0}>
+                {gcBusy ? <ActivityIndicator color={colors.onBrand} size="small" /> : <Text style={styles.giftBtnText}>{gcLock > 0 ? gcMmss(gcLock) : "Redeem"}</Text>}
               </Pressable>
             </View>
-            {gcErr && <Text style={styles.giftErr}>{gcErr}</Text>}
+            {gcLock > 0 && (
+              <View style={styles.giftLockBox}>
+                <Ionicons name="lock-closed" size={15} color="#F59E0B" />
+                <Text style={styles.giftLockText}>Too many wrong tries. Try again in <Text style={{ fontWeight: "900" }}>{gcMmss(gcLock)}</Text></Text>
+              </View>
+            )}
+            {gcErr && gcLock <= 0 && <Text style={styles.giftErr}>{gcErr}</Text>}
             {gcOk && <Text style={styles.giftOk}>{gcOk}</Text>}
           </View>
 
@@ -246,6 +262,8 @@ const styles = StyleSheet.create({
   giftBtn: { backgroundColor: colors.brand, paddingHorizontal: 18, borderRadius: radius.md, alignItems: "center", justifyContent: "center", minWidth: 90 },
   giftBtnText: { color: colors.onBrand, fontWeight: "900", fontSize: 14 },
   giftErr: { color: colors.error, fontSize: 12.5, marginTop: spacing.sm },
+  giftLockBox: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "rgba(245,158,11,0.12)", borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 10, marginTop: spacing.sm },
+  giftLockText: { color: "#F59E0B", fontSize: 12.5, flex: 1 },
   giftOk: { color: "#22C55E", fontSize: 13, fontWeight: "700", marginTop: spacing.sm },
   passCard: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: "rgba(34,197,94,0.35)", borderRadius: radius.lg, padding: spacing.lg, marginTop: spacing.md },
   passTop: { flexDirection: "row", alignItems: "center", gap: spacing.md },

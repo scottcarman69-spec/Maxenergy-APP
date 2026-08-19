@@ -84,7 +84,11 @@ async function req(path: string, opts: RequestInit = {}) {
     if (res.status === 401 && !isAuthEndpoint) {
       msg = "Your session has expired. Please log in again.";
     }
-    throw new Error(msg);
+    const err: any = new Error(msg);
+    err.status = res.status;
+    const ra = res.headers.get("Retry-After");
+    err.retryAfter = ra ? parseInt(ra, 10) : null;
+    throw err;
   }
   return data;
 }

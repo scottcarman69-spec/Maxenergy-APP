@@ -28,6 +28,14 @@ export default function GiftCards() {
   const [redeemBusy, setRedeemBusy] = useState(false);
   const [redeemMsg, setRedeemMsg] = useState<string | null>(null);
   const [redeemOk, setRedeemOk] = useState<string | null>(null);
+  const [lockLeft, setLockLeft] = useState(0);
+
+  React.useEffect(() => {
+    if (lockLeft <= 0) return;
+    const t = setInterval(() => setLockLeft((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(t);
+  }, [lockLeft]);
+  const mmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
   const effectiveAmount = custom.trim() ? Math.round(parseFloat(custom) * 100) : amount;
   const amountValid = typeof effectiveAmount === "number" && !Number.isNaN(effectiveAmount) && effectiveAmount >= MIN && effectiveAmount <= MAX;
@@ -69,6 +77,7 @@ export default function GiftCards() {
       setCode("");
       refresh();
     } catch (e: any) {
+      if (e?.status === 429 && e?.retryAfter) setLockLeft(e.retryAfter);
       setRedeemMsg(e?.message || "Could not redeem that code.");
     }
     setRedeemBusy(false);
@@ -148,14 +157,20 @@ export default function GiftCards() {
           <View style={styles.card}>
             <Text style={styles.label}>Have a gift card?</Text>
             <Text style={styles.redeemSub}>Enter your code to add the balance to your account credit.</Text>
-            <TextInput testID="gift-redeem-code" style={[styles.input, { letterSpacing: 1.5, textTransform: "uppercase" }]} placeholder="MEG-XXXX-XXXX" placeholderTextColor={colors.onSurfaceSecondary} autoCapitalize="characters" value={code} onChangeText={setCode} />
-            {redeemMsg && <Text style={styles.errText}>{redeemMsg}</Text>}
+            <TextInput testID="gift-redeem-code" style={[styles.input, { letterSpacing: 1.5, textTransform: "uppercase" }]} placeholder="MEG-XXXX-XXXX" placeholderTextColor={colors.onSurfaceSecondary} autoCapitalize="characters" value={code} onChangeText={setCode} editable={lockLeft <= 0} />
+            {lockLeft > 0 && (
+              <View style={styles.lockBox}>
+                <Ionicons name="lock-closed" size={16} color="#F59E0B" />
+                <Text style={styles.lockText}>Too many wrong tries. Try again in <Text style={styles.lockTimer}>{mmss(lockLeft)}</Text></Text>
+              </View>
+            )}
+            {redeemMsg && lockLeft <= 0 && <Text style={styles.errText}>{redeemMsg}</Text>}
             {redeemOk && <Text style={styles.okText}>{redeemOk}</Text>}
-            <Pressable testID="gift-redeem-btn" style={[styles.outlineBtn, redeemBusy && { opacity: 0.6 }]} onPress={redeem} disabled={redeemBusy}>
+            <Pressable testID="gift-redeem-btn" style={[styles.outlineBtn, (redeemBusy || lockLeft > 0) && { opacity: 0.6 }]} onPress={redeem} disabled={redeemBusy || lockLeft > 0}>
               {redeemBusy ? <ActivityIndicator color={colors.brand} /> : (
                 <>
-                  <Ionicons name="pricetag" size={17} color={colors.brand} />
-                  <Text style={styles.outlineBtnText}>REDEEM CODE</Text>
+                  <Ionicons name={lockLeft > 0 ? "time" : "pricetag"} size={17} color={colors.brand} />
+                  <Text style={styles.outlineBtnText}>{lockLeft > 0 ? `LOCKED · ${mmss(lockLeft)}` : "REDEEM CODE"}</Text>
                 </>
               )}
             </Pressable>
@@ -193,6 +208,9 @@ const styles = StyleSheet.create({
   outlineBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1.5, borderColor: colors.brand, paddingVertical: 14, borderRadius: radius.md, marginTop: spacing.xs },
   outlineBtnText: { color: colors.brand, fontFamily: font.display, fontSize: 14, letterSpacing: 0.5 },
   redeemSub: { color: colors.onSurfaceSecondary, fontSize: 13, lineHeight: 18, marginTop: -4 },
+  lockBox: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "rgba(245,158,11,0.12)", borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 10 },
+  lockText: { color: "#F59E0B", fontSize: 13, flex: 1 },
+  lockTimer: { fontWeight: "900" },
   successCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, borderWidth: 1, borderColor: "#22C55E55", padding: spacing.xl, alignItems: "center", gap: spacing.sm },
   successTitle: { color: colors.onSurface, fontSize: 20, fontFamily: font.display },
   successSub: { color: colors.onSurfaceSecondary, fontSize: 14, lineHeight: 20, textAlign: "center" },
