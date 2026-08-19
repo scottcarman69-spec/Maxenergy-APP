@@ -373,6 +373,17 @@ export default function Home() {
           </Pressable>
         )}
 
+        {user && !user.is_admin && (
+          <Pressable
+            testID="home-member-qr"
+            onPress={() => router.push("/check-in")}
+            style={({ pressed }) => [styles.adminScanBtn, pressed && { opacity: 0.85 }]}
+          >
+            <Ionicons name="qr-code" size={18} color={colors.onBrand} />
+            <Text style={styles.adminScanText}>My Check-In QR</Text>
+          </Pressable>
+        )}
+
         <View style={styles.greetBlock}>
           <Text style={styles.greetSmall}>{greetingText()}</Text>
           <Text style={styles.greetName}>{user?.name?.split(" ")[0] || "Champ"} 👋</Text>
