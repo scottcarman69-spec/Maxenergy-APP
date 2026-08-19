@@ -69,6 +69,18 @@ db = client[DB_NAME]
 app = FastAPI(title="Maxenergy Fitness API")
 api = APIRouter(prefix="/api")
 
+
+@app.get("/health")
+@app.get("/healthz")
+async def health_check():
+    """Lightweight liveness/readiness probe for the deployment platform."""
+    return {"status": "ok"}
+
+
+@api.get("/health")
+async def api_health_check():
+    return {"status": "ok"}
+
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("maxenergy")
 
