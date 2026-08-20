@@ -2775,6 +2775,17 @@ async def gym_photo_delete(photo_id: str, u: dict = Depends(require_admin)):
     return {"ok": True}
 
 
+class GymReorderReq(BaseModel):
+    order: list[str]
+
+
+@api.post("/admin/gym/photos/reorder")
+async def gym_photo_reorder(body: GymReorderReq, u: dict = Depends(require_admin)):
+    for i, pid in enumerate(body.order):
+        await db.gym_photos.update_one({"photo_id": pid}, {"$set": {"sort": i + 1}})
+    return {"ok": True}
+
+
 
 async def _friend_status(me: str, other: str) -> str:
     if await db.blocks.find_one({"blocker_id": me, "blocked_id": other}):
