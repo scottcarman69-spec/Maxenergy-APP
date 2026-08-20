@@ -19,6 +19,8 @@ export default function CreditsScreen() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [passCredits, setPassCredits] = useState(0);
   const [passEntries, setPassEntries] = useState<PassEntry[]>([]);
+  const [showAllPasses, setShowAllPasses] = useState(false);
+  const [showAllCredits, setShowAllCredits] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [qr, setQr] = useState<string | null>(null);
@@ -169,7 +171,7 @@ export default function CreditsScreen() {
           {passEntries.length > 0 && (
             <>
               <Text style={styles.sectionLabel}>CLASS PASS HISTORY</Text>
-              {passEntries.map((e) => {
+              {(showAllPasses ? passEntries : passEntries.slice(0, 4)).map((e) => {
                 const earned = e.delta >= 0;
                 return (
                   <View key={e.pass_ledger_id} testID={`pass-${e.pass_ledger_id}`} style={styles.row}>
@@ -186,6 +188,12 @@ export default function CreditsScreen() {
                   </View>
                 );
               })}
+              {passEntries.length > 4 && (
+                <Pressable testID="pass-show-more" style={styles.showMore} onPress={() => setShowAllPasses((v) => !v)}>
+                  <Text style={styles.showMoreText}>{showAllPasses ? "Show less" : `Show ${passEntries.length - 4} more`}</Text>
+                  <Ionicons name={showAllPasses ? "chevron-up" : "chevron-down"} size={15} color={colors.brand} />
+                </Pressable>
+              )}
             </>
           )}
 
@@ -196,7 +204,7 @@ export default function CreditsScreen() {
               <Text style={styles.emptyText}>No credit activity yet. Credits from cancelled classes will show here.</Text>
             </View>
           ) : (
-            entries.map((e) => {
+            (showAllCredits ? entries : entries.slice(0, 4)).map((e) => {
               const earned = e.delta_cents >= 0;
               return (
                 <View key={e.ledger_id} testID={`credit-${e.ledger_id}`} style={styles.row}>
@@ -213,6 +221,12 @@ export default function CreditsScreen() {
                 </View>
               );
             })
+          )}
+          {entries.length > 4 && (
+            <Pressable testID="credit-show-more" style={styles.showMore} onPress={() => setShowAllCredits((v) => !v)}>
+              <Text style={styles.showMoreText}>{showAllCredits ? "Show less" : `Show ${entries.length - 4} more`}</Text>
+              <Ionicons name={showAllCredits ? "chevron-up" : "chevron-down"} size={15} color={colors.brand} />
+            </Pressable>
           )}
           <MessageUsLink label="Questions about credit? Message us" style={{ marginTop: spacing.md }} />
         </ScrollView>
@@ -279,6 +293,8 @@ const styles = StyleSheet.create({
   passBtnOutlineText: { color: colors.brand, fontWeight: "900", fontSize: 14, letterSpacing: 0.3 },
   passHint: { color: colors.onSurfaceSecondary, fontSize: 12, textAlign: "center", marginTop: spacing.md, lineHeight: 17 },
   sectionLabel: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "800", letterSpacing: 1, marginTop: spacing.xl, marginBottom: spacing.sm },
+  showMore: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 12, marginTop: spacing.xs },
+  showMoreText: { color: colors.brand, fontSize: 13.5, fontWeight: "800" },
   empty: { alignItems: "center", gap: spacing.sm, paddingVertical: 40 },
   emptyText: { color: colors.onSurfaceSecondary, fontSize: 13, textAlign: "center", paddingHorizontal: spacing.xl, lineHeight: 19 },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm },

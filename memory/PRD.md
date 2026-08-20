@@ -1198,3 +1198,6 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Fix: rewrote send_due_reminders to (1) query only upcoming non-appointment classes in the next 12h (naive QLD range on start_at), (2) batch-load their bookings, (3) batch-load members — a few queries total instead of thousands. reminder_loop now runs class reminders every 5 min (was 15), and runs the heavy streak/trial scans only every ~30 min (tick%6) so they never delay class reminders. Logic (per-member lead 1/3/12h, once via reminder_sent) unchanged.
 - Verified: class 50 min out (member lead=1h) → reminder sent; class 5h out → not sent.
 - NOTE: per-member reminder lead time is set in Profile (1h/3h/12h; default 3h). Production needs a redeploy to apply.
+
+## Session update (Jun 2026) — Collapse Wallet history behind "Show more" (DONE)
+- app/credits.tsx: CLASS PASS HISTORY and CREDIT HISTORY now show only the first 4 rows with a "Show N more"/"Show less" toggle (showAllPasses/showAllCredits state, testIDs pass-show-more / credit-show-more, showMore styles). Verified via screenshots (collapsed 4 + "Show 5 more" → expands to full list). NOTE: production needs redeploy.
