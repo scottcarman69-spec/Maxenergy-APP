@@ -3890,6 +3890,86 @@ async def fulfill_store_purchase(tx: dict) -> None:
                      _email_shell(f"New Purchase — {p.get('name')}", admin_lines))
 
 
+async def send_payment_receipt(tx: dict) -> None:
+    """Email the member a clean, itemised payment receipt after a successful Square
+    card payment. Fires exactly once per transaction (guarded by receipt_sent) and only
+    when money was actually charged on the card via Square."""
+    if tx.get("provider") != "square":
+        return
+    # Claim atomically so concurrent polling / reconcile can't send two receipts.
+    claim = await db.payment_transactions.update_one(
+        {"session_id": tx["session_id"], "receipt_sent": {"$ne": True}},
+        {"$set": {"receipt_sent": True, "receipt_sent_at": now_utc()}},
+    )
+    if claim.modified_count != 1:
+        return
+
+    uid = tx.get("user_id")
+    member = await db.users.find_one({"user_id": uid}, {"_id": 0, "name": 1, "email": 1}) or {}
+    email = member.get("email")
+    if not email:
+        return
+    mname = member.get("name") or email
+    first = (mname or "").strip().split(" ")[0] or mname
+    kind = tx.get("kind")
+    currency = (tx.get("currency") or "aud").upper()
+    now = tx.get("fulfilled_at") or now_utc()
+    if isinstance(now, str):
+        now = now_utc()
+
+    # Work out the description, card amount and any account-credit portion.
+    credit_cents = 0
+    if kind == "store":
+        p = STORE_PRODUCTS.get(tx.get("product_id"), {})
+        desc = p.get("name") or "Store purchase"
+        if tx.get("key_tag"):
+            desc += " + Key Tag"
+        card_cents = int(tx.get("amount", 0))
+        ref = booking_ref_code(tx.get("order_ref") or tx.get("session_id") or uid)
+    elif kind == "giftcard":
+        card_cents = int(tx.get("amount", 0))
+        desc = f"Gift Card (${card_cents/100:.0f})"
+        ref = booking_ref_code(tx.get("order_ref") or tx.get("session_id") or uid)
+    else:
+        b = await db.bookings.find_one({"booking_id": tx.get("booking_id")}, {"_id": 0}) or {}
+        desc = b.get("class_name") or "Class booking"
+        full = int(tx.get("amount", b.get("amount", 0)))
+        credit_cents = int(tx.get("credit_applied_cents", 0))
+        card_cents = max(0, full - credit_cents)
+        ref = booking_ref_code(tx.get("booking_id") or tx.get("session_id") or uid)
+
+    # No card charge (fully covered by credit / pass) -> not a Square card receipt.
+    if card_cents <= 0:
+        return
+
+    total_cents = card_cents + credit_cents
+    lines = [
+        f"Hi {esc(first)},",
+        "Thanks for your payment. Here is your receipt:",
+        "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
+        f"<b>Receipt no.:</b> {esc(ref)}",
+        f"<b>Date:</b> {esc(now.strftime('%a %d %b %Y · %-I:%M %p'))}",
+        f"<b>Billed to:</b> {esc(mname)} ({esc(email)})",
+        "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
+        f"<b>Item:</b> {esc(desc)}",
+        f"<b>Paid on card:</b> ${card_cents/100:.2f} {currency}",
+    ]
+    if credit_cents > 0:
+        lines.append(f"<b>Account credit applied:</b> ${credit_cents/100:.2f} {currency}")
+        lines.append(f"<b>Total value:</b> ${total_cents/100:.2f} {currency}")
+    lines += [
+        "<b>Payment method:</b> Card (Square)",
+        "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
+        f"<span style='color:#666;font-size:13px'>Paid to {esc(GYM_INFO['name'])}, {esc(GYM_INFO['address'])}. "
+        "Prices include GST where applicable. Please keep this receipt for your records.</span>",
+    ]
+    try:
+        await send_email(email, f"Payment receipt — {desc} · {GYM_INFO['name']}",
+                         _email_shell("Payment Receipt 🧾", lines))
+    except Exception as e:
+        log.error(f"receipt email error for tx {tx.get('session_id')}: {e}")
+
+
 async def sync_square_payment(tx: dict) -> tuple:
     """Retrieve the Square order for a transaction, sync paid state, return (payment_status, status)."""
     order_id = tx.get("square_order_id")
@@ -3927,6 +4007,8 @@ async def sync_square_payment(tx: dict) -> tuple:
                 await fulfill_store_purchase(tx)
             else:
                 await mark_booking_paid(tx["booking_id"])
+            # Email the member a payment receipt (once per Square card payment).
+            await send_payment_receipt(tx)
     elif tx.get("payment_status") != payment_status:
         await db.payment_transactions.update_one(
             {"session_id": tx["session_id"]},

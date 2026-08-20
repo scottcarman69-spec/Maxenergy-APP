@@ -1137,3 +1137,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
   - sync_square_payment now claims the paid→fulfill transition ATOMICALLY (update guarded by payment_status != paid, act only if modified_count==1) so concurrent polling can't fulfill/credit/mark-paid twice.
 - Frontend class/[id].tsx handles new {already_paid:true} response → routes to receipt with "already paid" message.
 - Verified: calling /payments/checkout 3x for one booking returns the SAME session_id/url and creates exactly ONE Square order (PASS). Gift card/store use identical pattern.
+
+## Session update (Jun 2026) — Automatic payment receipt email (DONE)
+- New send_payment_receipt(tx) helper emails the member a clean itemised "Payment Receipt 🧾" after every successful Square CARD payment, across all kinds (class bookings, store passes/memberships, gift cards). Called from sync_square_payment inside the atomic paid-claim block (so it fires exactly once, alongside fulfillment). Idempotent via a receipt_sent flag claimed atomically.
+- Receipt contents: receipt no. (booking/order ref), date/time, billed-to name+email, item description (class name / product+key tag / "Gift Card ($X)"), amount paid on card, account credit applied (if any) + total value, payment method "Card (Square)", and business/GST footer (GYM_INFO name+address). Only sends when card_cents > 0 — pass/credit-only payments don't get a card receipt (they still get their existing confirmation email).
+- Verified via unit test (monkeypatched send_email): sends once with correct $20 card + $5 credit lines, 2nd call is a no-op, credit-only payment sends nothing.
