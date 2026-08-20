@@ -45,6 +45,7 @@ export default function AdminHome() {
     { key: "inbox", icon: "chatbubbles", label: "Inbox", desc: "Read & reply to member messages", route: "/admin/inbox", count: stats?.unread_messages, badge: true },
     { key: "group-requests", icon: "people-circle", label: "Group Requests", desc: "Approve new groups & join requests", route: "/admin/group-requests", count: stats?.group_requests, badge: true },
     { key: "scan", icon: "qr-code", label: "Scan Check-In", desc: "Scan a member's QR to check them in", route: "/admin/scan" },
+    { key: "checkins", icon: "checkmark-done", label: "Today's Check-Ins", desc: "Who checked in today & passes used", route: "/admin/checkins" },
     { key: "attendance", icon: "stats-chart", label: "Attendance Report", desc: "Check-ins by day, week & month", route: "/admin/attendance" },
     { key: "views", icon: "eye", label: "Content Views", desc: "How many members viewed notices & events", route: "/admin/views" },
     { key: "announcements", icon: "megaphone", label: "Gym Notices", desc: "Post & edit announcements to members", route: "/admin/announcements", count: stats?.announcements },

@@ -5221,6 +5221,79 @@ async def admin_passes_report(u: dict = Depends(require_admin)):
     }
 
 
+@api.get("/admin/checkins/today")
+async def admin_checkins_today(u: dict = Depends(require_admin)):
+    """Simple 'who checked in today' list + how many class passes were used today (Queensland day)."""
+    QLD = timedelta(hours=10)
+    day = (now_utc() + QLD).date()
+    day_start_local = datetime(day.year, day.month, day.day)
+    day_start_utc = (day_start_local - QLD).replace(tzinfo=timezone.utc)
+
+    # 1) Booking/appointment check-ins recorded today.
+    bks = await db.bookings.find(
+        {"attended": True, "checked_in_at": {"$gte": day_start_utc}}, {"_id": 0}
+    ).to_list(5000)
+    # 2) Casual walk-in class-pass redemptions today (no booking).
+    reds = await db.pass_redemptions.find(
+        {"redeemed_at": {"$gte": day_start_utc}}, {"_id": 0}
+    ).to_list(5000)
+
+    uids = {b["user_id"] for b in bks} | {r["user_id"] for r in reds}
+    users = await db.users.find(
+        {"user_id": {"$in": list(uids)}}, {"_id": 0, "user_id": 1, "name": 1, "email": 1}
+    ).to_list(10000)
+    umap = {x["user_id"]: x for x in users}
+
+    def who(uid):
+        x = umap.get(uid) or {}
+        return (x.get("name") or x.get("email") or "Member"), x.get("email")
+
+    def fmt_time(t):
+        if isinstance(t, datetime):
+            local = (t + QLD).replace(tzinfo=None) if t.tzinfo else (t + QLD)
+            return local, local.strftime("%I:%M %p").lstrip("0")
+        return None, ""
+
+    entries = []
+    passes_used = 0
+    for b in bks:
+        name, email = who(b["user_id"])
+        local, tstr = fmt_time(b.get("checked_in_at"))
+        pass_used = bool(b.get("paid_with_pass"))
+        method = b.get("checked_in_method")
+        by = "QR" if method == "qr" else ("Member" if b.get("checked_in_by") == "member" else "Staff")
+        entries.append({
+            "name": name, "email": email,
+            "label": b.get("class_name") or "Class",
+            "kind": "booking", "pass_used": pass_used, "by": by,
+            "child_name": b.get("child_name"),
+            "_sort": local or datetime.min, "time": tstr,
+        })
+        if pass_used:
+            passes_used += 1
+    for r in reds:
+        name, email = who(r["user_id"])
+        local, tstr = fmt_time(r.get("redeemed_at"))
+        entries.append({
+            "name": name, "email": email,
+            "label": "Class Pass entry (walk-in)",
+            "kind": "walkin", "pass_used": True, "by": "QR",
+            "child_name": None,
+            "_sort": local or datetime.min, "time": tstr,
+        })
+        passes_used += 1
+
+    entries.sort(key=lambda e: e["_sort"], reverse=True)
+    for e in entries:
+        e.pop("_sort", None)
+
+    return {
+        "date": day_start_local.strftime("%a %d %b %Y"),
+        "totals": {"checkins": len(entries), "passes_used": passes_used, "members": len(uids)},
+        "entries": entries,
+    }
+
+
 @api.get("/admin/waitlists")
 async def admin_waitlists(u: dict = Depends(require_admin)):
     """Every class that has members waiting, with the ordered list under each."""

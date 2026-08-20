@@ -191,6 +191,7 @@ export const api = {
   classPassQr: () => req(`/api/passes/qr`),
   scanCheckin: (code: string, confirm?: boolean) =>
     req("/api/admin/checkin/scan", { method: "POST", body: JSON.stringify({ code, confirm: !!confirm }) }),
+  checkinsToday: () => req("/api/admin/checkins/today"),
 
   events: () => req("/api/events"),
   eventDetail: (id: string) => req(`/api/events/${id}`),
