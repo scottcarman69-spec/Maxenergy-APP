@@ -16,6 +16,7 @@ export default function AdminGymPhotos() {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [savingOrder, setSavingOrder] = useState(false);
   const [captions, setCaptions] = useState<Record<string, string>>({});
@@ -56,13 +57,35 @@ export default function AdminGymPhotos() {
       perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) return;
     }
-    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.7, base64: true });
-    if (res.canceled || !res.assets?.[0]?.base64) return;
-    const dataUri = `data:image/jpeg;base64,${res.assets[0].base64}`;
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.7,
+      base64: true,
+      allowsMultipleSelection: true,
+      selectionLimit: 20,
+    });
+    if (res.canceled) return;
+    const assets = (res.assets || []).filter((a) => !!a.base64);
+    if (assets.length === 0) return;
+
     setUploading(true);
-    try { await api.adminAddGymPhoto(dataUri); await load(); }
-    catch (e: any) { Alert.alert("Couldn't add photo", e?.message || "Please try a smaller image."); }
+    setProgress({ done: 0, total: assets.length });
+    let failed = 0;
+    for (let i = 0; i < assets.length; i++) {
+      const dataUri = `data:image/jpeg;base64,${assets[i].base64}`;
+      try {
+        await api.adminAddGymPhoto(dataUri);
+      } catch {
+        failed += 1;
+      }
+      setProgress({ done: i + 1, total: assets.length });
+    }
+    await load();
     setUploading(false);
+    setProgress(null);
+    if (failed > 0) {
+      Alert.alert("Some photos didn't upload", `${assets.length - failed} added, ${failed} failed. Please try the failed ones again (they may be too large).`);
+    }
   };
 
   const removePhoto = (photo_id: string) => {
@@ -148,14 +171,26 @@ export default function AdminGymPhotos() {
           ListHeaderComponent={
             <View>
               <Text style={styles.intro}>These photos appear in the “OUR GYM” gallery on the Home screen. Drag the handle to reorder, and changes go live for members instantly — no app update needed.</Text>
-              <Pressable testID="gymphotos-add" style={[styles.addBtn, uploading && { opacity: 0.6 }]} onPress={addPhoto} disabled={uploading}>
-                {uploading ? <ActivityIndicator color={colors.onBrand} /> : (
+              <Pressable testID="gymphotos-add" style={[styles.addBtn, uploading && { opacity: 0.85 }]} onPress={addPhoto} disabled={uploading}>
+                {uploading ? (
+                  <>
+                    <ActivityIndicator color={colors.onBrand} />
+                    <Text style={styles.addText}>
+                      {progress ? `UPLOADING ${progress.done}/${progress.total} · ${Math.round((progress.done / progress.total) * 100)}%` : "UPLOADING…"}
+                    </Text>
+                  </>
+                ) : (
                   <>
                     <Ionicons name="add-circle" size={20} color={colors.onBrand} />
-                    <Text style={styles.addText}>ADD A PHOTO</Text>
+                    <Text style={styles.addText}>ADD PHOTOS</Text>
                   </>
                 )}
               </Pressable>
+              {uploading && progress && (
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { width: `${Math.round((progress.done / progress.total) * 100)}%` }]} />
+                </View>
+              )}
             </View>
           }
           ListEmptyComponent={
@@ -174,6 +209,8 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   intro: { color: colors.onSurfaceSecondary, fontSize: 14, lineHeight: 21, marginBottom: spacing.lg },
   addBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.brand, paddingVertical: 14, borderRadius: radius.md, marginBottom: spacing.lg },
+  progressTrack: { height: 8, borderRadius: 4, backgroundColor: colors.surfaceTertiary, marginTop: -spacing.sm, marginBottom: spacing.lg, overflow: "hidden" },
+  progressFill: { height: "100%", backgroundColor: colors.brand, borderRadius: 4 },
   addText: { color: colors.onBrand, fontFamily: font.display, fontSize: 15, letterSpacing: 1 },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   card: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.sm, marginBottom: spacing.md },
