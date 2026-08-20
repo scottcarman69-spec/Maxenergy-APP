@@ -29,6 +29,14 @@ export default function GiftCards() {
   const [redeemMsg, setRedeemMsg] = useState<string | null>(null);
   const [redeemOk, setRedeemOk] = useState<string | null>(null);
   const [lockLeft, setLockLeft] = useState(0);
+  const [mine, setMine] = useState<{ purchased: any[]; redeemed: any[] }>({ purchased: [], redeemed: [] });
+
+  const loadMine = useCallback(async () => {
+    try {
+      const r = await api.giftcardsMine();
+      setMine({ purchased: r.purchased || [], redeemed: r.redeemed || [] });
+    } catch {}
+  }, []);
 
   React.useEffect(() => {
     if (lockLeft <= 0) return;
@@ -40,8 +48,12 @@ export default function GiftCards() {
   const effectiveAmount = custom.trim() ? Math.round(parseFloat(custom) * 100) : amount;
   const amountValid = typeof effectiveAmount === "number" && !Number.isNaN(effectiveAmount) && effectiveAmount >= MIN && effectiveAmount <= MAX;
   const money = (c: number) => `$${(c / 100).toFixed(c % 100 === 0 ? 0 : 2)}`;
+  const fmtDate = (iso?: string) => {
+    if (!iso) return "";
+    try { return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }); } catch { return ""; }
+  };
 
-  useFocusEffect(useCallback(() => { refresh(); }, [refresh]));
+  useFocusEffect(useCallback(() => { refresh(); loadMine(); }, [refresh, loadMine]));
 
   const buy = async () => {
     setMsg(null); setDoneCode(null);
@@ -57,7 +69,7 @@ export default function GiftCards() {
         await new Promise((r) => setTimeout(r, 1500));
         try {
           const s = await api.giftcardStatus(session_id);
-          if (s.payment_status === "paid") { setBusy(false); setDoneCode(s.code || "sent"); return; }
+          if (s.payment_status === "paid") { setBusy(false); setDoneCode(s.code || "sent"); loadMine(); return; }
         } catch {}
       }
       setMsg("Still processing — the gift card will be emailed once payment confirms.");
@@ -76,6 +88,7 @@ export default function GiftCards() {
       setRedeemOk(`${money(r.amount_cents)} added to your account credit! New balance: ${money(r.credit_cents)}.`);
       setCode("");
       refresh();
+      loadMine();
     } catch (e: any) {
       if (e?.status === 429 && e?.retryAfter) setLockLeft(e.retryAfter);
       setRedeemMsg(e?.message || "Could not redeem that code.");
@@ -175,6 +188,56 @@ export default function GiftCards() {
               )}
             </Pressable>
           </View>
+
+          {/* Receipts / history */}
+          {(mine.purchased.length > 0 || mine.redeemed.length > 0) && (
+            <View style={styles.card}>
+              <Text style={styles.label}>My gift cards</Text>
+
+              {mine.purchased.length > 0 && (
+                <>
+                  <Text style={styles.histHead}>Purchased ({mine.purchased.length})</Text>
+                  {mine.purchased.map((g) => (
+                    <View key={g.gift_card_id} testID={`gift-purchased-${g.gift_card_id}`} style={styles.histRow}>
+                      <View style={styles.histIcon}><Ionicons name="gift" size={18} color={colors.brand} /></View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.histCode}>{g.code}</Text>
+                        <Text style={styles.histMeta}>
+                          {money(g.amount_cents)}{g.recipient_name ? ` · to ${g.recipient_name}` : g.recipient_email ? ` · to ${g.recipient_email}` : ""}
+                        </Text>
+                        <Text style={styles.histDate}>{fmtDate(g.created_at)}</Text>
+                      </View>
+                      <View style={styles.histRight}>
+                        <Text style={styles.histBal}>{money(g.balance_cents)}</Text>
+                        <View style={[styles.histPill, g.status !== "active" && styles.histPillOff]}>
+                          <Text style={[styles.histPillText, g.status !== "active" && styles.histPillTextOff]}>
+                            {g.status === "active" ? "AVAILABLE" : "USED"}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  ))}
+                </>
+              )}
+
+              {mine.redeemed.length > 0 && (
+                <>
+                  <Text style={styles.histHead}>Redeemed on this account ({mine.redeemed.length})</Text>
+                  {mine.redeemed.map((g) => (
+                    <View key={g.gift_card_id} testID={`gift-redeemed-${g.gift_card_id}`} style={styles.histRow}>
+                      <View style={styles.histIcon}><Ionicons name="checkmark-circle" size={18} color="#22C55E" /></View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.histCode}>{g.code}</Text>
+                        <Text style={styles.histMeta}>{money(g.amount_cents)} added to credit{g.purchaser_name ? ` · from ${g.purchaser_name}` : ""}</Text>
+                        <Text style={styles.histDate}>{fmtDate(g.redeemed_at)}</Text>
+                      </View>
+                      <Text style={styles.histCredit}>+{money(g.amount_cents)}</Text>
+                    </View>
+                  ))}
+                </>
+              )}
+            </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -208,6 +271,19 @@ const styles = StyleSheet.create({
   outlineBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1.5, borderColor: colors.brand, paddingVertical: 14, borderRadius: radius.md, marginTop: spacing.xs },
   outlineBtnText: { color: colors.brand, fontFamily: font.display, fontSize: 14, letterSpacing: 0.5 },
   redeemSub: { color: colors.onSurfaceSecondary, fontSize: 13, lineHeight: 18, marginTop: -4 },
+  histHead: { color: colors.onSurfaceSecondary, fontSize: 11.5, fontWeight: "800", letterSpacing: 0.5, textTransform: "uppercase", marginTop: spacing.sm },
+  histRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
+  histIcon: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center" },
+  histCode: { color: colors.onSurface, fontSize: 14, fontWeight: "900", letterSpacing: 0.5 },
+  histMeta: { color: colors.onSurfaceSecondary, fontSize: 12.5, marginTop: 2 },
+  histDate: { color: colors.onSurfaceSecondary, fontSize: 11, marginTop: 1, opacity: 0.8 },
+  histRight: { alignItems: "flex-end", gap: 4 },
+  histBal: { color: colors.onSurface, fontSize: 15, fontWeight: "900" },
+  histPill: { backgroundColor: colors.brandTertiary, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },
+  histPillOff: { backgroundColor: colors.surfaceTertiary },
+  histPillText: { color: colors.brand, fontSize: 9, fontWeight: "900", letterSpacing: 0.5 },
+  histPillTextOff: { color: colors.onSurfaceSecondary },
+  histCredit: { color: "#22C55E", fontSize: 15, fontWeight: "900" },
   lockBox: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "rgba(245,158,11,0.12)", borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 10 },
   lockText: { color: "#F59E0B", fontSize: 13, flex: 1 },
   lockTimer: { fontWeight: "900" },

@@ -280,6 +280,16 @@ export default function Profile() {
 
         <Text style={styles.section}>PAYMENTS</Text>
         <View style={styles.linkGroup}>
+          <Pressable testID="profile-link-giftcards" style={[styles.membershipRow, styles.linkRowDivider]} onPress={() => router.push("/gift-cards")}>
+            <View style={styles.membershipIcon}>
+              <Ionicons name="gift" size={20} color={colors.onBrand} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.membershipLabel}>Gift Cards</Text>
+              <Text style={styles.membershipSub}>Buy, redeem & view your gift card receipts</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.brand} />
+          </Pressable>
           <Pressable testID="profile-link-receipts" style={styles.membershipRow} onPress={() => router.push("/receipts")}>
             <View style={styles.membershipIcon}>
               <Ionicons name="receipt" size={20} color={colors.onBrand} />

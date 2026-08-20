@@ -1092,3 +1092,7 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 ## Session update (Jun 2026) — Android EAS build fix (dependency dedupe) + backend health endpoint (DONE)
 - Added GET /health, /healthz (root app) and /api/health -> 200 {"status":"ok"} in backend/server.py so the K8s readiness probe stops 404ing.
 - ROOT CAUSE of failing EAS Android app-bundle build: npx expo-doctor found a DUPLICATE native module (expo-constants 18.0.14 at root + 18.0.13 nested under expo-asset/expo-linking) — native builds allow only one copy per module. Fix: `npx expo install expo expo-constants expo-file-system` to align to SDK-expected versions (expo 54.0.37, expo-constants 18.0.14, expo-file-system 19.0.24) + added yarn `resolutions` for expo-constants(18.0.14) & expo-file-system(19.0.24) to collapse nested copies. expo-doctor now 18/18 PASS, no duplicates. App bundles & loads in preview. deployment_agent: PASS, zero blockers. NOTE: Metro dev-server prints a stale version-mismatch warning but on-disk root versions are correct and expo-doctor is clean.
+
+## Session update (Jun 2026) — Gift cards in Profile + receipts (DONE)
+- Added "Gift Cards" row under Profile > PAYMENTS (-> /gift-cards).
+- Added "My gift cards" receipts section on /gift-cards using GET /api/giftcards/mine: Purchased list (code, amount, recipient, date, remaining balance + AVAILABLE/USED pill) and Redeemed-on-account list (code, amount added to credit, from purchaser, date, +amount). Auto-refreshes on focus and after purchase/redeem. Verified via API + screenshot.
