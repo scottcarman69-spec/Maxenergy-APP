@@ -7,7 +7,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
-import { aboutHero, gymPhotos, teamPhotos } from "@/src/gymPhotos";
+import { aboutHero, teamPhotos } from "@/src/gymPhotos";
+import { useGymGallery } from "@/src/useGymGallery";
 
 type Member = { name: string; role: string; image: string; bio: string; quals: string[] };
 type About = { heading: string; subheading: string; since: string; story: string[]; team: Member[] };
@@ -18,6 +19,7 @@ export default function AboutScreen() {
   const router = useRouter();
   const [data, setData] = useState<About | null>(null);
   const [loading, setLoading] = useState(true);
+  const galleryPhotos = useGymGallery();
 
   const load = useCallback(async () => {
     try {
@@ -60,7 +62,7 @@ export default function AboutScreen() {
 
             <Text style={styles.sectionTitle}>INSIDE OUR GYM</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.md }} style={{ marginHorizontal: -spacing.xl, paddingHorizontal: spacing.xl }}>
-              {gymPhotos.map((src, i) => (
+              {galleryPhotos.map((src, i) => (
                 <Image key={i} source={src} style={styles.galleryImg} contentFit="cover" />
               ))}
             </ScrollView>

@@ -25,7 +25,7 @@ import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
 import { classTime, classDate, qldHour, scheduleDay, qldTodayUTC } from "@/src/datetime";
 import ScreenBg from "@/src/components/ScreenBg";
-import { gymPhotos } from "@/src/gymPhotos";
+import { useGymGallery } from "@/src/useGymGallery";
 import { coachSource } from "@/src/coaches";
 import LiveNowBanner from "@/src/components/LiveNowBanner";
 import WelcomeTour from "@/src/components/WelcomeTour";
@@ -79,6 +79,7 @@ export default function Home() {
   const { user, refresh } = useAuth();
   const router = useRouter();
   const [classes, setClasses] = useState<Cls[]>([]);
+  const galleryPhotos = useGymGallery();
   const [lightbox, setLightbox] = useState<number | null>(null);
   const [passQr, setPassQr] = useState<string | null>(null);
   const [passQrCount, setPassQrCount] = useState(0);
@@ -716,7 +717,7 @@ export default function Home() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.md }}
             >
-              {gymPhotos.map((src, i) => (
+              {galleryPhotos.map((src, i) => (
                 <Pressable key={i} testID={`home-gym-photo-${i}`} onPress={() => setLightbox(i)} accessibilityRole="imagebutton">
                   <Image source={src} style={styles.galleryImg} contentFit="cover" />
                   <View style={styles.galleryExpand}>
@@ -812,15 +813,15 @@ export default function Home() {
             <Ionicons name="close" size={26} color="#fff" />
           </Pressable>
           {lightbox !== null && (
-            <Image source={gymPhotos[lightbox]} style={styles.lbImage} contentFit="contain" />
+            <Image source={galleryPhotos[lightbox]} style={styles.lbImage} contentFit="contain" />
           )}
-          {lightbox !== null && gymPhotos.length > 1 && (
+          {lightbox !== null && galleryPhotos.length > 1 && (
             <View style={styles.lbNav}>
-              <Pressable testID="home-gym-prev" style={styles.lbNavBtn} onPress={() => setLightbox((i) => (i === null ? 0 : (i - 1 + gymPhotos.length) % gymPhotos.length))} hitSlop={10}>
+              <Pressable testID="home-gym-prev" style={styles.lbNavBtn} onPress={() => setLightbox((i) => (i === null ? 0 : (i - 1 + galleryPhotos.length) % galleryPhotos.length))} hitSlop={10}>
                 <Ionicons name="chevron-back" size={26} color="#fff" />
               </Pressable>
-              <Text style={styles.lbCount}>{lightbox + 1} / {gymPhotos.length}</Text>
-              <Pressable testID="home-gym-next" style={styles.lbNavBtn} onPress={() => setLightbox((i) => (i === null ? 0 : (i + 1) % gymPhotos.length))} hitSlop={10}>
+              <Text style={styles.lbCount}>{lightbox + 1} / {galleryPhotos.length}</Text>
+              <Pressable testID="home-gym-next" style={styles.lbNavBtn} onPress={() => setLightbox((i) => (i === null ? 0 : (i + 1) % galleryPhotos.length))} hitSlop={10}>
                 <Ionicons name="chevron-forward" size={26} color="#fff" />
               </Pressable>
             </View>

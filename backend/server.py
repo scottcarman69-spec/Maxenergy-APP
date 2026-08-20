@@ -325,6 +325,30 @@ def esc(s) -> str:
     return _html.escape(str(s or ""))
 
 
+def _process_gallery_image(src, max_w: int = 1280, quality: int = 72) -> str:
+    """Downscale + JPEG-compress an image and return a compact data URI.
+    Accepts a data URI string (admin upload) or raw bytes (file seed). Keeps the
+    stored gallery payload small so the Home/About galleries load fast."""
+    from PIL import Image as _PILImage, ImageOps as _ImageOps
+    if isinstance(src, str):
+        if "," in src:
+            src = src.split(",", 1)[1]
+        raw = base64.b64decode(src)
+    else:
+        raw = src
+    img = _PILImage.open(io.BytesIO(raw))
+    img = _ImageOps.exif_transpose(img)  # honour phone orientation
+    if img.mode not in ("RGB",):
+        img = img.convert("RGB")
+    if img.width > max_w:
+        h = int(img.height * (max_w / img.width))
+        img = img.resize((max_w, h), _PILImage.LANCZOS)
+    out = io.BytesIO()
+    img.save(out, format="JPEG", quality=quality, optimize=True)
+    return "data:image/jpeg;base64," + base64.b64encode(out.getvalue()).decode()
+
+
+
 def _email_shell(heading: str, lines: list) -> str:
     body = "".join(f"<p style='margin:0 0 10px;color:#333;font-size:15px;line-height:1.5'>{ln}</p>" for ln in lines if ln)
     return (
@@ -2707,6 +2731,49 @@ async def set_my_photo(body: PhotoReq, u: dict = Depends(require_user)):
         raise HTTPException(400, "Image is too large. Please choose a smaller photo.")
     await db.users.update_one({"user_id": u["user_id"]}, {"$set": {"picture": img}})
     return {"ok": True, "picture": img}
+
+
+# ==================== OUR GYM gallery (admin-managed, no redeploy) ====================
+@api.get("/gym/photos")
+async def gym_photos_list():
+    """Public: the OUR GYM gallery photos, ordered. Empty list => app shows bundled defaults."""
+    rows = await db.gym_photos.find({}, {"_id": 0, "photo_id": 1, "image": 1, "sort": 1}).sort([("sort", 1), ("created_at", 1)]).to_list(200)
+    return {"photos": [{"photo_id": r["photo_id"], "image": r["image"]} for r in rows]}
+
+
+class GymPhotoReq(BaseModel):
+    image: str
+
+
+@api.post("/admin/gym/photos")
+async def gym_photo_add(body: GymPhotoReq, u: dict = Depends(require_admin)):
+    img = (body.image or "").strip()
+    if not img.startswith("data:image"):
+        raise HTTPException(400, "Invalid image.")
+    if len(img) > 12_000_000:
+        raise HTTPException(400, "Image is too large. Please choose a smaller photo.")
+    try:
+        processed = _process_gallery_image(img)
+    except Exception as e:
+        log.error(f"gym photo process error: {e}")
+        raise HTTPException(400, "Could not process that image. Please try another photo.")
+    last = await db.gym_photos.find_one({}, {"_id": 0, "sort": 1}, sort=[("sort", -1)])
+    nxt = int((last or {}).get("sort", 0)) + 1
+    photo_id = new_id("gph")
+    await db.gym_photos.insert_one({
+        "photo_id": photo_id, "image": processed, "sort": nxt,
+        "created_by": u["user_id"], "created_at": now_utc(),
+    })
+    return {"ok": True, "photo_id": photo_id}
+
+
+@api.delete("/admin/gym/photos/{photo_id}")
+async def gym_photo_delete(photo_id: str, u: dict = Depends(require_admin)):
+    r = await db.gym_photos.delete_one({"photo_id": photo_id})
+    if r.deleted_count == 0:
+        raise HTTPException(404, "Photo not found.")
+    return {"ok": True}
+
 
 
 async def _friend_status(me: str, other: str) -> str:
@@ -7236,6 +7303,31 @@ async def seed_data():
 
     await db.meta.update_one({"key": "seed_version"}, {"$set": {"value": SEED_VERSION}}, upsert=True)
     log.info(f"seed check complete -> {SEED_VERSION}")
+
+    # Seed the OUR GYM gallery from the current bundled photos (once), so admins start
+    # with the existing images and can add/remove them in-app without a redeploy.
+    if await db.gym_photos.count_documents({}) == 0:
+        import os as _os
+        _img_dir = _os.path.join(_os.path.dirname(__file__), "..", "frontend", "assets", "images")
+        _gallery_files = ["ourgym1.webp", "ourgym2.webp", "ourgym3.webp", "ourgym4.webp",
+                          "kickbox1.webp", "kids1.jpg", "kids2.jpg", "kids3.jpg"]
+        _sort = 0
+        for _fn in _gallery_files:
+            _fp = _os.path.join(_img_dir, _fn)
+            if not _os.path.exists(_fp):
+                continue
+            try:
+                with open(_fp, "rb") as _f:
+                    _data = _f.read()
+                _uri = _process_gallery_image(_data)
+                _sort += 1
+                await db.gym_photos.insert_one({
+                    "photo_id": new_id("gph"), "image": _uri, "sort": _sort,
+                    "created_by": "seed", "created_at": now_utc(),
+                })
+            except Exception as _e:
+                log.error(f"gym gallery seed error for {_fn}: {_e}")
+        log.info(f"gym gallery seeded -> {_sort} photos")
 
     # One-time capacity policy: every class is capped at a MAXIMUM of 16 spots
     # (appointment 1-on-1 sessions keep capacity 1). Runs once per policy version.

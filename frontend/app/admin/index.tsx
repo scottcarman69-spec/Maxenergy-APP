@@ -55,6 +55,7 @@ export default function AdminHome() {
     { key: "passes", icon: "ticket", label: "Class Pass Report", desc: "Who holds passes and how many they've used", route: "/admin/passes" },
     { key: "gift-cards", icon: "gift", label: "Gift Cards", desc: "Look up cards & adjust balances for in-store use", route: "/admin/gift-cards" },
     { key: "waitlists", icon: "people", label: "Waitlists", desc: "See who's waiting on full classes", route: "/admin/waitlists" },
+    { key: "gym-photos", icon: "images", label: "Gym Gallery Photos", desc: "Add or remove OUR GYM photos — no update needed", route: "/admin/gym-photos" },
   ];
 
   return (

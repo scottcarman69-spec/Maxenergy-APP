@@ -1145,3 +1145,13 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Session update (Jun 2026) — Removed 1 OUR GYM gallery photo (DONE)
 - Removed kickbox2.webp (was photo 6/9) from the gymPhotos array in src/gymPhotos.ts at the user's request. Gallery now has 8 photos (ourgym1-4, kickbox1, kids1-3). File kept on disk, just unlinked from the array.
+
+## Session update (Jun 2026) — Admin-managed OUR GYM gallery (add/remove, no redeploy) (DONE)
+- Gallery is now DB-driven so admins can add/remove photos in-app without an app update.
+- Backend: new gym_photos collection {photo_id, image(data URI), sort, created_by, created_at}.
+  - GET /api/gym/photos (public) → ordered photos; empty ⇒ app uses bundled defaults.
+  - POST /api/admin/gym/photos {image dataURI} (admin) → downscales+compresses via Pillow helper _process_gallery_image (max width 1280, JPEG q72; honours EXIF orientation) so payloads stay ~150-220KB; appends at next sort.
+  - DELETE /api/admin/gym/photos/{photo_id} (admin).
+  - Startup seed: if gym_photos empty, seeds the 8 current bundled files (ourgym1-4, kickbox1, kids1-3) as compressed data URIs so admins start with the existing gallery. Logged "gym gallery seeded -> 8 photos".
+- Frontend: src/useGymGallery.ts hook (fetches remote photos on focus; falls back to bundled gymPhotos). Home OUR GYM gallery + lightbox and About "INSIDE OUR GYM" now use the hook. New admin screen app/admin/gym-photos.tsx (2-col grid, ADD A PHOTO via expo-image-picker base64 q0.7, per-photo delete with confirm). Admin dashboard tile "Gym Gallery Photos". api.ts: gymGalleryPhotos/adminAddGymPhoto/adminDeleteGymPhoto.
+- Verified: seed=8, add real jpg→9, delete→8 (200s); admin screen renders 2-col grid with delete buttons. NOTE: images stored base64-in-Mongo (matches existing avatar pattern; no object storage configured). Deployed app needs a redeploy to get this code, but photo content changes thereafter need NO redeploy.

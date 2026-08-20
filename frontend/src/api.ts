@@ -235,6 +235,9 @@ export const api = {
 
   notifications: () => req("/api/notifications"),
   setMyPhoto: (image: string) => req("/api/me/photo", { method: "POST", body: JSON.stringify({ image }) }),
+  gymGalleryPhotos: () => req("/api/gym/photos"),
+  adminAddGymPhoto: (image: string) => req("/api/admin/gym/photos", { method: "POST", body: JSON.stringify({ image }) }),
+  adminDeleteGymPhoto: (photo_id: string) => req(`/api/admin/gym/photos/${photo_id}`, { method: "DELETE" }),
   searchMembers: (q: string) => req(`/api/members/search?q=${encodeURIComponent(q)}`),
   friendRequest: (payload: { user_id?: string; handle?: string }) => req("/api/friends/request", { method: "POST", body: JSON.stringify(payload) }),
   friends: () => req("/api/friends"),
