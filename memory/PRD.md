@@ -1124,3 +1124,6 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Session update (Jun 2026) — Class Pass button restyled green (DONE)
 - Home "Class Pass" button restyled to a green LinearGradient pill (#22C55E→#059669) with a soft green glow/shadow + white ticket icon/text, to stand out from the orange "My Check-In QR" button. New classPassBtn/classPassText styles in app/(tabs)/home.tsx. Verified via screenshot.
+
+## Session update (Jun 2026) — Removed "Class Check-In" quick action (DONE)
+- Removed the "checkin" (Class Check-In) tile from QUICK_ACTIONS_META in src/quickActions.ts, so it no longer shows on the Home Quick Actions grid or the Customize screen. orderKeys() filters out keys not in allKeys, so any saved preferences that still list "checkin" simply drop it. (The /check-in screen and the "My Check-In QR" home button remain.)

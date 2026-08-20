@@ -11,7 +11,6 @@ export const QUICK_ACTIONS_META: QuickActionMeta[] = [
   { key: "booknext", label: "Book Next Class", icon: "flash", grad: ["#FF7A00", "#FFB259"] },
   { key: "bookings", label: "My Bookings", icon: "bookmark", grad: ["#0D9488", "#2DD4BF"] },
   { key: "schedule", label: "View Schedule", icon: "calendar", grad: ["#FF7A00", "#FFB259"] },
-  { key: "checkin", label: "Class Check-In", icon: "checkmark-done", grad: ["#16A34A", "#4ADE80"] },
   { key: "classpass", label: "Class Pass", icon: "ticket", grad: ["#DC2626", "#F87171"] },
   { key: "store", label: "Buy Passes", icon: "pricetags", grad: ["#EA580C", "#FB923C"] },
   { key: "giftcards", label: "Gift Cards", icon: "gift", grad: ["#DB2777", "#F472B6"] },
