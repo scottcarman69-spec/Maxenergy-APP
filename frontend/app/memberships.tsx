@@ -8,6 +8,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { api, BACKEND_URL } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
 import ScreenHeader from "@/src/components/ScreenHeader";
+import MessageUsLink from "@/src/components/MessageUsLink";
 import { classDate, classTime, qldTodayUTC } from "@/src/datetime";
 
 type Product = {
@@ -217,6 +218,7 @@ export default function MembershipsScreen() {
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.brand} />
           </Pressable>
+          <MessageUsLink label="Questions about memberships? Message us" />
         </ScrollView>
       )}
       </View>

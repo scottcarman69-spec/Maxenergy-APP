@@ -8,6 +8,7 @@ import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
 import { classTime, classDate, classStartMs, qldTodayUTC, qldNowUTC, stampDate, stampTime } from "@/src/datetime";
 import ScreenHeader from "@/src/components/ScreenHeader";
+import MessageUsLink from "@/src/components/MessageUsLink";
 import { addBookingToCalendar } from "@/src/utils/calendar";
 
 type Booking = { booking_id: string; class_name: string; status: string; amount: number; by_appointment?: boolean; is_trial?: boolean; requested_time?: string; requested_at?: string; scheduled_time?: string; proposed_time?: string; class_start?: string; duration_min?: number; attended?: boolean; checked_in_method?: string; checked_in_by?: string; checked_in_at?: string; paid_with_pass?: boolean; child_name?: string; child_age?: number; trainer?: string; spots_left?: number; booked?: number; capacity?: number };
@@ -578,6 +579,7 @@ export default function BookingsScreen() {
             })
           )}
           {bookings.length > 0 && <Text style={styles.swipeHint}>Swipe a booking left to clear it</Text>}
+          <MessageUsLink style={{ marginTop: spacing.md }} />
         </ScrollView>
       )}
 

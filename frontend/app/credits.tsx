@@ -7,6 +7,7 @@ import QRCode from "react-native-qrcode-svg";
 import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
 import ScreenHeader from "@/src/components/ScreenHeader";
+import MessageUsLink from "@/src/components/MessageUsLink";
 import { stampDate, stampTime } from "@/src/datetime";
 
 type Entry = { ledger_id: string; delta_cents: number; reason: string; created_at: string };
@@ -213,6 +214,7 @@ export default function CreditsScreen() {
               );
             })
           )}
+          <MessageUsLink label="Questions about credit? Message us" style={{ marginTop: spacing.md }} />
         </ScrollView>
       )}
 

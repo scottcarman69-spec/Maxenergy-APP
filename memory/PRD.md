@@ -1171,3 +1171,6 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Session update (Jun 2026) — "Message Us" button on Contact & Gym Info (DONE)
 - Added a primary "MESSAGE US" button (chatbubbles icon) on app/contact.tsx that routes to /chat/gym (the existing in-app "Maxenergy Team" support conversation). "OPEN IN MAPS" restyled to an outline button below it to keep hierarchy clear. Verified: button renders and opens the support chat screen.
+
+## Session update (Jun 2026) — Support quick links on key screens (DONE)
+- New reusable component src/components/MessageUsLink.tsx (chatbubbles pill → router.push("/chat/gym"), customisable label). Added to: app/bookings.tsx ("Need help? Message us"), app/memberships.tsx ("Questions about memberships? Message us"), app/credits.tsx wallet ("Questions about credit? Message us"). Verified on Bookings via screenshot. Contact screen MESSAGE US button already added previously.
