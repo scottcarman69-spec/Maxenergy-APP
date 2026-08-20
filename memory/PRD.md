@@ -1168,3 +1168,6 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Session update (Jun 2026) — Multi-image gallery upload + progress % (DONE)
 - Admin Gym Gallery Photos "ADD PHOTOS" now uses ImagePicker.launchImageLibraryAsync({allowsMultipleSelection:true, selectionLimit:20}). Selected images upload sequentially via existing POST /api/admin/gym/photos (one per call); a progress state {done,total} drives the button label "UPLOADING x/y · NN%" and a brand progress bar under the button. Failures are counted and summarised in an alert; gallery reloads on completion. Frontend-only change (app/admin/gym-photos.tsx). NOTE: multi-select picker + live progress only fully testable on a real device/Expo Go (web picker is single-file).
+
+## Session update (Jun 2026) — "Message Us" button on Contact & Gym Info (DONE)
+- Added a primary "MESSAGE US" button (chatbubbles icon) on app/contact.tsx that routes to /chat/gym (the existing in-app "Maxenergy Team" support conversation). "OPEN IN MAPS" restyled to an outline button below it to keep hierarchy clear. Verified: button renders and opens the support chat screen.

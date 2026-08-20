@@ -101,9 +101,14 @@ export default function Contact() {
           </Pressable>
         </View>
 
+        <Pressable testID="contact-message-btn" style={styles.messageBtn} onPress={() => router.push("/chat/gym")}>
+          <Ionicons name="chatbubbles" size={19} color={colors.onBrand} />
+          <Text style={styles.mapBtnText}>MESSAGE US</Text>
+        </Pressable>
+
         <Pressable testID="contact-map-btn" style={styles.mapBtn} onPress={() => info && Linking.openURL(info.map_url)}>
-          <Ionicons name="map" size={18} color={colors.onBrand} />
-          <Text style={styles.mapBtnText}>OPEN IN MAPS</Text>
+          <Ionicons name="map" size={18} color={colors.brand} />
+          <Text style={styles.mapBtnOutlineText}>OPEN IN MAPS</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>
@@ -127,6 +132,8 @@ const styles = StyleSheet.create({
   socialRow: { flexDirection: "row", gap: spacing.md },
   social: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.surfaceSecondary, padding: spacing.lg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
   socialText: { color: colors.onSurface, fontWeight: "700" },
-  mapBtn: { marginTop: spacing.xl, backgroundColor: colors.brand, padding: spacing.lg, borderRadius: radius.md, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm },
+  messageBtn: { marginTop: spacing.xl, backgroundColor: colors.brand, padding: spacing.lg, borderRadius: radius.md, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm },
+  mapBtn: { marginTop: spacing.md, backgroundColor: "transparent", padding: spacing.lg, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.brand, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm },
   mapBtnText: { color: colors.onBrand, fontWeight: "900", letterSpacing: 1 },
+  mapBtnOutlineText: { color: colors.brand, fontWeight: "900", letterSpacing: 1 },
 });
