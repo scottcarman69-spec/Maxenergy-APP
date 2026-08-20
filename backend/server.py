@@ -7172,7 +7172,9 @@ async def seed_data():
     else:
         await db.users.update_one({"email": ADMIN_EMAIL.lower()}, {"$set": {"is_admin": True}})
 
-    # Second admin (info@maxenergy.com.au) — idempotent: create if missing, promote if exists, never overwrite password
+    # Second admin (info@maxenergy.com.au) — password is AUTHORITATIVE from the
+    # ADMIN2_PASSWORD deployment secret: create if missing, and on every startup
+    # ensure the account is admin AND its password matches the configured secret.
     admin2_email = ADMIN2_EMAIL.strip().lower()
     admin2 = await db.users.find_one({"email": admin2_email})
     if not admin2:
@@ -7185,12 +7187,17 @@ async def seed_data():
                 "provider": "password",
                 "picture": None,
                 "is_admin": True,
+                "verified": True,
                 "created_at": now_utc(),
             }
         )
         log.info("seeded second admin account")
     else:
-        await db.users.update_one({"email": admin2_email}, {"$set": {"is_admin": True}})
+        await db.users.update_one(
+            {"email": admin2_email},
+            {"$set": {"is_admin": True, "verified": True, "password_hash": hash_pw(ADMIN2_PASSWORD)}},
+        )
+        log.info("second admin password synced to ADMIN2_PASSWORD secret")
 
     # Age requirement for Kids Muay Thai (idempotent; keeps class_ids & bookings intact)
     try:

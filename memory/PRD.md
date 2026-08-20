@@ -1180,3 +1180,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Session update (Jun 2026) — Moved MESSAGE US to top of Contact (DONE)
 - On app/contact.tsx, the MESSAGE US button now sits directly under the gym name/tagline (above the phone/email/address rows). Removed the duplicate lower instance; OPEN IN MAPS outline button remains at the bottom. Verified via screenshot.
+
+## Session update (Jun 2026) — Admin login fix: password authoritative from secret (DONE)
+- Issue: "invalid credentials" for info@maxenergy.com.au / Maxenergy12@ on the LIVE app. Root cause: prod DB seeded the admin with the ADMIN2_PASSWORD deployment secret; the old seed "never overwrote password", so Maxenergy12@ (only in preview DB) didn't apply to prod. Preview login worked fine.
+- Fix (user chose option 2b): seed_data now makes the info@ admin password AUTHORITATIVE — on every startup it sets is_admin=true, verified=true, and password_hash=hash(ADMIN2_PASSWORD). Preview backend/.env ADMIN2_PASSWORD changed to "Maxenergy12@". Verified: Maxenergy12@ → 200 admin, old pass → 401; log "second admin password synced to ADMIN2_PASSWORD secret".
+- ACTION FOR USER on production: set the ADMIN2_PASSWORD deployment secret to Maxenergy12@ (via Support/secrets store) then redeploy; the seed will overwrite the live admin hash to match. Caveat: since the password re-syncs from the secret on each deploy, changing it in-app later would be reset by a redeploy.
