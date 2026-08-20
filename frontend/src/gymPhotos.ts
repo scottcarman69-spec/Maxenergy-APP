@@ -1,9 +1,9 @@
 // Real Max Energy gym photos bundled as local assets.
 export const gymPhotos = [
-  require("../assets/images/gym1.jpg"),
-  require("../assets/images/gym2.jpg"),
-  require("../assets/images/gym3.jpg"),
-  require("../assets/images/gym4.jpg"),
+  require("../assets/images/ourgym1.webp"),
+  require("../assets/images/ourgym2.webp"),
+  require("../assets/images/ourgym3.webp"),
+  require("../assets/images/ourgym4.webp"),
   require("../assets/images/kickbox1.webp"),
   require("../assets/images/kickbox2.webp"),
   require("../assets/images/kids1.jpg"),
