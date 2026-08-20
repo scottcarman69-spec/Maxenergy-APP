@@ -19,6 +19,7 @@ import { Image } from "expo-image";
 import { groupLogo } from "@/src/groups";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import QRCode from "react-native-qrcode-svg";
 import { useAuth } from "@/src/AuthContext";
 import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
@@ -79,6 +80,8 @@ export default function Home() {
   const router = useRouter();
   const [classes, setClasses] = useState<Cls[]>([]);
   const [lightbox, setLightbox] = useState<number | null>(null);
+  const [passQr, setPassQr] = useState<string | null>(null);
+  const [passQrLoading, setPassQrLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [hasAlerts, setHasAlerts] = useState(false);
@@ -302,6 +305,24 @@ export default function Home() {
     if (i !== slide) setSlide(i);
   };
 
+  // Class Pass button: if the member already holds passes, jump straight to a
+  // full-screen entry QR; otherwise send them to the wallet to buy passes.
+  const openClassPass = async () => {
+    if (passQrLoading) return;
+    setPassQrLoading(true);
+    try {
+      const r = await api.classPassQr();
+      if ((r.class_pass_credits || 0) >= 1 && r.code) {
+        setPassQr(r.code);
+      } else {
+        router.push("/credits");
+      }
+    } catch {
+      router.push("/credits");
+    }
+    setPassQrLoading(false);
+  };
+
   const quickActionHandlers: Record<string, () => void> = {
     booknext: () => (scheduled[0] ? router.push({ pathname: "/class/[id]", params: { id: scheduled[0].class_id } }) : router.navigate("/(tabs)/timetable")),
     bookings: () => router.push("/bookings"),
@@ -389,10 +410,14 @@ export default function Home() {
             </Pressable>
             <Pressable
               testID="home-member-classpass"
-              onPress={() => router.push("/credits")}
+              onPress={openClassPass}
               style={({ pressed }) => [styles.adminScanBtn, pressed && { opacity: 0.85 }]}
             >
-              <Ionicons name="ticket" size={18} color={colors.onBrand} />
+              {passQrLoading ? (
+                <ActivityIndicator size="small" color={colors.onBrand} />
+              ) : (
+                <Ionicons name="ticket" size={18} color={colors.onBrand} />
+              )}
               <Text style={styles.adminScanText}>Class Pass</Text>
             </Pressable>
           </View>
@@ -793,6 +818,29 @@ export default function Home() {
           )}
         </Pressable>
       </Modal>
+
+      {/* Class Pass entry QR — full screen */}
+      <Modal visible={!!passQr} transparent animationType="fade" onRequestClose={() => setPassQr(null)}>
+        <Pressable style={styles.cpBackdrop} onPress={() => setPassQr(null)}>
+          <Pressable style={styles.cpCard} onPress={() => {}}>
+            <View style={styles.cpIcon}>
+              <Ionicons name="ticket" size={22} color={colors.brand} />
+            </View>
+            <Text style={styles.cpTitle}>Class Pass Entry</Text>
+            <Text style={styles.cpSub}>Show this to gym staff to check in</Text>
+            <View style={styles.cpQrBox}>
+              {passQr ? <QRCode value={passQr} size={240} backgroundColor="#fff" color="#000" /> : null}
+            </View>
+            <View style={styles.cpHintRow}>
+              <Ionicons name="information-circle-outline" size={15} color={colors.onSurfaceSecondary} />
+              <Text style={styles.cpHint}>Keep your screen bright. One pass is used per check-in.</Text>
+            </View>
+            <Pressable testID="home-classpass-close" style={styles.cpClose} onPress={() => setPassQr(null)}>
+              <Text style={styles.cpCloseText}>DONE</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1058,6 +1106,16 @@ const styles = StyleSheet.create({
   lbBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.94)", alignItems: "center", justifyContent: "center" },
   lbClose: { position: "absolute", top: 48, right: 20, zIndex: 2, width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(255,255,255,0.12)", alignItems: "center", justifyContent: "center" },
   lbImage: { width: "92%", height: "70%" },
+  cpBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.82)", alignItems: "center", justifyContent: "center", padding: spacing.xl },
+  cpCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.xl, alignItems: "center", width: "100%", maxWidth: 360, borderWidth: 1, borderColor: colors.border },
+  cpIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center", marginBottom: spacing.sm },
+  cpTitle: { color: colors.onSurface, fontSize: 22, fontWeight: "900" },
+  cpSub: { color: colors.onSurfaceSecondary, fontSize: 13, marginTop: 4, marginBottom: spacing.lg },
+  cpQrBox: { backgroundColor: "#fff", padding: 18, borderRadius: radius.md },
+  cpHintRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: spacing.lg, paddingHorizontal: spacing.md },
+  cpHint: { color: colors.onSurfaceSecondary, fontSize: 12, textAlign: "center", flexShrink: 1 },
+  cpClose: { backgroundColor: colors.brand, paddingVertical: 13, borderRadius: radius.md, alignItems: "center", alignSelf: "stretch", marginTop: spacing.lg },
+  cpCloseText: { color: colors.onBrand, fontWeight: "900", letterSpacing: 1 },
   lbNav: { position: "absolute", bottom: 44, flexDirection: "row", alignItems: "center", gap: spacing.xl },
   lbNavBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: "rgba(255,255,255,0.12)", alignItems: "center", justifyContent: "center" },
   lbCount: { color: "#fff", fontSize: 14, fontWeight: "800", minWidth: 54, textAlign: "center" },

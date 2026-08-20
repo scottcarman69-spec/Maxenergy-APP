@@ -1115,3 +1115,6 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Session update (Jun 2026) — Home "Class Pass" quick button (DONE)
 - Added a second orange pill button "Class Pass" (ticket icon) stacked directly below the member's "My Check-In QR" button on the Home header (app/(tabs)/home.tsx, testID home-member-classpass). Routes to /credits (My Wallet), which shows Class Pass Credits + the "Class Pass Entry" QR (QR renders once the member owns ≥1 pass) so members can pull up their walk-in pass QR in one tap. Both member buttons now wrapped in memberQrCol (right-aligned, gap). Verified via screenshots (button visible + navigation to wallet).
+
+## Session update (Jun 2026) — Class Pass button → full-screen QR shortcut (DONE)
+- Home "Class Pass" button (home-member-classpass) now calls api.classPassQr() on tap: if the member holds ≥1 pass it opens a full-screen "Class Pass Entry" QR modal right there (240px QR, brand card, DONE button); if they have 0 passes it falls back to routing to /credits (to buy). Button shows a spinner while fetching. New state passQr/passQrLoading + openClassPass() + cp* modal styles in app/(tabs)/home.tsx; imported react-native-qrcode-svg. Verified via screenshot (5 passes → big QR shows instantly).
