@@ -156,6 +156,13 @@ export default function ClassDetail() {
         router.replace({ pathname: "/receipt", params: { booking_id: booking.booking_id } });
         return;
       }
+      // A pending Square order for this booking was actually already paid (e.g. after a refresh).
+      if (res.already_paid) {
+        setBusy(false);
+        setMsg("This booking is already paid. See you there!");
+        router.replace({ pathname: "/receipt", params: { booking_id: booking.booking_id } });
+        return;
+      }
       const { url, session_id } = res;
 
       let opened = false;

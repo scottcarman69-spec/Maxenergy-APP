@@ -3914,18 +3914,24 @@ async def sync_square_payment(tx: dict) -> tuple:
         payment_status, status = "unpaid", "expired"
     else:
         payment_status, status = "initiated", "open"
-    if tx.get("payment_status") != payment_status:
-        await db.payment_transactions.update_one(
-            {"session_id": tx["session_id"]},
-            {"$set": {"payment_status": payment_status, "status": status, "updated_at": now_utc()}},
+    if payment_status == "paid":
+        # Atomically claim the paid transition so concurrent polling can't fulfill twice.
+        claim = await db.payment_transactions.update_one(
+            {"session_id": tx["session_id"], "payment_status": {"$ne": "paid"}},
+            {"$set": {"payment_status": "paid", "status": status, "updated_at": now_utc()}},
         )
-        if payment_status == "paid":
+        if claim.modified_count == 1:
             if tx.get("kind") == "giftcard":
                 await fulfill_giftcard_purchase(tx)
             elif tx.get("kind") == "store":
                 await fulfill_store_purchase(tx)
             else:
                 await mark_booking_paid(tx["booking_id"])
+    elif tx.get("payment_status") != payment_status:
+        await db.payment_transactions.update_one(
+            {"session_id": tx["session_id"]},
+            {"$set": {"payment_status": payment_status, "status": status, "updated_at": now_utc()}},
+        )
     return payment_status, status
 
 
@@ -3952,6 +3958,36 @@ async def reconcile_user_payments(user_id: str) -> list:
         except Exception as e:
             log.error(f"reconcile payment error for {tx.get('booking_id') or tx.get('product_id')}: {e}")
     return newly_paid
+
+
+async def _reuse_open_square_checkout(match: dict):
+    """Find the most recent still-OPEN Square checkout matching `match`, reconcile it,
+    and decide whether it can be reused. Prevents a page refresh / double-tap from
+    creating a second Square order (and therefore a second charge) for the same thing.
+
+    Returns (reuse_url, reuse_session_id, paid_tx):
+      • reuse_url set  -> an existing unpaid checkout link to return as-is
+      • paid_tx set    -> the pending order was actually already paid (settle, don't recharge)
+      • all None       -> nothing reusable; create a fresh checkout
+    """
+    tx = await db.payment_transactions.find_one(
+        {**match, "provider": "square", "status": "open", "checkout_url": {"$exists": True, "$ne": None}},
+        {"_id": 0},
+        sort=[("created_at", -1)],
+    )
+    if not tx:
+        return None, None, None
+    try:
+        ps, st = await sync_square_payment(tx)
+    except Exception as e:
+        log.error(f"reuse checkout reconcile error: {e}")
+        # On a transient Square error, still reuse the stored link rather than risk a new order.
+        return tx.get("checkout_url"), tx.get("session_id"), None
+    if ps == "paid":
+        return None, tx.get("session_id"), tx
+    if st == "open":
+        return tx.get("checkout_url"), tx.get("session_id"), None
+    return None, None, None
 
 
 @api.post("/payments/checkout")
@@ -4060,8 +4096,21 @@ async def payments_checkout(body: CheckoutCreate, request: Request, u: dict = De
         amount_cents = remainder  # charge only the remainder on the card
 
     redirect_url = f"{body.origin_url.rstrip('/')}/payment-return?status=success&booking_id={booking['booking_id']}"
+    # Guard against double charges: if there's already an OPEN Square checkout for this
+    # booking (same credit applied), reuse it instead of creating a second order. If that
+    # pending order turns out to be already paid, settle the booking — don't recharge.
+    reuse_url, reuse_sid, paid_tx = await _reuse_open_square_checkout({
+        "booking_id": booking["booking_id"],
+        "user_id": u["user_id"],
+        "credit_applied_cents": credit_applied,
+    })
+    if paid_tx is not None:
+        return {"already_paid": True, "booking_id": booking["booking_id"], "session_id": reuse_sid}
+    if reuse_url:
+        return {"url": reuse_url, "session_id": reuse_sid, "reused": True}
+
     payload = {
-        "idempotency_key": str(uuid.uuid4()),
+        "idempotency_key": f"co_{booking['booking_id']}_{amount_cents}",
         "quick_pay": {
             "name": booking["class_name"],
             "price_money": {"amount": amount_cents, "currency": currency},
@@ -4092,6 +4141,7 @@ async def payments_checkout(body: CheckoutCreate, request: Request, u: dict = De
             "session_id": order_id,  # Square order id used as our session identifier
             "square_order_id": order_id,
             "square_payment_link_id": link.get("id"),
+            "checkout_url": checkout_url,
             "provider": "square",
             "booking_id": booking["booking_id"],
             "user_id": u["user_id"],
@@ -4158,6 +4208,14 @@ async def store_checkout(body: StoreCheckoutReq, u: dict = Depends(require_user)
     order_ref = new_id("store")
     label = pricing["name"] + (" + Key Tag" if pricing["key_tag"] else "")
     redirect_url = f"{body.origin_url.rstrip('/')}/payment-return?status=success&store=1"
+    # Reuse a recent OPEN checkout for the same product+amount so a refresh doesn't double-charge.
+    reuse_url, reuse_sid, _paid = await _reuse_open_square_checkout({
+        "user_id": u["user_id"], "kind": "store", "product_id": body.product_id,
+        "amount": pricing["total"],
+        "created_at": {"$gte": now_utc() - timedelta(minutes=30)},
+    })
+    if reuse_url:
+        return {"url": reuse_url, "session_id": reuse_sid, "reused": True}
     payload = {
         "idempotency_key": str(uuid.uuid4()),
         "quick_pay": {"name": label, "price_money": {"amount": pricing["total"], "currency": "AUD"}, "location_id": SQUARE_LOCATION_ID},
@@ -4175,7 +4233,7 @@ async def store_checkout(body: StoreCheckoutReq, u: dict = Depends(require_user)
     if not order_id or not link.get("url"):
         raise HTTPException(502, "Invalid Square response")
     await db.payment_transactions.insert_one({
-        "session_id": order_id, "square_order_id": order_id, "provider": "square", "kind": "store",
+        "session_id": order_id, "square_order_id": order_id, "checkout_url": link.get("url"), "provider": "square", "kind": "store",
         "product_id": body.product_id, "user_id": u["user_id"], "amount": pricing["total"], "currency": "aud",
         "key_tag": pricing["key_tag"], "payment_status": "initiated", "status": "open", "created_at": now_utc(),
         "start_date": body.start_date, "meet_time": body.meet_time, "order_ref": order_ref,
@@ -4214,6 +4272,13 @@ async def giftcard_checkout(body: GiftCardCheckoutReq, u: dict = Depends(require
     order_ref = new_id("gift")
     label = f"Gift Card ${amount/100:.0f}"
     redirect_url = f"{body.origin_url.rstrip('/')}/payment-return?status=success&giftcard=1"
+    # Reuse a recent OPEN gift-card checkout (same amount + recipient) to avoid a refresh double-charge.
+    reuse_url, reuse_sid, _paid = await _reuse_open_square_checkout({
+        "user_id": u["user_id"], "kind": "giftcard", "amount": amount, "recipient_email": remail,
+        "created_at": {"$gte": now_utc() - timedelta(minutes=30)},
+    })
+    if reuse_url:
+        return {"url": reuse_url, "session_id": reuse_sid, "reused": True}
     payload = {
         "idempotency_key": str(uuid.uuid4()),
         "quick_pay": {"name": label, "price_money": {"amount": amount, "currency": "AUD"}, "location_id": SQUARE_LOCATION_ID},
@@ -4231,7 +4296,7 @@ async def giftcard_checkout(body: GiftCardCheckoutReq, u: dict = Depends(require
     if not order_id or not link.get("url"):
         raise HTTPException(502, "Invalid Square response")
     await db.payment_transactions.insert_one({
-        "session_id": order_id, "square_order_id": order_id, "provider": "square", "kind": "giftcard",
+        "session_id": order_id, "square_order_id": order_id, "checkout_url": link.get("url"), "provider": "square", "kind": "giftcard",
         "user_id": u["user_id"], "amount": amount, "currency": "aud",
         "recipient_name": rname or None, "recipient_email": remail, "gift_message": message or None,
         "payment_status": "initiated", "status": "open", "created_at": now_utc(), "order_ref": order_ref,

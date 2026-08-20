@@ -1127,3 +1127,13 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Session update (Jun 2026) — Removed "Class Check-In" quick action (DONE)
 - Removed the "checkin" (Class Check-In) tile from QUICK_ACTIONS_META in src/quickActions.ts, so it no longer shows on the Home Quick Actions grid or the Customize screen. orderKeys() filters out keys not in allKeys, so any saved preferences that still list "checkin" simply drop it. (The /check-in screen and the "My Check-In QR" home button remain.)
+
+## Session update (Jun 2026) — Square double-charge protection (DONE)
+- Root cause: every /payments/checkout, /store/checkout, /giftcards/checkout call created a NEW Square payment link (fresh idempotency_key), so a page refresh / double-tap could create a 2nd order = 2nd charge.
+- Fix (per integration_expert Square playbook): checkout endpoints now REUSE an existing still-OPEN Square checkout instead of creating a new order.
+  - New helper _reuse_open_square_checkout(match): finds the most recent OPEN square payment_transaction (with stored checkout_url), reconciles it via sync_square_payment, and returns (reuse_url, session_id, paid_tx).
+  - Bookings: match on booking_id+user+credit_applied_cents. If pending order exists → return SAME url (reused:true); if it was actually already paid → return {already_paid:true} and settle (no recharge). Stable idempotency_key co_{booking_id}_{amount}. checkout_url now stored on the tx.
+  - Store & gift cards: match on user+kind+amount(+product/recipient) within the last 30 min → reuse the same OPEN link. checkout_url stored on tx.
+  - sync_square_payment now claims the paid→fulfill transition ATOMICALLY (update guarded by payment_status != paid, act only if modified_count==1) so concurrent polling can't fulfill/credit/mark-paid twice.
+- Frontend class/[id].tsx handles new {already_paid:true} response → routes to receipt with "already paid" message.
+- Verified: calling /payments/checkout 3x for one booking returns the SAME session_id/url and creates exactly ONE Square order (PASS). Gift card/store use identical pattern.
