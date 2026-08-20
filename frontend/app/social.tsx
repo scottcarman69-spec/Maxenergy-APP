@@ -9,6 +9,7 @@ import FacebookFeed from "@/src/components/FacebookFeed";
 export default function SocialScreen() {
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
+      <View style={styles.container}>
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
         <Image source={require("@/assets/images/social-bg.webp")} style={StyleSheet.absoluteFill} resizeMode="cover" />
         <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(10,10,11,0.6)" }]} />
@@ -24,12 +25,14 @@ export default function SocialScreen() {
         </View>
         <FacebookFeed />
       </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.surface },
+  root: { flex: 1, backgroundColor: colors.surface, alignItems: "center" },
+  container: { flex: 1, width: "100%", maxWidth: 520, overflow: "hidden" },
   notice: {
     flexDirection: "row",
     alignItems: "center",
