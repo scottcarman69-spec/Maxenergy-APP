@@ -1174,3 +1174,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Session update (Jun 2026) — Support quick links on key screens (DONE)
 - New reusable component src/components/MessageUsLink.tsx (chatbubbles pill → router.push("/chat/gym"), customisable label). Added to: app/bookings.tsx ("Need help? Message us"), app/memberships.tsx ("Questions about memberships? Message us"), app/credits.tsx wallet ("Questions about credit? Message us"). Verified on Bookings via screenshot. Contact screen MESSAGE US button already added previously.
+
+## Session update (Jun 2026) — Low class-pass nudge on Home (DONE)
+- Home now shows a gentle banner (testID home-lowpass-banner) when a member has exactly 1 class pass left: "You're on your last class pass — Tap to top up so you don't miss your next session". Tapping opens /memberships; a × dismisses it for the session (reappears next open). Fetched fresh via api.myCredits() on focus (passCount state). Only shows for non-admins and only at count===1 (avoids nagging members on memberships or with 0/never-bought passes). Verified via screenshot.
+
+## Session update (Jun 2026) — Moved MESSAGE US to top of Contact (DONE)
+- On app/contact.tsx, the MESSAGE US button now sits directly under the gym name/tagline (above the phone/email/address rows). Removed the duplicate lower instance; OPEN IN MAPS outline button remains at the bottom. Verified via screenshot.

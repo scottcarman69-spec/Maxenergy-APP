@@ -79,6 +79,8 @@ export default function Home() {
   const { user, refresh } = useAuth();
   const router = useRouter();
   const [classes, setClasses] = useState<Cls[]>([]);
+  const [passCount, setPassCount] = useState<number | null>(null);
+  const [lowPassDismissed, setLowPassDismissed] = useState(false);
   const galleryPhotos = useGymGallery();
   const [lightbox, setLightbox] = useState<number | null>(null);
   const [passQr, setPassQr] = useState<string | null>(null);
@@ -259,6 +261,7 @@ export default function Home() {
       setAttendedMonth(s?.attended_this_month || 0);
       setMonthName(s?.month || "");
       setBadges({ bookings: b?.bookings || 0, notices: b?.notices || 0 });
+      api.myCredits().then((cr) => setPassCount(cr?.class_pass_credits ?? null)).catch(() => {});
     } catch {}
     setLoading(false);
   }, []);
@@ -506,6 +509,19 @@ export default function Home() {
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.brand} />
           </Pressable>
+        )}
+
+        {user && !user.is_admin && passCount === 1 && !lowPassDismissed && (
+          <View testID="home-lowpass-banner" style={styles.lowPassBanner}>
+            <Ionicons name="ticket-outline" size={20} color={colors.brand} />
+            <Pressable style={{ flex: 1 }} onPress={() => router.push("/memberships")}>
+              <Text style={styles.verifyTitle}>You're on your last class pass</Text>
+              <Text style={styles.verifySub}>Tap to top up so you don't miss your next session</Text>
+            </Pressable>
+            <Pressable testID="home-lowpass-dismiss" onPress={() => setLowPassDismissed(true)} hitSlop={10}>
+              <Ionicons name="close" size={18} color={colors.onSurfaceSecondary} />
+            </Pressable>
+          </View>
         )}
 
         {loading ? (
@@ -947,6 +963,18 @@ const styles = StyleSheet.create({
   },
   verifyTitle: { color: colors.onSurface, fontFamily: font.heading, fontSize: 14.5 },
   verifySub: { color: colors.onSurfaceSecondary, fontSize: 12.5, marginTop: 2 },
+  lowPassBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginHorizontal: spacing.xl,
+    marginBottom: spacing.md,
+    padding: spacing.lg,
+    backgroundColor: colors.brandTertiary,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.brand,
+  },
   storeCta: { flexDirection: "row", alignItems: "center", gap: 12, marginHorizontal: spacing.lg, marginTop: spacing.lg, padding: spacing.lg, backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.brand },
   storeIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
   storeTitle: { color: colors.onSurface, fontFamily: font.heading, fontSize: 15 },

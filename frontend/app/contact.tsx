@@ -51,6 +51,11 @@ export default function Contact() {
         <Text style={styles.gymName}>{info?.name || "Maxenergy Fitness"}</Text>
         <Text style={styles.tagline}>Your gym in Cairns · Get fit. Feel good.</Text>
 
+        <Pressable testID="contact-message-btn" style={styles.messageBtn} onPress={() => router.push("/chat/gym")}>
+          <Ionicons name="chatbubbles" size={19} color={colors.onBrand} />
+          <Text style={styles.mapBtnText}>MESSAGE US</Text>
+        </Pressable>
+
         <View style={{ gap: spacing.sm, marginTop: spacing.xl }}>
           {rows.map((r) => (
             <Pressable
@@ -100,11 +105,6 @@ export default function Contact() {
             <Text style={styles.socialText}>Instagram</Text>
           </Pressable>
         </View>
-
-        <Pressable testID="contact-message-btn" style={styles.messageBtn} onPress={() => router.push("/chat/gym")}>
-          <Ionicons name="chatbubbles" size={19} color={colors.onBrand} />
-          <Text style={styles.mapBtnText}>MESSAGE US</Text>
-        </Pressable>
 
         <Pressable testID="contact-map-btn" style={styles.mapBtn} onPress={() => info && Linking.openURL(info.map_url)}>
           <Ionicons name="map" size={18} color={colors.brand} />
