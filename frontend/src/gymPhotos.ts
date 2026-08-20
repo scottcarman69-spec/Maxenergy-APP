@@ -5,7 +5,6 @@ export const gymPhotos = [
   require("../assets/images/ourgym3.webp"),
   require("../assets/images/ourgym4.webp"),
   require("../assets/images/kickbox1.webp"),
-  require("../assets/images/kickbox2.webp"),
   require("../assets/images/kids1.jpg"),
   require("../assets/images/kids2.jpg"),
   require("../assets/images/kids3.jpg"),
