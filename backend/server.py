@@ -5111,7 +5111,10 @@ def build_membership_pdf(doc: dict, plan: dict) -> bytes:
     field("Terms & Conditions agreed", "Yes" if d.get("waiver_agreed") else "No")
 
     # ---- Photo & Signature (side by side, tidy) ----
-    ensure(180)
+    # Reserve enough height for the whole block (section header + 120pt boxes +
+    # the "Signed" line) so it never collides with the page footer. If there
+    # isn't room, ensure() pushes it to a fresh page.
+    ensure(270)
     section("Photo & Signature")
     block_top = y
     col_gap = 24
@@ -5380,14 +5383,27 @@ async def download_membership_pdf(application_id: str, t: Optional[str] = None, 
     if not authorized:
         raise HTTPException(403, "Not authorised to view this form")
     doc = await db.membership_applications.find_one(
-        {"application_id": application_id}, {"_id": 0, "pdf_base64": 1, "pdf_filename": 1}
+        {"application_id": application_id}, {"_id": 0}
     )
-    if not doc or not doc.get("pdf_base64"):
+    if not doc:
         raise HTTPException(404, "Membership form not found")
+    # Regenerate the PDF fresh from the stored application data so every form
+    # (including ones submitted before layout fixes) always uses the latest,
+    # correct layout. Fall back to the stored copy if regeneration ever fails.
+    pdf_bytes = None
     try:
-        pdf_bytes = base64.b64decode(doc["pdf_base64"])
-    except Exception:
-        raise HTTPException(500, "Could not read form")
+        plan = await db.membership_plans.find_one({"plan_id": doc.get("plan_id")}, {"_id": 0}) \
+            or {"name": doc.get("plan_name") or "Membership", "price_display": ""}
+        pdf_bytes = build_membership_pdf(doc, plan)
+    except Exception as e:
+        log.error(f"membership pdf regen failed, using stored copy: {e}")
+    if pdf_bytes is None:
+        if not doc.get("pdf_base64"):
+            raise HTTPException(404, "Membership form not found")
+        try:
+            pdf_bytes = base64.b64decode(doc["pdf_base64"])
+        except Exception:
+            raise HTTPException(500, "Could not read form")
     filename = doc.get("pdf_filename") or "membership_form.pdf"
     return Response(
         content=pdf_bytes,
