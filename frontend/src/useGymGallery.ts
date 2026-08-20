@@ -4,20 +4,26 @@ import { api } from "@/src/api";
 import { gymPhotos as bundledGymPhotos } from "@/src/gymPhotos";
 
 export type GymImageSource = number | { uri: string };
+export type GymGalleryItem = { source: GymImageSource; caption?: string };
+
+const bundledItems: GymGalleryItem[] = bundledGymPhotos.map((s) => ({ source: s, caption: "" }));
 
 /**
- * Resolves the OUR GYM gallery. Returns admin-managed photos from the backend when
- * available, otherwise falls back to the bundled default images. Each item is a valid
- * React Native Image `source` (a require() module number or a { uri } object).
+ * Resolves the OUR GYM gallery. Returns admin-managed photos (with captions) from the
+ * backend when available, otherwise falls back to the bundled default images.
  */
-export function useGymGallery(): GymImageSource[] {
-  const [images, setImages] = useState<GymImageSource[]>(bundledGymPhotos);
+export function useGymGallery(): GymGalleryItem[] {
+  const [items, setItems] = useState<GymGalleryItem[]>(bundledItems);
 
   const load = useCallback(async () => {
     try {
       const r = await api.gymGalleryPhotos();
       const photos = r?.photos || [];
-      setImages(photos.length > 0 ? photos.map((p: { image: string }) => ({ uri: p.image })) : bundledGymPhotos);
+      setItems(
+        photos.length > 0
+          ? photos.map((p: { image: string; caption?: string }) => ({ source: { uri: p.image }, caption: p.caption || "" }))
+          : bundledItems
+      );
     } catch {
       // keep whatever we have (bundled defaults)
     }
@@ -25,5 +31,5 @@ export function useGymGallery(): GymImageSource[] {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  return images;
+  return items;
 }

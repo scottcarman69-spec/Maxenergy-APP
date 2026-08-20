@@ -62,8 +62,11 @@ export default function AboutScreen() {
 
             <Text style={styles.sectionTitle}>INSIDE OUR GYM</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.md }} style={{ marginHorizontal: -spacing.xl, paddingHorizontal: spacing.xl }}>
-              {galleryPhotos.map((src, i) => (
-                <Image key={i} source={src} style={styles.galleryImg} contentFit="cover" />
+              {galleryPhotos.map((item, i) => (
+                <View key={i} style={{ width: 260 }}>
+                  <Image source={item.source} style={styles.galleryImg} contentFit="cover" />
+                  {!!item.caption && <Text style={styles.galleryCaption} numberOfLines={2}>{item.caption}</Text>}
+                </View>
               ))}
             </ScrollView>
 
@@ -111,6 +114,7 @@ const styles = StyleSheet.create({
   para: { color: colors.onSurface, fontSize: 15, lineHeight: 23, marginBottom: spacing.md },
   sectionTitle: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "800", letterSpacing: 2, marginTop: spacing.lg, marginBottom: spacing.md },
   galleryImg: { width: 260, height: 175, borderRadius: radius.lg },
+  galleryCaption: { color: colors.onSurfaceSecondary, fontSize: 12.5, marginTop: 6, width: 260, fontWeight: "600" },
   card: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, overflow: "hidden", borderWidth: 1, borderColor: colors.border, marginBottom: spacing.lg },
   avatar: { width: "100%", height: 220 },
   cardBody: { padding: spacing.lg },

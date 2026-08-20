@@ -717,12 +717,15 @@ export default function Home() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.md }}
             >
-              {galleryPhotos.map((src, i) => (
+              {galleryPhotos.map((item, i) => (
                 <Pressable key={i} testID={`home-gym-photo-${i}`} onPress={() => setLightbox(i)} accessibilityRole="imagebutton">
-                  <Image source={src} style={styles.galleryImg} contentFit="cover" />
+                  <Image source={item.source} style={styles.galleryImg} contentFit="cover" />
                   <View style={styles.galleryExpand}>
                     <Ionicons name="expand" size={15} color="#fff" />
                   </View>
+                  {!!item.caption && (
+                    <Text style={styles.galleryCaption} numberOfLines={2}>{item.caption}</Text>
+                  )}
                 </Pressable>
               ))}
             </ScrollView>
@@ -813,7 +816,10 @@ export default function Home() {
             <Ionicons name="close" size={26} color="#fff" />
           </Pressable>
           {lightbox !== null && (
-            <Image source={galleryPhotos[lightbox]} style={styles.lbImage} contentFit="contain" />
+            <Image source={galleryPhotos[lightbox].source} style={styles.lbImage} contentFit="contain" />
+          )}
+          {lightbox !== null && !!galleryPhotos[lightbox].caption && (
+            <Text style={styles.lbCaption}>{galleryPhotos[lightbox].caption}</Text>
           )}
           {lightbox !== null && galleryPhotos.length > 1 && (
             <View style={styles.lbNav}>
@@ -1122,6 +1128,8 @@ const styles = StyleSheet.create({
   lbBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.94)", alignItems: "center", justifyContent: "center" },
   lbClose: { position: "absolute", top: 48, right: 20, zIndex: 2, width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(255,255,255,0.12)", alignItems: "center", justifyContent: "center" },
   lbImage: { width: "92%", height: "70%" },
+  galleryCaption: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 6, width: 240, fontWeight: "600" },
+  lbCaption: { color: "#fff", fontSize: 15, fontWeight: "700", textAlign: "center", marginTop: spacing.lg, paddingHorizontal: spacing.xl },
   cpBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.82)", alignItems: "center", justifyContent: "center", padding: spacing.xl },
   cpCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.xl, alignItems: "center", width: "100%", maxWidth: 360, borderWidth: 1, borderColor: colors.border },
   cpIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center", marginBottom: spacing.sm },

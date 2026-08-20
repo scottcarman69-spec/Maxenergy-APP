@@ -1159,3 +1159,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 ## Session update (Jun 2026) — Drag-to-reorder gym gallery photos (DONE)
 - Admin Gym Gallery Photos screen (app/admin/gym-photos.tsx) rebuilt as a single-column DraggableFlatList (react-native-draggable-flatlist@4.0.3, installed via yarn expo install; works with the app's reanimated 4 / New Arch). Each row: drag handle (long-press ≥150ms), position number, thumbnail, delete. onDragEnd persists the new order via POST /api/admin/gym/photos/reorder {order:[ids]} which rewrites sort=index+1. Header shows a spinner while saving order.
 - Backend: added GymReorderReq + /admin/gym/photos/reorder; api.ts adminReorderGymPhotos. Verified: reverse order applied + restored (200). Home/About galleries already read ordered list via useGymGallery. NOTE: drag gesture only fully testable on device/Expo Go (renders fine on web). Root already wraps GestureHandlerRootView.
+
+## Session update (Jun 2026) — Gym gallery photo captions (DONE)
+- Each OUR GYM gallery photo can now have an optional short caption (max 120 chars).
+- Backend: gym_photos.caption field; GET /gym/photos returns caption; POST add accepts optional caption; new PATCH /admin/gym/photos/{id} {caption}. api.ts adminSetGymCaption.
+- Admin screen: each draggable card now has a caption TextInput under the thumbnail; saves on blur/submit via PATCH.
+- Display: useGymGallery now returns {source, caption} items. Home OUR GYM horizontal gallery shows caption under each thumbnail and centered in the fullscreen lightbox; About "INSIDE OUR GYM" shows caption under each photo. Verified via API (patch/list) + screenshots (admin inputs + home captions). Demo captions cleared after test.

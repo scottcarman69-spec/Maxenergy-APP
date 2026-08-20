@@ -2737,12 +2737,13 @@ async def set_my_photo(body: PhotoReq, u: dict = Depends(require_user)):
 @api.get("/gym/photos")
 async def gym_photos_list():
     """Public: the OUR GYM gallery photos, ordered. Empty list => app shows bundled defaults."""
-    rows = await db.gym_photos.find({}, {"_id": 0, "photo_id": 1, "image": 1, "sort": 1}).sort([("sort", 1), ("created_at", 1)]).to_list(200)
-    return {"photos": [{"photo_id": r["photo_id"], "image": r["image"]} for r in rows]}
+    rows = await db.gym_photos.find({}, {"_id": 0, "photo_id": 1, "image": 1, "sort": 1, "caption": 1}).sort([("sort", 1), ("created_at", 1)]).to_list(200)
+    return {"photos": [{"photo_id": r["photo_id"], "image": r["image"], "caption": r.get("caption", "")} for r in rows]}
 
 
 class GymPhotoReq(BaseModel):
     image: str
+    caption: Optional[str] = ""
 
 
 @api.post("/admin/gym/photos")
@@ -2762,9 +2763,22 @@ async def gym_photo_add(body: GymPhotoReq, u: dict = Depends(require_admin)):
     photo_id = new_id("gph")
     await db.gym_photos.insert_one({
         "photo_id": photo_id, "image": processed, "sort": nxt,
+        "caption": (body.caption or "").strip()[:120],
         "created_by": u["user_id"], "created_at": now_utc(),
     })
     return {"ok": True, "photo_id": photo_id}
+
+
+class GymCaptionReq(BaseModel):
+    caption: str
+
+
+@api.patch("/admin/gym/photos/{photo_id}")
+async def gym_photo_caption(photo_id: str, body: GymCaptionReq, u: dict = Depends(require_admin)):
+    r = await db.gym_photos.update_one({"photo_id": photo_id}, {"$set": {"caption": (body.caption or "").strip()[:120]}})
+    if r.matched_count == 0:
+        raise HTTPException(404, "Photo not found.")
+    return {"ok": True}
 
 
 @api.delete("/admin/gym/photos/{photo_id}")
