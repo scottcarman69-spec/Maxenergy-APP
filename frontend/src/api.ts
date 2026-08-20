@@ -189,8 +189,8 @@ export const api = {
     req("/api/admin/giftcards/adjust", { method: "POST", body: JSON.stringify({ code, new_balance_cents, note }) }),
   checkinCode: (booking_id: string) => req(`/api/bookings/${booking_id}/checkin-code`),
   classPassQr: () => req(`/api/passes/qr`),
-  scanCheckin: (code: string) =>
-    req("/api/admin/checkin/scan", { method: "POST", body: JSON.stringify({ code }) }),
+  scanCheckin: (code: string, confirm?: boolean) =>
+    req("/api/admin/checkin/scan", { method: "POST", body: JSON.stringify({ code, confirm: !!confirm }) }),
 
   events: () => req("/api/events"),
   eventDetail: (id: string) => req(`/api/events/${id}`),

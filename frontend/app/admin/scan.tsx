@@ -8,7 +8,7 @@ import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
 import ScreenHeader from "@/src/components/ScreenHeader";
 
-type Result = { ok: boolean; already?: boolean; member_name?: string; class_name?: string; when?: string; error?: string; child_name?: string; child_age?: number };
+type Result = { ok: boolean; already?: boolean; needs_confirm?: boolean; already_today?: number; passes_left?: number; repeat_today?: boolean; member_name?: string; class_name?: string; when?: string; error?: string; child_name?: string; child_age?: number };
 
 export default function AdminScan() {
   const router = useRouter();
@@ -26,12 +26,26 @@ export default function AdminScan() {
     setChecking(true);
     try {
       const r = await api.scanCheckin(data);
-      setResult({ ok: true, already: r.already, member_name: r.member_name, class_name: r.class_name, when: r.when, child_name: r.child_name, child_age: r.child_age });
+      setResult({ ok: true, already: r.already, needs_confirm: r.needs_confirm, already_today: r.already_today, passes_left: r.passes_left, repeat_today: r.repeat_today, member_name: r.member_name, class_name: r.class_name, when: r.when, child_name: r.child_name, child_age: r.child_age });
     } catch (e: any) {
       setResult({ ok: false, error: e?.message || "Could not check in." });
     }
     setChecking(false);
   }, [scanning, checking]);
+
+  // Staff confirmed a repeat walk-in (extra class / friend or guest) — re-scan
+  // the same code with confirm=true so the backend deducts another class pass.
+  const confirmRepeat = useCallback(async () => {
+    if (!lastRef.current) return;
+    setChecking(true);
+    try {
+      const r = await api.scanCheckin(lastRef.current, true);
+      setResult({ ok: true, already: r.already, passes_left: r.passes_left, repeat_today: r.repeat_today, member_name: r.member_name, class_name: r.class_name, when: r.when });
+    } catch (e: any) {
+      setResult({ ok: false, error: e?.message || "Could not check in." });
+    }
+    setChecking(false);
+  }, []);
 
   const scanAgain = () => {
     lastRef.current = "";
@@ -107,32 +121,62 @@ export default function AdminScan() {
         )}
 
         {result && (
-          <View style={[styles.resultOverlay, { backgroundColor: result.ok ? "rgba(22,163,74,0.94)" : "rgba(220,38,38,0.94)" }]}>
-            <Ionicons name={result.ok ? (result.already ? "information-circle" : "checkmark-circle") : "close-circle"} size={72} color="#fff" />
-            {result.ok ? (
+          <View style={[styles.resultOverlay, { backgroundColor: result.needs_confirm ? "rgba(217,119,6,0.95)" : result.ok ? "rgba(22,163,74,0.94)" : "rgba(220,38,38,0.94)" }]}>
+            {result.needs_confirm ? (
               <>
-                <Text style={styles.resultTitle}>{result.already ? "Already checked in" : "Checked in!"}</Text>
+                <Ionicons name="alert-circle" size={72} color="#fff" />
+                <Text style={styles.resultTitle}>Already checked in today</Text>
                 <Text style={styles.resultName}>{result.member_name}</Text>
-                <Text style={styles.resultMeta}>{result.class_name}{result.when ? ` · ${result.when}` : ""}</Text>
-                {(result.child_name || typeof result.child_age === "number") && (
-                  <View testID="scan-child" style={styles.childBadge}>
-                    <Ionicons name="body" size={16} color="#fff" />
-                    <Text style={styles.childBadgeText}>
-                      Attending: {result.child_name || "Child"}{typeof result.child_age === "number" ? ` · age ${result.child_age}` : ""}
-                    </Text>
-                  </View>
-                )}
+                <Text style={styles.resultMeta}>
+                  {result.member_name} already used {result.already_today} class pass{result.already_today === 1 ? "" : "es"} today.
+                </Text>
+                <Text style={[styles.resultMeta, { marginTop: 8, fontWeight: "800" }]}>
+                  Checking into another class, or bringing a friend/guest?
+                </Text>
+                <Text style={[styles.resultMeta, { opacity: 0.9 }]}>
+                  Confirming will use another class pass{typeof result.passes_left === "number" ? ` (${result.passes_left} left)` : ""}.
+                </Text>
+                <Pressable testID="scan-confirm-repeat" style={styles.confirmBtn} onPress={confirmRepeat} disabled={checking}>
+                  {checking ? <ActivityIndicator color={colors.surface} /> : (
+                    <>
+                      <Ionicons name="checkmark-circle-outline" size={18} color={colors.surface} />
+                      <Text style={styles.againText}>Yes — use another pass</Text>
+                    </>
+                  )}
+                </Pressable>
+                <Pressable testID="scan-cancel-repeat" style={styles.cancelBtn} onPress={scanAgain} disabled={checking}>
+                  <Text style={styles.cancelText}>No, cancel</Text>
+                </Pressable>
               </>
             ) : (
               <>
-                <Text style={styles.resultTitle}>Not checked in</Text>
-                <Text style={styles.resultMeta}>{result.error}</Text>
+                <Ionicons name={result.ok ? (result.already ? "information-circle" : "checkmark-circle") : "close-circle"} size={72} color="#fff" />
+                {result.ok ? (
+                  <>
+                    <Text style={styles.resultTitle}>{result.already ? "Already checked in" : "Checked in!"}</Text>
+                    <Text style={styles.resultName}>{result.member_name}</Text>
+                    <Text style={styles.resultMeta}>{result.class_name}{result.when ? ` · ${result.when}` : ""}</Text>
+                    {(result.child_name || typeof result.child_age === "number") && (
+                      <View testID="scan-child" style={styles.childBadge}>
+                        <Ionicons name="body" size={16} color="#fff" />
+                        <Text style={styles.childBadgeText}>
+                          Attending: {result.child_name || "Child"}{typeof result.child_age === "number" ? ` · age ${result.child_age}` : ""}
+                        </Text>
+                      </View>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.resultTitle}>Not checked in</Text>
+                    <Text style={styles.resultMeta}>{result.error}</Text>
+                  </>
+                )}
+                <Pressable testID="scan-again" style={styles.againBtn} onPress={scanAgain}>
+                  <Ionicons name="scan-outline" size={18} color={colors.onSurface} />
+                  <Text style={styles.againText}>Scan another</Text>
+                </Pressable>
               </>
             )}
-            <Pressable testID="scan-again" style={styles.againBtn} onPress={scanAgain}>
-              <Ionicons name="scan-outline" size={18} color={colors.onSurface} />
-              <Text style={styles.againText}>Scan another</Text>
-            </Pressable>
           </View>
         )}
       </View>
@@ -155,6 +199,9 @@ const styles = StyleSheet.create({
   childBadge: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "rgba(0,0,0,0.28)", paddingHorizontal: 16, paddingVertical: 10, borderRadius: radius.pill, marginTop: spacing.md },
   childBadgeText: { color: "#fff", fontSize: 16, fontWeight: "900" },
   againBtn: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#fff", paddingHorizontal: spacing.xl, paddingVertical: 14, borderRadius: radius.pill, marginTop: spacing.xl },
+  confirmBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#fff", paddingHorizontal: spacing.xl, paddingVertical: 14, borderRadius: radius.pill, marginTop: spacing.xl, minWidth: 240 },
+  cancelBtn: { paddingHorizontal: spacing.xl, paddingVertical: 12, borderRadius: radius.pill, borderWidth: 1.5, borderColor: "rgba(255,255,255,0.85)", marginTop: spacing.sm },
+  cancelText: { color: "#fff", fontWeight: "900", fontSize: 15 },
   againText: { color: colors.surface, fontWeight: "900", fontSize: 15 },
   centerBox: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xl, gap: spacing.md },
   infoTitle: { color: colors.onSurface, fontSize: 20, fontWeight: "900", marginTop: spacing.sm },

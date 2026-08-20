@@ -2444,6 +2444,7 @@ async def me_stats(u: dict = Depends(require_user)):
 
 class ScanCheckinReq(BaseModel):
     code: str
+    confirm: Optional[bool] = False  # staff confirmed a repeat walk-in (extra class / friend) — deduct another pass
 
 
 @api.post("/admin/checkin/scan")
@@ -2515,6 +2516,25 @@ async def admin_checkin_scan(body: ScanCheckinReq, request: Request, u: dict = D
             }
 
         # ----- No booking today → treat as a casual walk-in and deduct 1 class pass. -----
+        # But if this member has ALREADY checked in as a walk-in today, don't silently
+        # deduct another pass — ask staff to confirm first (e.g. they're doing a second
+        # class, or checking in a friend/guest who came with them). Only when the scan
+        # is re-sent with confirm=True do we proceed to deduct another pass.
+        qld_today = datetime(today.year, today.month, today.day)  # QLD wall-clock midnight
+        day_start_utc = (qld_today - timedelta(hours=10)).replace(tzinfo=timezone.utc)
+        prior_today = await db.pass_redemptions.count_documents({
+            "user_id": uid, "redeemed_at": {"$gte": day_start_utc},
+        })
+        if prior_today > 0 and not body.confirm:
+            return {
+                "ok": True,
+                "needs_confirm": True,
+                "member_name": mname,
+                "already_today": int(prior_today),
+                "passes_left": int(member.get("class_pass_credits", 0)),
+                "class_name": "Class Pass entry",
+                "when": f"Already checked in today ({prior_today} pass{'es' if prior_today != 1 else ''} used)",
+            }
         # Atomic guarded decrement prevents concurrent double-spend.
         res = await db.users.update_one(
             {"user_id": uid, "class_pass_credits": {"$gte": 1}},
@@ -2532,6 +2552,7 @@ async def admin_checkin_scan(body: ScanCheckinReq, request: Request, u: dict = D
         await db.pass_redemptions.insert_one({
             "redemption_id": new_id("pr"), "user_id": uid, "redeemed_at": now,
             "redeemed_by": u["user_id"], "balance_after": left,
+            "repeat_today": int(prior_today) > 0,
         })
         await create_notification(
             uid, "Class pass used ✅",
@@ -2539,12 +2560,14 @@ async def admin_checkin_scan(body: ScanCheckinReq, request: Request, u: dict = D
             "booking",
         )
         await low_pass_nudge(uid, (member or {}).get("email"), left, base_url=_public_base(request))
+        checkin_no = int(prior_today) + 1
         return {
             "ok": True,
             "member_name": mname,
-            "class_name": "Class Pass entry",
+            "class_name": "Class Pass entry" if checkin_no == 1 else f"Class Pass entry (#{checkin_no} today)",
             "when": f"{left} pass{'es' if left != 1 else ''} left",
             "passes_left": left,
+            "repeat_today": checkin_no > 1,
         }
 
     if data.get("typ") != "checkin" or not data.get("bid"):
