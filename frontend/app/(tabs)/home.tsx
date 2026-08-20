@@ -78,6 +78,7 @@ export default function Home() {
   const { user, refresh } = useAuth();
   const router = useRouter();
   const [classes, setClasses] = useState<Cls[]>([]);
+  const [lightbox, setLightbox] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [hasAlerts, setHasAlerts] = useState(false);
@@ -672,7 +673,12 @@ export default function Home() {
               contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.md }}
             >
               {gymPhotos.map((src, i) => (
-                <Image key={i} source={src} style={styles.galleryImg} contentFit="cover" />
+                <Pressable key={i} testID={`home-gym-photo-${i}`} onPress={() => setLightbox(i)} accessibilityRole="imagebutton">
+                  <Image source={src} style={styles.galleryImg} contentFit="cover" />
+                  <View style={styles.galleryExpand}>
+                    <Ionicons name="expand" size={15} color="#fff" />
+                  </View>
+                </Pressable>
               ))}
             </ScrollView>
 
@@ -752,6 +758,29 @@ export default function Home() {
               <Text style={styles.acadCloseText}>{academyMsg ? "Done" : "Maybe later"}</Text>
             </Pressable>
           </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* OUR GYM photo lightbox */}
+      <Modal visible={lightbox !== null} transparent animationType="fade" onRequestClose={() => setLightbox(null)}>
+        <Pressable style={styles.lbBackdrop} onPress={() => setLightbox(null)}>
+          <Pressable testID="home-gym-lightbox-close" style={styles.lbClose} onPress={() => setLightbox(null)} hitSlop={12}>
+            <Ionicons name="close" size={26} color="#fff" />
+          </Pressable>
+          {lightbox !== null && (
+            <Image source={gymPhotos[lightbox]} style={styles.lbImage} contentFit="contain" />
+          )}
+          {lightbox !== null && gymPhotos.length > 1 && (
+            <View style={styles.lbNav}>
+              <Pressable testID="home-gym-prev" style={styles.lbNavBtn} onPress={() => setLightbox((i) => (i === null ? 0 : (i - 1 + gymPhotos.length) % gymPhotos.length))} hitSlop={10}>
+                <Ionicons name="chevron-back" size={26} color="#fff" />
+              </Pressable>
+              <Text style={styles.lbCount}>{lightbox + 1} / {gymPhotos.length}</Text>
+              <Pressable testID="home-gym-next" style={styles.lbNavBtn} onPress={() => setLightbox((i) => (i === null ? 0 : (i + 1) % gymPhotos.length))} hitSlop={10}>
+                <Ionicons name="chevron-forward" size={26} color="#fff" />
+              </Pressable>
+            </View>
+          )}
         </Pressable>
       </Modal>
     </SafeAreaView>
@@ -1014,4 +1043,11 @@ const styles = StyleSheet.create({
   },
   bookText: { color: colors.brand, fontWeight: "800", fontSize: 13 },
   galleryImg: { width: 240, height: 160, borderRadius: radius.lg },
+  galleryExpand: { position: "absolute", top: 8, right: 8, width: 28, height: 28, borderRadius: 14, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center" },
+  lbBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.94)", alignItems: "center", justifyContent: "center" },
+  lbClose: { position: "absolute", top: 48, right: 20, zIndex: 2, width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(255,255,255,0.12)", alignItems: "center", justifyContent: "center" },
+  lbImage: { width: "92%", height: "70%" },
+  lbNav: { position: "absolute", bottom: 44, flexDirection: "row", alignItems: "center", gap: spacing.xl },
+  lbNavBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: "rgba(255,255,255,0.12)", alignItems: "center", justifyContent: "center" },
+  lbCount: { color: "#fff", fontSize: 14, fontWeight: "800", minWidth: 54, textAlign: "center" },
 });
