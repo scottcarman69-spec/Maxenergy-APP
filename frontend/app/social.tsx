@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, ScrollView, View, Text } from "react-native";
+import { StyleSheet, ScrollView, View, Text, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, radius } from "@/src/theme";
@@ -9,6 +9,10 @@ import FacebookFeed from "@/src/components/FacebookFeed";
 export default function SocialScreen() {
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <Image source={require("@/assets/images/social-bg.webp")} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(10,10,11,0.6)" }]} />
+      </View>
       <ScreenHeader title="Our Facebook" fallback="/(tabs)/home" />
       <ScrollView
         contentContainerStyle={{ paddingVertical: spacing.lg, paddingBottom: 60 }}
