@@ -81,6 +81,7 @@ export default function Home() {
   const [classes, setClasses] = useState<Cls[]>([]);
   const [lightbox, setLightbox] = useState<number | null>(null);
   const [passQr, setPassQr] = useState<string | null>(null);
+  const [passQrCount, setPassQrCount] = useState(0);
   const [passQrLoading, setPassQrLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -313,6 +314,7 @@ export default function Home() {
     try {
       const r = await api.classPassQr();
       if ((r.class_pass_credits || 0) >= 1 && r.code) {
+        setPassQrCount(r.class_pass_credits || 0);
         setPassQr(r.code);
       } else {
         router.push("/credits");
@@ -411,14 +413,21 @@ export default function Home() {
             <Pressable
               testID="home-member-classpass"
               onPress={openClassPass}
-              style={({ pressed }) => [styles.adminScanBtn, pressed && { opacity: 0.85 }]}
+              style={({ pressed }) => [pressed && { opacity: 0.85 }]}
             >
-              {passQrLoading ? (
-                <ActivityIndicator size="small" color={colors.onBrand} />
-              ) : (
-                <Ionicons name="ticket" size={18} color={colors.onBrand} />
-              )}
-              <Text style={styles.adminScanText}>Class Pass</Text>
+              <LinearGradient
+                colors={["#22C55E", "#059669"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.classPassBtn}
+              >
+                {passQrLoading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Ionicons name="ticket" size={18} color="#fff" />
+                )}
+                <Text style={styles.classPassText}>Class Pass</Text>
+              </LinearGradient>
             </Pressable>
           </View>
         )}
@@ -828,6 +837,10 @@ export default function Home() {
             </View>
             <Text style={styles.cpTitle}>Class Pass Entry</Text>
             <Text style={styles.cpSub}>Show this to gym staff to check in</Text>
+            <View style={styles.cpCountPill}>
+              <Ionicons name="ticket" size={14} color={colors.brand} />
+              <Text style={styles.cpCountText}>{passQrCount} pass{passQrCount === 1 ? "" : "es"} left</Text>
+            </View>
             <View style={styles.cpQrBox}>
               {passQr ? <QRCode value={passQr} size={240} backgroundColor="#fff" color="#000" /> : null}
             </View>
@@ -892,6 +905,8 @@ const styles = StyleSheet.create({
   greetBlock: { paddingHorizontal: spacing.lg, marginTop: spacing.sm },
   adminScanBtn: { flexDirection: "row", alignItems: "center", gap: 7, alignSelf: "flex-end", marginRight: spacing.lg, marginTop: spacing.sm, backgroundColor: colors.brand, paddingHorizontal: 14, paddingVertical: 9, borderRadius: radius.pill },
   memberQrCol: { alignItems: "flex-end", gap: spacing.sm },
+  classPassBtn: { flexDirection: "row", alignItems: "center", gap: 7, marginRight: spacing.lg, paddingHorizontal: 16, paddingVertical: 9, borderRadius: radius.pill, shadowColor: "#059669", shadowOpacity: 0.5, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 5 },
+  classPassText: { color: "#fff", fontFamily: font.heading, fontSize: 13, letterSpacing: 0.3 },
   adminScanText: { color: colors.onBrand, fontFamily: font.heading, fontSize: 13, letterSpacing: 0.3 },
   shortcutRow: { flexDirection: "row", gap: spacing.md, paddingHorizontal: spacing.lg, marginTop: spacing.lg },
   shortcutBtn: { flex: 1, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md },
@@ -1110,7 +1125,9 @@ const styles = StyleSheet.create({
   cpCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.xl, alignItems: "center", width: "100%", maxWidth: 360, borderWidth: 1, borderColor: colors.border },
   cpIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center", marginBottom: spacing.sm },
   cpTitle: { color: colors.onSurface, fontSize: 22, fontWeight: "900" },
-  cpSub: { color: colors.onSurfaceSecondary, fontSize: 13, marginTop: 4, marginBottom: spacing.lg },
+  cpSub: { color: colors.onSurfaceSecondary, fontSize: 13, marginTop: 4, marginBottom: spacing.md },
+  cpCountPill: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.brandTertiary, paddingHorizontal: 14, paddingVertical: 7, borderRadius: radius.pill, marginBottom: spacing.lg },
+  cpCountText: { color: colors.brand, fontSize: 14, fontWeight: "900" },
   cpQrBox: { backgroundColor: "#fff", padding: 18, borderRadius: radius.md },
   cpHintRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: spacing.lg, paddingHorizontal: spacing.md },
   cpHint: { color: colors.onSurfaceSecondary, fontSize: 12, textAlign: "center", flexShrink: 1 },

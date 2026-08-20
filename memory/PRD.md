@@ -1118,3 +1118,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Session update (Jun 2026) — Class Pass button → full-screen QR shortcut (DONE)
 - Home "Class Pass" button (home-member-classpass) now calls api.classPassQr() on tap: if the member holds ≥1 pass it opens a full-screen "Class Pass Entry" QR modal right there (240px QR, brand card, DONE button); if they have 0 passes it falls back to routing to /credits (to buy). Button shows a spinner while fetching. New state passQr/passQrLoading + openClassPass() + cp* modal styles in app/(tabs)/home.tsx; imported react-native-qrcode-svg. Verified via screenshot (5 passes → big QR shows instantly).
+
+## Session update (Jun 2026) — Passes-left on the full-screen Class Pass QR (DONE)
+- The home Class Pass full-screen QR modal now shows a brand pill "N passes left" (from api.classPassQr class_pass_credits) between the subtitle and the QR. New passQrCount state set in openClassPass(); cpCountPill/cpCountText styles in app/(tabs)/home.tsx. Verified via screenshot ("5 passes left").
+
+## Session update (Jun 2026) — Class Pass button restyled green (DONE)
+- Home "Class Pass" button restyled to a green LinearGradient pill (#22C55E→#059669) with a soft green glow/shadow + white ticket icon/text, to stand out from the orange "My Check-In QR" button. New classPassBtn/classPassText styles in app/(tabs)/home.tsx. Verified via screenshot.
