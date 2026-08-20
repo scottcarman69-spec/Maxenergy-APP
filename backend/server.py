@@ -7451,30 +7451,52 @@ async def _startup():
 
 
 async def send_due_reminders() -> int:
-    """Send a one-time reminder based on each member's chosen lead time (1, 3 or 12h)."""
+    """Send a one-time reminder based on each member's chosen lead time (1, 3 or 12h).
+    Efficient: only looks at classes starting within the next MAX_HOURS and batch-loads
+    their bookings + members, so a cycle stays fast even on a remote database."""
     MAX_HOURS = 12
     QLD = timedelta(hours=10)  # class start_at is stored as QLD local wall-clock (no DST)
     now = now_utc()
-    window_end = now + timedelta(hours=MAX_HOURS)
+    qld_now = qld_now_naive()
+    # 1) Only upcoming, non-appointment classes in the reminder window (naive QLD range).
+    classes = await db.classes.find(
+        {
+            "by_appointment": {"$ne": True},
+            "start_at": {"$gte": qld_now - timedelta(minutes=5), "$lte": qld_now + timedelta(hours=MAX_HOURS)},
+        },
+        {"_id": 0, "class_id": 1, "start_at": 1},
+    ).to_list(500)
+    if not classes:
+        return 0
+    class_start = {c["class_id"]: c.get("start_at") for c in classes}
+    # 2) Bookings for those classes that still need a reminder.
     bookings = await db.bookings.find(
-        {"status": {"$in": ["paid", "confirmed"]}, "reminder_sent": {"$ne": True}},
+        {
+            "class_id": {"$in": list(class_start.keys())},
+            "status": {"$in": ["paid", "confirmed"]},
+            "reminder_sent": {"$ne": True},
+        },
         {"_id": 0},
-    ).to_list(2000)
+    ).to_list(3000)
+    if not bookings:
+        return 0
+    # 3) Batch-load the members.
+    uids = list({b["user_id"] for b in bookings})
+    users = await db.users.find({"user_id": {"$in": uids}}, {"_id": 0, "user_id": 1, "email": 1, "reminder_hours": 1}).to_list(len(uids) + 1)
+    umap = {u["user_id"]: u for u in users}
+
     sent = 0
     for b in bookings:
-        cls = await db.classes.find_one({"class_id": b["class_id"]}, {"_id": 0})
-        if not cls or cls.get("by_appointment"):
-            continue
-        start = cls.get("start_at")
+        start = class_start.get(b["class_id"])
         if not isinstance(start, datetime):
             continue
         # Interpret the stored naive wall-clock time as QLD local, then convert to UTC.
         s_local = start.replace(tzinfo=None) if start.tzinfo else start
         start_utc = (s_local - QLD).replace(tzinfo=timezone.utc)
-        if not (now <= start_utc <= window_end):
-            continue
-        member = await db.users.find_one({"user_id": b["user_id"]}, {"_id": 0})
-        lead = int((member or {}).get("reminder_hours", 3))
+        if start_utc < now:
+            continue  # already started
+        member = umap.get(b["user_id"]) or {}
+        lead = int(member.get("reminder_hours", 3) or 0)
         if lead == 0:
             continue  # member turned reminders off
         if lead not in (1, 3, 12):
@@ -7487,7 +7509,7 @@ async def send_due_reminders() -> int:
         mins = int((start_utc - now).total_seconds() // 60)
         soon = "in about 1 hour" if mins <= 75 else f"in about {round(mins / 60)} hours"
         await notify_user(
-            b["user_id"], (member or {}).get("email"),
+            b["user_id"], member.get("email"),
             f"Your {b['class_name']} Class Starts Soon!",
             f"Your {b['class_name']} class starts {soon} — {date_str} at {time_str}. See you there!",
             "reminder",
@@ -7625,20 +7647,26 @@ async def send_trial_followups() -> int:
 async def reminder_loop():
     # Small initial delay so startup/seed completes first
     await asyncio.sleep(20)
+    tick = 0
     while True:
+        # Class reminders run every cycle (every 5 min) for timely, ~1-hour-before delivery.
         try:
             await send_due_reminders()
         except Exception as e:
             log.error(f"reminder loop error: {e}")
-        try:
-            await send_streak_reminders()
-        except Exception as e:
-            log.error(f"streak reminder error: {e}")
-        try:
-            await send_trial_followups()
-        except Exception as e:
-            log.error(f"trial follow-up error: {e}")
-        await asyncio.sleep(900)  # every 15 minutes for timely reminders
+        # The heavier weekly/trial scans only need to run occasionally (every ~30 min),
+        # so they never delay the time-sensitive class reminders.
+        if tick % 6 == 0:
+            try:
+                await send_streak_reminders()
+            except Exception as e:
+                log.error(f"streak reminder error: {e}")
+            try:
+                await send_trial_followups()
+            except Exception as e:
+                log.error(f"trial follow-up error: {e}")
+        tick += 1
+        await asyncio.sleep(300)  # every 5 minutes for timely reminders
 
 
 @app.on_event("shutdown")

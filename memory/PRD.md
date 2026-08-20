@@ -1191,3 +1191,10 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Fix in build_membership_pdf: reserve ensure(270) before the Photo & Signature section so it moves to a fresh page when there isn't enough room. Verified via pdftoppm render: block now sits cleanly at the top of its page, photo + signature + "Signed: <name>" + date all render above the footer.
 - Also made GET /api/membership/forms/{id}.pdf REGENERATE the PDF fresh from stored application data on each download (fallback to stored blob on error), so ALL existing forms render with the corrected layout after redeploy — no manual regeneration needed on production. Regenerated all 21 preview PDFs too.
 - NOTE (production): this is code — user must redeploy for the live app's forms to pick up the fix.
+
+## Session update (Jun 2026) — Class reminder emails arriving late FIXED (DONE)
+- Symptom: 1-hour class reminder arrived ~31 min before instead of 60 min before (e.g. 5:31pm for a 6:00pm class).
+- Root cause: send_due_reminders scanned up to 2000 bookings with per-booking sequential class+user lookups (N+1), and the loop also ran send_streak_reminders (loads 40,000 bookings) + trial follow-ups every cycle before sleeping 900s. On the remote/production DB each cycle took minutes, so the effective reminder latency drifted well past the intended 1-hour mark; loop granularity was also only 15 min.
+- Fix: rewrote send_due_reminders to (1) query only upcoming non-appointment classes in the next 12h (naive QLD range on start_at), (2) batch-load their bookings, (3) batch-load members — a few queries total instead of thousands. reminder_loop now runs class reminders every 5 min (was 15), and runs the heavy streak/trial scans only every ~30 min (tick%6) so they never delay class reminders. Logic (per-member lead 1/3/12h, once via reminder_sent) unchanged.
+- Verified: class 50 min out (member lead=1h) → reminder sent; class 5h out → not sent.
+- NOTE: per-member reminder lead time is set in Profile (1h/3h/12h; default 3h). Production needs a redeploy to apply.
