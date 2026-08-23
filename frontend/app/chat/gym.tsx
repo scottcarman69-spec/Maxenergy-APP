@@ -44,9 +44,11 @@ export default function GymChat() {
                 <Text style={styles.emptyText}>Have a question or an issue? Send us a message and the Maxenergy Team will get back to you here.</Text>
               </View>
             ) : msgs.map((m) => (
-              <View key={m.message_id} style={[styles.bubble, m.sender_is_admin ? styles.bubbleThem : styles.bubbleMe]}>
-                {m.sender_is_admin && <Text style={styles.sender}>Maxenergy Team</Text>}
-                <Text style={[styles.msgText, !m.sender_is_admin && { color: colors.onBrand }]}>{m.body}</Text>
+              <View key={m.message_id} style={{ flexDirection: "row", justifyContent: m.sender_is_admin ? "flex-start" : "flex-end" }}>
+                <View style={[styles.bubble, m.sender_is_admin ? styles.bubbleThem : styles.bubbleMe]}>
+                  {m.sender_is_admin && <Text style={styles.sender}>Maxenergy Team</Text>}
+                  <Text style={[styles.msgText, !m.sender_is_admin && { color: colors.onBrand }]}>{m.body}</Text>
+                </View>
               </View>
             ))}
           </ScrollView>
@@ -67,9 +69,9 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   empty: { alignItems: "center", padding: 40, gap: spacing.md },
   emptyText: { color: colors.onSurfaceSecondary, textAlign: "center", lineHeight: 20 },
-  bubble: { maxWidth: "82%", padding: spacing.md, borderRadius: radius.lg },
-  bubbleMe: { alignSelf: "flex-end", backgroundColor: colors.brand, borderBottomRightRadius: 4 },
-  bubbleThem: { alignSelf: "flex-start", backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderBottomLeftRadius: 4 },
+  bubble: { maxWidth: "82%", flexShrink: 1, padding: spacing.md, borderRadius: radius.lg },
+  bubbleMe: { backgroundColor: colors.brand, borderBottomRightRadius: 4 },
+  bubbleThem: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderBottomLeftRadius: 4 },
   sender: { color: colors.brand, fontSize: 11, fontWeight: "800", marginBottom: 3 },
   msgText: { color: colors.onSurface, fontSize: 15, lineHeight: 20 },
   inputBar: { flexDirection: "row", alignItems: "flex-end", gap: spacing.sm, padding: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surface },

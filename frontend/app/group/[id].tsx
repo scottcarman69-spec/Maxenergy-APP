@@ -52,9 +52,11 @@ const MessageRow = React.memo(function MessageRow({ m, mine, canDelete, showRece
   );
   const bubble = (
     <View style={styles.rowWrap}>
-      <Pressable onLongPress={() => onLongPress(m)} delayLongPress={300} style={{ alignSelf: mine ? "flex-end" : "flex-start", maxWidth: "82%" }}>
-        {bubbleInner}
-      </Pressable>
+      <View style={{ flexDirection: "row", justifyContent: mine ? "flex-end" : "flex-start" }}>
+        <Pressable onLongPress={() => onLongPress(m)} delayLongPress={300} style={{ maxWidth: "82%", flexShrink: 1 }}>
+          {bubbleInner}
+        </Pressable>
+      </View>
       {reactions.length > 0 && (
         <View style={[styles.reactionRow, { alignSelf: mine ? "flex-end" : "flex-start" }]}>
           {reactions.map((r) => (
@@ -438,10 +440,10 @@ const styles = StyleSheet.create({
   pinTitle: { color: colors.brand, fontSize: 10, fontWeight: "900", letterSpacing: 1 },
   pinBody: { color: colors.onSurface, fontSize: 13, lineHeight: 18, marginTop: 3 },
   pinToggle: { color: colors.brand, fontSize: 11.5, fontWeight: "800", marginTop: 4 },
-  bubble: { maxWidth: "82%", padding: spacing.md, borderRadius: radius.lg },
+  bubble: { padding: spacing.md, borderRadius: radius.lg },
   rowWrap: { width: "100%" },
-  me: { alignSelf: "flex-end", backgroundColor: colors.brand, borderBottomRightRadius: 4 },
-  them: { alignSelf: "flex-start", backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderBottomLeftRadius: 4 },
+  me: { backgroundColor: colors.brand, borderBottomRightRadius: 4 },
+  them: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderBottomLeftRadius: 4 },
   sender: { color: colors.brand, fontSize: 11, fontWeight: "800", marginBottom: 3 },
   announce: { alignSelf: "stretch", backgroundColor: colors.brandTertiary, borderWidth: 1, borderColor: colors.brand, borderRadius: radius.lg, padding: spacing.md, gap: 5 },
   announceHead: { flexDirection: "row", alignItems: "center", gap: 6 },

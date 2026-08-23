@@ -89,13 +89,15 @@ export default function FriendChat() {
               const mine = m.from_id === meId;
               const isLastMine = mine && i === msgs.length - 1;
               return (
-                <View key={m.dm_id} style={{ alignSelf: mine ? "flex-end" : "flex-start", maxWidth: "82%" }}>
-                  <View style={[styles.bubble, mine ? styles.bubbleMe : styles.bubbleThem]}>
-                    <Text style={[styles.msgText, mine && { color: colors.onBrand }]}>{m.body}</Text>
+                <View key={m.dm_id} style={{ flexDirection: "row", justifyContent: mine ? "flex-end" : "flex-start" }}>
+                  <View style={{ maxWidth: "82%", flexShrink: 1 }}>
+                    <View style={[styles.bubble, mine ? styles.bubbleMe : styles.bubbleThem]}>
+                      <Text style={[styles.msgText, mine && { color: colors.onBrand }]}>{m.body}</Text>
+                    </View>
+                    {isLastMine && (
+                      <Text style={styles.receipt}>{m.read ? "Seen" : "Sent"}</Text>
+                    )}
                   </View>
-                  {isLastMine && (
-                    <Text style={styles.receipt}>{m.read ? "Seen" : "Sent"}</Text>
-                  )}
                 </View>
               );
             })}
@@ -122,9 +124,9 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   empty: { alignItems: "center", padding: 40, gap: spacing.md },
   emptyText: { color: colors.onSurfaceSecondary, textAlign: "center", lineHeight: 20 },
-  bubble: { maxWidth: "82%", padding: spacing.md, borderRadius: radius.lg },
-  bubbleMe: { alignSelf: "flex-end", backgroundColor: colors.brand, borderBottomRightRadius: 4 },
-  bubbleThem: { alignSelf: "flex-start", backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderBottomLeftRadius: 4 },
+  bubble: { padding: spacing.md, borderRadius: radius.lg },
+  bubbleMe: { backgroundColor: colors.brand, borderBottomRightRadius: 4 },
+  bubbleThem: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderBottomLeftRadius: 4 },
   msgText: { color: colors.onSurface, fontSize: 15, lineHeight: 20 },
   receipt: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "700", alignSelf: "flex-end", marginTop: 3, marginRight: 2 },
   typingBubble: { alignSelf: "flex-start", paddingVertical: 8 },
