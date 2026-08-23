@@ -462,6 +462,7 @@ def user_public(u: dict) -> dict:
         "is_test": bool(u.get("is_test", False)),
         "verified": bool(u.get("verified", False)),
         "can_message": not messaging_blocked(u),
+        "needs_dob": not bool(u.get("date_of_birth")),
         "reminder_hours": int(u.get("reminder_hours", 3)),
         "cal_reminder_default": int(u.get("cal_reminder_default", 60)),
         "quick_actions_order": u.get("quick_actions_order") or [],
@@ -1623,6 +1624,29 @@ async def set_reminder_preference(body: ReminderPrefReq, u: dict = Depends(requi
         raise HTTPException(400, "Choose Off, 1, 3 or 12 hours.")
     await db.users.update_one({"user_id": u["user_id"]}, {"$set": {"reminder_hours": body.hours}})
     return {"ok": True, "reminder_hours": body.hours}
+
+
+class DobReq(BaseModel):
+    date_of_birth: str  # ISO date YYYY-MM-DD
+
+
+@api.put("/me/date-of-birth")
+async def set_date_of_birth(body: DobReq, u: dict = Depends(require_user)):
+    """One-time capture of DOB for accounts that don't have one (e.g. Google/Apple
+    social sign-ins), so the under-13 messaging age rule can apply to everyone."""
+    try:
+        dob = datetime.strptime(body.date_of_birth.strip(), "%Y-%m-%d").date()
+    except Exception:
+        raise HTTPException(400, "Enter a valid date of birth")
+    today = now_utc().date()
+    if dob > today:
+        raise HTTPException(400, "Date of birth can't be in the future")
+    age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+    if age > 120:
+        raise HTTPException(400, "Please enter a valid date of birth")
+    await db.users.update_one({"user_id": u["user_id"]}, {"$set": {"date_of_birth": dob.isoformat()}})
+    fresh = await db.users.find_one({"user_id": u["user_id"]}, {"_id": 0, "password_hash": 0})
+    return {"ok": True, "user": user_public(fresh)}
 
 
 class CalReminderPrefReq(BaseModel):
@@ -7548,6 +7572,7 @@ async def seed_data():
                 "picture": None,
                 "is_admin": False,
                 "verified": True,
+                "date_of_birth": "1990-01-01",
                 "class_pass_credits": 10,
                 "credit_cents": 0,
                 "created_at": now_utc(),
@@ -7558,6 +7583,7 @@ async def seed_data():
         await db.users.update_one(
             {"email": review_email},
             {"$set": {"is_admin": False, "verified": True, "password_hash": hash_pw(review_pw),
+                      "date_of_birth": review_user.get("date_of_birth") or "1990-01-01",
                       "class_pass_credits": max(10, int(review_user.get("class_pass_credits", 0) or 0))}},
         )
         log.info("app review demo account password synced")

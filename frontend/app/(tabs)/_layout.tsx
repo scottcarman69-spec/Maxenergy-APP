@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
 import { useAuth } from "@/src/AuthContext";
 import { storage } from "@/src/utils/storage";
+import DobGateModal from "@/src/components/DobGateModal";
 
 // Fixed-size, non-scaling tab labels so they never truncate on devices with a
 // large system font scale.
@@ -59,6 +60,7 @@ export default function TabsLayout() {
   useEffect(() => { refresh(); }, [segments, refresh]);
 
   return (
+    <>
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -139,5 +141,7 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
+    <DobGateModal />
+    </>
   );
 }

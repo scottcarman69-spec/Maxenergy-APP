@@ -456,7 +456,7 @@ export default function Home() {
           </View>
         </View>
 
-        {showWelcome && (
+        {showWelcome && !user?.needs_dob && (
           <WelcomeTour
             visible={showWelcome}
             onDone={dismissWelcome}
@@ -464,7 +464,7 @@ export default function Home() {
           />
         )}
 
-        {!showWelcome && (
+        {!showWelcome && !user?.needs_dob && (
           <NoticePopup
             visible={newNotices.length > 0}
             notices={newNotices}

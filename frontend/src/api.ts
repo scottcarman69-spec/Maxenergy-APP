@@ -19,6 +19,7 @@ export type User = {
   is_admin?: boolean;
   verified?: boolean;
   can_message?: boolean;
+  needs_dob?: boolean;
   reminder_hours?: number;
   cal_reminder_default?: number;
   quick_actions_order?: string[];
@@ -106,6 +107,8 @@ export const api = {
   me: () => req("/api/auth/me"),
   setReminderPreference: (hours: number) =>
     req("/api/me/reminder-preference", { method: "PUT", body: JSON.stringify({ hours }) }),
+  setDateOfBirth: (date_of_birth: string) =>
+    req("/api/me/date-of-birth", { method: "PUT", body: JSON.stringify({ date_of_birth }) }),
   setCalReminderDefault: (minutes: number) =>
     req("/api/me/calendar-reminder", { method: "PUT", body: JSON.stringify({ minutes }) }),
   setQuickActionsOrder: (order: string[]) =>
