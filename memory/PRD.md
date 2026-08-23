@@ -1225,3 +1225,10 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Public Privacy Policy web page: GET /privacy and GET /api/privacy return full HTML policy (mirrors app/privacy.tsx). App Store URL: https://class-notify-8.emergent.host/api/privacy (live after redeploy). In-app screen unchanged at /privacy route.
 - App Store encryption: added ITSAppUsesNonExemptEncryption:false to app.json ios.infoPlist (skips export-compliance prompt on future builds).
 - App Review demo account (auto-seeded, idempotent): appstore.review@maxenergy.com.au / AppReview2026! — regular verified member, 10 class passes, DOB 1990-01-01 (so no DOB prompt for reviewers).
+
+## Session update (Jun 2026) — Security audit fixes
+- Ran read-only security audit (verdict: conditional pass). Core auth/authz/payment/injection controls sound. Fixed:
+  - [HIGH SEC-001] Apple Sign-In account-takeover: /api/auth/apple now links accounts ONLY via Apple-signed claims (sub, and email only when email_verified). Client-supplied body.email is never used for lookup/linking or stored as identity. (server.py ~1517-1555)
+  - [P3] DOB set-once: PUT /api/me/date-of-birth now rejects changes if date_of_birth already set, so the under-13 messaging gate can't be self-lifted. (server.py ~1711)
+  - [P3] CSV formula injection: admin member export neutralises cells starting with = + - @ / tab / CR via _csv_safe(). (server.py ~6865)
+- Remaining accepted P3 (low risk, not fixed): CORS wildcard default when CORS_ORIGINS unset (bearer-token API, no cookies), forgot-password provider disclosure (google:true), static admin creds in .env force-synced on boot, review demo account static password. Advise rotating secrets + setting CORS allowlist for production.

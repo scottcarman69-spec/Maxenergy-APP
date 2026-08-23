@@ -1518,33 +1518,37 @@ async def auth_apple(body: AppleAuthReq):
     if not apple_sub:
         raise HTTPException(status_code=401, detail="Invalid Apple token")
 
-    # Apple only returns email on the token sometimes; prefer the token's verified
-    # email, else the one the client passed on first sign-in.
+    # SECURITY: account identity/linking must rely ONLY on claims Apple signed.
+    # The client-supplied body.email is NEVER used to find or link an account, as
+    # that would let anyone with a valid Apple token attach to a victim's account.
     token_email = (claims.get("email") or "").lower() or None
-    provided_email = (body.email or "").lower() or None
-    email = token_email or provided_email
+    ev = claims.get("email_verified")
+    email_verified = ev is True or str(ev).lower() == "true"
+    trusted_email = token_email if (token_email and email_verified) else None
 
     existing = await db.users.find_one({"apple_sub": apple_sub})
-    # Fall back to matching an existing account by email (e.g. they signed up with
-    # password/Google first) so we don't create a duplicate.
-    if not existing and email:
-        existing = await db.users.find_one({"email": email})
+    # Only link to an existing account when Apple gives us a VERIFIED email that
+    # matches it (e.g. they first signed up with password/Google using that email).
+    if not existing and trusted_email:
+        existing = await db.users.find_one({"email": trusted_email})
 
     if existing:
         user_id = existing["user_id"]
         updates = {"apple_sub": apple_sub}
-        # Persist name/email only on first sign-in; never overwrite with nulls.
+        # Persist name on first sign-in; never overwrite with nulls.
         if not existing.get("name") and body.full_name:
             updates["name"] = body.full_name
-        if not existing.get("email") and email:
-            updates["email"] = email
+        if not existing.get("email") and trusted_email:
+            updates["email"] = trusted_email
         await db.users.update_one({"user_id": user_id}, {"$set": updates})
     else:
         user_id = new_id("user")
         await db.users.insert_one(
             {
                 "user_id": user_id,
-                "email": email or f"{apple_sub.replace('.', '_')}@appleid.local",
+                # Store only a verified email; otherwise a stable per-Apple placeholder.
+                # We deliberately do NOT trust body.email for the stored address.
+                "email": trusted_email or f"{apple_sub.replace('.', '_')}@appleid.local",
                 "name": body.full_name,
                 "apple_sub": apple_sub,
                 "provider": "apple",
@@ -1707,7 +1711,11 @@ class DobReq(BaseModel):
 @api.put("/me/date-of-birth")
 async def set_date_of_birth(body: DobReq, u: dict = Depends(require_user)):
     """One-time capture of DOB for accounts that don't have one (e.g. Google/Apple
-    social sign-ins), so the under-13 messaging age rule can apply to everyone."""
+    social sign-ins), so the under-13 messaging age rule can apply to everyone.
+    Set-once: cannot be changed via this endpoint after it's saved, so the age
+    gate can't be self-lifted by editing DOB."""
+    if u.get("date_of_birth"):
+        raise HTTPException(400, "Your date of birth is already on file and can't be changed here.")
     try:
         dob = datetime.strptime(body.date_of_birth.strip(), "%Y-%m-%d").date()
     except Exception:
@@ -6855,6 +6863,11 @@ async def admin_members_export(request: Request, u: dict = Depends(require_admin
     import csv, io as _io
     buf = _io.StringIO()
     w = csv.writer(buf)
+    # Neutralise CSV/spreadsheet formula injection: cells starting with = + - @
+    # (or tab/CR) are prefixed with a quote so a spreadsheet won't execute them.
+    def _csv_safe(v):
+        s = "" if v is None else str(v)
+        return "'" + s if s and s[0] in ("=", "+", "-", "@", "\t", "\r") else s
     w.writerow(["Name", "Email", "Phone", "Signup", "Joined", "Approved Member", "Application Status", "Trials", "Child Name(s)", "Trial Day(s)", "Active Bookings"])
     for m in members:
         joined = ""
@@ -6863,10 +6876,10 @@ async def admin_members_export(request: Request, u: dict = Depends(require_admin
         children = "; ".join([d.get("child_name") for d in m.get("trial_details", []) if d.get("child_name")])
         days = "; ".join([d.get("preferred_day") for d in m.get("trial_details", []) if d.get("preferred_day")])
         w.writerow([
-            m.get("name") or "", m.get("email") or "", m.get("phone") or "",
+            _csv_safe(m.get("name")), _csv_safe(m.get("email")), _csv_safe(m.get("phone")),
             "Google" if m.get("provider") == "google" else "Email", joined,
             "Yes" if m.get("is_member") else "No", m.get("application_status") or "",
-            ", ".join(m.get("trials", [])), children, days, m.get("active_bookings", 0),
+            _csv_safe(", ".join(m.get("trials", []))), _csv_safe(children), _csv_safe(days), m.get("active_bookings", 0),
         ])
     csv_text = buf.getvalue()
     csv_b64 = base64.b64encode(csv_text.encode("utf-8")).decode()
