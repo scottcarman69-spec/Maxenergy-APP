@@ -16,7 +16,8 @@
         "NSPhotoLibraryUsageDescription": "Attach a photo to your membership application",
         "NSCalendarsUsageDescription": "Add your class bookings to your calendar",
         "NSCalendarsWriteOnlyAccessUsageDescription": "Add your class bookings to your calendar"
-      }
+      },
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
       "adaptiveIcon": {
