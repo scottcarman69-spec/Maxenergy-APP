@@ -7,6 +7,7 @@ import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
 import ScreenHeader from "@/src/components/ScreenHeader";
 import EmojiButton from "@/src/components/EmojiButton";
+import { stampTime } from "@/src/datetime";
 
 type Msg = { message_id: string; body: string; sender_is_admin: boolean; sender_name: string; created_at: string };
 
@@ -44,11 +45,14 @@ export default function GymChat() {
                 <Text style={styles.emptyText}>Have a question or an issue? Send us a message and the Maxenergy Team will get back to you here.</Text>
               </View>
             ) : msgs.map((m) => (
-              <View key={m.message_id} style={{ flexDirection: "row", justifyContent: m.sender_is_admin ? "flex-start" : "flex-end" }}>
-                <View style={[styles.bubble, m.sender_is_admin ? styles.bubbleThem : styles.bubbleMe]}>
-                  {m.sender_is_admin && <Text style={styles.sender}>Maxenergy Team</Text>}
-                  <Text style={[styles.msgText, !m.sender_is_admin && { color: colors.onBrand }]}>{m.body}</Text>
+              <View key={m.message_id}>
+                <View style={{ flexDirection: "row", justifyContent: m.sender_is_admin ? "flex-start" : "flex-end" }}>
+                  <View style={[styles.bubble, m.sender_is_admin ? styles.bubbleThem : styles.bubbleMe]}>
+                    {m.sender_is_admin && <Text style={styles.sender}>Maxenergy Team</Text>}
+                    <Text style={[styles.msgText, !m.sender_is_admin && { color: colors.onBrand }]}>{m.body}</Text>
+                  </View>
                 </View>
+                <Text style={[styles.metaTime, { textAlign: m.sender_is_admin ? "left" : "right" }]}>{stampTime(m.created_at)}</Text>
               </View>
             ))}
           </ScrollView>
@@ -74,6 +78,7 @@ const styles = StyleSheet.create({
   bubbleThem: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderBottomLeftRadius: 4 },
   sender: { color: colors.brand, fontSize: 11, fontWeight: "800", marginBottom: 3 },
   msgText: { color: colors.onSurface, fontSize: 15, lineHeight: 20 },
+  metaTime: { color: colors.onSurfaceSecondary, fontSize: 10, opacity: 0.75, marginTop: 2, marginHorizontal: 2 },
   inputBar: { flexDirection: "row", alignItems: "flex-end", gap: spacing.sm, padding: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surface },
   input: { flex: 1, maxHeight: 120, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: 10, color: colors.onSurface, fontSize: 15 },
   sendBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },

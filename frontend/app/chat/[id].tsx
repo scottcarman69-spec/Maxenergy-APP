@@ -7,6 +7,7 @@ import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
 import ScreenHeader from "@/src/components/ScreenHeader";
 import EmojiButton from "@/src/components/EmojiButton";
+import { stampTime } from "@/src/datetime";
 
 type DM = { dm_id: string; from_id: string; to_id: string; body: string; created_at: string; read?: boolean };
 
@@ -94,9 +95,20 @@ export default function FriendChat() {
                     <View style={[styles.bubble, mine ? styles.bubbleMe : styles.bubbleThem]}>
                       <Text style={[styles.msgText, mine && { color: colors.onBrand }]}>{m.body}</Text>
                     </View>
-                    {isLastMine && (
-                      <Text style={styles.receipt}>{m.read ? "Seen" : "Sent"}</Text>
-                    )}
+                    <View style={[styles.metaRow, { justifyContent: mine ? "flex-end" : "flex-start" }]}>
+                      <Text style={styles.metaTime}>{stampTime(m.created_at)}</Text>
+                      {mine && (
+                        <Ionicons
+                          name={m.read ? "checkmark-done" : "checkmark"}
+                          size={14}
+                          color={m.read ? colors.brand : colors.onSurfaceSecondary}
+                          style={{ marginLeft: 3 }}
+                        />
+                      )}
+                      {isLastMine && (
+                        <Text style={styles.receipt}>{m.read ? "Seen" : "Sent"}</Text>
+                      )}
+                    </View>
                   </View>
                 </View>
               );
@@ -128,7 +140,9 @@ const styles = StyleSheet.create({
   bubbleMe: { backgroundColor: colors.brand, borderBottomRightRadius: 4 },
   bubbleThem: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderBottomLeftRadius: 4 },
   msgText: { color: colors.onSurface, fontSize: 15, lineHeight: 20 },
-  receipt: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "700", alignSelf: "flex-end", marginTop: 3, marginRight: 2 },
+  receipt: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "700", marginLeft: 4 },
+  metaRow: { flexDirection: "row", alignItems: "center", marginTop: 2, marginHorizontal: 2 },
+  metaTime: { color: colors.onSurfaceSecondary, fontSize: 10, opacity: 0.75 },
   typingBubble: { alignSelf: "flex-start", paddingVertical: 8 },
   typingText: { color: colors.onSurfaceSecondary, fontSize: 13, fontStyle: "italic" },
   inputBar: { flexDirection: "row", alignItems: "flex-end", gap: spacing.sm, padding: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surface },

@@ -9,6 +9,7 @@ import { colors, spacing, radius } from "@/src/theme";
 import ScreenHeader from "@/src/components/ScreenHeader";
 import EmojiButton from "@/src/components/EmojiButton";
 import { isOnline } from "@/src/presence";
+import { stampTime } from "@/src/datetime";
 
 type Reaction = { emoji: string; count: number; mine: boolean };
 type ReplyTo = { gmsg_id: string; sender_name: string; body: string };
@@ -70,6 +71,17 @@ const MessageRow = React.memo(function MessageRow({ m, mine, canDelete, showRece
       {mine && showReceipt && (
         <Text style={styles.receipt}>{(m.seen_count || 0) > 0 ? `Seen by ${m.seen_count}` : "Sent"}</Text>
       )}
+      <View style={[styles.metaRow, { justifyContent: mine ? "flex-end" : "flex-start" }]}>
+        <Text style={styles.metaTime}>{stampTime(m.created_at)}</Text>
+        {mine && (
+          <Ionicons
+            name={(m.seen_count || 0) > 0 ? "checkmark-done" : "checkmark"}
+            size={14}
+            color={(m.seen_count || 0) > 0 ? colors.brand : colors.onSurfaceSecondary}
+            style={{ marginLeft: 3 }}
+          />
+        )}
+      </View>
     </View>
   );
   if (!canDelete) return bubble;
@@ -452,6 +464,8 @@ const styles = StyleSheet.create({
   msg: { color: colors.onSurface, fontSize: 15, lineHeight: 20 },
   editedTag: { fontSize: 10, color: colors.onSurfaceSecondary, marginTop: 3, fontStyle: "italic" },
   receipt: { alignSelf: "flex-end", color: colors.onSurfaceSecondary, fontSize: 10.5, marginTop: 3, marginRight: 2 },
+  metaRow: { flexDirection: "row", alignItems: "center", marginTop: 2, marginHorizontal: 2 },
+  metaTime: { color: colors.onSurfaceSecondary, fontSize: 10, opacity: 0.75 },
   replyQuote: { borderLeftWidth: 3, borderLeftColor: colors.brand, paddingLeft: 8, marginBottom: 6, opacity: 0.95 },
   replyName: { color: colors.brand, fontSize: 11.5, fontWeight: "800" },
   replyBody: { color: colors.onSurfaceSecondary, fontSize: 12 },
