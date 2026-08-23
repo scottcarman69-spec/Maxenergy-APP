@@ -8,11 +8,15 @@ import { colors, spacing, radius } from "@/src/theme";
 import ScreenHeader from "@/src/components/ScreenHeader";
 import EmojiButton from "@/src/components/EmojiButton";
 import { stampTime } from "@/src/datetime";
+import { useAuth } from "@/src/AuthContext";
+import ChatAgeGate from "@/src/components/ChatAgeGate";
 
 type DM = { dm_id: string; from_id: string; to_id: string; body: string; created_at: string; read?: boolean };
 
 export default function FriendChat() {
   const router = useRouter();
+  const { user } = useAuth();
+  const canMessage = user?.can_message !== false;
   const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
   const [msgs, setMsgs] = useState<DM[]>([]);
   const [meId, setMeId] = useState<string>("");
@@ -120,6 +124,7 @@ export default function FriendChat() {
             )}
           </ScrollView>
         )}
+        {canMessage ? (
         <View style={styles.inputBar}>
           <EmojiButton testID="dm-emoji" onPick={(e) => setText((t) => t + e)} />
           <TextInput testID="dm-input" value={text} onChangeText={onType} placeholder="Type a message…" placeholderTextColor={colors.onSurfaceSecondary} style={styles.input} multiline />
@@ -127,6 +132,9 @@ export default function FriendChat() {
             {sending ? <ActivityIndicator size="small" color={colors.onBrand} /> : <Ionicons name="send" size={18} color={colors.onBrand} />}
           </Pressable>
         </View>
+        ) : (
+          <ChatAgeGate />
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

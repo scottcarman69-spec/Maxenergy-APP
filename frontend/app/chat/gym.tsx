@@ -8,10 +8,14 @@ import { colors, spacing, radius } from "@/src/theme";
 import ScreenHeader from "@/src/components/ScreenHeader";
 import EmojiButton from "@/src/components/EmojiButton";
 import { stampTime } from "@/src/datetime";
+import { useAuth } from "@/src/AuthContext";
+import ChatAgeGate from "@/src/components/ChatAgeGate";
 
 type Msg = { message_id: string; body: string; sender_is_admin: boolean; sender_name: string; created_at: string };
 
 export default function GymChat() {
+  const { user } = useAuth();
+  const canMessage = user?.can_message !== false;
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState("");
@@ -57,6 +61,7 @@ export default function GymChat() {
             ))}
           </ScrollView>
         )}
+        {canMessage ? (
         <View style={styles.inputBar}>
           <EmojiButton testID="msg-emoji" onPick={(e) => setText((t) => t + e)} />
           <TextInput testID="msg-input" value={text} onChangeText={setText} placeholder="Type a message…" placeholderTextColor={colors.onSurfaceSecondary} style={styles.input} multiline />
@@ -64,6 +69,9 @@ export default function GymChat() {
             {sending ? <ActivityIndicator size="small" color={colors.onBrand} /> : <Ionicons name="send" size={18} color={colors.onBrand} />}
           </Pressable>
         </View>
+        ) : (
+          <ChatAgeGate />
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

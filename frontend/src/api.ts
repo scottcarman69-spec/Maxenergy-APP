@@ -18,6 +18,7 @@ export type User = {
   picture?: string | null;
   is_admin?: boolean;
   verified?: boolean;
+  can_message?: boolean;
   reminder_hours?: number;
   cal_reminder_default?: number;
   quick_actions_order?: string[];

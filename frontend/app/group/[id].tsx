@@ -10,6 +10,8 @@ import ScreenHeader from "@/src/components/ScreenHeader";
 import EmojiButton from "@/src/components/EmojiButton";
 import { isOnline } from "@/src/presence";
 import { stampTime } from "@/src/datetime";
+import { useAuth } from "@/src/AuthContext";
+import ChatAgeGate from "@/src/components/ChatAgeGate";
 
 type Reaction = { emoji: string; count: number; mine: boolean };
 type ReplyTo = { gmsg_id: string; sender_name: string; body: string };
@@ -108,6 +110,8 @@ const MessageRow = React.memo(function MessageRow({ m, mine, canDelete, showRece
 export default function GroupChat() {
   const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
   const router = useRouter();
+  const { user } = useAuth();
+  const canMessage = user?.can_message !== false;
   const [msgs, setMsgs] = useState<GM[]>([]);
   const [gname, setGname] = useState(String(name || "Group"));
   const [count, setCount] = useState(0);
@@ -357,6 +361,7 @@ export default function GroupChat() {
             </Pressable>
           </View>
         )}
+        {canMessage ? (
         <View style={styles.bar}>
           <EmojiButton testID="group-emoji" onPick={(e) => setText((t) => t + e)} />
           <TextInput testID="group-input" value={text} onChangeText={onTypeChange} placeholder="Message the group…" placeholderTextColor={colors.onSurfaceSecondary} style={styles.input} multiline />
@@ -364,6 +369,9 @@ export default function GroupChat() {
             {sending ? <ActivityIndicator size="small" color={colors.onBrand} /> : <Ionicons name="send" size={18} color={colors.onBrand} />}
           </Pressable>
         </View>
+        ) : (
+          <ChatAgeGate />
+        )}
       </KeyboardAvoidingView>
       )}
 

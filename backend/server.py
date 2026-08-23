@@ -284,6 +284,38 @@ async def enforce_rate_limit(request: Request, action: str, email: Optional[str]
         raise HTTPException(status_code=429, detail=f"Too many attempts. Please try again in {retry} seconds.", headers={"Retry-After": str(retry)})
 
 
+MIN_MESSAGING_AGE = 13
+
+
+def user_age(u: dict) -> Optional[int]:
+    """Age in years from the user's date_of_birth (YYYY-MM-DD). None if unknown
+    (e.g. Google/Apple social sign-ins never collect a DOB)."""
+    dob_str = u.get("date_of_birth")
+    if not dob_str:
+        return None
+    try:
+        dob = datetime.strptime(str(dob_str)[:10], "%Y-%m-%d").date()
+    except Exception:
+        return None
+    today = now_utc().date()
+    return today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+
+
+def messaging_blocked(u: dict) -> bool:
+    """True only when we KNOW the member is under the minimum messaging age.
+    Unknown age (no DOB) is allowed — social platforms already require 13+."""
+    age = user_age(u)
+    return age is not None and age < MIN_MESSAGING_AGE
+
+
+def require_messaging_age(u: dict) -> None:
+    if messaging_blocked(u):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Messaging is only available to members aged {MIN_MESSAGING_AGE} and over.",
+        )
+
+
 def user_public(u: dict) -> dict:
     return {
         "user_id": u["user_id"],
@@ -295,6 +327,7 @@ def user_public(u: dict) -> dict:
         "is_admin": bool(u.get("is_admin", False)),
         "is_test": bool(u.get("is_test", False)),
         "verified": bool(u.get("verified", False)),
+        "can_message": not messaging_blocked(u),
         "reminder_hours": int(u.get("reminder_hours", 3)),
         "cal_reminder_default": int(u.get("cal_reminder_default", 60)),
         "quick_actions_order": u.get("quick_actions_order") or [],
@@ -2816,6 +2849,7 @@ async def messages_list(u: dict = Depends(require_user)):
 
 @api.post("/messages")
 async def messages_send(body: MessageReq, request: Request, u: dict = Depends(require_user)):
+    require_messaging_age(u)
     text = (body.body or "").strip()
     if not text:
         raise HTTPException(400, "Message cannot be empty.")
@@ -3204,6 +3238,7 @@ class DMSendReq(BaseModel):
 
 @api.post("/dm/{other_id}")
 async def dm_send(other_id: str, body: DMSendReq, u: dict = Depends(require_user)):
+    require_messaging_age(u)
     await _touch(u["user_id"])
     text = (body.body or "").strip()
     if not text:
@@ -3408,6 +3443,7 @@ class GroupSendReq(BaseModel):
 
 @api.post("/groups/{gid}/messages")
 async def group_send(gid: str, body: GroupSendReq, u: dict = Depends(require_user)):
+    require_messaging_age(u)
     g = await _group_or_403(gid, u["user_id"])
     text = (body.body or "").strip()
     if not text:
@@ -3443,6 +3479,7 @@ class ReactReq(BaseModel):
 
 @api.post("/groups/{gid}/messages/{gmsg_id}/react")
 async def group_react(gid: str, gmsg_id: str, body: ReactReq, u: dict = Depends(require_user)):
+    require_messaging_age(u)
     await _group_or_403(gid, u["user_id"])
     emoji = (body.emoji or "").strip()
     if emoji not in ALLOWED_REACTIONS:
