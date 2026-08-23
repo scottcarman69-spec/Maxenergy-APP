@@ -1396,15 +1396,21 @@ async def auth_register(body: RegisterReq, request: Request):
     last = body.last_name.strip()
     full_name = (f"{first} {last}").strip()
 
-    # Enumeration-safe: we NEVER tell the client whether this email already exists.
-    # No account is created here — we stage a pending registration and email a code.
-    # The real account is only created after the code is verified (verify-then-login).
-    existing = await db.users.find_one({"email": email}, {"_id": 1})
+    # Block reuse of an email that already has an account (via password, Google or
+    # Apple) and tell the user exactly how to sign in, instead of silently creating
+    # a duplicate or pretending a code was sent. NOTE: this intentionally reveals
+    # that an email is registered (product decision) to avoid confusing dead-ends.
+    existing = await db.users.find_one({"email": email}, {"_id": 1, "provider": 1, "password_hash": 1})
     if existing:
-        # Already registered: return the exact same generic response, create no
-        # pending record and send no verification code (which would confirm the
-        # address is unregistered). Owner can log in / reset as normal.
-        return {"pending": True, "email": email}
+        if existing.get("password_hash"):
+            msg = "This email is already registered. Please log in with your password, or use 'Forgot password' if you need to reset it."
+        elif existing.get("provider") == "google":
+            msg = "This email is already registered with Google. Please tap 'Continue with Google' to sign in."
+        elif existing.get("provider") == "apple":
+            msg = "This email is already registered with Apple. Please use 'Sign in with Apple' to log in."
+        else:
+            msg = "This email is already registered. Please log in instead."
+        raise HTTPException(status_code=409, detail=msg)
 
     await db.pending_registrations.update_one(
         {"email": email},
