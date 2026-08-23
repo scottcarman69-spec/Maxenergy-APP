@@ -126,6 +126,140 @@ async def health_check():
 async def api_health_check():
     return {"status": "ok"}
 
+
+_PRIVACY_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — Maxenergy Fitness</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+         line-height: 1.6; max-width: 760px; margin: 0 auto; padding: 24px; color: #1a1a1a; background: #ffffff; }
+  h1 { font-size: 28px; margin-bottom: 4px; }
+  h2 { font-size: 19px; margin-top: 32px; }
+  .updated { color: #666; font-size: 14px; margin-bottom: 24px; }
+  .sub { font-weight: 700; margin-top: 16px; }
+  ul { margin: 8px 0; padding-left: 22px; }
+  li { margin-bottom: 6px; }
+  a { color: #E8501B; }
+  .contact { margin-top: 8px; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #121212; color: #eaeaea; } .updated { color: #aaa; }
+  }
+</style>
+</head>
+<body>
+<h1>Privacy Policy</h1>
+<div class="updated">Last updated: 17 August 2026</div>
+
+<p>Maxenergy Fitness (ABN 81 213 163 833) ("we", "us" or "our") operates the Maxenergy Fitness mobile application and associated services.</p>
+<p>We respect your privacy and are committed to protecting the personal information we collect and handle. This Privacy Policy explains what information we collect, how we use and protect it, when it may be shared, and the choices available to you.</p>
+
+<h2>1. Information We Collect</h2>
+<p>Depending on how you use our app and services, we may collect:</p>
+<div class="sub">Account information</div>
+<ul><li>Name</li><li>Email address</li><li>Login and account information</li><li>Other information you provide when creating or managing your account</li></ul>
+<p>Passwords are securely protected using appropriate security measures. We do not store passwords in plain text.</p>
+<div class="sub">Profile, booking and attendance information</div>
+<ul><li>Classes you book</li><li>Booking history</li><li>Attendance and check-in records</li><li>QR code check-ins</li><li>Membership-related information</li><li>Messages or enquiries you send to us</li></ul>
+<div class="sub">Payment information</div>
+<p>Payments made through the app are processed securely by our payment provider, Square.</p>
+<p>We do not store your full credit or debit card details on our servers. Payment information is handled by Square in accordance with its own security and privacy requirements.</p>
+<div class="sub">Membership information</div>
+<p>Membership registrations and direct debit arrangements may be completed through Vigyr's secure systems.</p>
+<p>Information entered through Vigyr is handled by Vigyr and relevant payment or billing providers in accordance with their applicable privacy and security practices.</p>
+<div class="sub">Images and uploaded content</div>
+<p>If the app allows you to upload an image or other content, we collect the information you choose to provide.</p>
+<div class="sub">Device permissions</div>
+<p>Certain features may request access to functions on your device.</p>
+<p>For example, authorised staff may use camera access to scan member QR codes for attendance and class check-ins.</p>
+<p>We only request device permissions that are required for the relevant app feature.</p>
+
+<h2>2. How We Collect Information</h2>
+<p>We may collect personal information:</p>
+<ul><li>Directly from you when you create an account, make a booking, contact us or use the app</li><li>When you attend or check in to a class</li><li>When you purchase a class, service or membership</li><li>Through service providers used to operate the app and our gym services</li><li>When you choose to sign in using a supported third-party login service</li></ul>
+
+<h2>3. How We Use Your Information</h2>
+<p>We may use your information to:</p>
+<ul><li>Create and manage your account</li><li>Manage class bookings and cancellations</li><li>Confirm attendance and check-ins</li><li>Process payments</li><li>Manage memberships</li><li>Provide gym and membership services</li><li>Send booking confirmations and class reminders</li><li>Send important service, membership or account notices</li><li>Respond to enquiries and provide customer support</li><li>Maintain the security and operation of the app</li><li>Improve our classes, services and app functionality</li><li>Meet legal and regulatory requirements</li></ul>
+<p>Where available, class reminder preferences can be managed within the app.</p>
+
+<h2>4. Sharing Your Information</h2>
+<p>We do not sell your personal information.</p>
+<p>We may share information with trusted service providers where necessary to operate our app and provide our services, including:</p>
+<ul><li>Square — payment processing.</li><li>Vigyr — membership registration and gym membership/access management.</li><li>Resend — transactional emails, including booking confirmations and class notifications.</li><li>Google — where you choose to use Sign in with Google or other supported Google services.</li><li>Apple — where you choose to use Sign in with Apple.</li></ul>
+<p>We may also use technology, hosting, database, notification and other service providers necessary to operate and secure the app.</p>
+<p>These providers may only receive information reasonably required to provide their services.</p>
+<p>We may also disclose information where required or authorised by Australian law, or where reasonably necessary to protect our legal rights or the safety of our members, staff or others.</p>
+
+<h2>5. Overseas Processing and Disclosure</h2>
+<p>Some of the technology and service providers used by our app may operate systems or infrastructure outside Australia.</p>
+<p>As a result, personal information may in some circumstances be processed, stored or disclosed outside Australia.</p>
+<p>Where required, we take reasonable steps to ensure personal information disclosed to overseas recipients is handled appropriately and in accordance with applicable Australian privacy requirements.</p>
+<p>Where it is practicable to identify the countries in which overseas recipients are located, we will provide that information in this Privacy Policy or otherwise make it available to you.</p>
+
+<h2>6. Data Storage and Security</h2>
+<p>We take reasonable steps to protect personal information from misuse, interference, loss, unauthorised access, modification and disclosure.</p>
+<p>Access to personal information is restricted to authorised persons who require access for legitimate business purposes.</p>
+<p>Payment card information is handled by our payment provider and is not stored directly by Maxenergy Fitness.</p>
+<p>Although we take reasonable security precautions, no internet-connected system or method of electronic transmission can be guaranteed to be completely secure.</p>
+
+<h2>7. Data Retention and Account Deletion</h2>
+<p>We retain personal information for as long as reasonably necessary to provide our services, operate the app, maintain appropriate business records and meet legal or regulatory requirements.</p>
+<p>You may request deletion of your account and associated personal information. You can also delete your account directly within the app.</p>
+<p>Some information may need to be retained after an account is deleted where required by law, for legitimate record-keeping purposes, to resolve disputes or to protect our legal rights.</p>
+
+<h2>8. Accessing and Correcting Your Information</h2>
+<p>You may request access to personal information we hold about you or ask us to correct information that is inaccurate, incomplete or out of date.</p>
+<p>You can also update certain account information directly through the app where this functionality is available.</p>
+<p>To make an access, correction or deletion request, contact us using the details below.</p>
+
+<h2>9. Children's Privacy</h2>
+<p>Our services include classes for children and young people.</p>
+<p>In-app messaging features are only available to members aged 13 and over.</p>
+<p>Where appropriate, a parent or legal guardian must provide consent and manage or authorise the account for a member under 18.</p>
+<p>We aim to collect only the personal information reasonably necessary to manage bookings, attendance, memberships, safety and participation in our services.</p>
+<p>Parents or guardians may contact us regarding personal information associated with their child's account.</p>
+
+<h2>10. Privacy Complaints</h2>
+<p>If you believe we have not handled your personal information appropriately, please contact us using the details below.</p>
+<p>Please provide enough information for us to understand and investigate your concern.</p>
+<p>We will review your complaint and aim to respond within a reasonable period.</p>
+<p>If you are not satisfied with our response and the Australian Privacy Act applies to the matter, you may be entitled to make a complaint to the Office of the Australian Information Commissioner (OAIC).</p>
+
+<h2>11. Third-Party Services</h2>
+<p>Our app may contain links to, or integrate with, third-party services.</p>
+<p>Those services may have their own privacy policies and terms. We encourage you to review the privacy information provided by those services before providing personal information directly to them.</p>
+
+<h2>12. Changes to This Privacy Policy</h2>
+<p>We may update this Privacy Policy from time to time to reflect changes to our app, services, providers or legal requirements.</p>
+<p>The latest version will be made available through the app and/or our website.</p>
+<p>The "Last updated" date at the top of this policy will show when the policy was most recently revised.</p>
+
+<h2>13. Contact Us</h2>
+<p>If you have questions, would like to access or correct your personal information, request account deletion, or make a privacy complaint, please contact:</p>
+<div class="contact">
+<strong>Maxenergy Fitness</strong><br>
+ABN 81 213 163 833<br>
+Shop 38, Campus Village Shopping Centre<br>
+38 Faculty Close<br>
+Smithfield QLD 4878<br>
+Australia<br>
+Email: <a href="mailto:info@maxenergy.com.au">info@maxenergy.com.au</a><br>
+Phone: <a href="tel:0740579005">07 4057 9005</a>
+</div>
+</body>
+</html>"""
+
+
+@app.get("/privacy")
+@api.get("/privacy")
+async def privacy_policy_page():
+    """Public, browser-openable Privacy Policy page for the App/Play Store listing."""
+    return Response(content=_PRIVACY_HTML, media_type="text/html")
+
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("maxenergy")
 
