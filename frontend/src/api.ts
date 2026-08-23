@@ -100,6 +100,8 @@ export const api = {
     req("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
   googleSession: (session_id: string) =>
     req("/api/auth/session", { method: "POST", body: JSON.stringify({ session_id }) }),
+  appleAuth: (payload: { identity_token: string; full_name?: string | null; email?: string | null }) =>
+    req("/api/auth/apple", { method: "POST", body: JSON.stringify(payload) }),
   me: () => req("/api/auth/me"),
   setReminderPreference: (hours: number) =>
     req("/api/me/reminder-preference", { method: "PUT", body: JSON.stringify({ hours }) }),

@@ -43,6 +43,9 @@ ADMIN2_PASSWORD = os.environ["ADMIN2_PASSWORD"]
 
 EMAIL_BASE_URL = os.environ["EMAIL_BASE_URL"]
 EMERGENT_AUTH_SESSION_URL = os.environ["EMERGENT_AUTH_SESSION_URL"]
+APPLE_AUDIENCES = [a.strip() for a in os.environ.get("APPLE_AUDIENCES", "").split(",") if a.strip()]
+APPLE_ISSUER = "https://appleid.apple.com"
+APPLE_JWKS_URL = "https://appleid.apple.com/auth/keys"
 SEED_VERSION = "v14"
 MAX_CLASS_CAPACITY = 16   # hard maximum spots per class (appointments stay at 1)
 BOOTCAMP_CAPACITY = 20    # Boot Camp is allowed a higher cap than other classes
@@ -1008,6 +1011,13 @@ class GoogleSessionReq(BaseModel):
     session_id: str
 
 
+class AppleAuthReq(BaseModel):
+    identity_token: str
+    # Only sent by the client on the FIRST sign-in (Apple returns these once).
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+
+
 class VerifyOtpReq(BaseModel):
     email: EmailStr
     code: str
@@ -1229,6 +1239,87 @@ async def auth_session(body: GoogleSessionReq):
     )
     u = await db.users.find_one({"user_id": user_id}, {"_id": 0, "password_hash": 0})
     return {"session_token": session_token, "user": user_public(u)}
+
+
+# Cache Apple's public keys so we don't fetch JWKS on every sign-in.
+_apple_jwks_client = None
+
+def _get_apple_jwks_client():
+    global _apple_jwks_client
+    if _apple_jwks_client is None:
+        from jwt import PyJWKClient
+        _apple_jwks_client = PyJWKClient(APPLE_JWKS_URL)
+    return _apple_jwks_client
+
+
+@api.post("/auth/apple")
+async def auth_apple(body: AppleAuthReq):
+    """Native Sign in with Apple (iOS). Verifies the identity token against Apple's
+    JWKS, keys the user on the Apple `sub`, and issues a 7-day session token."""
+    token = (body.identity_token or "").strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing identity token")
+    try:
+        signing_key = _get_apple_jwks_client().get_signing_key_from_jwt(token)
+        claims = jwt.decode(
+            token,
+            signing_key.key,
+            algorithms=["RS256"],
+            audience=APPLE_AUDIENCES,
+            issuer=APPLE_ISSUER,
+        )
+    except Exception as e:
+        log.error(f"apple token verify failed: {e}")
+        raise HTTPException(status_code=401, detail="Invalid Apple token")
+
+    apple_sub = claims.get("sub")
+    if not apple_sub:
+        raise HTTPException(status_code=401, detail="Invalid Apple token")
+
+    # Apple only returns email on the token sometimes; prefer the token's verified
+    # email, else the one the client passed on first sign-in.
+    token_email = (claims.get("email") or "").lower() or None
+    provided_email = (body.email or "").lower() or None
+    email = token_email or provided_email
+
+    existing = await db.users.find_one({"apple_sub": apple_sub})
+    # Fall back to matching an existing account by email (e.g. they signed up with
+    # password/Google first) so we don't create a duplicate.
+    if not existing and email:
+        existing = await db.users.find_one({"email": email})
+
+    if existing:
+        user_id = existing["user_id"]
+        updates = {"apple_sub": apple_sub}
+        # Persist name/email only on first sign-in; never overwrite with nulls.
+        if not existing.get("name") and body.full_name:
+            updates["name"] = body.full_name
+        if not existing.get("email") and email:
+            updates["email"] = email
+        await db.users.update_one({"user_id": user_id}, {"$set": updates})
+    else:
+        user_id = new_id("user")
+        await db.users.insert_one(
+            {
+                "user_id": user_id,
+                "email": email or f"{apple_sub.replace('.', '_')}@appleid.local",
+                "name": body.full_name,
+                "apple_sub": apple_sub,
+                "provider": "apple",
+                "is_admin": False,
+                "verified": True,
+                "created_at": now_utc(),
+            }
+        )
+
+    session_token = new_id("apple_sess") + secrets.token_urlsafe(24)
+    await db.user_sessions.insert_one(
+        {"session_token": session_token, "user_id": user_id, "provider": "apple",
+         "expires_at": now_utc() + timedelta(days=7), "created_at": now_utc()}
+    )
+    u = await db.users.find_one({"user_id": user_id}, {"_id": 0, "password_hash": 0})
+    return {"session_token": session_token, "user": user_public(u)}
+
 
 @api.post("/auth/verify-otp")
 async def auth_verify_otp(body: VerifyOtpReq, request: Request):
@@ -7207,6 +7298,7 @@ async def seed_data():
     try:
         await db.users.create_index("email", unique=True)
         await db.users.create_index("user_id", unique=True)
+        await db.users.create_index("apple_sub", unique=True, sparse=True)
         await db.user_sessions.create_index("session_token", unique=True)
         await db.user_sessions.create_index("expires_at", expireAfterSeconds=0)
         await db.classes.create_index("class_id", unique=True)

@@ -15,6 +15,7 @@ import { Image } from "expo-image";
 import { Link, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { useAuth } from "@/src/AuthContext";
 import { colors, spacing, radius, type, font } from "@/src/theme";
 import { loginHero } from "@/src/gymPhotos";
@@ -53,13 +54,22 @@ function extractSessionId(url: string): string | null {
 
 export default function Login() {
   const router = useRouter();
-  const { loginEmail, applyGoogleSessionId } = useAuth();
+  const { loginEmail, applyGoogleSessionId, applyAppleAuth } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [gLoading, setGLoading] = useState(false);
+  const [aLoading, setALoading] = useState(false);
+  const [appleAvailable, setAppleAvailable] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+    AppleAuthentication.isAvailableAsync()
+      .then(setAppleAvailable)
+      .catch(() => setAppleAvailable(false));
+  }, []);
 
   useEffect(() => {
     const sub = Linking.addEventListener("url", (e) => {
@@ -137,6 +147,37 @@ export default function Login() {
       setErr(e?.message || "Google login failed");
     } finally {
       setGLoading(false);
+    }
+  };
+
+  const appleLogin = async () => {
+    setErr(null);
+    setALoading(true);
+    try {
+      const cred = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+      if (!cred.identityToken) {
+        setErr("Apple sign-in failed. Please try again.");
+        return;
+      }
+      const fullName = cred.fullName
+        ? [cred.fullName.givenName, cred.fullName.familyName].filter(Boolean).join(" ").trim() || null
+        : null;
+      await applyAppleAuth({
+        identity_token: cred.identityToken,
+        full_name: fullName,
+        email: cred.email ?? null,
+      });
+      router.replace("/(tabs)/home");
+    } catch (e: any) {
+      if (e?.code === "ERR_REQUEST_CANCELED") return;
+      setErr(e?.message || "Apple login failed");
+    } finally {
+      setALoading(false);
     }
   };
 
@@ -293,6 +334,23 @@ export default function Login() {
             )}
           </Pressable>
 
+          {appleAvailable && (
+            aLoading ? (
+              <View style={[styles.googleBtn, { backgroundColor: "#000" }]}>
+                <ActivityIndicator color="#fff" />
+              </View>
+            ) : (
+              <AppleAuthentication.AppleAuthenticationButton
+                testID="login-apple-button"
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+                cornerRadius={radius.md}
+                style={styles.appleBtn}
+                onPress={appleLogin}
+              />
+            )
+          )}
+
           <View style={styles.footerRow}>
             <Text style={type.bodyDim}>New here? </Text>
             <Link href="/(auth)/register" asChild>
@@ -392,6 +450,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   googleBtnText: { color: colors.onSurface, fontFamily: font.heading, fontSize: 14, letterSpacing: 0.5 },
+  appleBtn: { height: 50, width: "100%" },
   footerRow: { flexDirection: "row", justifyContent: "center", marginTop: spacing.lg },
   linkText: { color: colors.brand, fontFamily: font.heading },
 });

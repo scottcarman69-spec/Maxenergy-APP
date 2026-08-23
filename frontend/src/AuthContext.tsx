@@ -10,6 +10,7 @@ type AuthState = {
   registerEmail: (payload: { first_name: string; last_name: string; date_of_birth: string; phone: string; email: string; password: string }) => Promise<void>;
   finishAuth: (token: string, user: User) => Promise<void>;
   applyGoogleSessionId: (sessionId: string) => Promise<void>;
+  applyAppleAuth: (payload: { identity_token: string; full_name?: string | null; email?: string | null }) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 };
@@ -78,6 +79,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await setToken(r.session_token);
     setUser(r.user);
   };
+  const applyAppleAuth = async (payload: { identity_token: string; full_name?: string | null; email?: string | null }) => {
+    const r = await api.appleAuth(payload);
+    await setToken(r.session_token);
+    setUser(r.user);
+  };
   const logout = async () => {
     try {
       await api.logout();
@@ -88,7 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthCtx.Provider
-      value={{ user, loading, loginEmail, registerEmail, finishAuth, applyGoogleSessionId, logout, refresh }}
+      value={{ user, loading, loginEmail, registerEmail, finishAuth, applyGoogleSessionId, applyAppleAuth, logout, refresh }}
     >
       {children}
     </AuthCtx.Provider>

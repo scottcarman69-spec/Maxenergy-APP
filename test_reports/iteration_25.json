@@ -1,0 +1,42 @@
+{
+  "summary": "BACKEND-ONLY testing pass. 23/23 pytest cases green in /app/backend/tests/test_apple_auth_and_regression.py. (1) NEW POST /api/auth/apple: missing identity_token -> 422 (pydantic), empty string -> 401 'Missing identity token', garbage string -> 401 'Invalid Apple token', forged 3-segment RS256 JWT -> 401 'Invalid Apple token'. Endpoint reachable, JWKS client lazy-loads, no 5xx on any invalid payload. Backend started cleanly with APPLE_AUDIENCES='com.emergent.classnotify.hl9igt,host.exp.Exponent' loaded from /app/backend/.env (verified via `seed check complete -> v14` and successful startup log). (2) Auth regressions all pass: POST /api/auth/login (info@ and admin@ both return is_admin=true, testmember returns 200, wrong pw -> 401); GET /api/auth/me with Bearer returns {user:{...}} wrapper containing email+is_admin; /me without token -> 401; POST /api/auth/logout returns 200; POST /api/auth/session with bogus session_id -> 401 (Emergent auth rejects). (3) POST /api/auth/register returns pending=true and does NOT create the user until verify — verify-otp with a wrong code returns 400 (not 5xx); resend-otp reachable. IMPORTANT: the register->verify-otp end-to-end could NOT be verified because the OTP is hashed in the DB and the log line only says 'OTP issued for <email> (verify)' WITHOUT the 6-digit code — the note in /app/memory/test_credentials.md line 23 claiming the code is logged is INACCURATE for this build (server.py line 595 logs only the email+purpose, no code). (4) Regressions: GET /api/admin/checkins/today returns 200 for admin, 403 for member. GET /api/gym/photos returns 200 public list. POST /api/admin/gym/photos reachable as admin (returns 400 on empty body, not 401/403/5xx). GET /api/credits returns {balance_cents,int; entries,list; class_pass_credits,int; pass_entries,list} — actual field is `balance_cents` NOT `credit_cents` as stated in the review request. GET /api/passes/qr returns 200 with a signed `code` field. GET /api/classes returns 200 list both unauth and authed. No 5xx observed anywhere.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/credits", "issue": "Response field is `balance_cents` (server.py line 4882) but review request / callers may expect `credit_cents`. Confirm the mobile client reads `balance_cents` (or add a `credit_cents` alias) to avoid a silent zero-balance display."},
+      {"endpoint": "POST /api/auth/register (log side-effect)", "issue": "server.py line 595 logs `OTP issued for {email} ({purpose})` WITHOUT the 6-digit code, but /app/memory/test_credentials.md line 23 documents that the code IS logged. Either add the code to the log line (dev/preview only) or fix the credentials doc so future testing agents don't waste time. Also, some OTP emails are being rejected by Resend with `undeliverable_recipient` (e.g. member_apple_*@gmail.com blocked before send — see backend.err.log line 13867)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_apple_auth_and_regression.py",
+    "/app/test_reports/pytest/pytest_apple_auth_and_regression.xml"
+  ],
+  "action_items": [
+    "Verify mobile client reads `balance_cents` from /api/credits (server.py:4882) — the review brief called it `credit_cents` which does NOT exist in the payload; if the client is written against `credit_cents` the wallet balance will silently render as 0. Either rename the response key back to `credit_cents` or add both keys.",
+    "Fix /app/memory/test_credentials.md line 23 or add the OTP code to the log line in server.py:595 (dev/preview only) — the current doc claims the code is logged but only the email+purpose are.",
+    "Investigate Resend `undeliverable_recipient` bounces for synthetic test emails during signup (backend.err.log). Signup still returns pending=true so it's a preview-only annoyance, not a prod blocker, but worth switching test-run emails to `delivered@resend.dev` in the smoke-flow or gating the Resend call in preview.",
+    "OPTIONAL: The `identity_token` field is a required str with no min_length; sending an empty string bypasses pydantic and hits the explicit 401. If you want a 422 for empty too, add `min_length=1` on AppleAuthReq.identity_token."
+  ],
+  "critical_code_review_comments": [
+    "server.py:1255-1321 auth_apple(): correct — verifies via PyJWKClient against Apple JWKS with audience=APPLE_AUDIENCES (list) and issuer=https://appleid.apple.com; on success upserts by apple_sub, falls back to email match to avoid duplicate accounts, and issues a 7-day session_token stored in user_sessions. Fallback email `{apple_sub}@appleid.local` handles the 'hide my email' Apple relay case sensibly.",
+    "server.py:1244-1252 _get_apple_jwks_client(): lazy-loads PyJWKClient — no JWKS fetch until the first Apple sign-in attempt, which is why the backend booted fine even before the endpoint was ever called.",
+    "server.py:7301 db.users.create_index('apple_sub', unique=True, sparse=True): sparse+unique is CORRECT for a field that most users won't have — no accidental duplicate-key errors on existing non-Apple users.",
+    "server.py:46 APPLE_AUDIENCES parses a comma-separated env into a list — value in preview .env is 'com.emergent.classnotify.hl9igt,host.exp.Exponent', matching the app bundle id + Expo Go audience. LGTM.",
+    "server.py:1259-1261 empty identity_token yields an explicit 401 'Missing identity token'; missing field yields 422 from pydantic. Behaviour matches the review acceptance criteria."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_apple_auth_and_regression.py (new — 23 pytest cases, all pass)"
+  ],
+  "success_rate": {"backend": "100% (23/23)", "frontend": "N/A (backend-only run per review request)"},
+  "seed_data_creation": "Only created ephemeral pending_registrations rows (test_apple_reg_<ts>@gmail.com) via POST /api/auth/register. These are NOT full accounts — server.py:1167 stages in pending_registrations with an expires_at of 24h; no /api/users rows are created because the OTP was never successfully verified. Nothing to clean up.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Re-run: `pytest /app/backend/tests/test_apple_auth_and_regression.py -v`. Uses EXPO_PUBLIC_BACKEND_URL from /app/frontend/.env. Admin: info@maxenergy.com.au/Maxenergy12@ and admin@maxenergy.com.au/x1TrytJ%A12N; member: testmember@gmail.com/Test!1234. IMPORTANT: the module-scoped `member_token` fixture WILL be invalidated by test_logout (rotates token_version), so any test that needs a working member token uses the `_fresh_member_token()` helper for an independent login. To end-to-end test the OTP verify flow you MUST either (a) add the 6-digit code to the log at server.py:595 (dev only), or (b) read otp_codes.code_hash from mongo and brute-force from 000000..999999 (attempts capped, so ratelimited). The review-brief field name `credit_cents` does NOT exist in /api/credits — the actual field is `balance_cents`.",
+  "rca_of_issue": "N/A — no bugs found. All acceptance criteria met."
+}
