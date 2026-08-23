@@ -260,6 +260,80 @@ async def privacy_policy_page():
     """Public, browser-openable Privacy Policy page for the App/Play Store listing."""
     return Response(content=_PRIVACY_HTML, media_type="text/html")
 
+
+_SUPPORT_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Support — Maxenergy Fitness</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+         line-height: 1.6; max-width: 720px; margin: 0 auto; padding: 24px; color: #1a1a1a; background: #ffffff; }
+  h1 { font-size: 28px; margin-bottom: 4px; }
+  h2 { font-size: 19px; margin-top: 32px; }
+  .lead { color: #555; font-size: 15px; margin-bottom: 8px; }
+  a { color: #E8501B; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .card { border: 1px solid #e2e2e2; border-radius: 12px; padding: 16px 18px; margin-top: 14px; }
+  .row { margin: 6px 0; }
+  .label { font-weight: 700; }
+  .qa { margin-top: 14px; }
+  .q { font-weight: 700; margin-bottom: 2px; }
+  .muted { color: #777; font-size: 13px; margin-top: 28px; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #121212; color: #eaeaea; } .lead,.muted { color: #aaa; }
+    .card { border-color: #333; }
+  }
+</style>
+</head>
+<body>
+<h1>Support</h1>
+<p class="lead">Maxenergy Fitness — we're here to help with the app, bookings, memberships and payments.</p>
+
+<h2>Contact Us</h2>
+<div class="card">
+  <div class="row"><span class="label">Email:</span> <a href="mailto:info@maxenergy.com.au">info@maxenergy.com.au</a></div>
+  <div class="row"><span class="label">Phone:</span> <a href="tel:0740579005">07 4057 9005</a></div>
+  <div class="row"><span class="label">Address:</span> Shop 38, Campus Village Shopping Centre, 38 Faculty Close, Smithfield QLD 4878, Australia</div>
+  <div class="row"><span class="label">Response time:</span> We aim to respond within 1&ndash;2 business days.</div>
+</div>
+
+<h2>Common Questions</h2>
+
+<div class="qa">
+  <div class="q">How do I book or cancel a class?</div>
+  <div>Open the Maxenergy Fitness app, go to the timetable, choose a class and tap Book. You can cancel from your Bookings screen, subject to the cancellation cutoff shown at booking.</div>
+</div>
+<div class="qa">
+  <div class="q">How do I reset my password?</div>
+  <div>On the login screen tap "Forgot password" and follow the emailed instructions. If you signed in with Google or Apple, use that same button to sign back in.</div>
+</div>
+<div class="qa">
+  <div class="q">How do I manage my membership or payments?</div>
+  <div>Memberships and payments are handled in the app. For billing questions, email us at the address above and our team will assist.</div>
+</div>
+<div class="qa">
+  <div class="q">How do I delete my account?</div>
+  <div>You can delete your account directly in the app under Profile, or email us at <a href="mailto:info@maxenergy.com.au">info@maxenergy.com.au</a> and we'll process your request.</div>
+</div>
+<div class="qa">
+  <div class="q">Who can use in-app messaging?</div>
+  <div>In-app messaging (group chats, member chats and gym support chat) is available to members aged 13 and over.</div>
+</div>
+
+<p class="muted">Maxenergy Fitness &middot; ABN 81 213 163 833 &middot; See our <a href="/api/privacy">Privacy Policy</a>.</p>
+</body>
+</html>"""
+
+
+@app.get("/support")
+@api.get("/support")
+async def support_page():
+    """Public, browser-openable Support/Contact page for the App/Play Store listing."""
+    return Response(content=_SUPPORT_HTML, media_type="text/html")
+
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("maxenergy")
 
