@@ -30,7 +30,8 @@
         "READ_MEDIA_IMAGES",
         "READ_CALENDAR",
         "WRITE_CALENDAR"
-      ]
+      ],
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "bundler": "metro",
@@ -78,6 +79,12 @@
         "expo-calendar",
         {
           "calendarPermission": "Add your class bookings to your calendar"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#FF7A00"
         }
       ]
     ],

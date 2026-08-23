@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "784934928210",
+    "project_id": "maxenergy-fitness",
+    "storage_bucket": "maxenergy-fitness.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:784934928210:android:9535d488f2cbb20b63448b",
+        "android_client_info": {
+          "package_name": "com.emergent.classnotify.hl9igt"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAaRapuTtowmlDAGEELeLsswpH4lA0616A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -70,6 +70,48 @@ app = FastAPI(title="Maxenergy Fitness API")
 api = APIRouter(prefix="/api")
 
 
+# ==================== Push notifications (Emergent managed relay) ====================
+PUSH_BASE_URL = "https://integrations.emergentagent.com"
+PUSH_KEY = os.environ.get("EMERGENT_PUSH_KEY", "placeholder")
+_push_client = httpx.AsyncClient(base_url=PUSH_BASE_URL, headers={"X-Push-Key": PUSH_KEY}, timeout=10.0)
+
+
+class RegisterPushBody(BaseModel):
+    user_id: str
+    platform: str  # "android" | "ios"
+    device_token: str
+
+
+@api.post("/register-push", status_code=201)
+async def register_push(body: RegisterPushBody):
+    resp = await _push_client.post("/api/v1/push/users/register", json=body.model_dump())
+    if resp.status_code == 401:
+        raise HTTPException(500, "EMERGENT_PUSH_KEY missing or invalid")
+    if resp.status_code >= 500:
+        raise HTTPException(502, "Push provider unavailable")
+    resp.raise_for_status()
+    return {"status": "registered"}
+
+
+async def send_push(recipients: list, data: dict, idempotency_key: str = None) -> None:
+    """Send a push to a list of user IDs via the Emergent relay. Never raise to the caller;
+    push failure must never block the primary operation."""
+    try:
+        recipients = [r for r in (recipients or []) if r]
+        if not recipients or "title" not in data or "message" not in data:
+            return
+        for i in range(0, len(recipients), 100):
+            chunk = recipients[i:i + 100]
+            payload = {"recipients": chunk, "data": data}
+            if idempotency_key:
+                payload["$idempotency_key"] = f"{idempotency_key}_{i}"
+            resp = await _push_client.post("/api/v1/push/trigger", json=payload)
+            resp.raise_for_status()
+    except Exception as e:
+        log.warning(f"Push failed (non-blocking): {e}")
+
+
+
 @app.get("/health")
 @app.get("/healthz")
 async def health_check():
@@ -3097,6 +3139,12 @@ async def dm_send(other_id: str, body: DMSendReq, u: dict = Depends(require_user
                          "Open the app → Inbox to reply."],
             data={"nav": "member_inbox"},
         )
+        await send_push(
+            [other_id],
+            {"title": f"New message from {msg['sender_name']}", "message": text[:140], "action_url": "/inbox"},
+            idempotency_key=msg["dm_id"],
+        )
+
     msg.pop("_id", None)
     return {"message": msg}
 
@@ -5665,6 +5713,11 @@ async def notify_waitlist_spot(class_id: str):
             "Spots are first-come, first-served, so open the app and book it before someone else does! 🥊",
         ],
     )
+    await send_push(
+        [nxt["user_id"]],
+        {"title": "A spot just opened! 🎉", "message": f"A place opened in {cls['name']}{(' on ' + when) if when else ''}. Book now!", "action_url": "/timetable"},
+        idempotency_key=f"wl_{nxt['waitlist_id']}",
+    )
 
 
 # -------------------- free trials --------------------
@@ -7526,6 +7579,11 @@ async def send_due_reminders() -> int:
             ],
         )
         await db.bookings.update_one({"booking_id": b["booking_id"]}, {"$set": {"reminder_sent": True, "reminder_sent_at": now}})
+        await send_push(
+            [b["user_id"]],
+            {"title": f"{b['class_name']} starts {soon}", "message": f"{date_str} at {time_str} · MaxEnergy Fitness", "action_url": "/bookings"},
+            idempotency_key=f"rem_{b['booking_id']}",
+        )
         sent += 1
     if sent:
         log.info(f"sent {sent} class reminder(s)")

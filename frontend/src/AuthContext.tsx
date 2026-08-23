@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { router } from "expo-router";
 import { api, getToken, setToken, clearToken, setUnauthorizedHandler, User } from "@/src/api";
+import { registerForPush } from "@/src/push";
 
 type AuthState = {
   user: User | null;
@@ -40,6 +41,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // Register this device for push notifications whenever a user is signed in
+  // (covers login and every app open). Best-effort; no-op on web / Expo Go.
+  useEffect(() => {
+    if (user?.user_id) registerForPush(user.user_id);
+  }, [user?.user_id]);
 
   // When any authenticated API call gets a 401 (expired/invalid token), drop the
   // session and send the user back to the login screen instead of a dead error.
