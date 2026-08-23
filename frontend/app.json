@@ -13,6 +13,7 @@
       "bundleIdentifier": "com.emergent.classnotify.hl9igt",
       "usesAppleSignIn": true,
       "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "Scan member booking QR codes for class check-in",
         "NSPhotoLibraryUsageDescription": "Attach a photo to your membership application",
         "NSCalendarsUsageDescription": "Add your class bookings to your calendar",
