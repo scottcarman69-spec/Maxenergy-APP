@@ -7360,6 +7360,37 @@ async def seed_data():
         )
         log.info("second admin password synced to ADMIN2_PASSWORD secret")
 
+    # Demo account for Apple / Google App Review. Regular verified member (NOT admin)
+    # with class passes so reviewers can explore booking. Idempotent: password is
+    # re-synced on every startup so it always works on the reviewed build.
+    review_email = "appstore.review@maxenergy.com.au"
+    review_pw = "AppReview2026!"
+    review_user = await db.users.find_one({"email": review_email})
+    if not review_user:
+        await db.users.insert_one(
+            {
+                "user_id": new_id("user"),
+                "email": review_email,
+                "name": "App Review",
+                "password_hash": hash_pw(review_pw),
+                "provider": "password",
+                "picture": None,
+                "is_admin": False,
+                "verified": True,
+                "class_pass_credits": 10,
+                "credit_cents": 0,
+                "created_at": now_utc(),
+            }
+        )
+        log.info("seeded app review demo account")
+    else:
+        await db.users.update_one(
+            {"email": review_email},
+            {"$set": {"is_admin": False, "verified": True, "password_hash": hash_pw(review_pw),
+                      "class_pass_credits": max(10, int(review_user.get("class_pass_credits", 0) or 0))}},
+        )
+        log.info("app review demo account password synced")
+
     # Age requirement for Kids Muay Thai (idempotent; keeps class_ids & bookings intact)
     try:
         await db.classes.update_many(
