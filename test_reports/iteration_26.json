@@ -1,0 +1,44 @@
+{
+  "summary": "Backend-only testing of the new Bug Report / Feedback feature. Created /app/backend/tests/test_bug_reports.py with 15 pytest cases across 4 classes covering POST /api/bug-reports (auth, message length, screenshot size), GET /api/admin/bug-reports (fields, admin-only), PUT /api/admin/bug-reports/{id} (resolve/reopen persistence, invalid status, unknown id, admin-only), and GET /api/admin/overview.bug_reports_open. Result: 15/15 PASS. All authorization boundaries hold: non-admin member (appstore.review@maxenergy.com.au) receives 403 on all /api/admin/bug-reports endpoints; missing-token receives 401. Message <5 chars => 400, >4000 chars truncated with 200, oversized screenshot (>3M chars) => 400, valid data URI accepted. Overview bug_reports_open decrements by exactly 1 when a report is resolved and increments on reopen. Uncovered a real backend perf/UX concern: the POST /api/bug-reports handler calls send_email() inline with 4 retries; when the Emergent email integration is rate-limited (429), a single client request can legitimately take 60-90s. DB persistence happens BEFORE the email attempt so data is safe, but the client hangs. Recommend moving email dispatch to a background task (asyncio.create_task or BackgroundTasks) so the endpoint returns immediately after the DB write.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "POST /api/bug-reports",
+        "issue": "send_email() runs inline with 4 retries against the Emergent email integration. Backend logs show 429 rate-limited responses causing individual requests to hang 60-90s before returning to the client. DB write already succeeded; the client just waits on email. Move email dispatch to FastAPI BackgroundTasks or asyncio.create_task so the response returns immediately after insert_one. Reference: /app/backend/server.py:1769-1795."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_bug_reports.py",
+    "/app/test_reports/pytest/pytest_bug_reports.xml"
+  ],
+  "action_items": [
+    "(Perf/UX) Move the send_email() call inside submit_bug_report (server.py:1785-1793) off the request path — use FastAPI BackgroundTasks or asyncio.create_task(...) so client POST returns immediately after the DB insert. Currently, when the email integration returns 429, the client can wait 60-90s. Consider also lowering the retry count or capping total email-attempt time.",
+    "(Optional) Add index on bug_reports.status + created_at for the admin listing (currently sorts on created_at across 300 docs)."
+  ],
+  "critical_code_review_comments": [
+    "server.py bug-report endpoints are clean: use Pydantic model (BugReportReq/BugStatusReq), exclude _id in listing projection, ISO-serialize created_at, and return meaningful HTTP codes (400/404). Admin endpoints correctly gate via require_admin.",
+    "Message truncation is silent (over-4000 chars is quietly cut). This is acceptable per spec but consider returning the truncated length in the response for transparency.",
+    "server.py is 8230 lines — still exceeds the recommended <700 lines-per-module guideline; splitting into routers (auth, admin, bookings, bug_reports, etc.) would improve maintainability. Not in-scope for this feature but worth flagging."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_bug_reports.py (NEW)",
+    "/app/test_reports/pytest/pytest_bug_reports.xml (NEW)"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "not tested (backend-only per request)"
+  },
+  "seed_data_creation": "Test class creates one bug_reports doc per session via the member account (appstore.review@maxenergy.com.au). Additional docs may be created by other test cases (short-message/screenshot). Messages are TEST_-prefixed for easy cleanup. Left in DB — main agent can clear with db.bug_reports.delete_many({'user_email':'appstore.review@maxenergy.com.au'}) if desired.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Bug Report feature is functionally correct across all 4 endpoints and all authorization boundaries. The only concern is that POST /api/bug-reports can be very slow (60-90s) when the Emergent email service is rate-limited, because send_email() is called synchronously inline in the request handler with 4 retries. The tests use POST_TIMEOUT=120s to accommodate this; if the main agent switches email dispatch to a background task, timeouts can be reduced back to 30s. Tests are serial-friendly; pytest-xdist parallel workers may hit email rate limits faster.",
+  "rca_of_issue": "RCA of slow POST /api/bug-reports: backend.err.log shows repeated 'POST https://integrations.emergentagent.com/api/v1/email/send HTTP/1.1 429 Too Many Requests' with 'retrying (attempt 1..4)'. The send_email helper retries 4 times with backoff, all synchronously awaited inside the request handler (server.py:1785-1791). During rate-limited windows this pushes response time past a normal client's 30s timeout. Mitigation: dispatch the email in the background so the endpoint returns immediately after db.bug_reports.insert_one succeeds. Example: pass BackgroundTasks into the route and call background_tasks.add_task(send_email, ...)."
+}

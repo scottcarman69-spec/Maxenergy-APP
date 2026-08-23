@@ -1731,6 +1731,101 @@ async def set_date_of_birth(body: DobReq, u: dict = Depends(require_user)):
     return {"ok": True, "user": user_public(fresh)}
 
 
+class BugReportReq(BaseModel):
+    message: str
+    screenshot: Optional[str] = None  # data URI (base64), optional
+    platform: Optional[str] = None
+    app_version: Optional[str] = None
+
+
+@api.post("/bug-reports")
+async def submit_bug_report(body: BugReportReq, u: dict = Depends(require_user)):
+    """Member-submitted bug report / feedback. Stored for admin review and emailed
+    to the gym. An optional screenshot (base64 data URI) is capped in size."""
+    message = (body.message or "").strip()
+    if len(message) < 5:
+        raise HTTPException(400, "Please describe the issue in a little more detail.")
+    if len(message) > 4000:
+        message = message[:4000]
+
+    screenshot = body.screenshot or None
+    # Cap the screenshot payload so a huge image can't bloat the DB / email.
+    if screenshot and len(screenshot) > 3_000_000:
+        raise HTTPException(400, "That screenshot is too large. Please try a smaller image.")
+
+    report_id = new_id("bug")
+    doc = {
+        "report_id": report_id,
+        "user_id": u["user_id"],
+        "user_name": u.get("name") or "Member",
+        "user_email": u.get("email"),
+        "message": message,
+        "screenshot": screenshot,
+        "platform": (body.platform or "")[:40],
+        "app_version": (body.app_version or "")[:40],
+        "status": "open",
+        "created_at": now_utc(),
+    }
+    await db.bug_reports.insert_one(doc)
+
+    # Email the gym a summary, attaching the screenshot when provided.
+    lines = [
+        f"<b>From:</b> {u.get('name') or 'Member'} ({u.get('email')})",
+        f"<b>Device:</b> {doc['platform'] or '—'} · App {doc['app_version'] or '—'}",
+        "<b>Report:</b>",
+        message.replace("\n", "<br>"),
+    ]
+    attachments = None
+    if screenshot and screenshot.startswith("data:"):
+        try:
+            b64 = screenshot.split(",", 1)[1]
+            attachments = [{"filename": f"bug-{report_id}.jpg", "content": b64}]
+        except Exception:
+            attachments = None
+
+    # Fire-and-forget the email so the member's submit returns immediately even if
+    # the email provider is slow/rate-limited (the report is already saved above).
+    async def _send_bug_email():
+        try:
+            await send_email(
+                GYM_ADMIN_EMAIL,
+                f"New bug report from {u.get('name') or 'a member'}",
+                _email_shell("New bug report / feedback", lines),
+                attachments=attachments,
+            )
+        except Exception as e:
+            log.error(f"bug report email failed: {e}")
+
+    asyncio.create_task(_send_bug_email())
+
+    return {"ok": True, "report_id": report_id}
+
+
+@api.get("/admin/bug-reports")
+async def admin_list_bug_reports(u: dict = Depends(require_admin)):
+    reports = await db.bug_reports.find({}, {"_id": 0}).sort("created_at", -1).to_list(300)
+    for r in reports:
+        if isinstance(r.get("created_at"), datetime):
+            r["created_at"] = r["created_at"].isoformat()
+    open_count = sum(1 for r in reports if r.get("status") == "open")
+    return {"reports": reports, "open_count": open_count}
+
+
+class BugStatusReq(BaseModel):
+    status: str  # "open" | "resolved"
+
+
+@api.put("/admin/bug-reports/{report_id}")
+async def admin_update_bug_report(report_id: str, body: BugStatusReq, u: dict = Depends(require_admin)):
+    if body.status not in ("open", "resolved"):
+        raise HTTPException(400, "Invalid status.")
+    r = await db.bug_reports.update_one({"report_id": report_id}, {"$set": {"status": body.status}})
+    if r.matched_count == 0:
+        raise HTTPException(404, "Report not found.")
+    return {"ok": True, "status": body.status}
+
+
+
 class CalReminderPrefReq(BaseModel):
     minutes: int
 
@@ -6363,7 +6458,8 @@ async def admin_overview(u: dict = Depends(require_admin)):
     unread_messages = await db.messages.count_documents({"sender_is_admin": False, "read_by_admin": {"$ne": True}})
     refunds_pending = await db.bookings.count_documents({"refund_status": "pending"})
     group_requests = (await db.group_requests.count_documents({"status": "pending"})) + (await db.group_join_requests.count_documents({"status": "pending"}))
-    return {"classes": classes, "applications": apps, "pending_applications": pending, "announcements": ann, "members": members, "pending_bookings": pending_bookings, "session_requests": session_requests, "trials": trials, "unread_messages": unread_messages, "refunds_pending": refunds_pending, "group_requests": group_requests}
+    bug_reports_open = await db.bug_reports.count_documents({"status": "open"})
+    return {"classes": classes, "applications": apps, "pending_applications": pending, "announcements": ann, "members": members, "pending_bookings": pending_bookings, "session_requests": session_requests, "trials": trials, "unread_messages": unread_messages, "refunds_pending": refunds_pending, "group_requests": group_requests, "bug_reports_open": bug_reports_open}
 
 
 @api.get("/admin/classes")

@@ -56,6 +56,7 @@ export default function AdminHome() {
     { key: "gift-cards", icon: "gift", label: "Gift Cards", desc: "Look up cards & adjust balances for in-store use", route: "/admin/gift-cards" },
     { key: "waitlists", icon: "people", label: "Waitlists", desc: "See who's waiting on full classes", route: "/admin/waitlists" },
     { key: "gym-photos", icon: "images", label: "Gym Gallery Photos", desc: "Add or remove OUR GYM photos — no update needed", route: "/admin/gym-photos" },
+    { key: "bug-reports", icon: "bug", label: "Bug Reports", desc: "Member-reported issues & feedback", route: "/admin/bug-reports", count: stats?.bug_reports_open, badge: true },
   ];
 
   return (

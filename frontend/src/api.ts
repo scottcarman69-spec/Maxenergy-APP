@@ -109,6 +109,11 @@ export const api = {
     req("/api/me/reminder-preference", { method: "PUT", body: JSON.stringify({ hours }) }),
   setDateOfBirth: (date_of_birth: string) =>
     req("/api/me/date-of-birth", { method: "PUT", body: JSON.stringify({ date_of_birth }) }),
+  submitBugReport: (payload: { message: string; screenshot?: string | null; platform?: string; app_version?: string }) =>
+    req("/api/bug-reports", { method: "POST", body: JSON.stringify(payload) }),
+  adminBugReports: () => req("/api/admin/bug-reports"),
+  adminUpdateBugReport: (report_id: string, status: "open" | "resolved") =>
+    req(`/api/admin/bug-reports/${report_id}`, { method: "PUT", body: JSON.stringify({ status }) }),
   setCalReminderDefault: (minutes: number) =>
     req("/api/me/calendar-reminder", { method: "PUT", body: JSON.stringify({ minutes }) }),
   setQuickActionsOrder: (order: string[]) =>
