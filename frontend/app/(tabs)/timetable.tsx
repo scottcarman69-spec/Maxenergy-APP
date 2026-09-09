@@ -193,6 +193,9 @@ export default function Timetable() {
 
       {/* Day selector */}
       <View style={styles.daysWrap}>
+        <Text style={styles.monthHeader}>
+          {days[dayOffset]?.toLocaleDateString("en-AU", { month: "long", year: "numeric", timeZone: "UTC" })}
+        </Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -200,18 +203,23 @@ export default function Timetable() {
         >
           {days.map((d, i) => {
             const active = i === dayOffset;
+            const monthStart = i === 0 || d.getUTCMonth() !== days[i - 1].getUTCMonth();
             return (
-              <Pressable
-                key={i}
-                testID={`day-chip-${i}`}
-                onPress={() => setDayOffset(i)}
-                style={[styles.dayChip, active && styles.dayChipActive]}
-              >
-                <Text style={[styles.dayLabel, active && styles.dayLabelActive]}>
-                  {d.toLocaleDateString("en-AU", { weekday: "short", timeZone: "UTC" }).toUpperCase()}
+              <View key={i} style={{ alignItems: "center" }}>
+                <Text style={styles.monthTick}>
+                  {monthStart ? d.toLocaleDateString("en-AU", { month: "short", timeZone: "UTC" }).toUpperCase() : " "}
                 </Text>
-                <Text style={[styles.dayNum, active && styles.dayNumActive]}>{d.getUTCDate()}</Text>
-              </Pressable>
+                <Pressable
+                  testID={`day-chip-${i}`}
+                  onPress={() => setDayOffset(i)}
+                  style={[styles.dayChip, active && styles.dayChipActive]}
+                >
+                  <Text style={[styles.dayLabel, active && styles.dayLabelActive]}>
+                    {d.toLocaleDateString("en-AU", { weekday: "short", timeZone: "UTC" }).toUpperCase()}
+                  </Text>
+                  <Text style={[styles.dayNum, active && styles.dayNumActive]}>{d.getUTCDate()}</Text>
+                </Pressable>
+              </View>
             );
           })}
         </ScrollView>
@@ -456,6 +464,8 @@ const styles = StyleSheet.create({
   chipText: { color: colors.onSurfaceSecondary, fontWeight: "800", fontSize: 13 },
   chipTextActive: { color: colors.onBrand },
   daysWrap: { paddingBottom: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
+  monthHeader: { color: colors.onSurface, fontWeight: "800", fontSize: 15, paddingHorizontal: spacing.lg, marginBottom: spacing.sm },
+  monthTick: { color: colors.brand, fontSize: 9, fontWeight: "800", letterSpacing: 0.5, height: 12, marginBottom: 2 },
   dayChip: {
     width: 56,
     height: 76,

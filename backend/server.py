@@ -2501,7 +2501,7 @@ async def _materialize_class(class_id: str) -> Optional[dict]:
 
 
 @api.get("/schedule/breaks")
-async def schedule_breaks():
+async def schedule_breaks(authorization: Optional[str] = Header(None)):
     """Classes currently on a break (inside an active exception window today), with the
     next date each one resumes — powers the 'on holiday, book next term' prompts."""
     excs = await _active_exceptions()
@@ -2551,7 +2551,42 @@ async def schedule_breaks():
         v.pop("_rd", None)
         breaks.append(v)
     breaks.sort(key=lambda b: b["resumes_on"])
+    # Attach demand-interest counts (and whether the caller has joined).
+    me = await get_user_by_token(authorization)
+    for b in breaks:
+        cid = b["resumes_class_id"]
+        b["interest_count"] = await db.term_interest.count_documents({"class_id": cid})
+        b["mine"] = bool(me and await db.term_interest.find_one({"class_id": cid, "user_id": me["user_id"]}))
     return {"breaks": breaks}
+
+
+class InterestReq(BaseModel):
+    class_id: str
+
+
+@api.post("/schedule/breaks/interest")
+async def break_interest_join(body: InterestReq, u: dict = Depends(require_user)):
+    """Register interest in the first class back after a break, so admins can gauge
+    demand early. Materialises the (virtual) class so it has a real record."""
+    cls = await _materialize_class(body.class_id)
+    if not cls:
+        raise HTTPException(404, "Class not found.")
+    await db.term_interest.update_one(
+        {"class_id": body.class_id, "user_id": u["user_id"]},
+        {"$setOnInsert": {"class_id": body.class_id, "user_id": u["user_id"],
+                          "user_name": u.get("name"), "user_email": u.get("email"),
+                          "created_at": now_utc()}},
+        upsert=True,
+    )
+    count = await db.term_interest.count_documents({"class_id": body.class_id})
+    return {"ok": True, "count": count, "mine": True}
+
+
+@api.delete("/schedule/breaks/interest/{class_id}")
+async def break_interest_leave(class_id: str, u: dict = Depends(require_user)):
+    await db.term_interest.delete_one({"class_id": class_id, "user_id": u["user_id"]})
+    count = await db.term_interest.count_documents({"class_id": class_id})
+    return {"ok": True, "count": count, "mine": False}
 
 
 @api.get("/classes")
