@@ -29,6 +29,7 @@ import { useGymGallery } from "@/src/useGymGallery";
 import { coachSource } from "@/src/coaches";
 import LiveNowBanner from "@/src/components/LiveNowBanner";
 import WelcomeTour from "@/src/components/WelcomeTour";
+import ScheduleBreaksBanner from "@/src/components/ScheduleBreaksBanner";
 import NoticePopup, { Notice } from "@/src/components/NoticePopup";
 import AlertPopup, { AlertItem } from "@/src/components/AlertPopup";
 import { storage } from "@/src/utils/storage";
@@ -523,6 +524,10 @@ export default function Home() {
             </Pressable>
           </View>
         )}
+
+        <View style={{ paddingHorizontal: spacing.lg }}>
+          <ScheduleBreaksBanner />
+        </View>
 
         {loading ? (
           <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />

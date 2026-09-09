@@ -2500,6 +2500,60 @@ async def _materialize_class(class_id: str) -> Optional[dict]:
     return inst
 
 
+@api.get("/schedule/breaks")
+async def schedule_breaks():
+    """Classes currently on a break (inside an active exception window today), with the
+    next date each one resumes — powers the 'on holiday, book next term' prompts."""
+    excs = await _active_exceptions()
+    if not excs:
+        return {"breaks": []}
+    today = ((now_utc() + timedelta(hours=10)).replace(tzinfo=None)).date()
+    today_iso = today.isoformat()
+    templates = await db.class_templates.find({"active": {"$ne": False}}, {"_id": 0}).to_list(500)
+
+    def _label(t: dict) -> str:
+        return f"{t.get('category')} {t.get('name')}" if t.get("category") == "Kids" else t.get("name")
+
+    def _first_resume_after(t: dict, after_iso: str) -> Optional[object]:
+        wd = int(t.get("weekday", 0))
+        d = datetime.fromisoformat(after_iso).date() + timedelta(days=1)
+        d = d + timedelta(days=(wd - d.weekday()) % 7)
+        for _ in range(0, 60):
+            if not _is_blocked(t, d.isoformat(), excs):
+                return d
+            d += timedelta(days=7)
+        return None
+
+    out: dict = {}
+    for e in excs:
+        if not (e.get("start_date", "") <= today_iso <= e.get("end_date", "")):
+            continue  # only breaks happening right now
+        for t in templates:
+            blocked = (e.get("scope") == "all" or t.get("name") in (e.get("class_names") or [])
+                       or t.get("category") in (e.get("categories") or []))
+            if not blocked:
+                continue
+            rd = _first_resume_after(t, e.get("end_date"))
+            if not rd:
+                continue
+            lbl = _label(t)
+            cur = out.get(lbl)
+            if not cur or rd < cur["_rd"]:
+                out[lbl] = {
+                    "label": lbl, "reason": e.get("label"), "until": e.get("end_date"),
+                    "resumes_on": rd.isoformat(),
+                    "resumes_label": rd.strftime("%a %d %b").replace(" 0", " "),
+                    "resumes_class_id": f"{t['template_id']}__{rd.isoformat()}",
+                    "_rd": rd,
+                }
+    breaks = []
+    for v in out.values():
+        v.pop("_rd", None)
+        breaks.append(v)
+    breaks.sort(key=lambda b: b["resumes_on"])
+    return {"breaks": breaks}
+
+
 @api.get("/classes")
 async def classes_list(category: Optional[str] = None, include_ended: bool = False, days: int = 60):
     now_local = (now_utc() + timedelta(hours=10)).replace(tzinfo=None)

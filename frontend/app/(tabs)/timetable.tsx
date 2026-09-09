@@ -18,6 +18,7 @@ import { api } from "@/src/api";
 import { colors, spacing, radius, type, font } from "@/src/theme";
 import { classTime, classDate, scheduleDay, qldTodayUTC } from "@/src/datetime";
 import ScreenBg from "@/src/components/ScreenBg";
+import ScheduleBreaksBanner from "@/src/components/ScheduleBreaksBanner";
 import { teamPhotos } from "@/src/gymPhotos";
 import { coachSource } from "@/src/coaches";
 
@@ -227,7 +228,9 @@ export default function Timetable() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} colors={[colors.brand]} />
           }
           ListHeaderComponent={
-            appointmentClasses.length > 0 ? (
+            <>
+              <ScheduleBreaksBanner />
+              {appointmentClasses.length > 0 ? (
               <View style={{ gap: spacing.md, marginBottom: spacing.md }}>
                 <Text style={styles.apptHeading}>BOOK A SESSION</Text>
                 {appointmentClasses.map((item) => (
@@ -267,7 +270,8 @@ export default function Timetable() {
                 ))}
                 <Text style={styles.apptHeading}>CLASSES</Text>
               </View>
-            ) : null
+              ) : null}
+            </>
           }
           ListEmptyComponent={
             <View style={styles.empty}>

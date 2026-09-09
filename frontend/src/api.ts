@@ -143,6 +143,7 @@ export const api = {
     const qs = params.toString();
     return req(`/api/classes${qs ? `?${qs}` : ""}`);
   },
+  scheduleBreaks: () => req("/api/schedule/breaks"),
   scheduleExceptions: () => req("/api/admin/schedule-exceptions"),
   createException: (payload: any) =>
     req("/api/admin/schedule-exceptions", { method: "POST", body: JSON.stringify(payload) }),
