@@ -1267,3 +1267,6 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - GET /api/admin/term-interest: groups term_interest by class_id, resolves class label/return date, returns members [{name,email}] + count. New admin screen app/admin/term-interest.tsx (expandable member list + "Notify all"). Dashboard card "Class Interest / Waitlist".
 - POST /api/admin/term-interest/{class_id}/notify: sends in-app notification (create_notification, nav to /class/{id}) + best-effort push (send_push) to all interested users ("<Class> is back! ... book your spot"), then clears that class's interest list so no double-messaging.
 - Verified: list shows waiting members; notify delivers notification ("Kids Muay Thai is back!") and empties the list.
+
+## Session update (Jun 2026) — Class images
+- Recurring-template migration had reset class images to stock. Set Kids Muay Thai image to uploaded "kids class pic1" in DB (class_templates) AND in CLASS_TEMPLATES seed constant (server.py ~8058) so it persists on future deploys. Adults Muay Thai left on stock (awaiting user-provided photo). Admin class editor image field also updates templates.
