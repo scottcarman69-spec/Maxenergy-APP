@@ -2589,6 +2589,57 @@ async def break_interest_leave(class_id: str, u: dict = Depends(require_user)):
     return {"ok": True, "count": count, "mine": False}
 
 
+@api.get("/admin/term-interest")
+async def admin_term_interest(u: dict = Depends(require_admin)):
+    """Members who've registered interest in a returning class, grouped by class, so
+    admins can plan numbers."""
+    rows = await db.term_interest.find({}, {"_id": 0}).sort("created_at", 1).to_list(5000)
+    groups: dict = {}
+    for r in rows:
+        cid = r["class_id"]
+        g = groups.get(cid)
+        if not g:
+            cls = await _resolve_class(cid)
+            label = "Class"
+            start_label = ""
+            if cls:
+                label = f"{cls.get('category')} {cls.get('name')}" if cls.get("category") == "Kids" else cls.get("name")
+                sa = cls.get("start_at")
+                if isinstance(sa, datetime):
+                    start_label = sa.strftime("%a %d %b %Y").replace(" 0", " ")
+            g = groups[cid] = {"class_id": cid, "class_label": label, "when": start_label, "members": []}
+        g["members"].append({"name": r.get("user_name") or "Member", "email": r.get("user_email")})
+    out = sorted(groups.values(), key=lambda x: x["when"] or "")
+    for g in out:
+        g["count"] = len(g["members"])
+    return {"groups": out}
+
+
+@api.post("/admin/term-interest/{class_id}/notify")
+async def admin_notify_interest(class_id: str, u: dict = Depends(require_admin)):
+    """Tell everyone on the interest list that the class is back and bookable, then
+    clear the list so they aren't messaged twice."""
+    rows = await db.term_interest.find({"class_id": class_id}, {"_id": 0}).to_list(5000)
+    if not rows:
+        raise HTTPException(404, "No one is on this interest list.")
+    cls = await _resolve_class(class_id)
+    label = "Your class"
+    when = ""
+    if cls:
+        label = f"{cls.get('category')} {cls.get('name')}" if cls.get("category") == "Kids" else cls.get("name")
+        sa = cls.get("start_at")
+        if isinstance(sa, datetime):
+            when = sa.strftime("%a %d %b").replace(" 0", " ")
+    title = f"{label} is back!"
+    msg = f"{label} is back{f' from {when}' if when else ''} — book your spot now before it fills up."
+    uids = [r["user_id"] for r in rows]
+    for uid in uids:
+        await create_notification(uid, title, msg, "booking", {"nav": f"/class/{class_id}"})
+    await send_push(uids, {"title": title, "message": msg, "nav": f"/class/{class_id}"}, idempotency_key=f"termback_{class_id}")
+    await db.term_interest.delete_many({"class_id": class_id})
+    return {"ok": True, "notified": len(uids)}
+
+
 @api.get("/classes")
 async def classes_list(category: Optional[str] = None, include_ended: bool = False, days: int = 60):
     now_local = (now_utc() + timedelta(hours=10)).replace(tzinfo=None)

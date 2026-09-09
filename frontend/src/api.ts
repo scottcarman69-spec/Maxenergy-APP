@@ -148,6 +148,9 @@ export const api = {
     req("/api/schedule/breaks/interest", { method: "POST", body: JSON.stringify({ class_id }) }),
   leaveBreakInterest: (class_id: string) =>
     req(`/api/schedule/breaks/interest/${class_id}`, { method: "DELETE" }),
+  adminTermInterest: () => req("/api/admin/term-interest"),
+  adminNotifyInterest: (class_id: string) =>
+    req(`/api/admin/term-interest/${class_id}/notify`, { method: "POST" }),
   scheduleExceptions: () => req("/api/admin/schedule-exceptions"),
   createException: (payload: any) =>
     req("/api/admin/schedule-exceptions", { method: "POST", body: JSON.stringify(payload) }),

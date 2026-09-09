@@ -1262,3 +1262,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Demand-interest waitlist: GET /api/schedule/breaks now includes interest_count + mine (optional auth via Authorization header). POST /api/schedule/breaks/interest {class_id} (materializes class, upserts term_interest), DELETE /api/schedule/breaks/interest/{class_id}. Banner shows a "Waitlist"/"On the list" toggle button next to "Book next term" and "N interested" count so admins gauge demand. New collection: term_interest {class_id,user_id,user_name,user_email,created_at}.
 - Timetable month labels: month+year header above the day strip reflecting the selected day; each chip shows a small month tick (e.g. "SEPT"/"OCT") at the first day of a new month, so scrolling the rolling year is easy to navigate.
 - Verified: interest join/leave counts correct; screenshot confirms month header + both banner buttons.
+
+## Session update (Jun 2026) — Admin interest list + Notify on return
+- GET /api/admin/term-interest: groups term_interest by class_id, resolves class label/return date, returns members [{name,email}] + count. New admin screen app/admin/term-interest.tsx (expandable member list + "Notify all"). Dashboard card "Class Interest / Waitlist".
+- POST /api/admin/term-interest/{class_id}/notify: sends in-app notification (create_notification, nav to /class/{id}) + best-effort push (send_push) to all interested users ("<Class> is back! ... book your spot"), then clears that class's interest list so no double-messaging.
+- Verified: list shows waiting members; notify delivers notification ("Kids Muay Thai is back!") and empties the list.

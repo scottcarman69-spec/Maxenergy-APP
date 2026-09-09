@@ -58,6 +58,7 @@ export default function AdminHome() {
     { key: "gym-photos", icon: "images", label: "Gym Gallery Photos", desc: "Add or remove OUR GYM photos — no update needed", route: "/admin/gym-photos" },
     { key: "bug-reports", icon: "bug", label: "Bug Reports", desc: "Member-reported issues & feedback", route: "/admin/bug-reports", count: stats?.bug_reports_open, badge: true },
     { key: "schedule-exceptions", icon: "calendar", label: "Closed Dates / Exceptions", desc: "Holidays & dates to hide classes (e.g. QLD school holidays)", route: "/admin/schedule-exceptions" },
+    { key: "term-interest", icon: "people", label: "Class Interest / Waitlist", desc: "See who's waiting for returning classes & notify them", route: "/admin/term-interest" },
   ];
 
   return (
