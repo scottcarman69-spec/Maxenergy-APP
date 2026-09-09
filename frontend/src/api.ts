@@ -135,13 +135,21 @@ export const api = {
   resetPassword: (email: string, code: string, new_password: string) =>
     req("/api/auth/reset-password", { method: "POST", body: JSON.stringify({ email, code, new_password }) }),
 
-  classes: (category?: string, includeEnded?: boolean) => {
+  classes: (category?: string, includeEnded?: boolean, days?: number) => {
     const params = new URLSearchParams();
     if (category && category !== "All") params.set("category", category);
     if (includeEnded) params.set("include_ended", "true");
+    if (days) params.set("days", String(days));
     const qs = params.toString();
     return req(`/api/classes${qs ? `?${qs}` : ""}`);
   },
+  scheduleExceptions: () => req("/api/admin/schedule-exceptions"),
+  createException: (payload: any) =>
+    req("/api/admin/schedule-exceptions", { method: "POST", body: JSON.stringify(payload) }),
+  updateException: (id: string, payload: any) =>
+    req(`/api/admin/schedule-exceptions/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
+  deleteException: (id: string) =>
+    req(`/api/admin/schedule-exceptions/${id}`, { method: "DELETE" }),
   classDetail: (id: string) => req(`/api/classes/${id}`),
   createBooking: (class_id: string, requested_time?: string, requested_at?: string, duration_min?: number, cal_reminder_minutes?: number, child_age?: number, child_name?: string, child_id?: string) =>
     req("/api/bookings", { method: "POST", body: JSON.stringify({ class_id, requested_time, requested_at, duration_min, cal_reminder_minutes, child_age, child_name, child_id }) }),

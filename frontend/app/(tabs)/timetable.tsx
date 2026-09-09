@@ -72,7 +72,7 @@ export default function Timetable() {
 
   const load = useCallback(async () => {
     try {
-      const r = await api.classes(undefined, true);
+      const r = await api.classes(undefined, true, 365);
       setClasses(r.classes || []);
       const d = qldTodayUTC();
       setToday((prev) => (prev.getTime() === d.getTime() ? prev : d));
@@ -112,7 +112,8 @@ export default function Timetable() {
   }, [load]);
 
   const days = useMemo(() => {
-    return Array.from({ length: 21 }, (_, i) =>
+    // Rolling ~12 months so members can always see and book future classes.
+    return Array.from({ length: 365 }, (_, i) =>
       new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + i))
     );
   }, [today]);

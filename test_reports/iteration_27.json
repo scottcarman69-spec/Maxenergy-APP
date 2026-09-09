@@ -1,0 +1,32 @@
+{
+  "summary": "Backend-only testing of the new recurring weekly schedule (class_templates) + Schedule Exceptions feature for Maxenergy. Created /app/backend/tests/test_recurring_schedule.py with 17 targeted tests covering all 7 request items — ALL 17 PASSED (100%). Verified: /api/classes?days=365 returns weekly-recurring virtual instances with '{template_id}__YYYY-MM-DD' ids plus by-appointment classes; QLD Term 3 (2026-09-19..2026-10-05) hides Kids category while Adults still run; GET /api/classes/{virtual_id} resolves and returns 404 on blocked Kids dates; POST /api/bookings materializes a real class doc for a virtual id and rejects blocked Kids dates (404); admin Schedule Exceptions CRUD works incl. single-date default, range, active toggle, list metadata (categories/class_names), auth 401/403; admin recurring template CRUD via /api/admin/classes with weekday+time derivation from start_at; POST /api/admin/classes/{tmpl_id}/cancel returns 400 with helpful 'recurring / Closed Date / exception' message; regression /api/bookings and /api/admin/overview.bug_reports_open still work. Test data (TEST_ templates/exceptions/bookings) all cleaned up — verified via direct Mongo check.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_recurring_schedule.py",
+    "/app/test_reports/pytest/pytest_recurring_schedule.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is 8494 lines — well beyond the 700-line guideline; consider modularising (classes/bookings/admin/exceptions).",
+    "_generate_instances loads templates + exceptions + all materialised classes on every /api/classes call — fine at current scale but consider caching if timetable becomes hot.",
+    "_resolve_class does not verify the parsed date's weekday actually matches the template's weekday (e.g. tmpl_muay-thai_kids_1_1700__2026-09-21 where 09-21 is Monday but tmpl weekday might be Tue). Current callers only build ids from real occurrences so it works, but a hand-crafted mismatched date/weekday would still return a virtual instance rather than 404. Low-risk since exceptions cover Kids and duplicate guard exists on booking."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_recurring_schedule.py (new)"
+  ],
+  "success_rate": {"backend": "100% (17/17)", "frontend": "not tested (skipped per request)"},
+  "seed_data_creation": "None persisted. Test created 2 TEST_ exceptions + 1 TEST_ recurring template + 1 booking; all were deleted/cancelled in the same run and verified absent from Mongo after run.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "test_recurring_schedule.py depends on seeded QLD school holiday exceptions and the seeded CLASS_TEMPLATES. Uses info@maxenergy.com.au / Maxenergy12@ (admin) and appstore.review@maxenergy.com.au / AppReview2026! (10 passes) — both accounts are seeded idempotently on backend startup. Blocked-date checks pin to 2026-09-19 (QLD Term 3 start). Booking test cancels itself; template/exception CRUD test cleans up after itself.",
+  "rca_of_issue": "N/A — no bugs found."
+}

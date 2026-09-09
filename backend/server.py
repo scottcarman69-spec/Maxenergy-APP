@@ -1321,6 +1321,8 @@ class ClassUpsert(BaseModel):
     by_appointment: Optional[bool] = None
     min_age: Optional[int] = None
     max_age: Optional[int] = None
+    weekday: Optional[int] = None       # 0=Mon..6=Sun — recurring weekly classes
+    start_time: Optional[str] = None    # "HH:MM" — recurring weekly classes
 
 
 class AnnouncementCreate(BaseModel):
@@ -2391,14 +2393,123 @@ async def reviews():
 
 
 # -------------------- classes --------------------
+# ==================== Recurring schedule (templates + exceptions) ====================
+def _tmpl_slug(s: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", (s or "").lower()).strip("-")
+
+
+def _make_template_id(name: str, category: str, weekday: int, hour: int, minute: int = 0) -> str:
+    return f"tmpl_{_tmpl_slug(name)}_{_tmpl_slug(category)}_{weekday}_{hour:02d}{minute:02d}"
+
+
+async def _active_exceptions() -> list:
+    return await db.schedule_exceptions.find({"active": {"$ne": False}}, {"_id": 0}).to_list(500)
+
+
+def _exception_hits(exc: dict, tmpl: dict, date_iso: str) -> bool:
+    if not (exc.get("start_date", "") <= date_iso <= exc.get("end_date", "")):
+        return False
+    if exc.get("scope") == "all":
+        return True
+    if tmpl.get("name") in (exc.get("class_names") or []):
+        return True
+    if tmpl.get("category") in (exc.get("categories") or []):
+        return True
+    return False
+
+
+def _is_blocked(tmpl: dict, date_iso: str, excs: list) -> bool:
+    return any(_exception_hits(e, tmpl, date_iso) for e in excs)
+
+
+def _instance_from_template(tmpl: dict, d) -> dict:
+    """Build a (virtual) dated class instance for date `d` from a weekly template."""
+    start = datetime(d.year, d.month, d.day, int(tmpl.get("hour") or 0), int(tmpl.get("minute") or 0))
+    inst = {k: tmpl.get(k) for k in (
+        "name", "category", "trainer", "level", "duration_min", "price_cents", "currency",
+        "image", "description", "program", "color", "capacity", "min_age", "max_age")}
+    inst["class_id"] = f"{tmpl['template_id']}__{d.isoformat()}"
+    inst["template_id"] = tmpl["template_id"]
+    inst["start_at"] = start
+    inst["by_appointment"] = False
+    inst["recurring"] = True
+    return inst
+
+
+async def _generate_instances(days_ahead: int, category: Optional[str]) -> list:
+    templates = await db.class_templates.find({"active": {"$ne": False}}, {"_id": 0}).to_list(500)
+    excs = await _active_exceptions()
+    start_day = ((now_utc() + timedelta(hours=10)).replace(tzinfo=None)).date()
+    end_day = start_day + timedelta(days=days_ahead)
+    mats = await db.classes.find({"template_id": {"$exists": True}, "cancelled": {"$ne": True}}, {"_id": 0}).to_list(5000)
+    mat_map = {m["class_id"]: m for m in mats}
+    out = []
+    for t in templates:
+        if category and category.lower() != "all" and t.get("category") != category:
+            continue
+        wd = int(t.get("weekday", 0))
+        delta = (wd - start_day.weekday()) % 7
+        d = start_day + timedelta(days=delta)
+        while d <= end_day:
+            di = d.isoformat()
+            if not _is_blocked(t, di, excs):
+                out.append(mat_map.get(f"{t['template_id']}__{di}") or _instance_from_template(t, d))
+            d += timedelta(days=7)
+    return out
+
+
+async def _resolve_class(class_id: str) -> Optional[dict]:
+    """Return a class doc: a real/materialised one if present, else a virtual instance
+    generated from its template (None if it's a blocked date or unknown)."""
+    doc = await db.classes.find_one({"class_id": class_id}, {"_id": 0})
+    if doc:
+        return doc
+    if "__" not in class_id:
+        return None
+    template_id, _, date_iso = class_id.rpartition("__")
+    tmpl = await db.class_templates.find_one({"template_id": template_id}, {"_id": 0})
+    if not tmpl:
+        return None
+    try:
+        d = datetime.fromisoformat(date_iso).date()
+    except Exception:
+        return None
+    if d.weekday() != int(tmpl.get("weekday", -1)):
+        return None  # date doesn't fall on this class's weekly day
+    excs = await _active_exceptions()
+    if _is_blocked(tmpl, date_iso, excs):
+        return None
+    return _instance_from_template(tmpl, d)
+
+
+async def _materialize_class(class_id: str) -> Optional[dict]:
+    """Ensure a real class doc exists for a (possibly virtual) instance id, creating it
+    on first booking so bookings/QR/stats have a concrete record to reference."""
+    existing = await db.classes.find_one({"class_id": class_id}, {"_id": 0})
+    if existing:
+        return existing
+    inst = await _resolve_class(class_id)
+    if not inst:
+        return None
+    inst = dict(inst)
+    inst.setdefault("currency", "aud")
+    inst["created_at"] = now_utc()
+    inst.pop("recurring", None)
+    await db.classes.insert_one(dict(inst))
+    inst.pop("_id", None)
+    return inst
+
+
 @api.get("/classes")
-async def classes_list(category: Optional[str] = None, include_ended: bool = False):
-    q: dict = {"cancelled": {"$ne": True}}
-    if category and category.lower() != "all":
-        q["category"] = category
-    rows = await db.classes.find(q, {"_id": 0}).sort("start_at", 1).to_list(1000)
+async def classes_list(category: Optional[str] = None, include_ended: bool = False, days: int = 60):
     now_local = (now_utc() + timedelta(hours=10)).replace(tzinfo=None)
-    # count active bookings (paid/confirmed) per class for capacity display
+    # Generate recurring instances from weekly templates (respecting exceptions) plus
+    # any by-appointment classes. Materialised (already-booked) instances are merged in.
+    gen = await _generate_instances(max(1, min(int(days or 60), 400)), category)
+    appt_rows = await db.classes.find({"by_appointment": True, "cancelled": {"$ne": True}}, {"_id": 0}).to_list(200)
+    if category and category.lower() != "all":
+        appt_rows = [a for a in appt_rows if a.get("category") == category]
+    rows = gen + appt_rows
     agg = await db.bookings.aggregate([
         {"$match": {"status": {"$in": ["paid", "confirmed"]}}},
         {"$group": {"_id": "$class_id", "n": {"$sum": 1}}},
@@ -2416,7 +2527,6 @@ async def classes_list(category: Optional[str] = None, include_ended: bool = Fal
                     ended = True
                 elif s <= now_local:
                     started = True  # in progress — bookings closed
-        # Home/upcoming (default) hides ended classes; timetable requests include_ended to show status.
         if ended and not include_ended:
             continue
         r["ended"] = ended
@@ -2427,12 +2537,14 @@ async def classes_list(category: Optional[str] = None, include_ended: bool = Fal
             r["booked"] = booked
             r["spots_left"] = max(cap - booked, 0)
         out.append(r)
+    out.sort(key=lambda r: (r.get("start_at") or now_local))
     return {"classes": [with_coach(r) for r in out]}
+
 
 
 @api.get("/classes/{class_id}")
 async def class_detail(class_id: str):
-    c = await db.classes.find_one({"class_id": class_id}, {"_id": 0})
+    c = await _resolve_class(class_id)
     if not c or c.get("cancelled"):
         raise HTTPException(404, "Class not found")
     if not c.get("by_appointment"):
@@ -2549,6 +2661,10 @@ async def admin_create_appointment(body: AdminApptCreate, u: dict = Depends(requ
 @api.post("/bookings")
 async def booking_create(body: BookingCreate, u: dict = Depends(require_user)):
     cls = await db.classes.find_one({"class_id": body.class_id}, {"_id": 0})
+    if not cls:
+        # Virtual recurring instance — validate it's a real, non-blocked date, then
+        # materialise it into a concrete class record so the booking can attach to it.
+        cls = await _materialize_class(body.class_id)
     if not cls:
         raise HTTPException(404, "Class not found")
     if cls.get("cancelled"):
@@ -6470,8 +6586,25 @@ async def admin_overview(u: dict = Depends(require_admin)):
 
 @api.get("/admin/classes")
 async def admin_classes(u: dict = Depends(require_admin)):
-    rows = await db.classes.find({}, {"_id": 0}).sort("start_at", 1).to_list(1000)
-    return {"classes": rows}
+    # Recurring weekly templates + by-appointment classes. Templates are shown with a
+    # computed next occurrence so the existing UI can render them.
+    tmpls = await db.class_templates.find({}, {"_id": 0}).sort([("weekday", 1), ("hour", 1)]).to_list(500)
+    today = ((now_utc() + timedelta(hours=10)).replace(tzinfo=None)).date()
+    out = []
+    for t in tmpls:
+        wd = int(t.get("weekday", 0))
+        d = today + timedelta(days=(wd - today.weekday()) % 7)
+        nxt = datetime(d.year, d.month, d.day, int(t.get("hour") or 0), int(t.get("minute") or 0))
+        row = dict(t)
+        row["class_id"] = t["template_id"]
+        row["is_template"] = True
+        row["recurring"] = True
+        row["start_at"] = nxt
+        row["start_time"] = f"{int(t.get('hour') or 0):02d}:{int(t.get('minute') or 0):02d}"
+        out.append(row)
+    appts = await db.classes.find({"by_appointment": True}, {"_id": 0}).sort("start_at", 1).to_list(200)
+    out.extend(appts)
+    return {"classes": out}
 
 
 def _parse_dt(s: str) -> datetime:
@@ -6484,52 +6617,90 @@ def _parse_dt(s: str) -> datetime:
         raise HTTPException(400, "Invalid start_at datetime")
 
 
+def _weekday_hour_from(body: ClassUpsert) -> tuple:
+    """Resolve (weekday, hour, minute) for a recurring class from explicit fields or
+    from a provided start_at datetime."""
+    if isinstance(body.weekday, int) and body.start_time:
+        try:
+            hh, mm = body.start_time.split(":")
+            return int(body.weekday), int(hh), int(mm)
+        except Exception:
+            raise HTTPException(400, "Invalid start time")
+    if body.start_at:
+        dt = _parse_dt(body.start_at)
+        dt = dt.replace(tzinfo=None) if dt.tzinfo else dt
+        return dt.weekday(), dt.hour, dt.minute
+    raise HTTPException(400, "Choose a day and time for the class")
+
+
 @api.post("/admin/classes")
 async def admin_class_create(body: ClassUpsert, u: dict = Depends(require_admin)):
     by_appt = bool(body.by_appointment)
-    doc = {
-        "class_id": new_id("cls"),
-        "name": body.name,
-        "trainer": body.trainer,
-        "category": body.category,
-        "level": body.level,
-        "duration_min": body.duration_min,
-        "price_cents": body.price_cents,
-        "currency": "aud",
-        "image": body.image or DEFAULT_CLASS_IMAGE,
-        "description": body.description or "",
-        "color": "#FF7A00",
-        "start_at": _parse_dt(body.start_at) if body.start_at else now_utc(),
-        "capacity": 1 if by_appt else min(int(body.capacity or 16), _cap_limit(body.name)),
-        "by_appointment": by_appt,
+    if by_appt:
+        doc = {
+            "class_id": new_id("cls"), "name": body.name, "trainer": body.trainer,
+            "category": body.category, "level": body.level, "duration_min": body.duration_min,
+            "price_cents": body.price_cents, "currency": "aud",
+            "image": body.image or DEFAULT_CLASS_IMAGE, "description": body.description or "",
+            "color": "#FF7A00", "start_at": now_utc(), "capacity": 1, "by_appointment": True,
+            "min_age": body.min_age if isinstance(body.min_age, int) else None,
+            "max_age": body.max_age if isinstance(body.max_age, int) else None,
+            "created_at": now_utc(),
+        }
+        await db.classes.insert_one(doc)
+        doc.pop("_id", None)
+        return {"class": doc}
+    # Recurring weekly template
+    wd, hour, minute = _weekday_hour_from(body)
+    tid = _make_template_id(body.name, body.category, wd, hour, minute)
+    if await db.class_templates.find_one({"template_id": tid}):
+        tid = f"{tid}_{new_id('t')[:6]}"
+    tmpl = {
+        "template_id": tid, "name": body.name, "trainer": body.trainer, "category": body.category,
+        "level": body.level, "duration_min": body.duration_min, "price_cents": body.price_cents,
+        "currency": "aud", "image": body.image or DEFAULT_CLASS_IMAGE, "description": body.description or "",
+        "program": "", "color": "#FF7A00", "weekday": wd, "hour": hour, "minute": minute,
+        "capacity": min(int(body.capacity or 16), _cap_limit(body.name)), "by_appointment": False,
         "min_age": body.min_age if isinstance(body.min_age, int) else None,
         "max_age": body.max_age if isinstance(body.max_age, int) else None,
-        "created_at": now_utc(),
+        "active": True, "created_at": now_utc(),
     }
-    await db.classes.insert_one(doc)
-    doc.pop("_id", None)
-    return {"class": doc}
+    await db.class_templates.insert_one(tmpl)
+    tmpl.pop("_id", None)
+    tmpl["class_id"] = tid
+    tmpl["is_template"] = True
+    return {"class": tmpl}
 
 
 @api.put("/admin/classes/{class_id}")
 async def admin_class_update(class_id: str, body: ClassUpsert, u: dict = Depends(require_admin)):
+    if class_id.startswith("tmpl_"):
+        upd = {
+            "name": body.name, "trainer": body.trainer, "category": body.category,
+            "level": body.level, "duration_min": body.duration_min, "price_cents": body.price_cents,
+            "capacity": min(int(body.capacity or 16), _cap_limit(body.name)),
+        }
+        if isinstance(body.weekday, int) or body.start_time or body.start_at:
+            wd, hour, minute = _weekday_hour_from(body)
+            upd.update({"weekday": wd, "hour": hour, "minute": minute})
+        if body.image:
+            upd["image"] = body.image
+        if body.description is not None:
+            upd["description"] = body.description
+        upd["min_age"] = body.min_age if isinstance(body.min_age, int) else None
+        upd["max_age"] = body.max_age if isinstance(body.max_age, int) else None
+        r = await db.class_templates.update_one({"template_id": class_id}, {"$set": upd})
+        if r.matched_count == 0:
+            raise HTTPException(404, "Class not found")
+        c = await db.class_templates.find_one({"template_id": class_id}, {"_id": 0})
+        c["class_id"] = class_id
+        c["is_template"] = True
+        return {"class": c}
+    # By-appointment class stored in classes
     upd = {
-        "name": body.name,
-        "trainer": body.trainer,
-        "category": body.category,
-        "level": body.level,
-        "duration_min": body.duration_min,
-        "price_cents": body.price_cents,
+        "name": body.name, "trainer": body.trainer, "category": body.category,
+        "level": body.level, "duration_min": body.duration_min, "price_cents": body.price_cents,
     }
-    if body.by_appointment is not None:
-        upd["by_appointment"] = bool(body.by_appointment)
-        if body.by_appointment:
-            upd["capacity"] = 1
-    if not body.by_appointment:
-        # Only fixed-time classes carry a schedule slot / capacity.
-        if body.start_at:
-            upd["start_at"] = _parse_dt(body.start_at)
-        upd["capacity"] = min(int(body.capacity or 16), _cap_limit(body.name))
     if body.image:
         upd["image"] = body.image
     if body.description is not None:
@@ -6545,8 +6716,79 @@ async def admin_class_update(class_id: str, body: ClassUpsert, u: dict = Depends
 
 @api.delete("/admin/classes/{class_id}")
 async def admin_class_delete(class_id: str, u: dict = Depends(require_admin)):
-    await db.classes.delete_one({"class_id": class_id})
+    if class_id.startswith("tmpl_"):
+        await db.class_templates.delete_one({"template_id": class_id})
+    else:
+        await db.classes.delete_one({"class_id": class_id})
     return {"ok": True}
+
+
+# ==================== Schedule exceptions (closed dates / holidays) ====================
+class ScheduleExceptionReq(BaseModel):
+    label: str
+    start_date: str            # ISO date YYYY-MM-DD
+    end_date: Optional[str] = None  # defaults to start_date (single day)
+    scope: str = "all"         # "all" | "selected"
+    categories: Optional[list] = None
+    class_names: Optional[list] = None
+    active: Optional[bool] = True
+
+
+def _validate_exc(body: ScheduleExceptionReq) -> dict:
+    sd = (body.start_date or "").strip()
+    ed = (body.end_date or "").strip() or sd
+    try:
+        d1 = datetime.fromisoformat(sd).date()
+        d2 = datetime.fromisoformat(ed).date()
+    except Exception:
+        raise HTTPException(400, "Enter valid dates (YYYY-MM-DD).")
+    if d2 < d1:
+        raise HTTPException(400, "End date can't be before the start date.")
+    if not (body.label or "").strip():
+        raise HTTPException(400, "Add a label (e.g. 'QLD School Holidays').")
+    scope = "selected" if body.scope == "selected" else "all"
+    return {
+        "label": body.label.strip(), "start_date": d1.isoformat(), "end_date": d2.isoformat(),
+        "scope": scope, "categories": body.categories or [], "class_names": body.class_names or [],
+        "active": bool(body.active) if body.active is not None else True,
+    }
+
+
+@api.get("/admin/schedule-exceptions")
+async def admin_list_exceptions(u: dict = Depends(require_admin)):
+    excs = await db.schedule_exceptions.find({}, {"_id": 0}).sort("start_date", 1).to_list(500)
+    tmpls = await db.class_templates.find({}, {"_id": 0, "name": 1, "category": 1}).to_list(500)
+    names = sorted({t.get("name") for t in tmpls if t.get("name")})
+    cats = sorted({t.get("category") for t in tmpls if t.get("category")})
+    return {"exceptions": excs, "class_names": names, "categories": cats}
+
+
+@api.post("/admin/schedule-exceptions")
+async def admin_create_exception(body: ScheduleExceptionReq, u: dict = Depends(require_admin)):
+    doc = _validate_exc(body)
+    doc["exception_id"] = new_id("exc")
+    doc["created_at"] = now_utc()
+    await db.schedule_exceptions.insert_one(doc)
+    doc.pop("_id", None)
+    return {"exception": doc}
+
+
+@api.put("/admin/schedule-exceptions/{exception_id}")
+async def admin_update_exception(exception_id: str, body: ScheduleExceptionReq, u: dict = Depends(require_admin)):
+    doc = _validate_exc(body)
+    r = await db.schedule_exceptions.update_one({"exception_id": exception_id}, {"$set": doc})
+    if r.matched_count == 0:
+        raise HTTPException(404, "Exception not found")
+    c = await db.schedule_exceptions.find_one({"exception_id": exception_id}, {"_id": 0})
+    return {"exception": c}
+
+
+@api.delete("/admin/schedule-exceptions/{exception_id}")
+async def admin_delete_exception(exception_id: str, u: dict = Depends(require_admin)):
+    await db.schedule_exceptions.delete_one({"exception_id": exception_id})
+    return {"ok": True}
+
+
 
 
 def _fmt_class_when(c: dict) -> str:
@@ -6566,6 +6808,8 @@ class ClassCancelReq(BaseModel):
 
 @api.post("/admin/classes/{class_id}/cancel")
 async def admin_class_cancel(class_id: str, body: ClassCancelReq, u: dict = Depends(require_admin)):
+    if class_id.startswith("tmpl_"):
+        raise HTTPException(400, "This is a recurring class. To hide specific dates, add a Closed Date under 'Closed Dates / Exceptions'. To stop it entirely, use Delete.")
     c = await db.classes.find_one({"class_id": class_id})
     if not c:
         raise HTTPException(404, "Class not found")
@@ -7798,40 +8042,51 @@ async def seed_data():
     # NON-DESTRUCTIVE seeding: each catalog collection is seeded ONLY when empty.
     # This safely populates a fresh database (e.g. a new production DB) with base
     # data while NEVER deleting admin-created classes/events/plans/announcements.
-    if await db.classes.count_documents({}) == 0:
-        # Classes for next 21 days based on weekday templates
-        base = now_utc().replace(hour=0, minute=0, second=0, microsecond=0)
-        docs = []
-        for day_offset in range(0, 21):
-            date = base + timedelta(days=day_offset)
-            weekday = date.weekday()
-            for (name, category, trainer, level, dur, price, days, hour, image, desc, program) in CLASS_TEMPLATES:
-                if weekday in days:
-                    docs.append(
-                        {
-                            "class_id": new_id("cls"),
-                            "name": name,
-                            "category": category,
-                            "trainer": trainer,
-                            "level": level,
-                            "duration_min": dur,
-                            "price_cents": price,
-                            "currency": "aud",
-                            "image": image,
-                            "description": desc,
-                            "program": program,
-                            "color": "#FF7A00",
-                            "start_at": date + timedelta(hours=hour),
-                            "capacity": 20 if name == "Boot Camp" else 16,
-                            "by_appointment": False,
-                            "min_age": 8 if (name == "Muay Thai" and category == "Kids") else 16,
-                            "max_age": 16 if (name == "Muay Thai" and category == "Kids") else None,
-                            "created_at": now_utc(),
-                        }
-                    )
-        if docs:
-            await db.classes.insert_many(docs)
-        log.info(f"seeded {len(docs)} classes")
+    # Recurring weekly schedule: seed class_templates (idempotent) from CLASS_TEMPLATES.
+    # The timetable generates dated instances from these on a rolling basis, so we no
+    # longer store hundreds of duplicate dated class records.
+    if await db.class_templates.count_documents({}) == 0:
+        tmpls = []
+        for (name, category, trainer, level, dur, price, days, hour, image, desc, program) in CLASS_TEMPLATES:
+            for wd in days:
+                tid = _make_template_id(name, category, wd, hour, 0)
+                tmpls.append({
+                    "template_id": tid, "name": name, "category": category, "trainer": trainer,
+                    "level": level, "duration_min": dur, "price_cents": price, "currency": "aud",
+                    "image": image, "description": desc, "program": program, "color": "#FF7A00",
+                    "weekday": wd, "hour": hour, "minute": 0,
+                    "capacity": 20 if name == "Boot Camp" else 16,
+                    "by_appointment": False,
+                    "min_age": 8 if (name == "Muay Thai" and category == "Kids") else 16,
+                    "max_age": 16 if (name == "Muay Thai" and category == "Kids") else None,
+                    "active": True, "created_at": now_utc(),
+                })
+        if tmpls:
+            await db.class_templates.insert_many(tmpls)
+        log.info(f"seeded {len(tmpls)} class templates")
+        # One-time cleanup: remove legacy dated recurring classes that have no bookings
+        # (they'd otherwise duplicate the generated instances). Booked ones are kept.
+        legacy = await db.classes.find({"by_appointment": {"$ne": True}, "template_id": {"$exists": False}}, {"class_id": 1}).to_list(5000)
+        for lc in legacy:
+            has_bk = await db.bookings.count_documents({"class_id": lc["class_id"], "status": {"$in": ["paid", "pending", "confirmed", "reschedule_requested"]}})
+            if has_bk == 0:
+                await db.classes.delete_one({"class_id": lc["class_id"]})
+
+    # QLD 2026 school holidays — Kids classes don't run. Seeded once; editable in admin.
+    if await db.schedule_exceptions.count_documents({}) == 0:
+        qld = [
+            ("QLD School Holidays — Term 1", "2026-04-03", "2026-04-19"),
+            ("QLD School Holidays — Term 2", "2026-06-27", "2026-07-12"),
+            ("QLD School Holidays — Term 3", "2026-09-19", "2026-10-05"),
+            ("QLD School Holidays — Summer", "2026-12-12", "2027-01-26"),
+        ]
+        await db.schedule_exceptions.insert_many([
+            {"exception_id": new_id("exc"), "label": label, "start_date": sd, "end_date": ed,
+             "scope": "selected", "categories": ["Kids"], "class_names": [], "active": True,
+             "created_at": now_utc()} for (label, sd, ed) in qld
+        ])
+        log.info("seeded QLD school holiday exceptions (Kids)")
+
 
         # Personal Training — bookable by appointment (no fixed time)
         await db.classes.insert_one(
