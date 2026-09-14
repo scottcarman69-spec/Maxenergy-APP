@@ -1285,3 +1285,6 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Session update (Jun 2026) — Kids Muay Thai photo update
 - Replaced Kids Muay Thai class image with new uploaded class photo (kidspic1.webp) in CLASS_TEMPLATES seed constant AND idempotent startup update (name=Muay Thai, category=Kids). Shows on home hero carousel + class detail. Verified DB updated.
+
+## Session update (Jun 2026) — Boot Camp photo update
+- Replaced Boot Camp class image with uploaded battle-ropes photo (Bootcamp.webp) in CLASS_TEMPLATES seed constant AND idempotent startup update (name=Boot Camp). Shows on home hero carousel + class detail. Verified DB updated.
