@@ -1273,3 +1273,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Session update (Jun 2026) — Removed duplicate appointment classes
 - Personal Training + Custom Programs were duplicated: their seed inserts sat inside the class_templates seed block and re-ran during the recurring migration. Made both inserts idempotent (guard: skip if a by_appointment class of that name exists) and deleted the duplicate records (kept originals; dups had no bookings).
+
+## Session update (Jun 2026) — Adults Muay Thai photo slideshow
+- Stored 3 uploaded team photos (AdultsThai1/2/3.webp) as `images[]` on the Adults Muay Thai template. First photo also set as single `image` fallback. Applied in CLASS_TEMPLATES seed constant (ADULT_MUAY_THAI_IMAGES) AND via an idempotent startup update to class_templates so it survives redeploys and updates the live DB.
+- Backend `_instance_from_template` now copies `images` into virtual class instances; `GET /api/classes/{id}` returns the array.
+- Frontend app/class/[id].tsx: hero image auto-rotates through `images` every 3.5s (expo-image fade transition) with pagination dots (top-right); falls back to single `image` for all other classes (dots hidden when <=1 image).
+- Verified: DB has 3 images; detail endpoint returns 3; screenshots confirm rotation (AdultsThai1 → AdultsThai2) with dots.

@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Platform, Modal, TextInput, KeyboardAvoidingView } from "react-native";
 import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import { Image } from "expo-image";
@@ -23,6 +23,7 @@ type Cls = {
   duration_min: number;
   price_cents: number;
   image: string;
+  images?: string[];
   start_at: string;
   description: string;
   level: string;
@@ -57,6 +58,18 @@ export default function ClassDetail() {
   const [takenSlots, setTakenSlots] = useState<Set<string>>(new Set());
   const [credit, setCredit] = useState(0);
   const [passes, setPasses] = useState(0);
+  const [imgIdx, setImgIdx] = useState(0);
+  const heroImages = React.useMemo(() => {
+    const arr = (cls?.images || []).filter(Boolean);
+    if (arr.length > 0) return arr;
+    return cls?.image ? [cls.image] : [];
+  }, [cls?.images, cls?.image]);
+  useEffect(() => {
+    setImgIdx(0);
+    if (heroImages.length <= 1) return;
+    const t = setInterval(() => setImgIdx((i) => (i + 1) % heroImages.length), 3500);
+    return () => clearInterval(t);
+  }, [heroImages]);
   const [creditOpen, setCreditOpen] = useState(false);
   const [onWaitlist, setOnWaitlist] = useState(false);
   const [wlBusy, setWlBusy] = useState(false);
@@ -356,12 +369,24 @@ export default function ClassDetail() {
     <View style={styles.root}>
       <ScrollView contentContainerStyle={{ paddingBottom: 140 }}>
         <View style={styles.hero}>
-          <Image source={cls.image} style={StyleSheet.absoluteFill} contentFit="cover" />
+          <Image
+            source={heroImages[imgIdx] || cls.image}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            transition={700}
+          />
           <LinearGradient
             colors={["rgba(18,18,20,0.55)", "transparent", "rgba(18,18,20,0.95)"]}
             locations={[0, 0.4, 1]}
             style={StyleSheet.absoluteFill}
           />
+          {heroImages.length > 1 && (
+            <View style={styles.dotsRow} pointerEvents="none">
+              {heroImages.map((_, i) => (
+                <View key={i} style={[styles.dot, i === imgIdx && styles.dotActive]} />
+              ))}
+            </View>
+          )}
           <SafeAreaView edges={["top"]} style={styles.heroSafe}>
             <Pressable testID="class-back" onPress={() => router.back()} style={styles.backBtn}>
               <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
@@ -842,6 +867,9 @@ const styles = StyleSheet.create({
   creditGhostText: { color: colors.onSurface, fontWeight: "800", fontSize: 14 },
   creditCancel: { color: colors.onSurfaceSecondary, fontWeight: "700", fontSize: 13, marginTop: spacing.md },
   hero: { height: 380, justifyContent: "flex-end" },
+  dotsRow: { position: "absolute", top: 52, right: spacing.xl, flexDirection: "row", gap: 6 },
+  dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.4)" },
+  dotActive: { backgroundColor: colors.primary, width: 18 },
   heroSafe: { position: "absolute", top: 0, left: 0, right: 0 },
   backBtn: {
     width: 40,
