@@ -181,8 +181,17 @@ export default function ClassDetail() {
       let opened = false;
       if (Platform.OS === "web") {
         if (typeof window !== "undefined") {
-          window.location.href = url;
-          opened = true;
+          // The web preview runs inside an iframe and Square refuses to be framed,
+          // so open the hosted checkout in a new top-level tab instead of navigating
+          // the iframe (which shows "refused to connect").
+          const win = window.open(url, "_blank");
+          if (win) {
+            opened = true;
+          } else {
+            // Popup blocked — break out of the iframe to the top window as a fallback.
+            try { (window.top || window)!.location.href = url; } catch { window.location.href = url; }
+            opened = true;
+          }
         }
       } else {
         const result = await WebBrowser.openBrowserAsync(url, { showTitle: false });

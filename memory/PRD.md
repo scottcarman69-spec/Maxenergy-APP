@@ -1288,3 +1288,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Session update (Jun 2026) — Boot Camp photo update
 - Replaced Boot Camp class image with uploaded battle-ropes photo (Bootcamp.webp) in CLASS_TEMPLATES seed constant AND idempotent startup update (name=Boot Camp). Shows on home hero carousel + class detail. Verified DB updated.
+
+## Session update (Jun 2026) — Fix Square checkout "refused to connect" on web
+- Root cause: Expo web runs inside the Emergent preview iframe. Square's hosted checkout (sandbox.square.link → redirects to connect.squareupsandbox.com) sends X-Frame-Options/CSP that refuse framing, so the previous `window.location.href = url` (navigating the iframe) showed "refused to connect".
+- Fix: on web, open the Square checkout in a new top-level tab via `window.open(url, "_blank")`, with fallback to `(window.top||window).location.href` if a popup is blocked. Applied in class/[id].tsx, gift-cards.tsx, memberships.tsx. Native (WebBrowser.openBrowserAsync) path unchanged.
+- Verified: gift-card buy on web now calls window.open with https://sandbox.square.link/... (new tab) instead of navigating the iframe.

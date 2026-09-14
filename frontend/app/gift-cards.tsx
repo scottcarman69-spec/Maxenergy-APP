@@ -63,7 +63,12 @@ export default function GiftCards() {
     try {
       const origin = Platform.OS === "web" && typeof window !== "undefined" ? window.location.origin : BACKEND_URL!;
       const { url, session_id } = await api.giftcardCheckout(effectiveAmount as number, origin, rName.trim(), rEmail.trim(), message.trim());
-      if (Platform.OS === "web") { window.location.href = url; return; }
+      if (Platform.OS === "web") {
+        // Preview runs in an iframe and Square refuses to be framed — open in a new tab.
+        const win = window.open(url, "_blank");
+        if (!win) { try { (window.top || window)!.location.href = url; } catch { window.location.href = url; } }
+        return;
+      }
       await WebBrowser.openBrowserAsync(url);
       for (let i = 0; i < 20; i++) {
         await new Promise((r) => setTimeout(r, 1500));
