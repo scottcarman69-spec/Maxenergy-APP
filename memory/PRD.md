@@ -1279,3 +1279,6 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Backend `_instance_from_template` now copies `images` into virtual class instances; `GET /api/classes/{id}` returns the array.
 - Frontend app/class/[id].tsx: hero image auto-rotates through `images` every 3.5s (expo-image fade transition) with pagination dots (top-right); falls back to single `image` for all other classes (dots hidden when <=1 image).
 - Verified: DB has 3 images; detail endpoint returns 3; screenshots confirm rotation (AdultsThai1 → AdultsThai2) with dots.
+
+## Session update (Jun 2026) — Kickboxing photo
+- Set Kickboxing class image to uploaded team photo (kickboxing3.webp) in CLASS_TEMPLATES seed constant AND via idempotent startup update to class_templates (name=Kickboxing). Shows on home hero carousel ("UP NEXT") and class detail. Verified on home page screenshot.
