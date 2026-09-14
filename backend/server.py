@@ -8229,7 +8229,8 @@ async def seed_data():
 
 
         # Personal Training — bookable by appointment (no fixed time)
-        await db.classes.insert_one(
+        if not await db.classes.find_one({"name": "Personal Training", "by_appointment": True}):
+            await db.classes.insert_one(
             {
                 "class_id": new_id("cls"),
                 "name": "Personal Training",
@@ -8254,7 +8255,8 @@ async def seed_data():
         )
 
         # Custom Programs — bookable by appointment (no fixed time)
-        await db.classes.insert_one(
+        if not await db.classes.find_one({"name": "Custom Programs", "by_appointment": True}):
+            await db.classes.insert_one(
             {
                 "class_id": new_id("cls"),
                 "name": "Custom Programs",

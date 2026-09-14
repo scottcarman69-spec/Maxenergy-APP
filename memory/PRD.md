@@ -1270,3 +1270,6 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Session update (Jun 2026) — Class images
 - Recurring-template migration had reset class images to stock. Set Kids Muay Thai image to uploaded "kids class pic1" in DB (class_templates) AND in CLASS_TEMPLATES seed constant (server.py ~8058) so it persists on future deploys. Adults Muay Thai left on stock (awaiting user-provided photo). Admin class editor image field also updates templates.
+
+## Session update (Jun 2026) — Removed duplicate appointment classes
+- Personal Training + Custom Programs were duplicated: their seed inserts sat inside the class_templates seed block and re-ran during the recurring migration. Made both inserts idempotent (guard: skip if a by_appointment class of that name exists) and deleted the duplicate records (kept originals; dups had no bookings).
