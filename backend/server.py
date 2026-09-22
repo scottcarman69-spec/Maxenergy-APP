@@ -8329,6 +8329,35 @@ async def seed_data():
             }
         )
 
+    # Self-heal duplicates: older seeds created more than one by-appointment
+    # "Personal Training" / "Custom Programs" record on some databases. Runs on every
+    # startup so production cleans itself on redeploy. Keeps the one with bookings
+    # (else the oldest) and only deletes extras that have NO bookings.
+    for _appt_name in ("Personal Training", "Custom Programs"):
+        dups = await db.classes.find(
+            {"name": _appt_name, "by_appointment": True},
+            {"class_id": 1, "created_at": 1},
+        ).sort("created_at", 1).to_list(100)
+        if len(dups) <= 1:
+            continue
+        _active = {"$in": ["paid", "pending", "confirmed", "reschedule_requested", "admin_proposed"]}
+        keep_id = None
+        for d in dups:
+            if await db.bookings.count_documents({"class_id": d["class_id"], "status": _active}) > 0:
+                keep_id = d["class_id"]
+                break
+        if keep_id is None:
+            keep_id = dups[0]["class_id"]  # oldest
+        removed = 0
+        for d in dups:
+            if d["class_id"] == keep_id:
+                continue
+            if await db.bookings.count_documents({"class_id": d["class_id"], "status": _active}) == 0:
+                await db.classes.delete_one({"class_id": d["class_id"]})
+                removed += 1
+        if removed:
+            log.info(f"deduped {_appt_name}: kept {keep_id}, removed {removed}")
+
     # Membership plans
     if await db.membership_plans.count_documents({}) == 0:
         plans = [

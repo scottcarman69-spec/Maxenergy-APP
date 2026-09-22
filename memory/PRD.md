@@ -1293,3 +1293,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Root cause: Expo web runs inside the Emergent preview iframe. Square's hosted checkout (sandbox.square.link → redirects to connect.squareupsandbox.com) sends X-Frame-Options/CSP that refuse framing, so the previous `window.location.href = url` (navigating the iframe) showed "refused to connect".
 - Fix: on web, open the Square checkout in a new top-level tab via `window.open(url, "_blank")`, with fallback to `(window.top||window).location.href` if a popup is blocked. Applied in class/[id].tsx, gift-cards.tsx, memberships.tsx. Native (WebBrowser.openBrowserAsync) path unchanged.
 - Verified: gift-card buy on web now calls window.open with https://sandbox.square.link/... (new tab) instead of navigating the iframe.
+
+## Session update (Jun 2026) — Self-heal duplicate appointment classes
+- Reported: production/TestFlight DB shows duplicate by-appointment "Personal Training" & "Custom Programs" on the schedule (preview DB was clean). Existing insert guards are idempotent, so dups predate the fix.
+- Added an UNCONDITIONAL startup dedupe in seed_data(): for each of Personal Training / Custom Programs, keep the record with active bookings (else oldest by created_at) and delete only extras that have NO bookings. Runs every startup so production self-heals on redeploy.
+- Verified in preview DB: injected 2 dupes each → after restart only the original remained (logs: "deduped ... removed 2").
+- NOTE: production only cleans up after the user redeploys.
