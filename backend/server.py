@@ -8332,7 +8332,9 @@ async def seed_data():
     # Self-heal duplicates: older seeds created more than one by-appointment
     # "Personal Training" / "Custom Programs" record on some databases. Runs on every
     # startup so production cleans itself on redeploy. Keeps the one with bookings
-    # (else the oldest) and only deletes extras that have NO bookings.
+    # (else the oldest), re-points any bookings on the extras onto the survivor, then
+    # deletes the extras — so it ALWAYS collapses to a single record without losing
+    # any booking.
     for _appt_name in ("Personal Training", "Custom Programs"):
         dups = await db.classes.find(
             {"name": _appt_name, "by_appointment": True},
@@ -8352,9 +8354,13 @@ async def seed_data():
         for d in dups:
             if d["class_id"] == keep_id:
                 continue
-            if await db.bookings.count_documents({"class_id": d["class_id"], "status": _active}) == 0:
-                await db.classes.delete_one({"class_id": d["class_id"]})
-                removed += 1
+            # Move any bookings on the extra onto the survivor, then delete the extra.
+            await db.bookings.update_many(
+                {"class_id": d["class_id"]},
+                {"$set": {"class_id": keep_id}},
+            )
+            await db.classes.delete_one({"class_id": d["class_id"]})
+            removed += 1
         if removed:
             log.info(f"deduped {_appt_name}: kept {keep_id}, removed {removed}")
 

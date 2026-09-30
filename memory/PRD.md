@@ -1299,3 +1299,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Added an UNCONDITIONAL startup dedupe in seed_data(): for each of Personal Training / Custom Programs, keep the record with active bookings (else oldest by created_at) and delete only extras that have NO bookings. Runs every startup so production self-heals on redeploy.
 - Verified in preview DB: injected 2 dupes each → after restart only the original remained (logs: "deduped ... removed 2").
 - NOTE: production only cleans up after the user redeploys.
+
+## Session update (Jun 2026) — Dedupe appointment classes now re-points bookings
+- Strengthened the startup dedupe: for Personal Training / Custom Programs it now re-points any bookings on the extra record onto the survivor (kept = one with bookings else oldest), then deletes ALL extras unconditionally → always collapses to a single record without losing bookings. Previous version left an extra if it had a booking.
+- Verified in preview: injected a 2nd Custom Programs WITH an active booking → after restart only 1 remained and the booking was re-pointed to the survivor.
+- Immediate no-redeploy fix for admins: Admin → Manage Classes → tap the delete (trash) icon on the duplicate Custom Programs (adminc-del-<class_id>). adminDeleteClass endpoint handles it live.
