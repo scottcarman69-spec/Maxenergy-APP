@@ -184,12 +184,14 @@ export default function AlertsTab() {
                     <Ionicons name={ICONS[n.type] || "notifications"} size={18} color={!n.read ? colors.onBrand : colors.brand} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <View style={styles.rowTop}>
-                      <Text style={styles.title} numberOfLines={1}>{n.title}</Text>
-                      <Text style={styles.when}>{fmtWhen(n.created_at)}</Text>
-                    </View>
+                    <Text style={styles.title} numberOfLines={2}>{n.title}</Text>
                     <Text style={styles.body} numberOfLines={2}>{n.body}</Text>
-                    {!!n.data?.nav && <Text style={styles.tapHint}>{n.type === "message" ? "Tap to open conversation ›" : "Tap to view details ›"}</Text>}
+                    <View style={styles.rowBottom}>
+                      {!!n.data?.nav
+                        ? <Text style={styles.tapHint} numberOfLines={1}>{n.type === "message" ? "Tap to open conversation ›" : "Tap to view details ›"}</Text>
+                        : <View style={{ flex: 1 }} />}
+                      <Text style={styles.when} numberOfLines={1}>{fmtWhen(n.created_at)}</Text>
+                    </View>
                   </View>
                   {!n.read && <View style={styles.dot} />}
                 </Pressable>
@@ -241,11 +243,11 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
   rowUnread: { borderColor: colors.brand },
   iconWrap: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center" },
-  rowTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
-  title: { color: colors.onSurface, fontWeight: "800", fontSize: 15, flex: 1 },
+  title: { color: colors.onSurface, fontWeight: "800", fontSize: 15, lineHeight: 20 },
   when: { color: colors.onSurfaceSecondary, fontSize: 11 },
-  body: { color: colors.onSurfaceSecondary, fontSize: 13, marginTop: 3, lineHeight: 18 },
-  tapHint: { color: colors.brand, fontSize: 11, fontWeight: "800", marginTop: 5 },
+  body: { color: colors.onSurfaceSecondary, fontSize: 13, marginTop: 4, lineHeight: 18 },
+  rowBottom: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm, marginTop: 6 },
+  tapHint: { color: colors.brand, fontSize: 11, fontWeight: "800", flexShrink: 1 },
   dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.brand },
   delete: { backgroundColor: colors.error, justifyContent: "center", alignItems: "center", width: 84, borderRadius: radius.md, marginLeft: spacing.sm, gap: 2 },
   deleteText: { color: "#fff", fontWeight: "800", fontSize: 12 },

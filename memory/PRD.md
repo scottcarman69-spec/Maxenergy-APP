@@ -1304,3 +1304,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Strengthened the startup dedupe: for Personal Training / Custom Programs it now re-points any bookings on the extra record onto the survivor (kept = one with bookings else oldest), then deletes ALL extras unconditionally → always collapses to a single record without losing bookings. Previous version left an extra if it had a booking.
 - Verified in preview: injected a 2nd Custom Programs WITH an active booking → after restart only 1 remained and the booking was re-pointed to the survivor.
 - Immediate no-redeploy fix for admins: Admin → Manage Classes → tap the delete (trash) icon on the duplicate Custom Programs (adminc-del-<class_id>). adminDeleteClass endpoint handles it live.
+
+## Session update (Jun 2026) — Notifications card layout (title truncation)
+- Notification titles (e.g. "Session request received", "New session request") were truncating with "…" because the title shared one row with the long timestamp (space-between, title numberOfLines=1).
+- Redesigned app/(tabs)/alerts.tsx card: title now spans full width up to 2 lines; timestamp moved to a clean footer row (right) alongside the "Tap to view details ›" link (left). Removed unused rowTop style + duplicate tapHint key.
+- Verified via seeded sample notifications: full titles now visible, footer shows time + tap hint.
