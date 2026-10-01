@@ -1342,7 +1342,7 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Added expo-clipboard (8.0.8). On gift-cards.tsx the purchased code row is now a tappable "Copy" control (testID gift-copy-<id>): copies the code to clipboard and shows a green "Copied!" with checkmark for ~1.8s. Styles copyRow/copyHint added.
 - Verified via seeded purchased card: tap → "Copied!" state shown.
 
-## Session update (Jun 2026) — Home stat pills text centering (iOS custom-font fix)
-- Root cause: global custom font DMSans-Medium has top-heavy vertical metrics; on iOS the glyph draws low inside its line box and padding/alignItems can't fix it (RN docs/community confirm). First attempts (lineHeight:16, then natural + minHeight) stayed low on TestFlight.
-- Definitive fix (home.tsx todayPillText/streakPillText): set lineHeight EQUAL to fontSize (fontSize:13, lineHeight:13) + includeFontPadding:false; pill uses paddingVertical:8, alignItems:center. This pulls the glyph up to centre on iOS without clipping descenders. Verified centered + no clipping on web (zoomed crop).
+## Session update (Jun 2026) — Home stat pills touching when wrapped (iOS)
+- On iPhone the two pills ("No classes today" / "N attended in <month>") wrap to two lines and touched because the pillRow `gap` did not apply a row-gap on iOS.
+- Fix (home.tsx): pillRow uses columnGap:8 (horizontal) and each pill (todayPill/streakPill) now has marginBottom:8 to guarantee vertical separation when wrapped (margins always render on iOS). Kept the fontSize:13/lineHeight:13 centering fix.
 - Requires a fresh redeploy + iOS build to show on TestFlight.

@@ -984,10 +984,10 @@ const styles = StyleSheet.create({
   storeIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
   storeTitle: { color: colors.onSurface, fontFamily: font.heading, fontSize: 15 },
   storeSub: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 2 },
-  pillRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 12 },
-  todayPill: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", backgroundColor: colors.brandTertiary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.brand },
+  pillRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: 8, marginTop: 12 },
+  todayPill: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", marginBottom: 8, backgroundColor: colors.brandTertiary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.brand },
   todayPillText: { color: colors.brand, fontWeight: "800", fontSize: 13, lineHeight: 13, includeFontPadding: false },
-  streakPill: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", backgroundColor: "rgba(251,146,60,0.12)", paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1, borderColor: "#FB923C" },
+  streakPill: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", marginBottom: 8, backgroundColor: "rgba(251,146,60,0.12)", paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1, borderColor: "#FB923C" },
   streakPillText: { color: "#FB923C", fontWeight: "800", fontSize: 13, lineHeight: 13, includeFontPadding: false },
   sectionTitle: {
     color: colors.onSurfaceSecondary,
