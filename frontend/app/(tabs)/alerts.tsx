@@ -42,7 +42,16 @@ export default function AlertsTab() {
     } catch {}
     setLoading(false);
   }, []);
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  // Opening the Notifications screen clears the unread count: mark everything read
+  // (locally + on the server) so the orange "(3)" badge on the Alerts tab disappears.
+  // The notifications themselves stay in the list.
+  useFocusEffect(useCallback(() => {
+    (async () => {
+      await load();
+      setNotifs((cur) => (cur.some((x) => !x.read) ? cur.map((x) => ({ ...x, read: true })) : cur));
+      api.markAllNotificationsRead().catch(() => {});
+    })();
+  }, [load]));
 
   const onRefresh = async () => {
     setRefreshing(true);

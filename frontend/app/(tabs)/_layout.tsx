@@ -57,7 +57,12 @@ export default function TabsLayout() {
   }, [refresh]);
 
   // Re-check whenever navigation changes (e.g. returning from the Messages screen).
-  useEffect(() => { refresh(); }, [segments, refresh]);
+  // When the user opens the Alerts tab, clear its badge immediately — the Alerts
+  // screen marks everything read on open, so skip the racing re-fetch here.
+  useEffect(() => {
+    if (segments[segments.length - 1] === "alerts") { setAlerts(0); return; }
+    refresh();
+  }, [segments, refresh]);
 
   return (
     <>

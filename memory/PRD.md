@@ -1309,3 +1309,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Notification titles (e.g. "Session request received", "New session request") were truncating with "…" because the title shared one row with the long timestamp (space-between, title numberOfLines=1).
 - Redesigned app/(tabs)/alerts.tsx card: title now spans full width up to 2 lines; timestamp moved to a clean footer row (right) alongside the "Tap to view details ›" link (left). Removed unused rowTop style + duplicate tapHint key.
 - Verified via seeded sample notifications: full titles now visible, footer shows time + tap hint.
+
+## Session update (Jun 2026) — Clear Alerts badge on open
+- Requested: opening the Notifications screen should clear the unread count shown on the Alerts (bell) tab.
+- app/(tabs)/alerts.tsx: on focus, after loading, mark all notifications read locally + call api.markAllNotificationsRead(). Notifications remain in the list (styled read); header shows "You're all caught up".
+- app/(tabs)/_layout.tsx: when the active tab segment is "alerts", optimistically setAlerts(0) (and skip the racing re-fetch) so the badge disappears instantly on open; server marking keeps it 0 on later polls.
+- Verified: badge "3" on bell → open Alerts → badge gone + "You're all caught up" → return to Home → badge still gone.
