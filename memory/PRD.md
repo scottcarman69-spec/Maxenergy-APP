@@ -1315,3 +1315,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - app/(tabs)/alerts.tsx: on focus, after loading, mark all notifications read locally + call api.markAllNotificationsRead(). Notifications remain in the list (styled read); header shows "You're all caught up".
 - app/(tabs)/_layout.tsx: when the active tab segment is "alerts", optimistically setAlerts(0) (and skip the racing re-fetch) so the badge disappears instantly on open; server marking keeps it 0 on later polls.
 - Verified: badge "3" on bell → open Alerts → badge gone + "You're all caught up" → return to Home → badge still gone.
+
+## Session update (Jun 2026) — Gift card notification "Tap for details" routing
+- Bug: the "Gift card purchased" notification used ntype="booking" with no data, so create_notification defaulted nav to "member_bookings" → tapping opened the class bookings list (no gift-card/transaction info).
+- Backend: gift-card buyer notify_user now passes data={"nav":"member_giftcards"}.
+- Frontend app/(tabs)/alerts.tsx: added "member_giftcards" nav case → router.push("/gift-cards"). Also added a title-based fallback so LEGACY notifications (nav member_bookings + title contains "gift card") still redirect to the Gift Cards page (where purchase history/amount/recipient/code/date is shown).
+- Verified: tapping a legacy-style gift card notification now opens the Gift Cards page.

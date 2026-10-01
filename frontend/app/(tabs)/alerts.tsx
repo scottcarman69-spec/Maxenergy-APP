@@ -66,6 +66,12 @@ export default function AlertsTab() {
   const openNotif = (n: Notif) => {
     if (!n.read) markOne(n.notification_id);
     const nav = n.data?.nav;
+    // Gift-card purchase receipts live on the Gift Cards page. Older notifications were
+    // saved with the generic bookings nav, so redirect those by title too.
+    if ((nav === "member_bookings" || !nav) && /gift card/i.test(n.title || "")) {
+      router.push("/gift-cards" as any);
+      return;
+    }
     switch (nav) {
       case "admin_thread":
         if (user?.is_admin && n.data?.user_id) {
@@ -85,6 +91,9 @@ export default function AlertsTab() {
         break;
       case "member_store":
         router.push("/memberships");
+        break;
+      case "member_giftcards":
+        router.push("/gift-cards" as any);
         break;
       case "class_detail":
         if (n.data?.class_id) router.push({ pathname: "/class/[id]", params: { id: n.data.class_id } } as any);

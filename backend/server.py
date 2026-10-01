@@ -4616,7 +4616,7 @@ async def fulfill_giftcard_purchase(tx: dict) -> None:
     ]
     await notify_user(uid, buyer.get("email"), "Gift card purchased",
                       f"Your {amount_str} gift card is confirmed" + (f" and sent to {recipient_name}." if recipient_name else "."),
-                      "booking", email_lines=blines)
+                      "booking", email_lines=blines, data={"nav": "member_giftcards"})
     # ----- Gym admin email -----
     admin_lines = [
         f"<b>{esc(buyer_name)}</b> purchased a <b>{amount_str}</b> gift card.",
