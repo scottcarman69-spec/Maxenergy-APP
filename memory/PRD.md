@@ -1327,3 +1327,7 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Added AboutText parser in app/class/[id].tsx that structures the admin description into: bold lead title, brand-coloured schedule line (lines containing "|"), uppercase sub-headings (lines ending ":", e.g. PRICING), a clean bullet list (•/-/– → dot rows), and normal paragraphs. Collapses 3+ blank lines; drops the redundant trailing "Suitable for ages …" line (Age banner already conveys it); keeps the flashing "All fitness and experience levels welcome." line. No change to the underlying admin-editable description data.
 - New styles: aboutWrap, descLead, descSchedule, descSubhead, bulletList/Row/Dot/Text. Generic for all classes.
 - Verified via screenshot on Kids Muay Thai class.
+
+## Session update (Jun 2026) — Removed "Unlimited classes" perk from term memberships
+- Per request, removed the "Unlimited classes for 3 months / 6 months / a full year" perk line from mem_3m, mem_6m, mem_12m in STORE_PRODUCTS (server.py). Remaining perks: 24/7 gym access with key tag + the value line. 1-month membership unchanged.
+- Verified on /memberships: no "Unlimited" text remains.
