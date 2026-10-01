@@ -42,6 +42,56 @@ function fmt(iso: string) {
   return `${classDate(iso, { weekday: "long", day: "2-digit", month: "long" })} · ${classTime(iso)}`;
 }
 
+// Renders the class description as tidy, structured blocks: a bold lead title, a
+// brand-coloured schedule line, uppercase sub-headings (e.g. "PRICING"), a clean
+// bullet list, and normal paragraphs — instead of one dense wall of text.
+function AboutText({ text }: { text: string }) {
+  const flashIdx = text.indexOf(FLASH_LINE);
+  const main = (flashIdx === -1 ? text : text.slice(0, flashIdx)).replace(/\n{3,}/g, "\n\n");
+  const lines = main.split("\n");
+  const blocks: React.ReactNode[] = [];
+  let bullets: string[] = [];
+  let firstSeen = false;
+
+  const flushBullets = (key: string) => {
+    if (!bullets.length) return;
+    const items = bullets;
+    bullets = [];
+    blocks.push(
+      <View key={`b-${key}`} style={styles.bulletList}>
+        {items.map((it, i) => (
+          <View key={i} style={styles.bulletRow}>
+            <View style={styles.bulletDot} />
+            <Text style={styles.bulletText}>{it}</Text>
+          </View>
+        ))}
+      </View>
+    );
+  };
+
+  lines.forEach((line, i) => {
+    const t = line.trim();
+    if (!t) { flushBullets(`sp${i}`); return; }
+    if (/^[•\-–]\s*/.test(t)) { bullets.push(t.replace(/^[•\-–]\s*/, "")); return; }
+    flushBullets(`fl${i}`);
+    // Drop the trailing "Suitable for ages …" line — the Age banner already shows this.
+    if (/^suitable for ages/i.test(t)) return;
+    if (!firstSeen) { firstSeen = true; blocks.push(<Text key={`h${i}`} style={styles.descLead}>{t}</Text>); return; }
+    if (t.includes("|")) { blocks.push(<Text key={`sc${i}`} style={styles.descSchedule}>{t}</Text>); return; }
+    if (t.endsWith(":")) { blocks.push(<Text key={`sh${i}`} style={styles.descSubhead}>{t.replace(/:$/, "").toUpperCase()}</Text>); return; }
+    blocks.push(<Text key={`p${i}`} style={styles.desc}>{t}</Text>);
+  });
+  flushBullets("end");
+
+  return (
+    <View style={styles.aboutWrap}>
+      {blocks}
+      {flashIdx !== -1 && <FlashingText>{FLASH_LINE}</FlashingText>}
+    </View>
+  );
+}
+
+
 export default function ClassDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -478,18 +528,7 @@ export default function ClassDetail() {
           ) : null}
 
           <Text style={styles.sectionTitle}>ABOUT</Text>
-          {(() => {
-            const raw = cls.description || "";
-            const idx = raw.indexOf(FLASH_LINE);
-            if (idx === -1) return <Text style={styles.desc}>{raw}</Text>;
-            const before = raw.slice(0, idx).replace(/\s+$/, "");
-            return (
-              <>
-                {!!before && <Text style={styles.desc}>{before}</Text>}
-                <FlashingText>{FLASH_LINE}</FlashingText>
-              </>
-            );
-          })()}
+          <AboutText text={cls.description || ""} />
 
           {user && (user.membership_form_completed ? (
             <View style={styles.formBadgeOk}>
@@ -951,6 +990,14 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   desc: { color: colors.onSurface, fontSize: 15, lineHeight: 22 },
+  aboutWrap: { gap: 8, marginTop: spacing.xs },
+  descLead: { color: colors.onSurface, fontSize: 16, fontWeight: "800", lineHeight: 22 },
+  descSchedule: { color: colors.brand, fontSize: 14, fontWeight: "700", lineHeight: 20 },
+  descSubhead: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "800", letterSpacing: 1.5, marginTop: 6 },
+  bulletList: { gap: 7, marginTop: 2 },
+  bulletRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  bulletDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.brand, marginTop: 8 },
+  bulletText: { color: colors.onSurface, fontSize: 15, lineHeight: 22, flex: 1 },
   formBadgeOk: { flexDirection: "row", alignItems: "center", gap: 7, alignSelf: "flex-start", backgroundColor: "rgba(34,197,94,0.10)", borderWidth: 1, borderColor: "#22C55E55", borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 7, marginTop: spacing.md },
   formBadgeOkText: { color: "#22C55E", fontSize: 12.5, fontWeight: "800" },
   formBadgeWarn: { flexDirection: "row", alignItems: "center", gap: 7, backgroundColor: colors.brandTertiary, borderWidth: 1, borderColor: colors.brand, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 10, marginTop: spacing.md },

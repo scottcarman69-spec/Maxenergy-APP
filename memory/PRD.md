@@ -1321,3 +1321,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Backend: gift-card buyer notify_user now passes data={"nav":"member_giftcards"}.
 - Frontend app/(tabs)/alerts.tsx: added "member_giftcards" nav case → router.push("/gift-cards"). Also added a title-based fallback so LEGACY notifications (nav member_bookings + title contains "gift card") still redirect to the Gift Cards page (where purchase history/amount/recipient/code/date is shown).
 - Verified: tapping a legacy-style gift card notification now opens the Gift Cards page.
+
+## Session update (Jun 2026) — Tidy class detail ABOUT section
+- Class detail description was one dense text block mixing title, schedule, pricing & closing line (looked unorganised).
+- Added AboutText parser in app/class/[id].tsx that structures the admin description into: bold lead title, brand-coloured schedule line (lines containing "|"), uppercase sub-headings (lines ending ":", e.g. PRICING), a clean bullet list (•/-/– → dot rows), and normal paragraphs. Collapses 3+ blank lines; drops the redundant trailing "Suitable for ages …" line (Age banner already conveys it); keeps the flashing "All fitness and experience levels welcome." line. No change to the underlying admin-editable description data.
+- New styles: aboutWrap, descLead, descSchedule, descSubhead, bulletList/Row/Dot/Text. Generic for all classes.
+- Verified via screenshot on Kids Muay Thai class.
