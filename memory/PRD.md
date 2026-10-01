@@ -1342,6 +1342,7 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Added expo-clipboard (8.0.8). On gift-cards.tsx the purchased code row is now a tappable "Copy" control (testID gift-copy-<id>): copies the code to clipboard and shows a green "Copied!" with checkmark for ~1.8s. Styles copyRow/copyHint added.
 - Verified via seeded purchased card: tap → "Copied!" state shown.
 
-## Session update (Jun 2026) — Neaten home header stat pills
-- "N class today" / "N attended in <month>" pill text was sitting on the pill border. Increased paddingVertical 6→8 and added lineHeight:16 + includeFontPadding:false to todayPillText/streakPillText (home.tsx) so the text is vertically centred.
-- Verified via screenshot.
+## Session update (Jun 2026) — Home stat pills text centering (iOS)
+- First attempt added lineHeight:16 which, on iOS, renders text to the bottom of the line-height box (gap on top) — still looked "sitting on the line" on TestFlight even though web looked fine.
+- Final fix: removed lineHeight; todayPill/streakPill now use minHeight:34 + justifyContent:"center" + alignItems:"center", paddingVertical:7; text uses includeFontPadding:false + textAlignVertical:"center" (no lineHeight). Centers identically on iOS and web.
+- Requires a redeploy + new iOS build to appear on TestFlight.
