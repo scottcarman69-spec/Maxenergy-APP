@@ -1331,3 +1331,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 ## Session update (Jun 2026) — Removed "Unlimited classes" perk from term memberships
 - Per request, removed the "Unlimited classes for 3 months / 6 months / a full year" perk line from mem_3m, mem_6m, mem_12m in STORE_PRODUCTS (server.py). Remaining perks: 24/7 gym access with key tag + the value line. 1-month membership unchanged.
 - Verified on /memberships: no "Unlimited" text remains.
+
+## Session update (Jun 2026) — Gift card code email reliability
+- Report: buyer (scottcarman69@gmail.com) bought a $50 gift card for THEMSELVES (recipient_email == buyer email) and got a receipt but not the code email. DB had the card (MEG-87CJ-LCMA, active). Code is already visible in-app (Gift Cards → My gift cards → Purchased) and the notification now opens that page.
+- Root cause: buying for self sent TWO emails to the same inbox — buyer "Gift card purchased" (plain Code: line) + recipient "You've received…" (prominent code box). The code-box one was likely spam-filtered.
+- Fix (fulfill_giftcard_purchase): buyer confirmation now ALWAYS includes a prominent dashed code box + redeem instructions; skip the redundant recipient email when recipient == buyer (sent_to_other flag). Admin email unchanged.
+- Verified via monkeypatched send: buy-for-self now sends 1 buyer email with has_code_box=True (+ admin email). Real gift cards left intact.

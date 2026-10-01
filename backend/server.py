@@ -4591,8 +4591,10 @@ async def fulfill_giftcard_purchase(tx: dict) -> None:
         {"$set": {"fulfilled": True, "fulfilled_at": now, "gift_card_id": gift_card_id, "gift_card_code": code}},
     )
     amount_str = f"${amount_cents / 100:.2f} AUD"
-    # ----- Recipient email with the redeemable code -----
-    if recipient_email:
+    buyer_email = (buyer.get("email") or "").strip()
+    sent_to_other = bool(recipient_email) and recipient_email.strip().lower() != buyer_email.lower()
+    # ----- Recipient email with the redeemable code (only when gifting someone else) -----
+    if sent_to_other:
         rlines = [
             f"Hi {esc(recipient_name or 'there')},",
             f"🎁 <b>{esc(buyer_name)}</b> has sent you a <b>{amount_str}</b> Maxenergy Fitness gift card!",
@@ -4604,18 +4606,21 @@ async def fulfill_giftcard_purchase(tx: dict) -> None:
         ]
         await send_email(recipient_email, f"You've received a {amount_str} Maxenergy Fitness gift card 🎁",
                          _email_shell("Your Gift Card", rlines))
-    # ----- Buyer confirmation -----
+    # ----- Buyer confirmation (always includes the code prominently) -----
     blines = [
         f"Hi {esc((buyer_name or '').split(' ')[0] or buyer_name)},",
         f"Your <b>{amount_str}</b> gift card purchase is confirmed. Thanks for supporting Maxenergy Fitness! 🥊",
         "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
         f"<b>Amount:</b> {amount_str}",
-        (f"<b>Sent to:</b> {esc(recipient_name)} ({esc(recipient_email)})" if recipient_email else ""),
-        f"<b>Code:</b> {esc(code)}",
+        (f"<b>Sent to:</b> {esc(recipient_name)} ({esc(recipient_email)})" if sent_to_other else ""),
         f"<b>Purchased on:</b> {esc(now.strftime('%a %d %b %Y · %-I:%M %p'))}",
+        "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
+        "Your gift card code:",
+        f"<div style='font-size:22px;font-weight:bold;letter-spacing:2px;text-align:center;margin:14px 0;padding:16px;background:#fff;border:1px dashed #FF7A00;border-radius:10px'>{esc(code)}</div>",
+        "Redeem it in the app → My Wallet → <b>Redeem gift card</b>, or use it in-store. You can also find this code anytime in the app under <b>Gift Cards</b>.",
     ]
     await notify_user(uid, buyer.get("email"), "Gift card purchased",
-                      f"Your {amount_str} gift card is confirmed" + (f" and sent to {recipient_name}." if recipient_name else "."),
+                      f"Your {amount_str} gift card is confirmed" + (f" and sent to {recipient_name}." if sent_to_other else "."),
                       "booking", email_lines=blines, data={"nav": "member_giftcards"})
     # ----- Gym admin email -----
     admin_lines = [
