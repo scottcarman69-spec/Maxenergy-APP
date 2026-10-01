@@ -1337,3 +1337,7 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Root cause: buying for self sent TWO emails to the same inbox — buyer "Gift card purchased" (plain Code: line) + recipient "You've received…" (prominent code box). The code-box one was likely spam-filtered.
 - Fix (fulfill_giftcard_purchase): buyer confirmation now ALWAYS includes a prominent dashed code box + redeem instructions; skip the redundant recipient email when recipient == buyer (sent_to_other flag). Admin email unchanged.
 - Verified via monkeypatched send: buy-for-self now sends 1 buyer email with has_code_box=True (+ admin email). Real gift cards left intact.
+
+## Session update (Jun 2026) — Copy code button on Gift Cards
+- Added expo-clipboard (8.0.8). On gift-cards.tsx the purchased code row is now a tappable "Copy" control (testID gift-copy-<id>): copies the code to clipboard and shows a green "Copied!" with checkmark for ~1.8s. Styles copyRow/copyHint added.
+- Verified via seeded purchased card: tap → "Copied!" state shown.

@@ -4,6 +4,7 @@ import { useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
+import * as Clipboard from "expo-clipboard";
 import { api, BACKEND_URL } from "@/src/api";
 import { useAuth } from "@/src/AuthContext";
 import { colors, spacing, radius, font } from "@/src/theme";
@@ -23,6 +24,15 @@ export default function GiftCards() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [doneCode, setDoneCode] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const copyCode = useCallback(async (id: string, value: string) => {
+    try {
+      await Clipboard.setStringAsync(value);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId((cur) => (cur === id ? null : cur)), 1800);
+    } catch {}
+  }, []);
 
   const [code, setCode] = useState("");
   const [redeemBusy, setRedeemBusy] = useState(false);
@@ -206,7 +216,22 @@ export default function GiftCards() {
                     <View key={g.gift_card_id} testID={`gift-purchased-${g.gift_card_id}`} style={styles.histRow}>
                       <View style={styles.histIcon}><Ionicons name="gift" size={18} color={colors.brand} /></View>
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.histCode}>{g.code}</Text>
+                        <Pressable
+                          testID={`gift-copy-${g.gift_card_id}`}
+                          onPress={() => copyCode(g.gift_card_id, g.code)}
+                          style={({ pressed }) => [styles.copyRow, pressed && { opacity: 0.6 }]}
+                          hitSlop={8}
+                        >
+                          <Text style={styles.histCode}>{g.code}</Text>
+                          <Ionicons
+                            name={copiedId === g.gift_card_id ? "checkmark-circle" : "copy-outline"}
+                            size={15}
+                            color={copiedId === g.gift_card_id ? "#22C55E" : colors.brand}
+                          />
+                          <Text style={[styles.copyHint, copiedId === g.gift_card_id && { color: "#22C55E" }]}>
+                            {copiedId === g.gift_card_id ? "Copied!" : "Copy"}
+                          </Text>
+                        </Pressable>
                         <Text style={styles.histMeta}>
                           {money(g.amount_cents)}{g.recipient_name ? ` · to ${g.recipient_name}` : g.recipient_email ? ` · to ${g.recipient_email}` : ""}
                         </Text>
@@ -280,6 +305,8 @@ const styles = StyleSheet.create({
   histRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
   histIcon: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center" },
   histCode: { color: colors.onSurface, fontSize: 14, fontWeight: "900", letterSpacing: 0.5 },
+  copyRow: { flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start" },
+  copyHint: { color: colors.brand, fontSize: 11, fontWeight: "800" },
   histMeta: { color: colors.onSurfaceSecondary, fontSize: 12.5, marginTop: 2 },
   histDate: { color: colors.onSurfaceSecondary, fontSize: 11, marginTop: 1, opacity: 0.8 },
   histRight: { alignItems: "flex-end", gap: 4 },
