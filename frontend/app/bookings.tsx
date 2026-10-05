@@ -278,7 +278,7 @@ export default function BookingsScreen() {
         right={
           <Pressable testID="booking-history" style={styles.logBtn} onPress={() => router.push("/booking-history")}>
             <Ionicons name="time-outline" size={14} color={colors.onSurfaceSecondary} />
-            <Text style={styles.logBtnText}>Log</Text>
+            <Text style={styles.logBtnText} numberOfLines={1}>Log</Text>
           </Pressable>
         }
       />

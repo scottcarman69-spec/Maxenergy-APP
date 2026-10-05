@@ -55,7 +55,7 @@ export default function ScreenHeader({
         {!!subtitle && <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text>}
       </View>
 
-      <View style={[styles.side, styles.sideRight]}>{right}</View>
+      <View style={styles.sideRight}>{right}</View>
     </View>
   );
 }
@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   side: { width: 44, justifyContent: "center" },
-  sideRight: { alignItems: "flex-end" },
+  sideRight: { minWidth: 44, alignItems: "flex-end", justifyContent: "center", flexShrink: 0 },
   backBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", marginLeft: -6 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   title: { color: colors.onSurface, fontSize: 18, fontFamily: font.heading, textAlign: "center" },

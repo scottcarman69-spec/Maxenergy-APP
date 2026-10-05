@@ -1355,3 +1355,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 ## Session update (Jun 2026) — Check-in notification enhancements + confirmed existing check-in list
 - QR check-in now: (1) class-pass walk-in "Class pass used ✅" notification routes to My Wallet (/credits) via data nav member_wallet — shows pass balance + usage ledger (the walk-in "receipt"); (2) booked-class "Checked in ✅" notification now appends "You have N class passes left." when the booking was pass-paid or the member has passes; same for class-pass-confirms-existing-booking branch. Added member_wallet nav case in alerts.tsx → /credits.
 - User request "admin list of who scanned QR today" ALREADY EXISTS: Admin → "Today's Check-Ins" (/admin/checkins, GET /api/admin/checkins/today). Shows date, totals (check-ins/passes used/members) and a per-member list with name, class, time, method (QR/Staff/Member), pass used. Demonstrated via seeded data.
+
+## Session update (Jun 2026) — Fix wrapping "Log" button on My Bookings header
+- The ScreenHeader right slot had a fixed width:44, so the bookings "Log" pill (clock icon + text) wrapped to "Lo/g".
+- Fix: ScreenHeader sideRight now minWidth:44 + flexShrink:0 (sizes to content, keeps 44 min) — icon-only right actions on other screens unchanged. Added numberOfLines={1} to bookings logBtnText.
+- Verified: "🕐 Log" renders on one line, title stays centered.
