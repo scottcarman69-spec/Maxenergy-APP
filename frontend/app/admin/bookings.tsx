@@ -290,7 +290,7 @@ export default function AdminBookings() {
                           onPress={() => openReschedule(b)}
                         >
                           <Ionicons name="time-outline" size={14} color={colors.brand} />
-                          <Text style={styles.actGhostText}>Suggest time</Text>
+                          <Text style={styles.actGhostText} numberOfLines={1}>Suggest time</Text>
                         </Pressable>
                       )}
                       {b.by_appointment && (
@@ -301,7 +301,7 @@ export default function AdminBookings() {
                           onPress={() => act(b.booking_id, () => api.adminSetAttendance(b.booking_id, !b.attended), b.attended ? "Marked as not attended." : "Marked as attended ✓")}
                         >
                           <Ionicons name={b.attended ? "checkmark-circle" : "person-add-outline"} size={14} color={b.attended ? "#fff" : colors.brand} />
-                          <Text style={b.attended ? styles.actAttendOnText : styles.actGhostText}>{b.attended ? "Attended" : "Attended?"}</Text>
+                          <Text style={b.attended ? styles.actAttendOnText : styles.actGhostText} numberOfLines={1}>{b.attended ? "Attended" : "Attended?"}</Text>
                         </Pressable>
                       )}
                       <Pressable
@@ -451,16 +451,16 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 8.5, fontWeight: "900", letterSpacing: 0.4 },
   confirmedBadge: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: colors.success, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 4 },
   confirmedBadgeText: { color: "#fff", fontSize: 8.5, fontWeight: "900", letterSpacing: 0.4 },
-  actions: { flexDirection: "row", borderTopWidth: 1, borderTopColor: colors.border },
-  actBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingVertical: 9 },
+  actions: { flexDirection: "row", flexWrap: "wrap", borderTopWidth: 1, borderTopColor: colors.border, padding: spacing.md, gap: spacing.sm },
+  actBtn: { flexGrow: 1, flexBasis: "47%", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 10, borderRadius: radius.md },
   actAccept: { backgroundColor: colors.brand },
-  actAcceptText: { color: colors.onBrand, fontWeight: "800", fontSize: 12 },
-  actGhost: { borderRightWidth: 1, borderRightColor: colors.border, borderLeftWidth: 1, borderLeftColor: colors.border },
-  actGhostText: { color: colors.brand, fontWeight: "800", fontSize: 12 },
-  actAttendOn: { backgroundColor: colors.success, borderRightWidth: 1, borderRightColor: colors.border, borderLeftWidth: 1, borderLeftColor: colors.border },
-  actAttendOnText: { color: "#fff", fontWeight: "800", fontSize: 12 },
-  actDanger: {},
-  actDangerText: { color: colors.error, fontWeight: "800", fontSize: 12 },
+  actAcceptText: { color: colors.onBrand, fontWeight: "800", fontSize: 13 },
+  actGhost: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.brandTertiary },
+  actGhostText: { color: colors.brand, fontWeight: "800", fontSize: 13 },
+  actAttendOn: { backgroundColor: colors.success },
+  actAttendOnText: { color: "#fff", fontWeight: "800", fontSize: 13 },
+  actDanger: { borderWidth: 1, borderColor: colors.error },
+  actDangerText: { color: colors.error, fontWeight: "800", fontSize: 13 },
   empty: { alignItems: "center", padding: 50, gap: spacing.md },
   emptyText: { color: colors.onSurfaceSecondary },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", padding: spacing.xl },

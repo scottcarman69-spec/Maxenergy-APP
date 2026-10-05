@@ -1346,3 +1346,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - On iPhone the two pills ("No classes today" / "N attended in <month>") wrap to two lines and touched because the pillRow `gap` did not apply a row-gap on iOS.
 - Fix (home.tsx): pillRow uses columnGap:8 (horizontal) and each pill (todayPill/streakPill) now has marginBottom:8 to guarantee vertical separation when wrapped (margins always render on iOS). Kept the fontSize:13/lineHeight:13 centering fix.
 - Requires a fresh redeploy + iOS build to show on TestFlight.
+
+## Session update (Jun 2026) — Admin bookings action buttons cramped
+- Admin booking card actions (Accept / Suggest time / Attended? / Cancel) were 4 flex:1 buttons in one row → labels overlapped/jumbled on phone.
+- Fix (admin/bookings.tsx styles): actions now flexWrap with padding+gap; actBtn uses flexBasis 47% + flexGrow so buttons form a tidy 2-col grid (2×2 for appointments, single/again full-width otherwise). Buttons restyled as rounded chips (ghost = bordered + brandTertiary bg, danger = bordered). fontSize 12→13. Added numberOfLines on Suggest time / Attended? labels.
+- Verified via seeded pending appointment: clean 2×2 grid, no overlap.
