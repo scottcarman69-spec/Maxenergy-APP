@@ -1351,3 +1351,7 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Admin booking card actions (Accept / Suggest time / Attended? / Cancel) were 4 flex:1 buttons in one row → labels overlapped/jumbled on phone.
 - Fix (admin/bookings.tsx styles): actions now flexWrap with padding+gap; actBtn uses flexBasis 47% + flexGrow so buttons form a tidy 2-col grid (2×2 for appointments, single/again full-width otherwise). Buttons restyled as rounded chips (ghost = bordered + brandTertiary bg, danger = bordered). fontSize 12→13. Added numberOfLines on Suggest time / Attended? labels.
 - Verified via seeded pending appointment: clean 2×2 grid, no overlap.
+
+## Session update (Jun 2026) — Check-in notification enhancements + confirmed existing check-in list
+- QR check-in now: (1) class-pass walk-in "Class pass used ✅" notification routes to My Wallet (/credits) via data nav member_wallet — shows pass balance + usage ledger (the walk-in "receipt"); (2) booked-class "Checked in ✅" notification now appends "You have N class passes left." when the booking was pass-paid or the member has passes; same for class-pass-confirms-existing-booking branch. Added member_wallet nav case in alerts.tsx → /credits.
+- User request "admin list of who scanned QR today" ALREADY EXISTS: Admin → "Today's Check-Ins" (/admin/checkins, GET /api/admin/checkins/today). Shows date, totals (check-ins/passes used/members) and a per-member list with name, class, time, method (QR/Staff/Member), pass used. Demonstrated via seeded data.

@@ -3288,7 +3288,9 @@ async def admin_checkin_scan(body: ScanCheckinReq, request: Request, u: dict = D
             )
             await create_notification(
                 uid, "Checked in ✅",
-                f"You're checked in for {bk['class_name']}. Have a great session!", "booking",
+                f"You're checked in for {bk['class_name']}. Have a great session!"
+                + (lambda _l: f" You have {_l} class pass{'es' if _l != 1 else ''} left." if _l > 0 else "")(int((member or {}).get("class_pass_credits", 0))),
+                "booking",
             )
             when_str = (cs0.replace(tzinfo=None) if cs0.tzinfo else cs0).strftime("%-I:%M %p")
             return {
@@ -3344,7 +3346,7 @@ async def admin_checkin_scan(body: ScanCheckinReq, request: Request, u: dict = D
         await create_notification(
             uid, "Class pass used ✅",
             f"You checked in with a class pass. {left} pass{'es' if left != 1 else ''} left.",
-            "booking",
+            "booking", data={"nav": "member_wallet"},
         )
         await low_pass_nudge(uid, (member or {}).get("email"), left, base_url=_public_base(request))
         checkin_no = int(prior_today) + 1
@@ -3410,10 +3412,14 @@ async def admin_checkin_scan(body: ScanCheckinReq, request: Request, u: dict = D
             {"trial_id": b["trial_id"]},
             {"$set": {"status": "redeemed", "redeemed_at": now_utc(), "redeemed_by": admin_name}},
         )
+    _left = int((member or {}).get("class_pass_credits", 0))
+    _msg = f"You're checked in for {b['class_name']}. Have a great session!"
+    if b.get("paid_with_pass") or _left > 0:
+        _msg += f" You have {_left} class pass{'es' if _left != 1 else ''} left."
     await create_notification(
         b["user_id"],
         "Checked in ✅",
-        f"You're checked in for {b['class_name']}. Have a great session!",
+        _msg,
         "booking",
     )
     return {

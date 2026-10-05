@@ -95,6 +95,9 @@ export default function AlertsTab() {
       case "member_giftcards":
         router.push("/gift-cards" as any);
         break;
+      case "member_wallet":
+        router.push("/credits" as any);
+        break;
       case "class_detail":
         if (n.data?.class_id) router.push({ pathname: "/class/[id]", params: { id: n.data.class_id } } as any);
         else router.navigate("/(tabs)/home");
