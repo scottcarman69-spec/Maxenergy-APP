@@ -12,6 +12,7 @@ import { isOnline } from "@/src/presence";
 import { stampTime } from "@/src/datetime";
 import { useAuth } from "@/src/AuthContext";
 import ChatAgeGate from "@/src/components/ChatAgeGate";
+import { storage } from "@/src/utils/storage";
 
 type Reaction = { emoji: string; count: number; mine: boolean };
 type ReplyTo = { gmsg_id: string; sender_name: string; body: string };
@@ -27,16 +28,44 @@ function shortName(full?: string): string {
 }
 
 // Memoised so typing / new messages don't re-render every existing bubble (keeps the chat smooth).
-const MessageRow = React.memo(function MessageRow({ m, mine, canDelete, showReceipt, onUnsend, onLongPress, onReact }: { m: GM; mine: boolean; canDelete: boolean; showReceipt: boolean; onUnsend: (m: GM) => void; onLongPress: (m: GM) => void; onReact: (m: GM, emoji: string) => void }) {
+const MessageRow = React.memo(function MessageRow({ m, mine, canDelete, showReceipt, onUnsend, onLongPress, onReact, hidden, onHideAnnounce, onUnhideAnnounce }: { m: GM; mine: boolean; canDelete: boolean; showReceipt: boolean; onUnsend: (m: GM) => void; onLongPress: (m: GM) => void; onReact: (m: GM, emoji: string) => void; hidden?: boolean; onHideAnnounce?: (m: GM) => void; onUnhideAnnounce?: (m: GM) => void }) {
   if (m.from_id === "system") {
-    return (
-      <View style={styles.announce}>
+    const announceCard = (
+      <View style={[styles.announce, hidden && styles.announceHidden]}>
         <View style={styles.announceHead}>
           <Ionicons name="megaphone" size={14} color={colors.brand} />
           <Text style={styles.announceLabel}>GYM ANNOUNCEMENT</Text>
+          {hidden && (
+            <View style={styles.hiddenTag}>
+              <Ionicons name="eye-off" size={10} color={colors.onSurfaceSecondary} />
+              <Text style={styles.hiddenTagText}>HIDDEN</Text>
+            </View>
+          )}
         </View>
         <Text style={styles.announceBody}>{m.body}</Text>
       </View>
+    );
+    return (
+      <ReanimatedSwipeable
+        renderRightActions={() => (
+          <View style={styles.unsendWrap}>
+            <Pressable
+              testID={`group-announce-hide-${m.gmsg_id}`}
+              style={[styles.unsendAction, styles.hideAction]}
+              onPress={() => (hidden ? onUnhideAnnounce?.(m) : onHideAnnounce?.(m))}
+            >
+              <Ionicons name={hidden ? "eye" : "eye-off"} size={18} color={colors.onSurface} />
+              <Text style={[styles.unsendText, { color: colors.onSurface }]}>{hidden ? "Show" : "Hide"}</Text>
+            </Pressable>
+          </View>
+        )}
+        overshootRight={false}
+        friction={1.6}
+        rightThreshold={36}
+        dragOffsetFromRightEdge={16}
+      >
+        {announceCard}
+      </ReanimatedSwipeable>
     );
   }
   const reactions = m.reaction_summary || [];
@@ -132,6 +161,8 @@ export default function GroupChat() {
   const [pinnedMsg, setPinnedMsg] = useState<ReplyTo | null>(null);
   const [typingNames, setTypingNames] = useState<string[]>([]);
   const [members, setMembers] = useState<{ user_id: string; name?: string; picture?: string; last_active_at?: string }[]>([]);
+  const [hiddenIds, setHiddenIds] = useState<string[]>([]);
+  const [showHidden, setShowHidden] = useState(false);
   const lastTypingPing = useRef(0);
   const ref = useRef<ScrollView>(null);
   const rowYs = useRef<Record<string, number>>({});
@@ -167,6 +198,28 @@ export default function GroupChat() {
     setTimeout(() => ref.current?.scrollToEnd({ animated: false }), 100);
   }, [id]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const hiddenKey = `group_hidden_announcements_${String(id)}`;
+  useFocusEffect(useCallback(() => {
+    storage.getItem<string[]>(hiddenKey, []).then((v) => setHiddenIds(Array.isArray(v) ? v : [])).catch(() => {});
+  }, [hiddenKey]));
+
+  const hideAnnounce = useCallback((m: GM) => {
+    setHiddenIds((cur) => {
+      if (cur.includes(m.gmsg_id)) return cur;
+      const next = [...cur, m.gmsg_id];
+      storage.setItem(hiddenKey, next).catch(() => {});
+      return next;
+    });
+  }, [hiddenKey]);
+
+  const unhideAnnounce = useCallback((m: GM) => {
+    setHiddenIds((cur) => {
+      const next = cur.filter((x) => x !== m.gmsg_id);
+      storage.setItem(hiddenKey, next).catch(() => {});
+      return next;
+    });
+  }, [hiddenKey]);
 
   const send = async () => {
     const body = text.trim(); if (!body) return;
@@ -326,23 +379,38 @@ export default function GroupChat() {
         )}
         {loading ? <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} /> : (
           <ScrollView ref={ref} contentContainerStyle={{ padding: spacing.lg, gap: spacing.sm, paddingBottom: 20 }}>
+            {(() => {
+              const hiddenCount = msgs.filter((m) => m.from_id === "system" && hiddenIds.includes(m.gmsg_id)).length;
+              if (hiddenCount === 0) return null;
+              return (
+                <Pressable testID="group-show-hidden" style={styles.showHiddenBar} onPress={() => setShowHidden((v) => !v)}>
+                  <Ionicons name={showHidden ? "eye-off-outline" : "eye-outline"} size={15} color={colors.onSurfaceSecondary} />
+                  <Text style={styles.showHiddenText}>
+                    {showHidden ? "Hide them again" : `Show ${hiddenCount} hidden announcement${hiddenCount === 1 ? "" : "s"}`}
+                  </Text>
+                </Pressable>
+              );
+            })()}
             {msgs.length === 0 ? (
               <View style={styles.empty}><Ionicons name="people-outline" size={38} color={colors.onSurfaceSecondary} /><Text style={styles.emptyText}>Start the conversation with your crew 🥊</Text></View>
             ) : msgs.map((m, i) => {
               const mine = m.from_id === meId;
-              const canDelete = m.from_id !== "system" && (mine || isAdmin || ownerId === meId);
+              const isSystem = m.from_id === "system";
+              const hidden = isSystem && hiddenIds.includes(m.gmsg_id);
+              if (hidden && !showHidden) return null;
+              const canDelete = !isSystem && (mine || isAdmin || ownerId === meId);
               return (
                 <View
                   key={m.gmsg_id}
                   onLayout={(e) => { rowYs.current[m.gmsg_id] = e.nativeEvent.layout.y; }}
                   style={highlightId === m.gmsg_id ? styles.highlightRow : undefined}
                 >
-                  <MessageRow m={m} mine={mine} canDelete={canDelete} showReceipt={i === lastOwnIndex} onUnsend={unsend} onLongPress={openActions} onReact={react} />
+                  <MessageRow m={m} mine={mine} canDelete={canDelete} showReceipt={i === lastOwnIndex} onUnsend={unsend} onLongPress={openActions} onReact={react} hidden={hidden} onHideAnnounce={hideAnnounce} onUnhideAnnounce={unhideAnnounce} />
                 </View>
               );
             })}
             {msgs.length > 0 && (
-              <Text style={styles.swipeHint}>Hold a message to react, reply or edit · swipe left to unsend</Text>
+              <Text style={styles.swipeHint}>Hold a message to react, reply or edit · swipe left to unsend · swipe an announcement to hide it</Text>
             )}
           </ScrollView>
         )}
@@ -469,6 +537,12 @@ const styles = StyleSheet.create({
   announceHead: { flexDirection: "row", alignItems: "center", gap: 6 },
   announceLabel: { color: colors.brand, fontSize: 10.5, fontWeight: "900", letterSpacing: 1 },
   announceBody: { color: colors.onSurface, fontSize: 14.5, lineHeight: 20 },
+  announceHidden: { opacity: 0.55, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderStyle: "dashed" },
+  hiddenTag: { flexDirection: "row", alignItems: "center", gap: 3, marginLeft: "auto", backgroundColor: colors.surfaceTertiary, paddingHorizontal: 7, paddingVertical: 2, borderRadius: radius.pill },
+  hiddenTagText: { color: colors.onSurfaceSecondary, fontSize: 9.5, fontWeight: "900", letterSpacing: 0.5 },
+  hideAction: { backgroundColor: colors.surfaceTertiary },
+  showHiddenBar: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, alignSelf: "center", backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 7, marginBottom: spacing.xs },
+  showHiddenText: { color: colors.onSurfaceSecondary, fontSize: 12.5, fontWeight: "800" },
   msg: { color: colors.onSurface, fontSize: 15, lineHeight: 20 },
   editedTag: { fontSize: 10, color: colors.onSurfaceSecondary, marginTop: 3, fontStyle: "italic" },
   receipt: { alignSelf: "flex-end", color: colors.onSurfaceSecondary, fontSize: 10.5, marginTop: 3, marginRight: 2 },
