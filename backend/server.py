@@ -5445,12 +5445,16 @@ async def payment_receipt(booking_id: str, u: dict = Depends(require_user)):
     start = cls.get("start_at") or b.get("class_start")
     paid_at = b.get("paid_at")
     # Reflect how it was actually paid.
+    gross = int(b.get("amount", 0))
+    credit_used = int(b.get("credit_applied_cents", 0))
     if b.get("paid_with_pass"):
         method, amount_cents = "Class Pass (1 used)", 0
-    elif int(b.get("credit_applied_cents", 0)) >= int(b.get("amount", 0)) and tx.get("provider") == "credit":
-        method, amount_cents = "Account credit", 0
+    elif credit_used >= gross and gross > 0:
+        # Fully covered by account credit — show the class value (not $0) so the member
+        # can see what the credit was worth.
+        method, amount_cents = "Account credit", gross
     else:
-        method, amount_cents = "Square", b.get("amount", 0)
+        method, amount_cents = "Square", gross
     return {
         "booking_id": booking_id,
         "receipt_number": booking_id.replace("bk_", "").upper()[:10],
@@ -5461,6 +5465,8 @@ async def payment_receipt(booking_id: str, u: dict = Depends(require_user)):
         "by_appointment": bool(b.get("by_appointment")),
         "requested_time": b.get("requested_time"),
         "amount_cents": amount_cents,
+        "gross_cents": gross,
+        "credit_applied_cents": credit_used,
         "currency": (b.get("currency") or "aud").upper(),
         "paid_at": paid_at.isoformat() if isinstance(paid_at, datetime) else paid_at,
         "payment_method": method,

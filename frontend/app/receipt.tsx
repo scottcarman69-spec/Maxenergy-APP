@@ -20,6 +20,8 @@ type Receipt = {
   by_appointment?: boolean;
   requested_time?: string;
   amount_cents: number;
+  gross_cents?: number;
+  credit_applied_cents?: number;
   currency: string;
   paid_at?: string;
   payment_method: string;
@@ -83,6 +85,7 @@ export default function ReceiptScreen() {
       ["Booking No.", r.booking_no ? String(r.booking_no) : "—"],
       ["Paid on", fmtDateTime(r.paid_at)],
       ["Payment method", r.payment_method],
+      ...((r.credit_applied_cents || 0) > 0 ? [["Account credit applied", `-$${((r.credit_applied_cents || 0) / 100).toFixed(2)}`]] : []),
       ["Receipt #", r.receipt_number],
       ["Account", r.member_email || "—"],
     ].map(([l, v]) => `<tr><td class="l">${l}</td><td class="v">${v}</td></tr>`).join("");
@@ -182,6 +185,9 @@ export default function ReceiptScreen() {
               {!!receipt.booking_no && <Row label="Booking No." value={String(receipt.booking_no)} />}
               <Row label="Paid on" value={fmtDateTime(receipt.paid_at)} />
               <Row label="Payment method" value={receipt.payment_method} />
+              {(receipt.credit_applied_cents || 0) > 0 && (
+                <Row label="Account credit applied" value={`−$${((receipt.credit_applied_cents || 0) / 100).toFixed(2)}`} />
+              )}
               <Row label="Receipt #" value={receipt.receipt_number} />
               {!!receipt.member_email && <Row label="Account" value={receipt.member_email} />}
 

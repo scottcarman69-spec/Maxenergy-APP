@@ -1375,3 +1375,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - New screen app/book-sessions.tsx (route /book-sessions?name=&category=): shows the next 10 upcoming sessions for a selected class type as a vertically scrollable list of cards. Each card shows class name, "Weekday D Month", start time, and status pill (Available / N left / Full / Closed). Past auto-excluded (!ended + start in future); Full/Closed cards are non-selectable; selected card highlighted (brand border + brandTertiary bg + check radio); sticky footer "BOOK · <day date time>" routes to /class/[id] for the existing booking/confirmation + payment flow.
 - Entry point: class/[id].tsx now has a "See next 10 dates for this class" button (non-appointment classes only) → /book-sessions with name+category. Styles moreDatesBtn/moreDatesText added.
 - Verified via screenshot on Kickboxing/Adults: 10 cards, selection highlight + footer CTA working.
+
+## Session update (Jun 2026) — Receipt shows class value when paid by credit
+- Bug: booking fully paid with account credit showed "$0.00" on the receipt (misleading). 
+- Fix (GET /api/payments/receipt/{id}): for credit-covered bookings method stays "Account credit" but amount_cents now = gross class value (e.g., 2500). Added gross_cents + credit_applied_cents to response. receipt.tsx: headline shows the value and a new "Account credit applied: −$X.XX" row (both on-screen and in the shared PDF). Class Pass bookings unchanged ($0 / "Class Pass (1 used)").
+- Verified via seeded credit booking: shows $25.00 + "Account credit applied −$25.00".
