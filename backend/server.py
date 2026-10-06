@@ -8153,6 +8153,13 @@ async def seed_data():
         )
         log.info("second admin password synced to ADMIN2_PASSWORD secret")
 
+    # Grant admin to the owner's personal account so they can test admin features on
+    # their own device (idempotent, only promotes if the account already exists).
+    for _extra_admin in ("scottcarman69@gmail.com",):
+        _r = await db.users.update_one({"email": _extra_admin.strip().lower()}, {"$set": {"is_admin": True}})
+        if _r.matched_count:
+            log.info(f"ensured admin for {_extra_admin}")
+
     # Demo account for Apple / Google App Review. Regular verified member (NOT admin)
     # with class passes so reviewers can explore booking. Idempotent: password is
     # re-synced on every startup so it always works on the reviewed build.

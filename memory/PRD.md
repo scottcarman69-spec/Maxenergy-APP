@@ -1380,3 +1380,7 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Bug: booking fully paid with account credit showed "$0.00" on the receipt (misleading). 
 - Fix (GET /api/payments/receipt/{id}): for credit-covered bookings method stays "Account credit" but amount_cents now = gross class value (e.g., 2500). Added gross_cents + credit_applied_cents to response. receipt.tsx: headline shows the value and a new "Account credit applied: −$X.XX" row (both on-screen and in the shared PDF). Class Pass bookings unchanged ($0 / "Class Pass (1 used)").
 - Verified via seeded credit booking: shows $25.00 + "Account credit applied −$25.00".
+
+## Session update (Jun 2026) — Copy Member ID button + promote owner to admin
+- friends.tsx: added a "Copy" button beside "Your account ID" (handle, e.g. APPREV6381/SCOTTC3432). Uses expo-clipboard; shows green "Copied" for ~1.8s. Styles copyBtn/copyBtnText; idText flex:1.
+- Admin: set is_admin=True for scottcarman69@gmail.com (handle SCOTTC3432) in preview DB, AND added an idempotent startup promotion in server.py (extra-admin list, only promotes if account exists) so it applies to the PRODUCTION DB on next redeploy. Verified startup log "ensured admin for scottcarman69@gmail.com".

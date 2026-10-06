@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, TextI
 import { useFocusEffect, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import * as Clipboard from "expo-clipboard";
 import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
 import ScreenHeader from "@/src/components/ScreenHeader";
@@ -24,6 +25,16 @@ export default function Friends() {
   const [outgoing, setOutgoing] = useState<M[]>([]);
   const [friends, setFriends] = useState<M[]>([]);
   const [myHandle, setMyHandle] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const copyHandle = useCallback(async () => {
+    if (!myHandle) return;
+    try {
+      await Clipboard.setStringAsync(myHandle);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {}
+  }, [myHandle]);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadFriends = useCallback(async () => {
@@ -67,6 +78,10 @@ export default function Friends() {
           <View style={styles.idCard}>
             <Ionicons name="id-card-outline" size={18} color={colors.brand} />
             <Text style={styles.idText}>Your account ID: <Text style={{ fontWeight: "900", color: colors.brand }}>{myHandle}</Text></Text>
+            <Pressable testID="copy-handle" onPress={copyHandle} hitSlop={8} style={styles.copyBtn}>
+              <Ionicons name={copied ? "checkmark-circle" : "copy-outline"} size={15} color={copied ? "#22C55E" : colors.brand} />
+              <Text style={[styles.copyBtnText, copied && { color: "#22C55E" }]}>{copied ? "Copied" : "Copy"}</Text>
+            </Pressable>
           </View>
         )}
         <View style={styles.searchBar}>
@@ -112,7 +127,9 @@ export default function Friends() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   idCard: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: colors.brandTertiary, borderWidth: 1, borderColor: colors.brand, borderRadius: radius.md, padding: spacing.md },
-  idText: { color: colors.onSurface, fontSize: 13.5 },
+  idText: { color: colors.onSurface, fontSize: 13.5, flex: 1 },
+  copyBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 5, borderRadius: radius.pill, backgroundColor: colors.surface },
+  copyBtnText: { color: colors.brand, fontSize: 12, fontWeight: "800" },
   searchBar: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, height: 48, marginTop: spacing.sm },
   searchInput: { flex: 1, color: colors.onSurface, fontSize: 15 },
   section: { color: colors.onSurfaceSecondary, fontSize: 11, fontWeight: "900", letterSpacing: 1.5, marginTop: spacing.lg, marginBottom: 2 },
