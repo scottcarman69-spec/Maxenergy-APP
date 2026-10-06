@@ -28,7 +28,7 @@ function shortName(full?: string): string {
 }
 
 // Memoised so typing / new messages don't re-render every existing bubble (keeps the chat smooth).
-const MessageRow = React.memo(function MessageRow({ m, mine, canDelete, showReceipt, onUnsend, onLongPress, onReact, hidden, onHideAnnounce, onUnhideAnnounce, canModerate, onRemoveAnnounce }: { m: GM; mine: boolean; canDelete: boolean; showReceipt: boolean; onUnsend: (m: GM) => void; onLongPress: (m: GM) => void; onReact: (m: GM, emoji: string) => void; hidden?: boolean; onHideAnnounce?: (m: GM) => void; onUnhideAnnounce?: (m: GM) => void; canModerate?: boolean; onRemoveAnnounce?: (m: GM) => void }) {
+const MessageRow = React.memo(function MessageRow({ m, mine, canDelete, showReceipt, onUnsend, onLongPress, onReact, hidden, onHideAnnounce, onUnhideAnnounce, canModerate, onRemoveAnnounce, senderPicture }: { m: GM; mine: boolean; canDelete: boolean; showReceipt: boolean; onUnsend: (m: GM) => void; onLongPress: (m: GM) => void; onReact: (m: GM, emoji: string) => void; hidden?: boolean; onHideAnnounce?: (m: GM) => void; onUnhideAnnounce?: (m: GM) => void; canModerate?: boolean; onRemoveAnnounce?: (m: GM) => void; senderPicture?: string }) {
   if (m.from_id === "system") {
     const announceCard = (
       <View style={[styles.announce, hidden && styles.announceHidden]}>
@@ -94,34 +94,45 @@ const MessageRow = React.memo(function MessageRow({ m, mine, canDelete, showRece
   );
   const bubble = (
     <View style={styles.rowWrap}>
-      <View style={{ flexDirection: "row", justifyContent: mine ? "flex-end" : "flex-start" }}>
-        <Pressable onLongPress={() => onLongPress(m)} delayLongPress={300} style={{ maxWidth: "82%", flexShrink: 1 }}>
-          {bubbleInner}
-        </Pressable>
-      </View>
-      {reactions.length > 0 && (
-        <View style={[styles.reactionRow, { alignSelf: mine ? "flex-end" : "flex-start" }]}>
-          {reactions.map((r) => (
-            <Pressable key={r.emoji} onPress={() => onReact(m, r.emoji)} style={[styles.reactionChip, r.mine && styles.reactionChipMine]}>
-              <Text style={styles.reactionEmoji}>{r.emoji}</Text>
-              <Text style={[styles.reactionCount, r.mine && { color: colors.brand }]}>{r.count}</Text>
-            </Pressable>
-          ))}
-        </View>
-      )}
-      {mine && showReceipt && (
-        <Text style={styles.receipt}>{(m.seen_count || 0) > 0 ? `Seen by ${m.seen_count}` : "Sent"}</Text>
-      )}
-      <View style={[styles.metaRow, { justifyContent: mine ? "flex-end" : "flex-start" }]}>
-        <Text style={styles.metaTime}>{stampTime(m.created_at)}</Text>
-        {mine && (
-          <Ionicons
-            name={(m.seen_count || 0) > 0 ? "checkmark-done" : "checkmark"}
-            size={14}
-            color={(m.seen_count || 0) > 0 ? colors.brand : colors.onSurfaceSecondary}
-            style={{ marginLeft: 3 }}
-          />
+      <View style={[styles.msgLine, { justifyContent: mine ? "flex-end" : "flex-start" }]}>
+        {!mine && (
+          <View style={styles.avatar}>
+            {senderPicture ? (
+              <Image source={{ uri: senderPicture }} style={styles.avatarImg} />
+            ) : (
+              <Text style={styles.avatarInitial}>{(m.sender_name || "?").trim().slice(0, 1).toUpperCase()}</Text>
+            )}
+          </View>
         )}
+        <View style={[styles.bubbleCol, { alignItems: mine ? "flex-end" : "flex-start" }]}>
+          <Pressable onLongPress={() => onLongPress(m)} delayLongPress={300} style={{ maxWidth: "100%", flexShrink: 1 }}>
+            {bubbleInner}
+          </Pressable>
+          {reactions.length > 0 && (
+            <View style={[styles.reactionRow, { alignSelf: mine ? "flex-end" : "flex-start" }]}>
+              {reactions.map((r) => (
+                <Pressable key={r.emoji} onPress={() => onReact(m, r.emoji)} style={[styles.reactionChip, r.mine && styles.reactionChipMine]}>
+                  <Text style={styles.reactionEmoji}>{r.emoji}</Text>
+                  <Text style={[styles.reactionCount, r.mine && { color: colors.brand }]}>{r.count}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+          {mine && showReceipt && (
+            <Text style={styles.receipt}>{(m.seen_count || 0) > 0 ? `Seen by ${m.seen_count}` : "Sent"}</Text>
+          )}
+          <View style={[styles.metaRow, { justifyContent: mine ? "flex-end" : "flex-start" }]}>
+            <Text style={styles.metaTime}>{stampTime(m.created_at)}</Text>
+            {mine && (
+              <Ionicons
+                name={(m.seen_count || 0) > 0 ? "checkmark-done" : "checkmark"}
+                size={13}
+                color={(m.seen_count || 0) > 0 ? colors.brand : colors.onSurfaceSecondary}
+                style={{ marginLeft: 3 }}
+              />
+            )}
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -434,7 +445,7 @@ export default function GroupChat() {
                   onLayout={(e) => { rowYs.current[m.gmsg_id] = e.nativeEvent.layout.y; }}
                   style={highlightId === m.gmsg_id ? styles.highlightRow : undefined}
                 >
-                  <MessageRow m={m} mine={mine} canDelete={canDelete} showReceipt={i === lastOwnIndex} onUnsend={unsend} onLongPress={openActions} onReact={react} hidden={hidden} onHideAnnounce={hideAnnounce} onUnhideAnnounce={unhideAnnounce} canModerate={isAdmin || ownerId === meId} onRemoveAnnounce={removeAnnounce} />
+                  <MessageRow m={m} mine={mine} canDelete={canDelete} showReceipt={i === lastOwnIndex} onUnsend={unsend} onLongPress={openActions} onReact={react} hidden={hidden} onHideAnnounce={hideAnnounce} onUnhideAnnounce={unhideAnnounce} canModerate={isAdmin || ownerId === meId} onRemoveAnnounce={removeAnnounce} senderPicture={isSystem || mine ? undefined : members.find((mm) => mm.user_id === m.from_id)?.picture} />
                 </View>
               );
             })}
@@ -559,9 +570,14 @@ const styles = StyleSheet.create({
   pinToggle: { color: colors.brand, fontSize: 11.5, fontWeight: "800", marginTop: 4 },
   bubble: { padding: spacing.md, borderRadius: radius.lg },
   rowWrap: { width: "100%" },
+  msgLine: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  bubbleCol: { maxWidth: "82%", flexShrink: 1 },
+  avatar: { width: 30, height: 30, borderRadius: 15, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center", overflow: "hidden", marginTop: 2 },
+  avatarImg: { width: 30, height: 30, borderRadius: 15 },
+  avatarInitial: { color: colors.brand, fontSize: 13, fontWeight: "800" },
   me: { backgroundColor: colors.brand, borderBottomRightRadius: 4 },
   them: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderBottomLeftRadius: 4 },
-  sender: { color: colors.brand, fontSize: 11, fontWeight: "800", marginBottom: 3 },
+  sender: { color: colors.brand, fontSize: 11.5, fontWeight: "800", marginBottom: 3 },
   announce: { alignSelf: "stretch", backgroundColor: colors.brandTertiary, borderWidth: 1, borderColor: colors.brand, borderRadius: radius.lg, padding: spacing.md, gap: 5 },
   announceHead: { flexDirection: "row", alignItems: "center", gap: 6 },
   announceLabel: { color: colors.brand, fontSize: 10.5, fontWeight: "900", letterSpacing: 1 },
@@ -573,7 +589,7 @@ const styles = StyleSheet.create({
   hideAction: { backgroundColor: colors.surfaceTertiary },
   showHiddenBar: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, alignSelf: "center", backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 7, marginBottom: spacing.xs },
   showHiddenText: { color: colors.onSurfaceSecondary, fontSize: 12.5, fontWeight: "800" },
-  msg: { color: colors.onSurface, fontSize: 15, lineHeight: 20 },
+  msg: { color: colors.onSurface, fontSize: 14.5, lineHeight: 20 },
   editedTag: { fontSize: 10, color: colors.onSurfaceSecondary, marginTop: 3, fontStyle: "italic" },
   receipt: { alignSelf: "flex-end", color: colors.onSurfaceSecondary, fontSize: 10.5, marginTop: 3, marginRight: 2 },
   metaRow: { flexDirection: "row", alignItems: "center", marginTop: 2, marginHorizontal: 2 },
