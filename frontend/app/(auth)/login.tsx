@@ -19,6 +19,7 @@ import * as AppleAuthentication from "expo-apple-authentication";
 import { useAuth } from "@/src/AuthContext";
 import { colors, spacing, radius, type, font } from "@/src/theme";
 import { loginHero } from "@/src/gymPhotos";
+import LoginNoticeBanner from "@/src/components/LoginNoticeBanner";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -215,6 +216,9 @@ export default function Login() {
             </View>
           </View>
         </View>
+
+        {/* NEW NOTICE BANNER (public — shows newest undismissed notice) */}
+        <LoginNoticeBanner />
 
         {/* HEADLINE */}
         <View style={styles.pitch}>
