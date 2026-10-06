@@ -114,6 +114,77 @@ export default function AdminApplications() {
     );
   };
 
+  const renderCard = (a: App) => {
+    const open = expanded === a.application_id;
+    const decided = a.status !== "pending";
+    const accent = STATUS_COLORS[a.status] || colors.info;
+    return (
+      <View key={a.application_id} testID={`adminapp-${a.application_id}`} style={[styles.card, decided && styles.cardDecided]}>
+        <Pressable style={styles.cardTop} onPress={() => setExpanded(open ? null : a.application_id)}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.name}>{a.full_name}</Text>
+            <Text style={styles.meta}>{a.plan_name} · {a.category}</Text>
+            <Text style={styles.metaFaint}>{a.email}</Text>
+            <Text style={styles.metaFaint}>{a.phone}</Text>
+          </View>
+          <View style={styles.topRight}>
+            <View style={[styles.statusPill, { backgroundColor: accent + "22" }]}>
+              <Ionicons
+                name={a.status === "approved" ? "checkmark-circle" : a.status === "declined" ? "close-circle" : "time"}
+                size={11}
+                color={accent}
+              />
+              <Text style={[styles.statusText, { color: accent }]}>{a.status.toUpperCase()}</Text>
+            </View>
+            <View style={styles.detailsHint}>
+              <Text style={styles.detailsHintText}>Details</Text>
+              <Ionicons name={open ? "chevron-up" : "chevron-down"} size={13} color={colors.onSurfaceSecondary} />
+            </View>
+          </View>
+        </Pressable>
+
+        {open && renderDetails(a.details)}
+
+        <View style={styles.cardActions}>
+          {!!a.has_pdf && (
+            <Pressable
+              testID={`adminapp-pdf-${a.application_id}`}
+              style={styles.pdfBtn}
+              onPress={() => openPdf(a.application_id)}
+            >
+              <Ionicons name="document-text-outline" size={15} color={colors.brand} />
+              <Text style={styles.pdfBtnText}>View form (PDF)</Text>
+            </Pressable>
+          )}
+
+          {!decided && (
+            <View style={styles.actions}>
+              <Pressable
+                testID={`adminapp-approve-${a.application_id}`}
+                style={[styles.actBtn, { backgroundColor: colors.brand }]}
+                onPress={() => setConfirm({ app: a, status: "approved" })}
+              >
+                <Ionicons name="checkmark" size={16} color={colors.onBrand} />
+                <Text style={[styles.actText, { color: colors.onBrand }]}>Approve</Text>
+              </Pressable>
+              <Pressable
+                testID={`adminapp-decline-${a.application_id}`}
+                style={[styles.actBtn, styles.declineBtn]}
+                onPress={() => setConfirm({ app: a, status: "declined" })}
+              >
+                <Ionicons name="close" size={16} color={colors.error} />
+                <Text style={[styles.actText, { color: colors.error }]}>Decline</Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
+      </View>
+    );
+  };
+
+  const pending = apps.filter((a) => a.status === "pending");
+  const reviewed = apps.filter((a) => a.status !== "pending");
+
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
       <ScreenHeader
@@ -131,83 +202,35 @@ export default function AdminApplications() {
       {loading ? (
         <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />
       ) : (
-        <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: 40 }}>
+        <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.sm, paddingBottom: 40 }}>
           {apps.length === 0 && (
             <View style={styles.empty}>
               <Ionicons name="document-text-outline" size={40} color={colors.onSurfaceSecondary} />
               <Text style={styles.emptyText}>No applications yet.</Text>
             </View>
           )}
-          {apps.map((a) => {
-            const open = expanded === a.application_id;
-            return (
-              <View key={a.application_id} testID={`adminapp-${a.application_id}`} style={styles.card}>
-                <Pressable style={styles.cardTop} onPress={() => setExpanded(open ? null : a.application_id)}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.name}>{a.full_name}</Text>
-                    <Text style={styles.meta}>{a.plan_name} · {a.category}</Text>
-                    <Text style={styles.meta}>{a.email} · {a.phone}</Text>
-                  </View>
-                  <View style={[styles.statusPill, { backgroundColor: (STATUS_COLORS[a.status] || colors.info) + "22" }]}>
-                    <Text style={[styles.statusText, { color: STATUS_COLORS[a.status] || colors.info }]}>{a.status.toUpperCase()}</Text>
-                  </View>
-                </Pressable>
 
-                {open && renderDetails(a.details)}
-
-                {!!a.has_pdf && (
-                  <Pressable
-                    testID={`adminapp-pdf-${a.application_id}`}
-                    style={styles.pdfBtn}
-                    onPress={() => openPdf(a.application_id)}
-                  >
-                    <Ionicons name="document-attach" size={16} color={colors.brand} />
-                    <Text style={styles.pdfBtnText}>{Platform.OS === "web" ? "Open membership form (PDF)" : "View membership form (PDF)"}</Text>
-                  </Pressable>
-                )}
-
-                {a.status === "pending" ? (
-                  <View style={styles.actions}>
-                    <Pressable
-                      testID={`adminapp-approve-${a.application_id}`}
-                      style={[styles.actBtn, { backgroundColor: colors.brand }]}
-                      onPress={() => setConfirm({ app: a, status: "approved" })}
-                    >
-                      <Ionicons name="checkmark" size={16} color={colors.onBrand} />
-                      <Text style={[styles.actText, { color: colors.onBrand }]}>Approve</Text>
-                    </Pressable>
-                    <Pressable
-                      testID={`adminapp-decline-${a.application_id}`}
-                      style={[styles.actBtn, { backgroundColor: colors.surfaceTertiary }]}
-                      onPress={() => setConfirm({ app: a, status: "declined" })}
-                    >
-                      <Ionicons name="close" size={16} color={colors.error} />
-                      <Text style={[styles.actText, { color: colors.error }]}>Decline</Text>
-                    </Pressable>
-                  </View>
-                ) : (
-                  <View
-                    style={[
-                      styles.resultBar,
-                      {
-                        backgroundColor: (STATUS_COLORS[a.status] || colors.info) + "1A",
-                        borderColor: STATUS_COLORS[a.status] || colors.info,
-                      },
-                    ]}
-                  >
-                    <Ionicons
-                      name={a.status === "approved" ? "checkmark-circle" : "close-circle"}
-                      size={18}
-                      color={STATUS_COLORS[a.status] || colors.info}
-                    />
-                    <Text style={[styles.resultText, { color: STATUS_COLORS[a.status] || colors.info }]}>
-                      {a.status === "approved" ? "Approved" : "Declined"}
-                    </Text>
-                  </View>
-                )}
+          {pending.length > 0 && (
+            <View style={styles.sectionHead}>
+              <View style={[styles.sectionDot, { backgroundColor: colors.warning }]} />
+              <Text style={styles.sectionLabel}>NEEDS REVIEW</Text>
+              <View style={[styles.sectionCount, { backgroundColor: colors.warning + "22" }]}>
+                <Text style={[styles.sectionCountText, { color: colors.warning }]}>{pending.length}</Text>
               </View>
-            );
-          })}
+            </View>
+          )}
+          {pending.map(renderCard)}
+
+          {reviewed.length > 0 && (
+            <View style={[styles.sectionHead, { marginTop: pending.length > 0 ? spacing.lg : 0 }]}>
+              <View style={[styles.sectionDot, { backgroundColor: colors.onSurfaceSecondary }]} />
+              <Text style={styles.sectionLabel}>REVIEWED</Text>
+              <View style={[styles.sectionCount, { backgroundColor: colors.surfaceTertiary }]}>
+                <Text style={[styles.sectionCountText, { color: colors.onSurfaceSecondary }]}>{reviewed.length}</Text>
+              </View>
+            </View>
+          )}
+          {reviewed.map(renderCard)}
         </ScrollView>
       )}
 
@@ -278,22 +301,32 @@ const styles = StyleSheet.create({
   logBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border },
   logBtnText: { color: colors.brand, fontSize: 12.5, fontWeight: "800" },
   card: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.lg, borderWidth: 1, borderColor: colors.border },
+  cardDecided: { opacity: 0.92 },
   cardTop: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md },
   name: { color: colors.onSurface, fontWeight: "800", fontSize: 16 },
-  meta: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 2 },
-  statusPill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill },
-  statusText: { fontSize: 10, fontWeight: "900", letterSpacing: 1 },
+  meta: { color: colors.onSurfaceSecondary, fontSize: 12.5, marginTop: 3 },
+  metaFaint: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 2, opacity: 0.8 },
+  topRight: { alignItems: "flex-end", gap: 8 },
+  statusPill: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 9, paddingVertical: 5, borderRadius: radius.pill },
+  statusText: { fontSize: 10, fontWeight: "900", letterSpacing: 0.8 },
+  detailsHint: { flexDirection: "row", alignItems: "center", gap: 2 },
+  detailsHintText: { color: colors.onSurfaceSecondary, fontSize: 11.5, fontWeight: "700" },
   details: { marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, gap: 4 },
   detailRow: { color: colors.onSurfaceSecondary, fontSize: 13 },
   detailKey: { color: colors.onSurface, fontWeight: "700" },
   photo: { width: 120, height: 120, borderRadius: radius.md, marginTop: 6, borderWidth: 1, borderColor: colors.border },
-  pdfBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: spacing.md, backgroundColor: colors.brandTertiary, borderRadius: radius.md, paddingVertical: 12, borderWidth: 1, borderColor: colors.brand },
-  pdfBtnText: { color: colors.brand, fontWeight: "800", fontSize: 14 },
-  actions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
-  actBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 12, borderRadius: radius.md },
+  cardActions: { marginTop: spacing.md, gap: spacing.sm },
+  pdfBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: "transparent", borderRadius: radius.md, paddingVertical: 11, borderWidth: 1, borderColor: colors.border },
+  pdfBtnText: { color: colors.brand, fontWeight: "700", fontSize: 13.5 },
+  actions: { flexDirection: "row", gap: spacing.sm },
+  actBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 11, borderRadius: radius.md },
+  declineBtn: { backgroundColor: "transparent", borderWidth: 1, borderColor: colors.error + "66" },
   actText: { fontWeight: "800", fontSize: 14 },
-  resultBar: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, borderRadius: radius.md, borderWidth: 1.5, marginTop: spacing.md },
-  resultText: { fontWeight: "900", fontSize: 14, letterSpacing: 0.5 },
+  sectionHead: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: spacing.xs },
+  sectionDot: { width: 8, height: 8, borderRadius: 4 },
+  sectionLabel: { color: colors.onSurface, fontSize: 12.5, fontWeight: "900", letterSpacing: 1 },
+  sectionCount: { minWidth: 22, paddingHorizontal: 6, paddingVertical: 2, borderRadius: radius.pill, alignItems: "center" },
+  sectionCountText: { fontSize: 11, fontWeight: "900" },
   empty: { alignItems: "center", padding: 40, gap: spacing.md },
   emptyText: { color: colors.onSurfaceSecondary },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", alignItems: "center", justifyContent: "center", padding: spacing.xl },
