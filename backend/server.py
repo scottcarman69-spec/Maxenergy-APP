@@ -4262,6 +4262,18 @@ async def _post_official_announcement(author_id: str, title: str, body_text: str
 ANNOUNCEMENT_CATEGORIES = {"general", "event", "class_update", "closure", "promotion", "urgent"}
 
 
+def _parse_urgent_until(cat: str, raw: Optional[str]):
+    """Only urgent notices carry an expiry for their red highlight. Returns a UTC
+    datetime or None (None = highlight never auto-expires)."""
+    if cat != "urgent" or not raw:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+        return dt.astimezone(timezone.utc) if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    except Exception:
+        return None
+
+
 @api.post("/admin/announcements")
 async def admin_announcement_create(body: AnnouncementCreate, u: dict = Depends(require_admin)):
     cat = (body.category or "general").strip().lower()
@@ -4273,6 +4285,7 @@ async def admin_announcement_create(body: AnnouncementCreate, u: dict = Depends(
         "body": body.body,
         "pinned": body.pinned,
         "category": cat,
+        "urgent_until": _parse_urgent_until(cat, body.urgent_until),
         "author": u.get("name") or "Max Energy",
         "created_at": now_utc(),
     }
@@ -4296,7 +4309,8 @@ async def admin_announcement_update(announcement_id: str, body: AnnouncementUpda
         cat = "general"
     r = await db.announcements.update_one(
         {"announcement_id": announcement_id},
-        {"$set": {"title": body.title, "body": body.body, "pinned": body.pinned, "category": cat}},
+        {"$set": {"title": body.title, "body": body.body, "pinned": body.pinned, "category": cat,
+                  "urgent_until": _parse_urgent_until(cat, body.urgent_until)}},
     )
     if r.matched_count == 0:
         raise HTTPException(404, "Announcement not found")

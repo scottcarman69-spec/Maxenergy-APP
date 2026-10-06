@@ -104,6 +104,7 @@ class AnnouncementCreate(BaseModel):
     body: str
     pinned: bool = False
     category: Optional[str] = "general"
+    urgent_until: Optional[str] = None  # ISO UTC; after this the red highlight drops (urgent only)
 
 
 class ApplicationStatusReq(BaseModel):
@@ -144,3 +145,4 @@ class AnnouncementUpdate(BaseModel):
     body: str
     pinned: bool = False
     category: Optional[str] = "general"
+    urgent_until: Optional[str] = None  # ISO UTC; after this the red highlight drops (urgent only)

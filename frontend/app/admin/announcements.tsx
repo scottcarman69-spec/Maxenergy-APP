@@ -19,7 +19,14 @@ import { Checkbox } from "@/src/components/Form";
 import ScreenHeader from "@/src/components/ScreenHeader";
 import { NOTICE_CATEGORIES, noticeCat } from "@/src/noticeCategories";
 
-type Ann = { announcement_id: string; title: string; body: string; pinned: boolean; author: string; created_at: string; category?: string };
+type Ann = { announcement_id: string; title: string; body: string; pinned: boolean; author: string; created_at: string; category?: string; urgent_until?: string | null };
+
+const URGENT_DURATIONS = [
+  { days: 1, label: "1 day" },
+  { days: 3, label: "3 days" },
+  { days: 7, label: "1 week" },
+  { days: 0, label: "No expiry" },
+];
 
 export default function AdminAnnouncements() {
   const router = useRouter();
@@ -30,6 +37,7 @@ export default function AdminAnnouncements() {
   const [body, setBody] = useState("");
   const [pinned, setPinned] = useState(false);
   const [category, setCategory] = useState<string>("general");
+  const [urgentDays, setUrgentDays] = useState<number>(3);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -48,6 +56,7 @@ export default function AdminAnnouncements() {
     setBody("");
     setPinned(false);
     setCategory("general");
+    setUrgentDays(3);
     setEditingId(null);
   };
 
@@ -57,6 +66,7 @@ export default function AdminAnnouncements() {
     setBody(a.body);
     setPinned(a.pinned);
     setCategory(a.category || "general");
+    setUrgentDays(a.category === "urgent" && !a.urgent_until ? 0 : 3);
     setShowForm(true);
   };
 
@@ -67,11 +77,15 @@ export default function AdminAnnouncements() {
       return;
     }
     setSaving(true);
+    const urgent_until =
+      category === "urgent" && urgentDays > 0
+        ? new Date(Date.now() + urgentDays * 86400000).toISOString()
+        : null;
     try {
       if (editingId) {
-        await api.adminUpdateAnnouncement(editingId, { title, body, pinned, category });
+        await api.adminUpdateAnnouncement(editingId, { title, body, pinned, category, urgent_until });
       } else {
-        await api.adminCreateAnnouncement({ title, body, pinned, category });
+        await api.adminCreateAnnouncement({ title, body, pinned, category, urgent_until });
       }
       resetForm();
       setShowForm(false);
@@ -133,6 +147,31 @@ export default function AdminAnnouncements() {
                   );
                 })}
               </View>
+              {category === "urgent" && (
+                <>
+                  <Text style={styles.fieldLabel}>Keep red highlight for</Text>
+                  <View style={styles.catPicker}>
+                    {URGENT_DURATIONS.map((d) => {
+                      const active = urgentDays === d.days;
+                      return (
+                        <Pressable
+                          key={d.days}
+                          testID={`admina-urgent-${d.days}`}
+                          onPress={() => setUrgentDays(d.days)}
+                          style={[styles.catChip, { borderColor: "#EF4444" }, active && { backgroundColor: "#EF4444" }]}
+                        >
+                          <Text style={[styles.catChipText, { color: active ? "#fff" : "#EF4444" }]}>{d.label}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  <Text style={styles.hint}>
+                    {urgentDays > 0
+                      ? `After ${urgentDays === 7 ? "1 week" : urgentDays + " day" + (urgentDays > 1 ? "s" : "")}, this notice stays visible but drops its red "urgent" styling.`
+                      : "This notice keeps its red urgent styling until you remove or edit it."}
+                  </Text>
+                </>
+              )}
               <TextInput
                 testID="admina-body"
                 value={body}
@@ -192,6 +231,7 @@ const styles = StyleSheet.create({
   catPicker: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginBottom: spacing.sm },
   catChip: { flexDirection: "row", alignItems: "center", gap: 5, borderWidth: 1.5, borderRadius: radius.pill, paddingHorizontal: 11, paddingVertical: 6 },
   catChipText: { fontSize: 12.5, fontWeight: "700" },
+  hint: { color: colors.onSurfaceSecondary, fontSize: 12, lineHeight: 17, marginBottom: spacing.sm },
   catTag: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 4, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 3, marginTop: 5 },
   catTagText: { color: "#fff", fontSize: 10, fontWeight: "800", letterSpacing: 0.3 },
   error: { color: colors.error, fontSize: 13, marginTop: spacing.sm },

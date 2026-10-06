@@ -1440,3 +1440,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Session update (Jun 2026 fork) — Urgent notice highlight (DONE)
 - "Urgent" category notices now stand out on the member Notices tab (app/(tabs)/events.tsx): sorted to the very TOP (urgent > pinned > newest), red border (2px) + red-tinted card bg, red gradient alert-circle icon, thicker red left bar, and a bold red "⚠ URGENT — PLEASE READ" banner (testID ann-urgent-<id>) replacing the plain category tag. Non-urgent notices unchanged. Verified via screenshot (urgent card renders at top above pinned). Test notices cleaned up.
+
+## Session update (Jun 2026 fork) — Auto-expire urgent highlight (DONE)
+- Admin can choose how long an Urgent notice keeps its red highlight. When "Urgent" is selected in app/admin/announcements.tsx, a "Keep red highlight for" chip row appears: 1 day / 3 days / 1 week / No expiry (testID admina-urgent-<days>, default 3). Submit computes urgent_until = now + days (ISO) or null for No expiry.
+- Backend: AnnouncementCreate/Update +urgent_until (models.py). _parse_urgent_until() stores a UTC datetime only for category=urgent (else null). create/update persist it; GET /announcements returns it (ISO).
+- Member tab (app/(tabs)/events.tsx): isUrgentActive(a) = category urgent AND (no urgent_until OR urgent_until>now). Only ACTIVE urgents get red banner/border/tint/top-sort; once urgent_until passes, the notice auto-reverts to a normal card (amber "URGENT" category tag, normal sort by date) with no code/admin action needed.
+- Verified via curl (future vs past urgent_until) + screenshot: active urgent pinned to top with red banner; expired urgent rendered as a normal amber-tagged notice in date order. Test notices cleaned up.

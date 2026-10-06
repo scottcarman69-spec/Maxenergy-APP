@@ -13,7 +13,10 @@ import { classTime, classDate } from "@/src/datetime";
 import ScreenBg from "@/src/components/ScreenBg";
 import { NOTICE_CATEGORIES, noticeCat } from "@/src/noticeCategories";
 
-type Ann = { announcement_id: string; title: string; body: string; pinned: boolean; author: string; created_at: string; category?: string };
+type Ann = { announcement_id: string; title: string; body: string; pinned: boolean; author: string; created_at: string; category?: string; urgent_until?: string | null };
+
+const isUrgentActive = (a: Ann) =>
+  (a.category || "") === "urgent" && (!a.urgent_until || new Date(a.urgent_until).getTime() > Date.now());
 type Evt = { event_id: string; title: string; start_at: string; image: string; location: string };
 
 function timeAgo(iso: string) {
@@ -76,8 +79,8 @@ export default function Notices() {
   const presentCats = NOTICE_CATEGORIES.filter((c) => anns.some((a) => (a.category || "general") === c.value));
   // Urgent first, then pinned, then newest. Keeps critical notices at the very top.
   const orderedAnns = [...anns].sort((a, b) => {
-    const au = (a.category || "") === "urgent" ? 0 : 1;
-    const bu = (b.category || "") === "urgent" ? 0 : 1;
+    const au = isUrgentActive(a) ? 0 : 1;
+    const bu = isUrgentActive(b) ? 0 : 1;
     if (au !== bu) return au - bu;
     const ap = a.pinned ? 0 : 1;
     const bp = b.pinned ? 0 : 1;
@@ -160,7 +163,7 @@ export default function Notices() {
 
           {visibleAnns.map((a) => {
             const cat = noticeCat(a.category);
-            const isUrgent = (a.category || "") === "urgent";
+            const isUrgent = isUrgentActive(a);
             const URGENT_RED = "#EF4444";
             const grad: [string, string] = a.pinned
               ? ["#FF9A3D", "#FF7A00"]
