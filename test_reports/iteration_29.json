@@ -1,0 +1,29 @@
+{
+  "summary": "Backend-only regression validation of the iteration-29 routes refactor (MESSAGES / BOOKINGS / ADMIN / PAYMENTS moved from server.py to backend/routes/*.py). 30/30 pytest cases pass against the live preview URL. Verified: messages GET/unread/POST (including empty-body 400 and unauth 401), bookings list+history+clear-all+me/stats+passes/qr, 404s for bogus booking IDs on cancel/reschedule/checkin-code, POST /api/payments/reconcile returns {paid_booking_ids:[]}, admin overview with all required counters (classes/members/session_requests/refunds_pending/bug_reports_open), admin classes list, admin class CRUD (create by-appointment -> PUT edit -> DELETE cleanup), admin guard 403 for member token on /admin/overview and /admin/classes, payments receipts list, 404 for bogus payment status + receipt, and that POST /api/payments/checkout is REGISTERED (401/422 for unauth/malformed, NOT 404 or 405). Core sanity (auth login admin+member, GET /api/classes, /api/gym/photos, /api/events) all still working. Created a pending booking for a fixed class and cleaned it up via /bookings/{id}/clear — did NOT touch any Square checkout. No regressions found; refactor is byte-identical in behaviour.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_refactor_moved_endpoints.py",
+    "/app/test_reports/pytest/pytest_refactor_moved.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routes/bookings.py imports 18 symbols from server.py — functional but makes the circular-ish coupling obvious. If any helper is renamed/removed from server.py, the route module will NameError at startup. Consider moving the pure helpers (booking_ref_no, coach_photo, _enrich_bookings) into a backend/utils/ module next.",
+    "routes/payments.py: _reuse_open_square_checkout dict is built with credit_applied_cents BEFORE confirming the user has enough credit remaining — fine because deduction and dedup lookup both happen upstream, just noting the implicit contract.",
+    "routes/admin.py admin_class_create for by-appointment path sets capacity=1 and start_at=now_utc(). Fine for appointments, but admin UIs that read start_at may show 'starts now' briefly in listings — cosmetic only."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_refactor_moved_endpoints.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "n/a (not tested per request)"},
+  "seed_data_creation": "Created a TEST_refactor_class_<uuid> by-appointment class and cleaned it up (DELETE) inside the test; sent 1 TEST_refactor_msg_<uuid> message from the test member (left in inbox); created 1 pending booking for a fixed class and cleared it via /bookings/{id}/clear.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Env: BASE_URL = EXPO_PUBLIC_BACKEND_URL (frontend/.env). Routes moved to backend/routes/{messages,bookings,admin,payments}.py and included via api.include_router at server.py:6483-6496 — path prefixes unchanged. Square is PRODUCTION — never POST /api/payments/checkout with a valid body. Admin creds: info@maxenergy.com.au / Maxenergy12@ (ADMIN2_PASSWORD env, re-synced on startup). Member: testmember@gmail.com / Test!1234 (NOTE: free-booking bypass has been removed — member goes through live Square). To test admin class CRUD safely, use by_appointment=true so no fixed-schedule side effects. Reusable test file: /app/backend/tests/test_refactor_moved_endpoints.py (30 cases, ~4s with xdist 2 workers).",
+  "rca_of_issue": "N/A — all moved endpoints behave identically to the pre-refactor server.py monolith. Both routers are registered under /api via api.include_router(...) at server.py:6494, so paths are unchanged. Shared helpers (mark_booking_paid, sync_square_payment, make_checkin_code, reconcile_user_payments, Square config, notify_* etc.) remain in server.py and are imported successfully by the four new route modules (verified: no NameError/ImportError at startup; all 30 tests pass)."
+}
