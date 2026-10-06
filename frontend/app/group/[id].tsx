@@ -28,7 +28,7 @@ function shortName(full?: string): string {
 }
 
 // Memoised so typing / new messages don't re-render every existing bubble (keeps the chat smooth).
-const MessageRow = React.memo(function MessageRow({ m, mine, canDelete, showReceipt, onUnsend, onLongPress, onReact, hidden, onHideAnnounce, onUnhideAnnounce }: { m: GM; mine: boolean; canDelete: boolean; showReceipt: boolean; onUnsend: (m: GM) => void; onLongPress: (m: GM) => void; onReact: (m: GM, emoji: string) => void; hidden?: boolean; onHideAnnounce?: (m: GM) => void; onUnhideAnnounce?: (m: GM) => void }) {
+const MessageRow = React.memo(function MessageRow({ m, mine, canDelete, showReceipt, onUnsend, onLongPress, onReact, hidden, onHideAnnounce, onUnhideAnnounce, canModerate, onRemoveAnnounce }: { m: GM; mine: boolean; canDelete: boolean; showReceipt: boolean; onUnsend: (m: GM) => void; onLongPress: (m: GM) => void; onReact: (m: GM, emoji: string) => void; hidden?: boolean; onHideAnnounce?: (m: GM) => void; onUnhideAnnounce?: (m: GM) => void; canModerate?: boolean; onRemoveAnnounce?: (m: GM) => void }) {
   if (m.from_id === "system") {
     const announceCard = (
       <View style={[styles.announce, hidden && styles.announceHidden]}>
@@ -40,6 +40,16 @@ const MessageRow = React.memo(function MessageRow({ m, mine, canDelete, showRece
               <Ionicons name="eye-off" size={10} color={colors.onSurfaceSecondary} />
               <Text style={styles.hiddenTagText}>HIDDEN</Text>
             </View>
+          )}
+          {canModerate && (
+            <Pressable
+              testID={`group-announce-remove-${m.gmsg_id}`}
+              hitSlop={10}
+              style={[styles.announceRemove, !hidden && { marginLeft: "auto" }]}
+              onPress={() => onRemoveAnnounce?.(m)}
+            >
+              <Ionicons name="trash-outline" size={15} color={colors.error} />
+            </Pressable>
           )}
         </View>
         <Text style={styles.announceBody}>{m.body}</Text>
@@ -290,6 +300,25 @@ export default function GroupChat() {
     );
   }, [id, meId, load]);
 
+  const removeAnnounce = useCallback((m: GM) => {
+    Alert.alert(
+      "Remove announcement?",
+      "This removes the announcement from the group for everyone. This can't be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove for everyone",
+          style: "destructive",
+          onPress: async () => {
+            setMsgs((cur) => cur.filter((x) => x.gmsg_id !== m.gmsg_id));
+            try { await api.groupDeleteMessage(String(id), m.gmsg_id); }
+            catch { load(); }
+          },
+        },
+      ]
+    );
+  }, [id, load]);
+
   const startEdit = useCallback((m: GM) => {
     setEditing(m);
     setEditText(m.body);
@@ -405,7 +434,7 @@ export default function GroupChat() {
                   onLayout={(e) => { rowYs.current[m.gmsg_id] = e.nativeEvent.layout.y; }}
                   style={highlightId === m.gmsg_id ? styles.highlightRow : undefined}
                 >
-                  <MessageRow m={m} mine={mine} canDelete={canDelete} showReceipt={i === lastOwnIndex} onUnsend={unsend} onLongPress={openActions} onReact={react} hidden={hidden} onHideAnnounce={hideAnnounce} onUnhideAnnounce={unhideAnnounce} />
+                  <MessageRow m={m} mine={mine} canDelete={canDelete} showReceipt={i === lastOwnIndex} onUnsend={unsend} onLongPress={openActions} onReact={react} hidden={hidden} onHideAnnounce={hideAnnounce} onUnhideAnnounce={unhideAnnounce} canModerate={isAdmin || ownerId === meId} onRemoveAnnounce={removeAnnounce} />
                 </View>
               );
             })}
@@ -537,6 +566,7 @@ const styles = StyleSheet.create({
   announceHead: { flexDirection: "row", alignItems: "center", gap: 6 },
   announceLabel: { color: colors.brand, fontSize: 10.5, fontWeight: "900", letterSpacing: 1 },
   announceBody: { color: colors.onSurface, fontSize: 14.5, lineHeight: 20 },
+  announceRemove: { padding: 2 },
   announceHidden: { opacity: 0.55, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderStyle: "dashed" },
   hiddenTag: { flexDirection: "row", alignItems: "center", gap: 3, marginLeft: "auto", backgroundColor: colors.surfaceTertiary, paddingHorizontal: 7, paddingVertical: 2, borderRadius: radius.pill },
   hiddenTagText: { color: colors.onSurfaceSecondary, fontSize: 9.5, fontWeight: "900", letterSpacing: 0.5 },
