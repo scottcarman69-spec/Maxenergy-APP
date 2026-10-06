@@ -63,6 +63,7 @@ export default function AdminBookings() {
   const [note, setNote] = useState("");
   const [banner, setBanner] = useState<string | null>(null);
   const [cancelFor, setCancelFor] = useState<Booking | null>(null);
+  const [approveFor, setApproveFor] = useState<{ b: Booking; kind: "accept" | "confirm" } | null>(null);
 
   const isApptResched = !!rescheduleFor?.by_appointment;
 
@@ -268,7 +269,7 @@ export default function AdminBookings() {
                           testID={`adminbk-accept-${b.booking_id}`}
                           style={[styles.actBtn, styles.actAccept]}
                           disabled={busy}
-                          onPress={() => act(b.booking_id, () => api.adminAcceptBooking(b.booking_id), "Accepted & member notified.")}
+                          onPress={() => setApproveFor({ b, kind: "accept" })}
                         >
                           {busy ? <ActivityIndicator size="small" color={colors.onBrand} /> : (<><Ionicons name="checkmark" size={14} color={colors.onBrand} /><Text style={styles.actAcceptText}>Accept</Text></>)}
                         </Pressable>
@@ -278,7 +279,7 @@ export default function AdminBookings() {
                           testID={`adminbk-confirm-${b.booking_id}`}
                           style={[styles.actBtn, styles.actAccept]}
                           disabled={busy}
-                          onPress={() => act(b.booking_id, () => api.adminConfirmBooking(b.booking_id), "Confirmed & member notified.")}
+                          onPress={() => setApproveFor({ b, kind: "confirm" })}
                         >
                           {busy ? <ActivityIndicator size="small" color={colors.onBrand} /> : (<><Ionicons name="checkmark-done" size={14} color={colors.onBrand} /><Text style={styles.actAcceptText}>Confirm</Text></>)}
                         </Pressable>
@@ -456,12 +457,59 @@ export default function AdminBookings() {
           </View>
         </View>
       </Modal>
+      {/* Confirm accept / confirm */}
+      <Modal visible={!!approveFor} transparent animationType="fade" onRequestClose={() => setApproveFor(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.approveIcon}>
+              <Ionicons name={approveFor?.kind === "confirm" ? "checkmark-done" : "checkmark"} size={32} color={colors.brand} />
+            </View>
+            <Text style={styles.modalTitle}>{approveFor?.kind === "confirm" ? "Confirm this booking?" : "Accept this booking?"}</Text>
+            <Text style={styles.modalSub}>
+              {approveFor?.b.class_name} · {approveFor?.b.member_name}
+            </Text>
+            <Text style={styles.confirmBody}>
+              The member will be notified that their session is {approveFor?.kind === "confirm" ? "confirmed" : "accepted"}.
+            </Text>
+            <Pressable
+              testID="adminbk-approve-confirm"
+              style={[styles.confirmPrimaryBtn, actioning === approveFor?.b.booking_id && { opacity: 0.6 }]}
+              disabled={actioning === approveFor?.b.booking_id}
+              onPress={async () => {
+                const a = approveFor;
+                if (!a) return;
+                setApproveFor(null);
+                if (a.kind === "confirm") {
+                  await act(a.b.booking_id, () => api.adminConfirmBooking(a.b.booking_id), "Confirmed & member notified.");
+                } else {
+                  await act(a.b.booking_id, () => api.adminAcceptBooking(a.b.booking_id), "Accepted & member notified.");
+                }
+              }}
+            >
+              {actioning === approveFor?.b.booking_id ? (
+                <ActivityIndicator color={colors.onBrand} />
+              ) : (
+                <>
+                  <Ionicons name={approveFor?.kind === "confirm" ? "checkmark-done" : "checkmark"} size={18} color={colors.onBrand} />
+                  <Text style={styles.confirmPrimaryText}>{approveFor?.kind === "confirm" ? "Yes, confirm" : "Yes, accept"}</Text>
+                </>
+              )}
+            </Pressable>
+            <Pressable testID="adminbk-approve-dismiss" style={styles.confirmKeepBtn} onPress={() => setApproveFor(null)}>
+              <Text style={styles.confirmKeepText}>Not yet</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   confirmIcon: { alignSelf: "center", width: 60, height: 60, borderRadius: 30, backgroundColor: colors.error + "22", alignItems: "center", justifyContent: "center", marginBottom: spacing.sm },
+  approveIcon: { alignSelf: "center", width: 60, height: 60, borderRadius: 30, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center", marginBottom: spacing.sm },
+  confirmPrimaryBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.brand, paddingVertical: 15, borderRadius: radius.md },
+  confirmPrimaryText: { color: colors.onBrand, fontWeight: "900", fontSize: 15 },
   confirmBody: { color: colors.onSurfaceSecondary, fontSize: 13.5, lineHeight: 20, textAlign: "center", marginTop: spacing.sm, marginBottom: spacing.lg },
   confirmDangerBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.error, paddingVertical: 15, borderRadius: radius.md },
   confirmDangerText: { color: "#fff", fontWeight: "900", fontSize: 15 },

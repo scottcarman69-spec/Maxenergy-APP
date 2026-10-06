@@ -1388,3 +1388,7 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 ## Session update (Jun 2026) — Confirm before admin cancels a booking
 - admin/bookings.tsx Cancel button previously cancelled instantly. Now it opens a confirmation Modal (cancelFor state) showing class + member, a warning (member notified, refund per policy, cannot be undone), with "Yes, cancel booking" (red, calls adminCancelBooking) and "No, keep it" (dismiss). Reuses modalOverlay/modalCard; added confirm* styles. Accept/Suggest/Attended unchanged.
 - Verified via screenshot on admin bookings.
+
+## Session update (Jun 2026) — Confirm before admin Accept/Confirm booking
+- admin/bookings.tsx: Accept (adminAcceptBooking) and Confirm (adminConfirmBooking) buttons now open a confirmation Modal (approveFor state {b, kind}) before running — title "Accept/Confirm this booking?", class+member, "member will be notified", with brand "Yes, accept/Yes, confirm" + "Not yet". Reuses modal styles; added approveIcon/confirmPrimaryBtn/confirmPrimaryText. Matches the Cancel confirmation added earlier.
+- Verified via screenshot.
