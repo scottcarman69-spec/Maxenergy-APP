@@ -35,7 +35,7 @@ export default function InboxSettings() {
     try {
       const me = await api.me();
       setEnabled(me?.user?.message_notifications !== false);
-      setRemHours(typeof me?.user?.reminder_hours === "number" ? me.user.reminder_hours : 3);
+      setRemHours(typeof me?.user?.reminder_hours === "number" ? me.user.reminder_hours : 1);
       const qh = me?.user?.quiet_hours;
       if (qh) { setQhEnabled(!!qh.enabled); setQhStart(qh.start || "22:00"); setQhEnd(qh.end || "07:00"); }
       setLbHidden(me?.user?.leaderboard_opt_out === true);
@@ -133,7 +133,7 @@ export default function InboxSettings() {
                 <Text style={styles.title}>Class reminders</Text>
                 <Text style={styles.sub}>A reminder before a class you've booked.</Text>
               </View>
-              <Switch testID="toggle-class-reminders" value={remOn} onValueChange={(val) => setReminderHours(val ? 3 : 0)} trackColor={{ false: colors.border, true: colors.brand }} thumbColor={"#fff"} />
+              <Switch testID="toggle-class-reminders" value={remOn} onValueChange={(val) => setReminderHours(val ? 1 : 0)} trackColor={{ false: colors.border, true: colors.brand }} thumbColor={"#fff"} />
             </View>
             {remOn && (
               <View style={styles.chipRow}>

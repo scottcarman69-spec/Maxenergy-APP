@@ -543,7 +543,7 @@ def user_public(u: dict) -> dict:
         "verified": bool(u.get("verified", False)),
         "can_message": not messaging_blocked(u),
         "needs_dob": not bool(u.get("date_of_birth")),
-        "reminder_hours": int(u.get("reminder_hours", 3)),
+        "reminder_hours": int(u.get("reminder_hours", 1)),
         "cal_reminder_default": int(u.get("cal_reminder_default", 60)),
         "quick_actions_order": u.get("quick_actions_order") or [],
         "child_age_default": u.get("child_age_default"),
@@ -4855,6 +4855,13 @@ async def booking_confirm_proposed_time(booking_id: str, u: dict = Depends(requi
         "booking",
         email_lines=[f"<b>{esc(member_name)}</b> confirmed the proposed time for <b>{esc(b['class_name'])}</b>.", f"Time: <b>{esc(str(when))}</b>"],
     )
+    # Instant push to the gym so staff know the session time is locked in.
+    admin_ids = [a["user_id"] for a in await db.users.find({"is_admin": True}, {"_id": 0, "user_id": 1}).to_list(100)]
+    await send_push(
+        admin_ids,
+        {"title": "Session time confirmed ✅", "message": f"{member_name} locked in {b['class_name']} for {when}.", "action_url": "/admin/bookings"},
+        idempotency_key=f"confirmtime_{booking_id}",
+    )
     b = await db.bookings.find_one({"booking_id": booking_id}, {"_id": 0})
     return {"booking": b}
 
@@ -5645,11 +5652,11 @@ async def send_due_reminders() -> int:
         if start_utc < now:
             continue  # already started
         member = umap.get(b["user_id"]) or {}
-        lead = int(member.get("reminder_hours", 3) or 0)
+        lead = int(member.get("reminder_hours", 1) or 0)
         if lead == 0:
             continue  # member turned reminders off
         if lead not in (1, 3, 12):
-            lead = 3
+            lead = 1
         # Only send once the class is within the member's chosen lead time.
         if start_utc > now + timedelta(hours=lead):
             continue

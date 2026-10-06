@@ -14,14 +14,14 @@ export default function NotificationsScreen() {
   const router = useRouter();
   const [notifs, setNotifs] = useState<Notif[]>([]);
   const [loading, setLoading] = useState(true);
-  const [reminderHours, setReminderHours] = useState<number>(3);
+  const [reminderHours, setReminderHours] = useState<number>(1);
   const [banner, setBanner] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
       const [n, m] = await Promise.all([api.notifications(), api.me()]);
       setNotifs(n.notifications || []);
-      setReminderHours(m?.user?.reminder_hours ?? 3);
+      setReminderHours(m?.user?.reminder_hours ?? 1);
     } catch {}
     setLoading(false);
   }, []);
