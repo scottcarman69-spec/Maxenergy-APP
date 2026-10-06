@@ -93,17 +93,17 @@ export function YesNo({
       <View style={styles.yesNoBtns}>
         <Pressable
           testID={testID ? `${testID}-yes` : undefined}
-          style={[styles.ynBtn, value === true && styles.ynYes]}
+          style={[styles.ynBtn, value === true && styles.ynOn]}
           onPress={() => onChange(true)}
         >
-          <Text style={[styles.ynText, value === true && { color: colors.onBrand }]}>Yes</Text>
+          <Text style={[styles.ynText, value === true && styles.ynTextOn]}>Yes</Text>
         </Pressable>
         <Pressable
           testID={testID ? `${testID}-no` : undefined}
-          style={[styles.ynBtn, value === false && styles.ynNo]}
+          style={[styles.ynBtn, value === false && styles.ynOn]}
           onPress={() => onChange(false)}
         >
-          <Text style={[styles.ynText, value === false && { color: colors.onSurface }]}>No</Text>
+          <Text style={[styles.ynText, value === false && styles.ynTextOn]}>No</Text>
         </Pressable>
       </View>
     </View>
@@ -159,15 +159,16 @@ const styles = StyleSheet.create({
   yesNoLabel: { color: colors.onSurface, fontSize: 14, flex: 1 },
   yesNoBtns: { flexDirection: "row", gap: spacing.sm },
   ynBtn: {
-    width: 52,
-    paddingVertical: 8,
-    borderRadius: radius.md,
+    minWidth: 64,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 10,
+    borderRadius: radius.pill,
     backgroundColor: colors.surfaceSecondary,
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: "center",
   },
-  ynYes: { backgroundColor: colors.brand, borderColor: colors.brand },
-  ynNo: { backgroundColor: colors.surfaceTertiary, borderColor: colors.borderStrong },
-  ynText: { color: colors.onSurfaceSecondary, fontWeight: "800", fontSize: 13 },
+  ynOn: { backgroundColor: colors.brand, borderColor: colors.brand },
+  ynText: { color: colors.onSurfaceSecondary, fontWeight: "700", fontSize: 13 },
+  ynTextOn: { color: colors.onBrand },
 });

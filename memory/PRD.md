@@ -1360,3 +1360,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - The ScreenHeader right slot had a fixed width:44, so the bookings "Log" pill (clock icon + text) wrapped to "Lo/g".
 - Fix: ScreenHeader sideRight now minWidth:44 + flexShrink:0 (sizes to content, keeps 44 min) — icon-only right actions on other screens unchanged. Added numberOfLines={1} to bookings logBtnText.
 - Verified: "🕐 Log" renders on one line, title stays centered.
+
+## Session update (Jun 2026) — Consistent membership form buttons
+- Membership form looked uneven: Segmented chips were orange pills while YesNo buttons were a different shape/size and "No" selected was grey (surfaceTertiary) not brand.
+- Fix (src/components/Form.tsx): YesNo buttons now match Segmented chips — borderRadius pill, paddingHorizontal lg / vertical 10, fontSize 13 / weight 700, minWidth 64, and BOTH Yes & No use brand bg + onBrand text when selected (ynOn/ynTextOn replace ynYes/ynNo). Applies app-wide wherever these controls are used.
+- Verified on /membership Details step: Category/Term Segmented + consent Yes/No now visually identical.
