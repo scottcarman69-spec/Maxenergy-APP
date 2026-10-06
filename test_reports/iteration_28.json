@@ -1,0 +1,31 @@
+{
+  "summary": "Backend-only regression test for the modular refactor (routes/gym.py, routes/events.py, routes/trials.py, routes/notifications.py, routes/waitlist.py) + the NEW Featured Photo admin endpoint. Created /app/backend/tests/test_refactor_regression_and_featured_photo.py with 39 pytest cases across 7 test classes — ALL 39 PASSED (100%). Verified: (1) Core sanity still green: POST /api/auth/login (admin+member), GET /api/auth/me (nested {user:{...}} shape), GET /api/classes returns classes[] with booked+spots_left on fixed classes, member → 403 on /api/admin/views and /api/admin/overview. (2) GYM GALLERY moved routes: GET /api/gym/photos public (schema photo_id/image/caption/featured — bool), POST/PATCH/DELETE /api/admin/gym/photos work end-to-end incl. caption persistence verified via GET; PATCH on unknown id → 404; POST without admin → 403; reorder OK. (3) NEW Featured Photo: POST /api/admin/gym/photos/{id}/feature non-admin → 403, unknown id → 404, featuring p1 → exactly 1 featured and it's p1, featuring p2 → auto-unsets p1 (still exactly 1, now p2), {featured:false} → 0 featured; original featured state restored after test. (4) EVENTS+VIEWS: /api/events list + /api/events/{id} 200/404, /api/events/rsvp requires auth + 404 on unknown event, /api/views/{notices,bookings,event/{id},announcement/{id}} all 200, /api/home/badges returns {bookings,notices} as ints, /api/admin/views 200 for admin with {notices,events,announcements}. (5) TRIALS: /api/trials/me (auth required), /api/trials/sessions?category=Kids|Adults OK, invalid category → 400. (6) NOTIFICATIONS: list/history/unread/read-all/clear-all/{nid}/read/{nid} delete all working; unread drops to 0 after read-all; active list empty after clear-all; auth required. (7) WAITLIST: /api/waitlists/me 200, unknown class → 404, join on real class returns 200 or 409 (both acceptable per spec), DELETE idempotent → 200. No endpoint missing or broken by the refactor; the new Featured Photo invariant (only one featured at a time) is correctly enforced on the server. NOTE: Square checkout endpoints were deliberately NOT called (production mode).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_refactor_regression_and_featured_photo.py",
+    "/app/test_reports/pytest/pytest_refactor_regression_and_featured_photo.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is ~7400+ lines — the incremental extraction into routes/*.py is a good start, but the file is well over the 700-line guideline. Suggest continuing extraction (auth, classes, bookings, admin) in future iterations.",
+    "routes/*.py modules import from 'server' at import-time; works because registration happens at the bottom of server.py after infra is defined, but this coupling means circular-import risk if any future route needs to be imported earlier. Consider moving shared deps (db, require_user, require_admin, helpers) into a backend/deps.py or backend/core.py to decouple."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_refactor_regression_and_featured_photo.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "N/A (not requested)"},
+  "seed_data_creation": "None persisted. The gym gallery add/patch/delete test creates one TEST_ photo and deletes it in a finally block. Featured-photo flow restores the pre-test featured photo (if any) at the end so gallery state is unchanged.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Refactor regression suite lives at /app/backend/tests/test_refactor_regression_and_featured_photo.py — 39 tests, all passing against the preview backend. Credentials come from /app/memory/test_credentials.md (admin: info@maxenergy.com.au / Maxenergy12@; member: testmember@gmail.com / Test!1234). /api/auth/me returns nested {\"user\": {...}} — remember to unwrap. Featured Photo invariant: exactly one or zero featured photos at any time; setting featured=true on a new photo auto-clears the previous. Square checkout endpoints MUST NOT be called (production mode = real charges).",
+  "rca_of_issue": "N/A — no bugs found. Refactor is a byte-identical relocation and all moved endpoints respond identically to their pre-refactor behaviour. New Featured Photo endpoint behaves exactly per spec (admin-only, 404 on unknown id, singleton invariant via update_many clear-then-set)."
+}

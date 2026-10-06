@@ -20,6 +20,12 @@ from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
+from models import (
+    RegisterReq, LoginReq, GoogleSessionReq, AppleAuthReq, VerifyOtpReq, ResendOtpReq,
+    ForgotPasswordReq, ResetPasswordReq, BookingCreate, CheckoutCreate, MembershipApplyReq,
+    ClassUpsert, AnnouncementCreate, ApplicationStatusReq, TrialClaimReq, RescheduleReq,
+    AdminRescheduleReq, AttendanceReq, MessageReq, AnnouncementUpdate,
+)
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -1224,6 +1230,7 @@ async def require_admin(authorization: Optional[str] = Header(None)) -> dict:
 
 
 # -------------------- models --------------------
+# Pydantic models live in models.py (imported at top of this file).
 def validate_password_strength(pw: str) -> None:
     """Require min 6 chars, at least one number and one symbol."""
     if len(pw or "") < 6:
@@ -1232,142 +1239,6 @@ def validate_password_strength(pw: str) -> None:
         raise HTTPException(status_code=400, detail="Password must include at least one number")
     if not re.search(r"[^A-Za-z0-9]", pw):
         raise HTTPException(status_code=400, detail="Password must include at least one symbol (e.g. !@#)")
-
-
-class RegisterReq(BaseModel):
-    first_name: str = Field(min_length=1)
-    last_name: str = Field(min_length=1)
-    date_of_birth: str  # ISO date YYYY-MM-DD
-    phone: str = Field(min_length=6)
-    email: EmailStr
-    password: str = Field(min_length=6)
-    name: Optional[str] = None
-
-
-class LoginReq(BaseModel):
-    email: EmailStr
-    password: str
-
-
-class GoogleSessionReq(BaseModel):
-    session_id: str
-
-
-class AppleAuthReq(BaseModel):
-    identity_token: str
-    # Only sent by the client on the FIRST sign-in (Apple returns these once).
-    full_name: Optional[str] = None
-    email: Optional[str] = None
-
-
-class VerifyOtpReq(BaseModel):
-    email: EmailStr
-    code: str
-
-
-class ResendOtpReq(BaseModel):
-    email: EmailStr
-
-
-class ForgotPasswordReq(BaseModel):
-    email: EmailStr
-
-
-class ResetPasswordReq(BaseModel):
-    email: EmailStr
-    code: str
-    new_password: str = Field(min_length=6)
-
-
-class BookingCreate(BaseModel):
-    class_id: str
-    requested_time: Optional[str] = None  # human-readable preferred time (appointment)
-    requested_at: Optional[str] = None     # ISO naive Queensland wall-clock (appointment)
-    duration_min: Optional[int] = None      # chosen session length (appointment classes with options)
-    cal_reminder_minutes: Optional[int] = None  # calendar alarm lead time: 60 (1h) or 1440 (1 day)
-    child_age: Optional[int] = None          # age of the child attending (Kids classes)
-    child_name: Optional[str] = None         # name of the child attending (Kids classes)
-    child_id: Optional[str] = None           # saved child's id (Kids classes; enables per-child dedupe)
-
-
-class CheckoutCreate(BaseModel):
-    booking_id: str
-    origin_url: str
-    use_credit: Optional[bool] = False
-    use_class_pass: Optional[bool] = False
-
-
-class MembershipApplyReq(BaseModel):
-    plan_id: str
-    full_name: str
-    phone: str
-    category: str  # Adult / Student / Senior / Child 4-16 / Other
-    experience: Optional[str] = None
-    message: Optional[str] = None
-    details: Optional[dict] = None  # full form payload (member details, medical, waiver, etc.)
-
-
-class ClassUpsert(BaseModel):
-    name: str
-    trainer: str
-    category: str
-    level: str
-    duration_min: int
-    price_cents: int
-    start_at: Optional[str] = None  # ISO; not required for by-appointment classes
-    image: Optional[str] = None
-    description: Optional[str] = None
-    capacity: int = 16
-    by_appointment: Optional[bool] = None
-    min_age: Optional[int] = None
-    max_age: Optional[int] = None
-    weekday: Optional[int] = None       # 0=Mon..6=Sun — recurring weekly classes
-    start_time: Optional[str] = None    # "HH:MM" — recurring weekly classes
-
-
-class AnnouncementCreate(BaseModel):
-    title: str
-    body: str
-    pinned: bool = False
-
-
-class ApplicationStatusReq(BaseModel):
-    status: str  # pending | approved | declined
-
-
-class TrialClaimReq(BaseModel):
-    category: str  # "Kids" or "Adults"
-    child_name: Optional[str] = None
-    child_age: Optional[str] = None
-    attendee_name: Optional[str] = None  # Adults: person's name
-    preferred_day: Optional[str] = None  # legacy label (auto-filled from chosen session)
-    class_id: Optional[str] = None       # the specific Muay Thai session the member picked
-
-
-class RescheduleReq(BaseModel):
-    requested_time: str
-    requested_at: Optional[str] = None   # ISO QLD wall-clock of the NEW chosen time
-    note: Optional[str] = None
-
-
-class AdminRescheduleReq(BaseModel):
-    new_time: str
-    new_at: Optional[str] = None   # ISO naive Queensland wall-clock (structured picker)
-    note: Optional[str] = None
-
-
-class AttendanceReq(BaseModel):
-    attended: bool = True
-
-
-class MessageReq(BaseModel):
-    body: str
-
-
-class AnnouncementUpdate(BaseModel):
-    title: str
-    body: str
-    pinned: bool = False
 
 
 DEFAULT_CLASS_IMAGE = "https://images.unsplash.com/photo-1591117207239-788bf8de6c3b?w=1200&q=80"
@@ -3527,89 +3398,7 @@ async def set_my_photo(body: PhotoReq, u: dict = Depends(require_user)):
     return {"ok": True, "picture": img}
 
 
-# ==================== OUR GYM gallery (admin-managed, no redeploy) ====================
-@api.get("/gym/photos")
-async def gym_photos_list():
-    """Public: the OUR GYM gallery photos, ordered. Empty list => app shows bundled defaults."""
-    rows = await db.gym_photos.find({}, {"_id": 0, "photo_id": 1, "image": 1, "sort": 1, "caption": 1, "featured": 1}).sort([("sort", 1), ("created_at", 1)]).to_list(200)
-    return {"photos": [{"photo_id": r["photo_id"], "image": r["image"], "caption": r.get("caption", ""), "featured": bool(r.get("featured"))} for r in rows]}
-
-
-class GymPhotoReq(BaseModel):
-    image: str
-    caption: Optional[str] = ""
-
-
-@api.post("/admin/gym/photos")
-async def gym_photo_add(body: GymPhotoReq, u: dict = Depends(require_admin)):
-    img = (body.image or "").strip()
-    if not img.startswith("data:image"):
-        raise HTTPException(400, "Invalid image.")
-    if len(img) > 12_000_000:
-        raise HTTPException(400, "Image is too large. Please choose a smaller photo.")
-    try:
-        processed = _process_gallery_image(img)
-    except Exception as e:
-        log.error(f"gym photo process error: {e}")
-        raise HTTPException(400, "Could not process that image. Please try another photo.")
-    last = await db.gym_photos.find_one({}, {"_id": 0, "sort": 1}, sort=[("sort", -1)])
-    nxt = int((last or {}).get("sort", 0)) + 1
-    photo_id = new_id("gph")
-    await db.gym_photos.insert_one({
-        "photo_id": photo_id, "image": processed, "sort": nxt,
-        "caption": (body.caption or "").strip()[:120],
-        "created_by": u["user_id"], "created_at": now_utc(),
-    })
-    return {"ok": True, "photo_id": photo_id}
-
-
-class GymCaptionReq(BaseModel):
-    caption: str
-
-
-@api.patch("/admin/gym/photos/{photo_id}")
-async def gym_photo_caption(photo_id: str, body: GymCaptionReq, u: dict = Depends(require_admin)):
-    r = await db.gym_photos.update_one({"photo_id": photo_id}, {"$set": {"caption": (body.caption or "").strip()[:120]}})
-    if r.matched_count == 0:
-        raise HTTPException(404, "Photo not found.")
-    return {"ok": True}
-
-
-@api.delete("/admin/gym/photos/{photo_id}")
-async def gym_photo_delete(photo_id: str, u: dict = Depends(require_admin)):
-    r = await db.gym_photos.delete_one({"photo_id": photo_id})
-    if r.deleted_count == 0:
-        raise HTTPException(404, "Photo not found.")
-    return {"ok": True}
-
-
-class GymReorderReq(BaseModel):
-    order: list[str]
-
-
-@api.post("/admin/gym/photos/reorder")
-async def gym_photo_reorder(body: GymReorderReq, u: dict = Depends(require_admin)):
-    for i, pid in enumerate(body.order):
-        await db.gym_photos.update_one({"photo_id": pid}, {"$set": {"sort": i + 1}})
-    return {"ok": True}
-
-
-class GymFeatureReq(BaseModel):
-    featured: bool
-
-
-@api.post("/admin/gym/photos/{photo_id}/feature")
-async def gym_photo_feature(photo_id: str, body: GymFeatureReq, u: dict = Depends(require_admin)):
-    """Mark one gallery photo as the featured hero (only one can be featured)."""
-    target = await db.gym_photos.find_one({"photo_id": photo_id}, {"_id": 0, "photo_id": 1})
-    if not target:
-        raise HTTPException(404, "Photo not found.")
-    # Only one featured photo at a time — clear any existing feature first.
-    await db.gym_photos.update_many({"featured": True}, {"$set": {"featured": False}})
-    if body.featured:
-        await db.gym_photos.update_one({"photo_id": photo_id}, {"$set": {"featured": True}})
-    return {"ok": True, "featured": body.featured}
-
+# ==================== OUR GYM gallery — moved to routes/gym.py ====================
 
 
 async def _friend_status(me: str, other: str) -> str:
@@ -5584,182 +5373,7 @@ async def announcements_list():
     return {"announcements": rows}
 
 
-# -------------------- events --------------------
-@api.get("/events")
-async def events_list():
-    rows = await db.events.find({}, {"_id": 0}).sort("start_at", 1).to_list(200)
-    return {"events": rows}
-
-
-@api.get("/events/{event_id}")
-async def event_detail(event_id: str):
-    e = await db.events.find_one({"event_id": event_id}, {"_id": 0})
-    if not e:
-        raise HTTPException(404, "Event not found")
-    return e
-
-
-# -------------------- content view tracking (admin records) --------------------
-async def _record_view(view_type: str, key: str, u: dict) -> None:
-    """Record that a member viewed a piece of content. Unique per (type,key,user)
-    so we can report distinct viewers, plus a total view count."""
-    if u.get("is_admin"):
-        return  # don't count staff/admin views
-    await db.content_views.update_one(
-        {"view_type": view_type, "key": key, "user_id": u["user_id"]},
-        {
-            "$set": {"last_at": now_utc(), "user_name": u.get("name"), "user_email": u.get("email")},
-            "$setOnInsert": {"first_at": now_utc()},
-            "$inc": {"count": 1},
-        },
-        upsert=True,
-    )
-
-
-@api.post("/views/notices")
-async def track_notices_view(u: dict = Depends(require_user)):
-    await _record_view("notices", "notices", u)
-    return {"ok": True}
-
-
-@api.post("/views/event/{event_id}")
-async def track_event_view(event_id: str, u: dict = Depends(require_user)):
-    await _record_view("event", event_id, u)
-    return {"ok": True}
-
-
-@api.post("/views/announcement/{announcement_id}")
-async def track_announcement_view(announcement_id: str, u: dict = Depends(require_user)):
-    await _record_view("announcement", announcement_id, u)
-    return {"ok": True}
-
-
-@api.post("/views/bookings")
-async def track_bookings_view(u: dict = Depends(require_user)):
-    await _record_view("bookings", "bookings", u)
-    return {"ok": True}
-
-
-@api.get("/home/badges")
-async def home_badges(u: dict = Depends(require_user)):
-    """Small 'something new' counts for the Home quick actions.
-    - notices: announcements posted since the member last opened the Notices tab
-    - bookings: bookings created/confirmed since the member last opened My Bookings
-    Both clear once the member opens the relevant screen (which records a view)."""
-    me = u["user_id"]
-    nv = await db.content_views.find_one(
-        {"view_type": "notices", "key": "notices", "user_id": me}, {"_id": 0, "last_at": 1}
-    )
-    since_n = nv.get("last_at") if nv else None
-    notices = await db.announcements.count_documents({} if since_n is None else {"created_at": {"$gt": since_n}})
-
-    bv = await db.content_views.find_one(
-        {"view_type": "bookings", "key": "bookings", "user_id": me}, {"_id": 0, "last_at": 1}
-    )
-    since_b = bv.get("last_at") if bv else None
-    bookings = 0
-    async for b in db.bookings.find(
-        {"user_id": me, "status": {"$nin": ["cancelled", "refunded", "expired", "no_show"]}},
-        {"_id": 0, "created_at": 1, "confirmed_at": 1, "paid_at": 1},
-    ):
-        t = b.get("confirmed_at") or b.get("paid_at") or b.get("created_at")
-        if since_b is None or (isinstance(t, datetime) and t > since_b):
-            bookings += 1
-    return {"bookings": bookings, "notices": notices}
-
-
-@api.get("/admin/views")
-async def admin_views(u: dict = Depends(require_admin)):
-    # Notices tab: distinct viewers + total views
-    notices_docs = await db.content_views.find({"view_type": "notices"}, {"_id": 0}).to_list(10000)
-    notices = {
-        "unique_users": len(notices_docs),
-        "total_views": sum(int(d.get("count", 0)) for d in notices_docs),
-    }
-
-    async def _by_key(view_type: str) -> dict:
-        docs = await db.content_views.find({"view_type": view_type}, {"_id": 0}).to_list(10000)
-        agg: dict = {}
-        for d in docs:
-            a = agg.setdefault(d["key"], {"unique_users": 0, "total_views": 0})
-            a["unique_users"] += 1
-            a["total_views"] += int(d.get("count", 0))
-        return agg
-
-    # Per-event viewers
-    by_event = await _by_key("event")
-    events_rows = await db.events.find({}, {"_id": 0, "event_id": 1, "title": 1, "start_at": 1}).to_list(200)
-    ev_map = {e["event_id"]: e for e in events_rows}
-    events = []
-    for k, a in by_event.items():
-        meta = ev_map.get(k, {})
-        events.append({
-            "event_id": k,
-            "title": meta.get("title", "(deleted event)"),
-            "start_at": meta.get("start_at"),
-            "unique_users": a["unique_users"],
-            "total_views": a["total_views"],
-        })
-    events.sort(key=lambda x: x["unique_users"], reverse=True)
-
-    # Per-announcement (individual notice) viewers
-    by_ann = await _by_key("announcement")
-    ann_rows = await db.announcements.find({}, {"_id": 0, "announcement_id": 1, "title": 1, "pinned": 1, "created_at": 1}).to_list(200)
-    ann_map = {a["announcement_id"]: a for a in ann_rows}
-    announcements = []
-    for k, a in by_ann.items():
-        meta = ann_map.get(k, {})
-        announcements.append({
-            "announcement_id": k,
-            "title": meta.get("title", "(deleted notice)"),
-            "pinned": bool(meta.get("pinned")),
-            "created_at": meta.get("created_at"),
-            "unique_users": a["unique_users"],
-            "total_views": a["total_views"],
-        })
-    announcements.sort(key=lambda x: x["unique_users"], reverse=True)
-
-    return {"notices": notices, "events": events, "announcements": announcements}
-
-
-class EventRSVPReq(BaseModel):
-    event_id: str
-
-
-@api.post("/events/rsvp")
-async def event_rsvp(body: EventRSVPReq, u: dict = Depends(require_user)):
-    e = await db.events.find_one({"event_id": body.event_id}, {"_id": 0})
-    if not e:
-        raise HTTPException(404, "Event not found")
-    existing = await db.event_rsvps.find_one({"event_id": body.event_id, "user_id": u["user_id"]})
-    if existing:
-        return {"ok": True, "already": True}
-    await db.event_rsvps.insert_one(
-        {"rsvp_id": new_id("rsvp"), "event_id": body.event_id, "user_id": u["user_id"], "created_at": now_utc()}
-    )
-    when = e["start_at"].strftime("%a %d %b, %I:%M %p") if isinstance(e["start_at"], datetime) else str(e["start_at"])
-    await db.notifications.insert_one(
-        {
-            "notification_id": new_id("ntf"),
-            "user_id": u["user_id"],
-            "title": f"You're going to {e['title']}",
-            "body": f"{e['title']} on {when}.",
-            "type": "event",
-            "read": False,
-            "created_at": now_utc(),
-        }
-    )
-    html = _email_shell(
-        f"You're going to {e['title']}",
-        [
-            "See you at Maxenergy Fitness.",
-            f"<strong>When:</strong> {when}",
-            f"<strong>Where:</strong> {e.get('location','Maxenergy Fitness, Smithfield')}",
-            e.get("description", ""),
-        ],
-    )
-    await send_email(u["email"], f"RSVP confirmed – {e['title']}", html)
-    return {"ok": True}
+# -------------------- events + content-view tracking — moved to routes/events.py --------------------
 
 
 # -------------------- membership --------------------
@@ -6429,45 +6043,7 @@ async def _class_is_full(cls: dict) -> bool:
     return booked >= cap
 
 
-@api.get("/waitlists/me")
-async def waitlists_me(u: dict = Depends(require_user)):
-    rows = await db.waitlists.find(
-        {"user_id": u["user_id"], "status": "waiting"}, {"_id": 0, "class_id": 1}
-    ).to_list(200)
-    return {"class_ids": [r["class_id"] for r in rows]}
-
-
-@api.post("/classes/{class_id}/waitlist")
-async def waitlist_join(class_id: str, u: dict = Depends(require_user)):
-    cls = await db.classes.find_one({"class_id": class_id}, {"_id": 0})
-    if not cls or cls.get("by_appointment"):
-        raise HTTPException(404, "Class not found.")
-    # already booked?
-    booked = await db.bookings.find_one(
-        {"user_id": u["user_id"], "class_id": class_id, "status": {"$in": WAITLIST_ACTIVE_BOOKING}}, {"_id": 0}
-    )
-    if booked:
-        raise HTTPException(409, "You're already booked into this class.")
-    if not await _class_is_full(cls):
-        raise HTTPException(409, "This class still has spots — you can book it now.")
-    existing = await db.waitlists.find_one({"class_id": class_id, "user_id": u["user_id"], "status": "waiting"}, {"_id": 0})
-    if existing:
-        pos = await db.waitlists.count_documents({"class_id": class_id, "status": "waiting", "created_at": {"$lte": existing["created_at"]}})
-        return {"ok": True, "position": pos, "already": True}
-    doc = {"waitlist_id": new_id("wl"), "class_id": class_id, "user_id": u["user_id"], "status": "waiting", "created_at": now_utc()}
-    await db.waitlists.insert_one(doc)
-    pos = await db.waitlists.count_documents({"class_id": class_id, "status": "waiting"})
-    await create_notification(
-        u["user_id"], "You're on the waitlist",
-        f"You're #{pos} on the waitlist for {cls['name']}. We'll let you know if a spot opens.", "booking",
-    )
-    return {"ok": True, "position": pos}
-
-
-@api.delete("/classes/{class_id}/waitlist")
-async def waitlist_leave(class_id: str, u: dict = Depends(require_user)):
-    await db.waitlists.delete_many({"class_id": class_id, "user_id": u["user_id"], "status": "waiting"})
-    return {"ok": True}
+# waitlist member routes (/waitlists/me, join, leave) moved to routes/waitlist.py
 
 
 async def notify_waitlist_spot(class_id: str):
@@ -6503,265 +6079,10 @@ async def notify_waitlist_spot(class_id: str):
     )
 
 
-# -------------------- free trials --------------------
-@api.get("/trials/me")
-async def trials_me(u: dict = Depends(require_user)):
-    rows = await db.free_trials.find({"user_id": u["user_id"]}, {"_id": 0}).to_list(20)
-    return {"trials": rows, "claimed": [r["category"] for r in rows]}
+# -------------------- free trials — moved to routes/trials.py --------------------
 
 
-@api.get("/trials/sessions")
-async def trials_sessions(category: str, u: dict = Depends(require_user)):
-    """Upcoming Muay Thai sessions a member can pick for their free trial (real schedule)."""
-    if category not in ("Kids", "Adults"):
-        raise HTTPException(400, "Invalid category")
-    now_local = (now_utc() + timedelta(hours=10)).replace(tzinfo=None)  # QLD
-    rows = await db.classes.find(
-        {"name": "Muay Thai", "category": category, "by_appointment": {"$ne": True}},
-        {"_id": 0, "class_id": 1, "name": 1, "category": 1, "level": 1, "start_at": 1, "duration_min": 1},
-    ).sort("start_at", 1).to_list(200)
-    out = []
-    for c in rows:
-        st = c.get("start_at")
-        if isinstance(st, str):
-            try:
-                st = datetime.fromisoformat(st.replace("Z", "+00:00")).replace(tzinfo=None)
-            except Exception:
-                st = None
-        if not isinstance(st, datetime):
-            continue
-        s = st.replace(tzinfo=None) if st.tzinfo else st
-        if s <= now_local:
-            continue
-        out.append({
-            "class_id": c["class_id"],
-            "start_at": s.isoformat(),
-            "label": s.strftime("%a %d %b"),
-            "time": s.strftime("%-I:%M %p"),
-            "weekday": s.strftime("%A"),
-            "duration_min": int(c.get("duration_min") or (45 if category == "Kids" else 60)),
-        })
-        if len(out) >= 12:
-            break
-    return {"sessions": out}
-
-
-@api.post("/trials/claim")
-async def trials_claim(body: TrialClaimReq, request: Request, u: dict = Depends(require_user)):
-    category = body.category
-    if category not in ("Kids", "Adults"):
-        raise HTTPException(400, "Invalid category")
-    child_name = (body.child_name or "").strip()
-    child_age = (body.child_age or "").strip()
-    attendee_name = (body.attendee_name or "").strip()
-    if category == "Kids":
-        if not child_name:
-            raise HTTPException(400, "Please enter the child's name.")
-        if not child_age:
-            raise HTTPException(400, "Please enter the child's age.")
-    else:  # Adults
-        if not attendee_name:
-            raise HTTPException(400, "Please enter your name.")
-
-    # The member must pick a real, upcoming Muay Thai session from the schedule.
-    if not body.class_id:
-        raise HTTPException(400, "Please choose a class session for your trial.")
-    cls = await db.classes.find_one({"class_id": body.class_id}, {"_id": 0})
-    if not cls or cls.get("name") != "Muay Thai" or cls.get("category") != category:
-        raise HTTPException(400, "That session isn't available for this trial. Please pick another.")
-    trial_start = cls.get("start_at")
-    if isinstance(trial_start, str):
-        try:
-            trial_start = datetime.fromisoformat(trial_start.replace("Z", "+00:00")).replace(tzinfo=None)
-        except Exception:
-            trial_start = None
-    now_local = (now_utc() + timedelta(hours=10)).replace(tzinfo=None)
-    if not isinstance(trial_start, datetime) or (trial_start.replace(tzinfo=None) if trial_start.tzinfo else trial_start) <= now_local:
-        raise HTTPException(400, "That session has already passed. Please pick an upcoming class.")
-    trial_start = trial_start.replace(tzinfo=None) if trial_start.tzinfo else trial_start
-    preferred_day = f"{trial_start.strftime('%a %d %b')} · {trial_start.strftime('%-I:%M %p')}"
-    existing = await db.free_trials.find_one({"user_id": u["user_id"], "category": category})
-    if existing:
-        raise HTTPException(409, f"You've already claimed your {category} free trial")
-    trial = {
-        "trial_id": new_id("trial"),
-        "user_id": u["user_id"],
-        "member_name": u.get("name") or "",
-        "member_email": u.get("email"),
-        "category": category,
-        "child_name": child_name or None,
-        "child_age": child_age or None,
-        "attendee_name": attendee_name or None,
-        "preferred_day": preferred_day or None,
-        "status": "claimed",
-        "created_at": now_utc(),
-    }
-    try:
-        await db.free_trials.insert_one(trial)
-    except Exception:
-        raise HTTPException(409, f"You've already claimed your {category} free trial")
-
-    # Create a linked booking on the CHOSEN real session so the trial flows through the
-    # SAME QR + check-in + attendance system as every other class booking. Because it's a
-    # real dated class booking, check-in is locked to that session's date (single-use).
-    trial_display = f"Free Trial – {cls.get('name')} ({category})"
-    trial_booking_id = new_id("bk")
-    await db.bookings.insert_one({
-        "booking_id": trial_booking_id,
-        "user_id": u["user_id"],
-        "class_id": cls["class_id"],
-        "class_name": trial_display,
-        "amount": 0,
-        "currency": "aud",
-        "by_appointment": False,
-        "is_trial": True,
-        "trial_id": trial["trial_id"],
-        "trial_category": category,
-        "duration_min": int(cls.get("duration_min") or (45 if category == "Kids" else 60)),
-        "class_start": trial_start,
-        "scheduled_time": preferred_day,
-        "status": "confirmed",
-        "created_at": now_utc(),
-    })
-    await db.free_trials.update_one(
-        {"trial_id": trial["trial_id"]}, {"$set": {"booking_id": trial_booking_id, "class_id": cls["class_id"], "class_start": trial_start}}
-    )
-    trial["booking_id"] = trial_booking_id
-    await db.notifications.insert_one(
-        {
-            "notification_id": new_id("ntf"),
-            "user_id": u["user_id"],
-            "title": f"{category} free trial claimed 🎉",
-            "body": (
-                f"{child_name}'s free Kids Muay Thai trial is booked for {preferred_day}. Show your QR code at the front desk — see you on the mats!"
-                if category == "Kids" else
-                f"Your free Muay Thai trial is booked for {preferred_day}. Show your QR code at the front desk — we'll see you on the mats!"
-            ),
-            "type": "trial",
-            "read": False,
-            "created_at": now_utc(),
-        }
-    )
-    mname = u.get("name") or u.get("email")
-    member_lines = [
-        f"Hi {attendee_name or mname},",
-        f"Welcome to Maxenergy Fitness! Your <b>free {category} trial class</b> is confirmed. Here are the details:",
-        "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
-    ]
-    if category == "Kids":
-        member_lines += [
-            f"<b>Child's name:</b> {child_name}",
-            f"<b>Age:</b> {child_age}",
-            f"<b>Class:</b> Kids Muay Thai",
-            f"<b>Session:</b> {preferred_day}",
-        ]
-    else:
-        member_lines += [
-            f"<b>Name:</b> {attendee_name}",
-            f"<b>Class:</b> Muay Thai",
-            f"<b>Session:</b> {preferred_day}",
-        ]
-    member_lines += [
-        f"<b>Trial reference:</b> {trial['trial_id']}",
-        f"<b>Location:</b> {GYM_INFO['address']}",
-        f"<b>Phone:</b> {GYM_INFO['phone']}",
-        "<b>What to bring:</b> comfortable workout clothes, a water bottle and a towel. Gloves can be borrowed at the gym.",
-        _calendar_buttons_html(
-            f"Free Trial – Muay Thai ({category}) — Max Energy",
-            _qld_naive_to_utc(trial_start),
-            int(cls.get("duration_min") or (45 if category == "Kids" else 60)),
-            GYM_INFO["address"],
-            f"Free {category} Muay Thai trial at Maxenergy Fitness. Ref: {trial['trial_id']}.",
-            trial_booking_id,
-            _public_base(request),
-        ),
-        "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
-        "Turn up at your booked session and show your entry QR code at the front desk. See you on the mats! 🥊",
-    ]
-    await send_email(u["email"], f"Your free {category} trial at Max Energy 🎉", _email_shell(f"Your free {category} trial is confirmed!", member_lines))
-
-    admin_lines = [f"<b>{mname}</b> ({u['email']}) claimed a free <b>{category} Muay Thai</b> trial."]
-    if category == "Kids":
-        admin_lines += [
-            f"<b>Child's name:</b> {child_name}",
-            f"<b>Age:</b> {child_age}",
-            f"<b>Session:</b> {preferred_day}",
-        ]
-    else:
-        admin_lines += [
-            f"<b>Name:</b> {attendee_name}",
-            f"<b>Session:</b> {preferred_day}",
-        ]
-    admin_lines += [
-        f"Claimed: {now_utc().strftime('%A %d %B %Y')}",
-        "You can view all members and trial claims in the app: Admin → Members.",
-    ]
-    admin_body = (
-        f"{child_name} (age {child_age}) — Kids Muay Thai trial: {preferred_day}. Parent: {mname} ({u['email']})."
-        if category == "Kids" else
-        f"{attendee_name} — Muay Thai trial: {preferred_day} ({u['email']})."
-    )
-    await notify_admins(f"New free {category} trial claimed", admin_body, "trial", email_lines=admin_lines)
-    trial.pop("_id", None)
-    return {"trial": trial}
-
-
-# -------------------- notifications --------------------
-@api.get("/notifications")
-async def notifications_list(u: dict = Depends(require_user)):
-    rows = await db.notifications.find(
-        {"user_id": u["user_id"], "cleared": {"$ne": True}}, {"_id": 0}
-    ).sort("created_at", -1).to_list(200)
-    return {"notifications": rows}
-
-
-@api.get("/notifications/history")
-async def notifications_history(u: dict = Depends(require_user)):
-    # Full saved log — includes notifications the member has cleared.
-    rows = await db.notifications.find(
-        {"user_id": u["user_id"]}, {"_id": 0}
-    ).sort("created_at", -1).to_list(500)
-    return {"notifications": rows}
-
-
-@api.get("/notifications/unread")
-async def notifications_unread(u: dict = Depends(require_user)):
-    count = await db.notifications.count_documents(
-        {"user_id": u["user_id"], "read": {"$ne": True}, "cleared": {"$ne": True}}
-    )
-    return {"count": count}
-
-
-@api.post("/notifications/read-all")
-async def notifications_read_all(u: dict = Depends(require_user)):
-    await db.notifications.update_many({"user_id": u["user_id"], "read": {"$ne": True}}, {"$set": {"read": True}})
-    return {"ok": True}
-
-
-@api.post("/notifications/clear-all")
-async def notifications_clear_all(u: dict = Depends(require_user)):
-    # Soft-clear: remove from the active list but keep in the saved history/log.
-    res = await db.notifications.update_many(
-        {"user_id": u["user_id"], "cleared": {"$ne": True}},
-        {"$set": {"cleared": True, "read": True, "cleared_at": now_utc()}},
-    )
-    return {"ok": True, "cleared": res.modified_count}
-
-
-@api.post("/notifications/{nid}/read")
-async def notifications_read(nid: str, u: dict = Depends(require_user)):
-    await db.notifications.update_one({"notification_id": nid, "user_id": u["user_id"]}, {"$set": {"read": True}})
-    return {"ok": True}
-
-
-@api.delete("/notifications/{nid}")
-async def notifications_delete(nid: str, u: dict = Depends(require_user)):
-    # Soft-clear so the notification stays in the member's saved history/log.
-    await db.notifications.update_one(
-        {"notification_id": nid, "user_id": u["user_id"]},
-        {"$set": {"cleared": True, "read": True, "cleared_at": now_utc()}},
-    )
-    return {"ok": True}
+# -------------------- notifications — moved to routes/notifications.py --------------------
 
 
 # -------------------- admin --------------------
@@ -8076,6 +7397,16 @@ async def admin_attendance_roster(u: dict = Depends(require_admin)):
 async def root():
     return {"app": "Maxenergy Fitness API", "ok": True}
 
+
+# ---- modular routers (incremental refactor out of server.py) ----
+# Imported here, after all shared infra above is defined, to avoid circular imports.
+from routes.gym import router as gym_router  # noqa: E402
+from routes.events import router as events_router  # noqa: E402
+from routes.trials import router as trials_router  # noqa: E402
+from routes.notifications import router as notifications_router  # noqa: E402
+from routes.waitlist import router as waitlist_router  # noqa: E402
+for _r in (gym_router, events_router, trials_router, notifications_router, waitlist_router):
+    api.include_router(_r)
 
 app.include_router(api)
 
