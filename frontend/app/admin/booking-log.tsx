@@ -127,28 +127,49 @@ export default function BookingLog() {
   const renderItem = ({ item }: { item: LogItem }) => (
     <View style={styles.card} testID={`blog-${item.log_id}`}>
       <View style={styles.rowTop}>
-        <Text style={styles.name} numberOfLines={1}>{item.member_name || item.first_name || "Member"}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.name} numberOfLines={1}>{item.member_name || item.first_name || "Member"}</Text>
+          {!!item.reference && (
+            <View style={styles.refRow}>
+              <Ionicons name="pricetag" size={11} color={colors.brand} />
+              <Text style={styles.ref}>{item.reference}</Text>
+            </View>
+          )}
+        </View>
         <Text style={styles.amount}>{money(item.amount_cents)}</Text>
       </View>
-      <View style={styles.refRow}>
-        <Ionicons name="pricetag-outline" size={13} color={colors.brand} />
-        <Text style={styles.ref}>{item.reference || "—"}</Text>
+
+      <View style={styles.classRow}>
+        <Ionicons name="calendar-outline" size={14} color={colors.onSurfaceSecondary} style={{ marginTop: 1 }} />
+        <Text style={styles.cls}>
+          <Text style={styles.clsName}>{item.class_name || "Class"}</Text>
+          {item.when ? <Text style={styles.clsWhen}>{"\n"}{item.when}</Text> : null}
+        </Text>
       </View>
-      <Text style={styles.cls} numberOfLines={1}>{item.class_name}{item.when ? `  ·  ${item.when}` : ""}</Text>
+
+      <View style={styles.divider} />
+
       <View style={styles.metaRow}>
         <View style={styles.payPill}>
           <Ionicons name="card-outline" size={12} color={colors.onSurfaceSecondary} />
           <Text style={styles.payText} numberOfLines={1}>{item.payment_method || "—"}</Text>
         </View>
         {!!item.credit_applied_cents && item.credit_applied_cents > 0 && (
-          <View style={[styles.payPill, { borderColor: "#22C55E" }]}>
+          <View style={[styles.payPill, styles.creditPill]}>
+            <Ionicons name="wallet-outline" size={12} color="#22C55E" />
             <Text style={[styles.payText, { color: "#22C55E" }]}>{money(item.credit_applied_cents)} credit</Text>
           </View>
         )}
-        {!!item.created_at && <Text style={styles.date}>{stampDate(item.created_at, { day: "numeric", month: "short", year: "numeric" })}</Text>}
+        {!!item.created_at && (
+          <Text style={styles.date}>Logged {stampDate(item.created_at, { day: "numeric", month: "short" })}</Text>
+        )}
       </View>
+
       {(!!item.phone || !!item.member_email) && (
-        <Text style={styles.contact} numberOfLines={1}>{item.phone || ""}{item.phone && item.member_email ? "  ·  " : ""}{item.member_email || ""}</Text>
+        <View style={styles.contactRow}>
+          <Ionicons name="person-outline" size={12} color={colors.onSurfaceSecondary} />
+          <Text style={styles.contact} numberOfLines={1}>{item.phone || ""}{item.phone && item.member_email ? "  ·  " : ""}{item.member_email || ""}</Text>
+        </View>
       )}
     </View>
   );
@@ -226,18 +247,24 @@ const styles = StyleSheet.create({
   summary: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.sm },
   summaryText: { color: colors.onSurfaceSecondary, fontSize: 12.5, fontWeight: "800", letterSpacing: 0.5 },
   summaryTotal: { color: colors.brand, fontSize: 15, fontWeight: "900" },
-  card: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md, gap: 5 },
-  rowTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
-  name: { flex: 1, color: colors.onSurface, fontSize: 16, fontWeight: "900" },
-  amount: { color: colors.onSurface, fontSize: 15, fontWeight: "900" },
-  refRow: { flexDirection: "row", alignItems: "center", gap: 5 },
-  ref: { color: colors.brand, fontSize: 12.5, fontWeight: "800", letterSpacing: 0.5 },
-  cls: { color: colors.onSurface, fontSize: 13.5 },
-  metaRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: 2, flexWrap: "wrap" },
-  payPill: { flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
+  card: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md, gap: spacing.sm },
+  rowTop: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: spacing.sm },
+  name: { color: colors.onSurface, fontSize: 16, fontWeight: "900" },
+  amount: { color: colors.brand, fontSize: 18, fontWeight: "900" },
+  refRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 3 },
+  ref: { color: colors.brand, fontSize: 12, fontWeight: "800", letterSpacing: 0.5 },
+  classRow: { flexDirection: "row", alignItems: "flex-start", gap: 7 },
+  cls: { flex: 1, color: colors.onSurface, fontSize: 14 },
+  clsName: { color: colors.onSurface, fontSize: 14.5, fontWeight: "800" },
+  clsWhen: { color: colors.onSurfaceSecondary, fontSize: 12.5, lineHeight: 18 },
+  divider: { height: 1, backgroundColor: colors.border },
+  metaRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, flexWrap: "wrap" },
+  payPill: { flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 },
+  creditPill: { borderColor: "#22C55E55", backgroundColor: "#22C55E14" },
   payText: { color: colors.onSurfaceSecondary, fontSize: 11.5, fontWeight: "700" },
-  date: { color: colors.onSurfaceSecondary, fontSize: 11.5, marginLeft: "auto" },
-  contact: { color: colors.onSurfaceSecondary, fontSize: 12, marginTop: 1 },
+  date: { color: colors.onSurfaceSecondary, fontSize: 11.5, fontWeight: "600", marginLeft: "auto" },
+  contactRow: { flexDirection: "row", alignItems: "center", gap: 5 },
+  contact: { flex: 1, color: colors.onSurfaceSecondary, fontSize: 12 },
   empty: { alignItems: "center", padding: 40, gap: spacing.md },
   emptyText: { color: colors.onSurfaceSecondary, textAlign: "center" },
 });
