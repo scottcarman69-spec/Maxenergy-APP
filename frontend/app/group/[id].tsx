@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, TextI
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import ReanimatedSwipeable from "react-native-gesture-handler/ReanimatedSwipeable";
+import Animated, { useAnimatedStyle, interpolate, Extrapolation, type SharedValue } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
@@ -26,6 +27,28 @@ function shortName(full?: string): string {
   if (parts.length === 1) return parts[0];
   return `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.`;
 }
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+// Delete/unsend action that slides + scales in smoothly as the row is swiped.
+function SwipeAction({ progress, mine, gmsgId, onPress }: { progress: SharedValue<number>; mine: boolean; gmsgId: string; onPress: () => void }) {
+  const stylez = useAnimatedStyle(() => ({
+    transform: [
+      { scale: interpolate(progress.value, [0, 1], [0.55, 1], Extrapolation.CLAMP) },
+      { translateX: interpolate(progress.value, [0, 1], [28, 0], Extrapolation.CLAMP) },
+    ],
+    opacity: interpolate(progress.value, [0, 0.35, 1], [0, 0.4, 1], Extrapolation.CLAMP),
+  }));
+  return (
+    <View style={styles.unsendWrap}>
+      <AnimatedPressable testID={`group-unsend-${gmsgId}`} style={[styles.unsendAction, stylez]} onPress={onPress}>
+        <Ionicons name="trash" size={18} color="#fff" />
+        <Text style={styles.unsendText}>{mine ? "Unsend" : "Delete"}</Text>
+      </AnimatedPressable>
+    </View>
+  );
+}
+
 
 // Memoised so typing / new messages don't re-render every existing bubble (keeps the chat smooth).
 const MessageRow = React.memo(function MessageRow({ m, mine, canDelete, showReceipt, onUnsend, onLongPress, onReact, hidden, onHideAnnounce, onUnhideAnnounce, canModerate, onRemoveAnnounce, senderPicture }: { m: GM; mine: boolean; canDelete: boolean; showReceipt: boolean; onUnsend: (m: GM) => void; onLongPress: (m: GM) => void; onReact: (m: GM, emoji: string) => void; hidden?: boolean; onHideAnnounce?: (m: GM) => void; onUnhideAnnounce?: (m: GM) => void; canModerate?: boolean; onRemoveAnnounce?: (m: GM) => void; senderPicture?: string }) {
@@ -141,18 +164,14 @@ const MessageRow = React.memo(function MessageRow({ m, mine, canDelete, showRece
   if (!canDelete) return bubble;
   return (
     <ReanimatedSwipeable
-      renderRightActions={() => (
-        <View style={styles.unsendWrap}>
-          <Pressable testID={`group-unsend-${m.gmsg_id}`} style={styles.unsendAction} onPress={() => onUnsend(m)}>
-            <Ionicons name="trash" size={18} color="#fff" />
-            <Text style={styles.unsendText}>{mine ? "Unsend" : "Delete"}</Text>
-          </Pressable>
-        </View>
+      renderRightActions={(progress) => (
+        <SwipeAction progress={progress} mine={mine} gmsgId={m.gmsg_id} onPress={() => onUnsend(m)} />
       )}
       overshootRight={false}
-      friction={1.6}
-      rightThreshold={36}
-      dragOffsetFromRightEdge={16}
+      overshootFriction={8}
+      friction={2}
+      rightThreshold={40}
+      dragOffsetFromRightEdge={12}
     >
       {bubble}
     </ReanimatedSwipeable>
@@ -455,7 +474,7 @@ export default function GroupChat() {
               const isSystem = m.from_id === "system";
               const hidden = isSystem && hiddenIds.includes(m.gmsg_id);
               if (hidden && !showHidden) return null;
-              const canDelete = !isSystem && (mine || isAdmin || ownerId === meId);
+              const canDelete = !isSystem && (mine || isAdmin);
               return (
                 <View
                   key={m.gmsg_id}
