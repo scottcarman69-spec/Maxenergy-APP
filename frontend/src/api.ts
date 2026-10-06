@@ -326,9 +326,9 @@ export const api = {
     req(`/api/admin/refunds/${booking_id}/resolve`, { method: "POST", body: JSON.stringify({ method }) }),
   adminAdjustCredit: (user_id: string, amount_cents: number, reason?: string) =>
     req(`/api/admin/members/${user_id}/credit`, { method: "POST", body: JSON.stringify({ amount_cents, reason: reason || "" }) }),
-  adminCreateAnnouncement: (payload: { title: string; body: string; pinned: boolean }) =>
+  adminCreateAnnouncement: (payload: { title: string; body: string; pinned: boolean; category?: string }) =>
     req("/api/admin/announcements", { method: "POST", body: JSON.stringify(payload) }),
-  adminUpdateAnnouncement: (id: string, payload: { title: string; body: string; pinned: boolean }) =>
+  adminUpdateAnnouncement: (id: string, payload: { title: string; body: string; pinned: boolean; category?: string }) =>
     req(`/api/admin/announcements/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
   adminDeleteAnnouncement: (id: string) =>
     req(`/api/admin/announcements/${id}`, { method: "DELETE" }),

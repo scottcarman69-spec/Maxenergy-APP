@@ -11,8 +11,9 @@ import { storage } from "@/src/utils/storage";
 import { colors, spacing, radius, type, font } from "@/src/theme";
 import { classTime, classDate } from "@/src/datetime";
 import ScreenBg from "@/src/components/ScreenBg";
+import { NOTICE_CATEGORIES, noticeCat } from "@/src/noticeCategories";
 
-type Ann = { announcement_id: string; title: string; body: string; pinned: boolean; author: string; created_at: string };
+type Ann = { announcement_id: string; title: string; body: string; pinned: boolean; author: string; created_at: string; category?: string };
 type Evt = { event_id: string; title: string; start_at: string; image: string; location: string };
 
 function timeAgo(iso: string) {
@@ -34,6 +35,7 @@ export default function Notices() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [catFilter, setCatFilter] = useState<string | null>(null);
 
   const toggle = (id: string) =>
     setExpanded((cur) => {
@@ -70,6 +72,9 @@ export default function Notices() {
   };
 
   const isEmpty = !loading && anns.length === 0 && events.length === 0;
+
+  const presentCats = NOTICE_CATEGORIES.filter((c) => anns.some((a) => (a.category || "general") === c.value));
+  const visibleAnns = catFilter ? anns.filter((a) => (a.category || "general") === catFilter) : anns;
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
@@ -108,14 +113,45 @@ export default function Notices() {
             <View style={styles.sectionHead}>
               <Text style={styles.sectionTitle}>ANNOUNCEMENTS</Text>
               <View style={styles.countPill}>
-                <Text style={styles.countPillText}>{anns.length}</Text>
+                <Text style={styles.countPillText}>{visibleAnns.length}</Text>
               </View>
             </View>
           )}
 
-          {anns.map((a) => {
-            const grad: [string, string] = a.pinned ? ["#FF9A3D", "#FF7A00"] : ["#3B82F6", "#2563EB"];
-            const accent = a.pinned ? colors.brand : "#3B82F6";
+          {anns.length > 0 && presentCats.length > 1 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterRow}
+            >
+              <Pressable
+                testID="notice-filter-all"
+                onPress={() => setCatFilter(null)}
+                style={[styles.filterChip, !catFilter && styles.filterChipActiveAll]}
+              >
+                <Text style={[styles.filterChipText, { color: !catFilter ? "#fff" : colors.onSurfaceSecondary }]}>All</Text>
+              </Pressable>
+              {presentCats.map((c) => {
+                const active = catFilter === c.value;
+                return (
+                  <Pressable
+                    key={c.value}
+                    testID={`notice-filter-${c.value}`}
+                    onPress={() => setCatFilter(active ? null : c.value)}
+                    style={[styles.filterChip, { borderColor: c.color }, active && { backgroundColor: c.color }]}
+                  >
+                    <Ionicons name={c.icon as any} size={12} color={active ? "#fff" : c.color} />
+                    <Text style={[styles.filterChipText, { color: active ? "#fff" : c.color }]}>{c.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          )}
+
+          {visibleAnns.map((a) => {
+            const cat = noticeCat(a.category);
+            const grad: [string, string] = a.pinned ? ["#FF9A3D", "#FF7A00"] : [cat.color, cat.color];
+            const accent = a.pinned ? colors.brand : cat.color;
             const isOpen = expanded.has(a.announcement_id);
             return (
               <Pressable
@@ -126,15 +162,12 @@ export default function Notices() {
               >
                 <View style={[styles.leftBar, { backgroundColor: accent }]} />
                 <LinearGradient colors={grad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.annIcon}>
-                  <Ionicons name={a.pinned ? "pin" : "megaphone"} size={20} color="#fff" />
+                  <Ionicons name={(a.pinned ? "pin" : cat.icon) as any} size={20} color="#fff" />
                 </LinearGradient>
                 <View style={styles.annContent}>
                   <View style={styles.annTop}>
-                    {a.pinned ? (
-                      <Text style={[styles.tag, { color: colors.brand }]}>PINNED</Text>
-                    ) : (
-                      <Text style={[styles.tag, { color: accent }]}>NOTICE</Text>
-                    )}
+                    {a.pinned && <Text style={[styles.tag, { color: colors.brand }]}>PINNED</Text>}
+                    <Text style={[styles.tag, { color: accent }]}>{cat.label.toUpperCase()}</Text>
                     <Text style={styles.annTime}>{timeAgo(a.created_at)}</Text>
                   </View>
                   <View style={styles.annTitleRow}>
@@ -245,9 +278,13 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   annContent: { flex: 1, gap: 4 },
-  annTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  annTop: { flexDirection: "row", alignItems: "center", gap: 8 },
   tag: { fontSize: 10, fontFamily: font.heading, letterSpacing: 1.5 },
-  annTime: { color: colors.onSurfaceSecondary, fontSize: 11 },
+  filterRow: { gap: spacing.sm, paddingBottom: spacing.md, paddingRight: spacing.lg },
+  filterChip: { flexDirection: "row", alignItems: "center", gap: 5, borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 7 },
+  filterChipActiveAll: { backgroundColor: colors.brand, borderColor: colors.brand },
+  filterChipText: { fontSize: 12.5, fontFamily: font.semibold },
+  annTime: { color: colors.onSurfaceSecondary, fontSize: 11, marginLeft: "auto" },
   annTitle: { color: colors.onSurface, fontSize: 17, fontFamily: font.heading, flex: 1 },
   annTitleRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   chevronCircle: { width: 26, height: 26, borderRadius: 13, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center" },

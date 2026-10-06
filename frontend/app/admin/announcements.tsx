@@ -17,8 +17,9 @@ import { api } from "@/src/api";
 import { colors, spacing, radius } from "@/src/theme";
 import { Checkbox } from "@/src/components/Form";
 import ScreenHeader from "@/src/components/ScreenHeader";
+import { NOTICE_CATEGORIES, noticeCat } from "@/src/noticeCategories";
 
-type Ann = { announcement_id: string; title: string; body: string; pinned: boolean; author: string; created_at: string };
+type Ann = { announcement_id: string; title: string; body: string; pinned: boolean; author: string; created_at: string; category?: string };
 
 export default function AdminAnnouncements() {
   const router = useRouter();
@@ -28,6 +29,7 @@ export default function AdminAnnouncements() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [pinned, setPinned] = useState(false);
+  const [category, setCategory] = useState<string>("general");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -45,6 +47,7 @@ export default function AdminAnnouncements() {
     setTitle("");
     setBody("");
     setPinned(false);
+    setCategory("general");
     setEditingId(null);
   };
 
@@ -53,6 +56,7 @@ export default function AdminAnnouncements() {
     setTitle(a.title);
     setBody(a.body);
     setPinned(a.pinned);
+    setCategory(a.category || "general");
     setShowForm(true);
   };
 
@@ -65,9 +69,9 @@ export default function AdminAnnouncements() {
     setSaving(true);
     try {
       if (editingId) {
-        await api.adminUpdateAnnouncement(editingId, { title, body, pinned });
+        await api.adminUpdateAnnouncement(editingId, { title, body, pinned, category });
       } else {
-        await api.adminCreateAnnouncement({ title, body, pinned });
+        await api.adminCreateAnnouncement({ title, body, pinned, category });
       }
       resetForm();
       setShowForm(false);
@@ -112,6 +116,23 @@ export default function AdminAnnouncements() {
                 placeholderTextColor={colors.onSurfaceSecondary}
                 style={styles.input}
               />
+              <Text style={styles.fieldLabel}>Category</Text>
+              <View style={styles.catPicker}>
+                {NOTICE_CATEGORIES.map((c) => {
+                  const active = category === c.value;
+                  return (
+                    <Pressable
+                      key={c.value}
+                      testID={`admina-cat-${c.value}`}
+                      onPress={() => setCategory(c.value)}
+                      style={[styles.catChip, { borderColor: c.color }, active && { backgroundColor: c.color }]}
+                    >
+                      <Ionicons name={c.icon as any} size={13} color={active ? "#fff" : c.color} />
+                      <Text style={[styles.catChipText, { color: active ? "#fff" : c.color }]}>{c.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
               <TextInput
                 testID="admina-body"
                 value={body}
@@ -139,6 +160,10 @@ export default function AdminAnnouncements() {
                     {a.pinned && <Ionicons name="pin" size={14} color={colors.brand} />}
                     <Text style={styles.name}>{a.title}</Text>
                   </View>
+                  <View style={[styles.catTag, { backgroundColor: noticeCat(a.category).color }]}>
+                    <Ionicons name={noticeCat(a.category).icon as any} size={10} color="#fff" />
+                    <Text style={styles.catTagText}>{noticeCat(a.category).label}</Text>
+                  </View>
                   <Text style={styles.body} numberOfLines={2}>{a.body}</Text>
                 </View>
                 <Pressable testID={`admina-edit-${a.announcement_id}`} onPress={() => startEdit(a)} style={styles.iconBtn}>
@@ -163,6 +188,12 @@ const styles = StyleSheet.create({
   form: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.lg, borderWidth: 1, borderColor: colors.border },
   formTitle: { color: colors.onSurface, fontSize: 16, fontWeight: "800", marginBottom: spacing.md },
   input: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, color: colors.onSurface, paddingHorizontal: spacing.md, paddingVertical: 12, borderRadius: radius.md, fontSize: 15 },
+  fieldLabel: { color: colors.onSurfaceSecondary, fontSize: 12, fontWeight: "700", marginTop: spacing.md, marginBottom: spacing.sm, letterSpacing: 0.5, textTransform: "uppercase" },
+  catPicker: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginBottom: spacing.sm },
+  catChip: { flexDirection: "row", alignItems: "center", gap: 5, borderWidth: 1.5, borderRadius: radius.pill, paddingHorizontal: 11, paddingVertical: 6 },
+  catChipText: { fontSize: 12.5, fontWeight: "700" },
+  catTag: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 4, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 3, marginTop: 5 },
+  catTagText: { color: "#fff", fontSize: 10, fontWeight: "800", letterSpacing: 0.3 },
   error: { color: colors.error, fontSize: 13, marginTop: spacing.sm },
   postBtn: { backgroundColor: colors.brand, paddingVertical: 14, borderRadius: radius.md, alignItems: "center", marginTop: spacing.md },
   postText: { color: colors.onBrand, fontWeight: "900", letterSpacing: 1 },

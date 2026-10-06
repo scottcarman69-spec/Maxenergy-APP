@@ -103,6 +103,7 @@ class AnnouncementCreate(BaseModel):
     title: str
     body: str
     pinned: bool = False
+    category: Optional[str] = "general"
 
 
 class ApplicationStatusReq(BaseModel):
@@ -142,3 +143,4 @@ class AnnouncementUpdate(BaseModel):
     title: str
     body: str
     pinned: bool = False
+    category: Optional[str] = "general"

@@ -4259,13 +4259,20 @@ async def _post_official_announcement(author_id: str, title: str, body_text: str
         })
 
 
+ANNOUNCEMENT_CATEGORIES = {"general", "event", "class_update", "closure", "promotion", "urgent"}
+
+
 @api.post("/admin/announcements")
 async def admin_announcement_create(body: AnnouncementCreate, u: dict = Depends(require_admin)):
+    cat = (body.category or "general").strip().lower()
+    if cat not in ANNOUNCEMENT_CATEGORIES:
+        cat = "general"
     doc = {
         "announcement_id": new_id("ann"),
         "title": body.title,
         "body": body.body,
         "pinned": body.pinned,
+        "category": cat,
         "author": u.get("name") or "Max Energy",
         "created_at": now_utc(),
     }
@@ -4284,9 +4291,12 @@ async def admin_announcement_delete(announcement_id: str, u: dict = Depends(requ
 
 @api.put("/admin/announcements/{announcement_id}")
 async def admin_announcement_update(announcement_id: str, body: AnnouncementUpdate, u: dict = Depends(require_admin)):
+    cat = (body.category or "general").strip().lower()
+    if cat not in ANNOUNCEMENT_CATEGORIES:
+        cat = "general"
     r = await db.announcements.update_one(
         {"announcement_id": announcement_id},
-        {"$set": {"title": body.title, "body": body.body, "pinned": body.pinned}},
+        {"$set": {"title": body.title, "body": body.body, "pinned": body.pinned, "category": cat}},
     )
     if r.matched_count == 0:
         raise HTTPException(404, "Announcement not found")
