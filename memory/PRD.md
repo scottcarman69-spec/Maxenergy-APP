@@ -1365,3 +1365,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Membership form looked uneven: Segmented chips were orange pills while YesNo buttons were a different shape/size and "No" selected was grey (surfaceTertiary) not brand.
 - Fix (src/components/Form.tsx): YesNo buttons now match Segmented chips — borderRadius pill, paddingHorizontal lg / vertical 10, fontSize 13 / weight 700, minWidth 64, and BOTH Yes & No use brand bg + onBrand text when selected (ynOn/ynTextOn replace ynYes/ynNo). Applies app-wide wherever these controls are used.
 - Verified on /membership Details step: Category/Term Segmented + consent Yes/No now visually identical.
+
+## Session update (Jun 2026) — Consistent buttons on vigyr-signon (Join) page
+- The two "Choose how to join" CTAs were inconsistent: Option 1 (Direct Debit) was a solid orange primaryBtn, Option 2 (Upfront Payments) was an outlined outlineBtn → looked uneven.
+- Fix (app/vigyr-signon.tsx): Option 2 button now uses the same primaryBtn/primaryBtnText style (solid orange, onBrand icon, marginTop lg). Removed now-unused outlineBtn/outlineBtnText styles. Both option CTAs are now identical in size/colour/font/spacing.
+- Verified via screenshots.

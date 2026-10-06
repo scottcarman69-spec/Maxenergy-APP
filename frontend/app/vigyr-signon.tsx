@@ -216,11 +216,11 @@ export default function VigyrSignOn() {
 
             <Pressable
               testID="vigyr-upfront"
-              style={({ pressed }) => [styles.outlineBtn, pressed && { opacity: 0.85 }]}
+              style={({ pressed }) => [styles.primaryBtn, { marginTop: spacing.lg }, pressed && { opacity: 0.9 }]}
               onPress={() => router.push("/memberships")}
             >
-              <Ionicons name="pricetags" size={18} color={colors.brand} />
-              <Text style={styles.outlineBtnText}>VIEW UPFRONT PAYMENTS & BOOKINGS</Text>
+              <Ionicons name="pricetags" size={18} color={colors.onBrand} />
+              <Text style={styles.primaryBtnText}>VIEW UPFRONT PAYMENTS & BOOKINGS</Text>
             </Pressable>
           </View>
         </ScrollView>
@@ -289,8 +289,6 @@ const styles = StyleSheet.create({
   reportedText: { flex: 1, color: colors.onSurface, fontSize: 14, lineHeight: 20 },
   primaryBtn: { alignSelf: "stretch", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.md, backgroundColor: colors.brand, paddingVertical: 16, paddingHorizontal: spacing.md, borderRadius: radius.md },
   primaryBtnText: { color: colors.onBrand, fontFamily: font.display, fontSize: 15, letterSpacing: 0.6, textAlign: "center" },
-  outlineBtn: { alignSelf: "stretch", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, borderWidth: 1.5, borderColor: colors.brand, paddingVertical: 15, paddingHorizontal: spacing.md, borderRadius: radius.md, marginTop: spacing.lg },
-  outlineBtnText: { color: colors.brand, fontFamily: font.display, fontSize: 14.5, letterSpacing: 0.5, textAlign: "center" },
   secondaryBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 14, marginTop: spacing.xs },
   secondaryBtnText: { color: colors.brand, fontSize: 14, fontWeight: "700" },
   doneLink: { marginTop: spacing.lg, paddingVertical: 10 },
