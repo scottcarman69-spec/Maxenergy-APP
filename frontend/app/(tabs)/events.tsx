@@ -74,7 +74,17 @@ export default function Notices() {
   const isEmpty = !loading && anns.length === 0 && events.length === 0;
 
   const presentCats = NOTICE_CATEGORIES.filter((c) => anns.some((a) => (a.category || "general") === c.value));
-  const visibleAnns = catFilter ? anns.filter((a) => (a.category || "general") === catFilter) : anns;
+  // Urgent first, then pinned, then newest. Keeps critical notices at the very top.
+  const orderedAnns = [...anns].sort((a, b) => {
+    const au = (a.category || "") === "urgent" ? 0 : 1;
+    const bu = (b.category || "") === "urgent" ? 0 : 1;
+    if (au !== bu) return au - bu;
+    const ap = a.pinned ? 0 : 1;
+    const bp = b.pinned ? 0 : 1;
+    if (ap !== bp) return ap - bp;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+  const visibleAnns = catFilter ? orderedAnns.filter((a) => (a.category || "general") === catFilter) : orderedAnns;
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
@@ -150,24 +160,36 @@ export default function Notices() {
 
           {visibleAnns.map((a) => {
             const cat = noticeCat(a.category);
-            const grad: [string, string] = a.pinned ? ["#FF9A3D", "#FF7A00"] : [cat.color, cat.color];
-            const accent = a.pinned ? colors.brand : cat.color;
+            const isUrgent = (a.category || "") === "urgent";
+            const URGENT_RED = "#EF4444";
+            const grad: [string, string] = a.pinned
+              ? ["#FF9A3D", "#FF7A00"]
+              : isUrgent
+              ? ["#F87171", "#EF4444"]
+              : [cat.color, cat.color];
+            const accent = a.pinned ? colors.brand : isUrgent ? URGENT_RED : cat.color;
             const isOpen = expanded.has(a.announcement_id);
             return (
               <Pressable
                 key={a.announcement_id}
                 testID={`ann-${a.announcement_id}`}
                 onPress={() => toggle(a.announcement_id)}
-                style={({ pressed }) => [styles.annCard, pressed && { opacity: 0.9 }]}
+                style={({ pressed }) => [styles.annCard, isUrgent && styles.annCardUrgent, pressed && { opacity: 0.9 }]}
               >
-                <View style={[styles.leftBar, { backgroundColor: accent }]} />
+                <View style={[styles.leftBar, { backgroundColor: accent }, isUrgent && { width: 6 }]} />
                 <LinearGradient colors={grad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.annIcon}>
                   <Ionicons name={(a.pinned ? "pin" : cat.icon) as any} size={20} color="#fff" />
                 </LinearGradient>
                 <View style={styles.annContent}>
+                  {isUrgent && (
+                    <View testID={`ann-urgent-${a.announcement_id}`} style={styles.urgentBanner}>
+                      <Ionicons name="alert-circle" size={13} color="#fff" />
+                      <Text style={styles.urgentBannerText}>URGENT — PLEASE READ</Text>
+                    </View>
+                  )}
                   <View style={styles.annTop}>
                     {a.pinned && <Text style={[styles.tag, { color: colors.brand }]}>PINNED</Text>}
-                    <Text style={[styles.tag, { color: accent }]}>{cat.label.toUpperCase()}</Text>
+                    {!isUrgent && <Text style={[styles.tag, { color: accent }]}>{cat.label.toUpperCase()}</Text>}
                     <Text style={styles.annTime}>{timeAgo(a.created_at)}</Text>
                   </View>
                   <View style={styles.annTitleRow}>
@@ -265,6 +287,9 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   leftBar: { position: "absolute", left: 0, top: 0, bottom: 0, width: 5 },
+  annCardUrgent: { borderColor: "#EF4444", borderWidth: 2, backgroundColor: "rgba(239,68,68,0.09)" },
+  urgentBanner: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#EF4444", borderRadius: radius.sm, paddingHorizontal: 9, paddingVertical: 4, marginBottom: 2 },
+  urgentBannerText: { color: "#fff", fontSize: 11, fontFamily: font.heading, letterSpacing: 1 },
   annIcon: {
     width: 46,
     height: 46,

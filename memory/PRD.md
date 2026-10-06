@@ -1437,3 +1437,6 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Member Notices tab (app/(tabs)/events.tsx): each notice shows its colored category tag + matching icon/left-bar/gradient; horizontal filter chips [All + present categories] (testID notice-filter-<value>/notice-filter-all) shown only when >1 category present; pinned notices still show a PINNED tag alongside the category.
 - api.ts: adminCreate/UpdateAnnouncement payloads +category.
 - Verified: curl create=promotion / update=closure / invalid->general / delete 200; screenshots of admin picker (Promotion selected) and member tab (All/General/Event/Closure filter chips + CLOSURE/HOLIDAY red, EVENT blue, GENERAL grey tags). Test notices cleaned up.
+
+## Session update (Jun 2026 fork) — Urgent notice highlight (DONE)
+- "Urgent" category notices now stand out on the member Notices tab (app/(tabs)/events.tsx): sorted to the very TOP (urgent > pinned > newest), red border (2px) + red-tinted card bg, red gradient alert-circle icon, thicker red left bar, and a bold red "⚠ URGENT — PLEASE READ" banner (testID ann-urgent-<id>) replacing the plain category tag. Non-urgent notices unchanged. Verified via screenshot (urgent card renders at top above pinned). Test notices cleaned up.
