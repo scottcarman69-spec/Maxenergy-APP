@@ -1384,3 +1384,7 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 ## Session update (Jun 2026) — Copy Member ID button + promote owner to admin
 - friends.tsx: added a "Copy" button beside "Your account ID" (handle, e.g. APPREV6381/SCOTTC3432). Uses expo-clipboard; shows green "Copied" for ~1.8s. Styles copyBtn/copyBtnText; idText flex:1.
 - Admin: set is_admin=True for scottcarman69@gmail.com (handle SCOTTC3432) in preview DB, AND added an idempotent startup promotion in server.py (extra-admin list, only promotes if account exists) so it applies to the PRODUCTION DB on next redeploy. Verified startup log "ensured admin for scottcarman69@gmail.com".
+
+## Session update (Jun 2026) — Confirm before admin cancels a booking
+- admin/bookings.tsx Cancel button previously cancelled instantly. Now it opens a confirmation Modal (cancelFor state) showing class + member, a warning (member notified, refund per policy, cannot be undone), with "Yes, cancel booking" (red, calls adminCancelBooking) and "No, keep it" (dismiss). Reuses modalOverlay/modalCard; added confirm* styles. Accept/Suggest/Attended unchanged.
+- Verified via screenshot on admin bookings.

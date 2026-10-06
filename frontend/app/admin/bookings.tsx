@@ -62,6 +62,7 @@ export default function AdminBookings() {
   const [takenSlots, setTakenSlots] = useState<Set<string>>(new Set());
   const [note, setNote] = useState("");
   const [banner, setBanner] = useState<string | null>(null);
+  const [cancelFor, setCancelFor] = useState<Booking | null>(null);
 
   const isApptResched = !!rescheduleFor?.by_appointment;
 
@@ -308,7 +309,7 @@ export default function AdminBookings() {
                         testID={`adminbk-cancel-${b.booking_id}`}
                         style={[styles.actBtn, styles.actDanger]}
                         disabled={busy}
-                        onPress={() => act(b.booking_id, () => api.adminCancelBooking(b.booking_id), "Cancelled & member notified.")}
+                        onPress={() => setCancelFor(b)}
                       >
                         <Ionicons name="close-circle-outline" size={14} color={colors.error} />
                         <Text style={styles.actDangerText}>Cancel</Text>
@@ -414,11 +415,58 @@ export default function AdminBookings() {
           </View>
         </View>
       </Modal>
+
+      {/* Confirm cancel */}
+      <Modal visible={!!cancelFor} transparent animationType="fade" onRequestClose={() => setCancelFor(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.confirmIcon}>
+              <Ionicons name="alert-circle" size={34} color={colors.error} />
+            </View>
+            <Text style={styles.modalTitle}>Cancel this booking?</Text>
+            <Text style={styles.modalSub}>
+              {cancelFor?.class_name} · {cancelFor?.member_name}
+            </Text>
+            <Text style={styles.confirmBody}>
+              The member will be notified and any class pass or payment will be refunded per your policy. This cannot be undone.
+            </Text>
+            <Pressable
+              testID="adminbk-cancel-confirm"
+              style={[styles.confirmDangerBtn, actioning === cancelFor?.booking_id && { opacity: 0.6 }]}
+              disabled={actioning === cancelFor?.booking_id}
+              onPress={async () => {
+                const b = cancelFor;
+                if (!b) return;
+                setCancelFor(null);
+                await act(b.booking_id, () => api.adminCancelBooking(b.booking_id), "Cancelled & member notified.");
+              }}
+            >
+              {actioning === cancelFor?.booking_id ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="close-circle-outline" size={18} color="#fff" />
+                  <Text style={styles.confirmDangerText}>Yes, cancel booking</Text>
+                </>
+              )}
+            </Pressable>
+            <Pressable testID="adminbk-cancel-dismiss" style={styles.confirmKeepBtn} onPress={() => setCancelFor(null)}>
+              <Text style={styles.confirmKeepText}>No, keep it</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  confirmIcon: { alignSelf: "center", width: 60, height: 60, borderRadius: 30, backgroundColor: colors.error + "22", alignItems: "center", justifyContent: "center", marginBottom: spacing.sm },
+  confirmBody: { color: colors.onSurfaceSecondary, fontSize: 13.5, lineHeight: 20, textAlign: "center", marginTop: spacing.sm, marginBottom: spacing.lg },
+  confirmDangerBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.error, paddingVertical: 15, borderRadius: radius.md },
+  confirmDangerText: { color: "#fff", fontWeight: "900", fontSize: 15 },
+  confirmKeepBtn: { alignItems: "center", paddingVertical: 14, marginTop: spacing.xs },
+  confirmKeepText: { color: colors.onSurfaceSecondary, fontWeight: "800", fontSize: 14 },
   root: { flex: 1, backgroundColor: colors.surface },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
   headerTitle: { color: colors.onSurface, fontSize: 17, fontWeight: "800" },
