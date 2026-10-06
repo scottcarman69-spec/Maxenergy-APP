@@ -511,6 +511,18 @@ export default function ClassDetail() {
             </View>
           </View>
 
+          {!cls.by_appointment && (
+            <Pressable
+              testID="see-more-dates"
+              style={({ pressed }) => [styles.moreDatesBtn, pressed && { opacity: 0.85 }]}
+              onPress={() => router.push({ pathname: "/book-sessions", params: { name: cls.name, category: cls.category } })}
+            >
+              <Ionicons name="calendar-outline" size={17} color={colors.brand} />
+              <Text style={styles.moreDatesText}>See next 10 dates for this class</Text>
+              <Ionicons name="chevron-forward" size={17} color={colors.brand} />
+            </Pressable>
+          )}
+
           {coachSource(cls.trainer, cls.trainer_photo) ? (
             <Pressable
               testID="coach-card"
@@ -977,6 +989,9 @@ const styles = StyleSheet.create({
   nudgeBanner: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.warning, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.lg },
   nudgeBannerText: { flex: 1, color: colors.onBrand, fontWeight: "800", fontSize: 13 },
   metaVal: { color: colors.onSurface, fontSize: 13, fontWeight: "700" },
+  moreDatesBtn: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.brandTertiary, borderRadius: radius.md, borderWidth: 1, borderColor: colors.brand, paddingVertical: 13, paddingHorizontal: spacing.lg, marginTop: spacing.md },
+  moreDatesText: { flex: 1, color: colors.brand, fontSize: 14, fontWeight: "800" },
+
   coachCard: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.md, borderWidth: 1, borderColor: colors.border },
   coachAvatar: { width: 54, height: 54, borderRadius: 27, backgroundColor: colors.surfaceTertiary },
   coachLabel: { color: colors.onSurfaceSecondary, fontSize: 10, letterSpacing: 1.5, fontWeight: "800" },

@@ -1370,3 +1370,8 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - The two "Choose how to join" CTAs were inconsistent: Option 1 (Direct Debit) was a solid orange primaryBtn, Option 2 (Upfront Payments) was an outlined outlineBtn → looked uneven.
 - Fix (app/vigyr-signon.tsx): Option 2 button now uses the same primaryBtn/primaryBtnText style (solid orange, onBrand icon, marginTop lg). Removed now-unused outlineBtn/outlineBtnText styles. Both option CTAs are now identical in size/colour/font/spacing.
 - Verified via screenshots.
+
+## Session update (Jun 2026) — "Next 10 sessions" booking flow
+- New screen app/book-sessions.tsx (route /book-sessions?name=&category=): shows the next 10 upcoming sessions for a selected class type as a vertically scrollable list of cards. Each card shows class name, "Weekday D Month", start time, and status pill (Available / N left / Full / Closed). Past auto-excluded (!ended + start in future); Full/Closed cards are non-selectable; selected card highlighted (brand border + brandTertiary bg + check radio); sticky footer "BOOK · <day date time>" routes to /class/[id] for the existing booking/confirmation + payment flow.
+- Entry point: class/[id].tsx now has a "See next 10 dates for this class" button (non-appointment classes only) → /book-sessions with name+category. Styles moreDatesBtn/moreDatesText added.
+- Verified via screenshot on Kickboxing/Adults: 10 cards, selection highlight + footer CTA working.
