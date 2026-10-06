@@ -1,0 +1,31 @@
+{
+  "summary": "Backend-only regression for iteration-30 refactor (GROUPS -> routes/groups.py, STORE/GIFTCARDS -> routes/store.py, MEMBERSHIP -> routes/membership.py). 36/36 pytest cases pass against the live preview URL in ~7.6s. GROUPS: GET /api/groups + /api/groups/discover (member), POST /api/groups empty-name 400 and member-flow pending=True creation, GET /api/groups/{bogus} returns 403 (not 500), GET /api/admin/group-requests (admin) with create_requests/join_requests/count, admin guard 403 for member on /admin/group-requests, GET /api/admin/threads (admin) and GET /api/admin/threads/{member_uid} both return threads/messages. STORE: GET /api/store/products returns products + keytag_cents + class_pass_credits + membership_form_completed, GET /api/credits returns balance_cents+entries+class_pass_credits+pass_entries, GET /api/giftcards/mine returns purchased/redeemed/min_cents/max_cents, GET /api/announcements public 200, GET /api/admin/giftcards 200 (admin) + 403 (member), POST /api/admin/giftcards/adjust with bogus code -> 404, GET /api/store/status/{bogus} -> 404, GET /api/giftcards/status/{bogus} -> 404. CHECKOUT REGISTRATION ONLY (never completed): POST /api/store/checkout and POST /api/giftcards/checkout both respond 401/422 unauthenticated and 400/422/428 with empty body — route IS registered (NOT 404). MEMBERSHIP: GET /api/membership/plans public returns plans, GET /api/membership/applications/me (member), POST /api/membership/vigyr-report with completed=true -> ok+reported:true and completed=false -> reported:false, bogus PDF -> 403, submitted a safe TEST_refactor minimal application (no payment) -> created application_id returned, GET /api/membership/forms/{that_id}.pdf returned a real PDF (content-type application/pdf, %PDF- magic bytes) using owner's bearer token, and the new application appeared in /api/membership/applications/me. CORE SANITY: auth login admin+member, /api/classes, /api/bookings, /api/payments/receipts, /api/gym/photos, /api/events, /api/admin/overview all green. Cleanup: deleted the one TEST_refactor_apply_delete_me application and the one TEST_refactor_grp_delete_me group request directly from Mongo after the run. No regressions found; refactor is a byte-identical relocation.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_refactor_groups_store_membership.py",
+    "/app/test_reports/pytest/pytest_refactor_iter30.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routes/store.py imports 15 symbols from server.py including internal helpers (_giftcard_guard, _reuse_open_square_checkout, compute_store_price, sync_square_payment). This confirms the module is NOT independent — any rename in server.py would NameError at import time. Consider moving pure helpers (booking_ref_no, STORE_PRODUCTS constants) into backend/utils/ to shrink the surface area.",
+    "routes/membership.py:260 — the inner module-level helper store_receipt_latest was accidentally imported here? No, re-checked: it's defined inside routes/store.py (not membership). Membership PDF regen path at routes/membership.py:479-493 silently falls back to the stored copy on any build error — good resilience, but a repeat failure will never be surfaced to callers (only logged). Consider a counter / Sentry metric.",
+    "routes/groups.py:432 (admin_group_requests) does an unbounded $in on user_ids/group_ids assembled from pending request lists. Fine today (lists capped at 200 each) but if pending backlog ever grows, consider pagination.",
+    "routes/store.py admin_giftcard_adjust validates new_balance_cents <= original amount_cents but does NOT prevent raising a redeemed card back above $0 (status flips redeemed->active). Likely intentional (correcting an admin mistake), just flagging the implicit flow.",
+    "routes/membership.py download_membership_pdf regenerates on every GET (expensive for large forms). Acceptable because applications are small, but worth caching in future."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_refactor_groups_store_membership.py (new)"
+  ],
+  "success_rate": {"backend": "100% (36/36)", "frontend": "n/a (not tested per request)"},
+  "seed_data_creation": "Created and cleaned up: (1) one TEST_refactor_grp_delete_me pending group-create request (declined via /api/admin/group-requests/{rid}/decline inside the test, then any residue deleted from Mongo). (2) one TEST_refactor_apply_delete_me membership application (deleted from Mongo after test). No Square checkouts initiated. One Vigyr-reported flag set on testmember@gmail.com (vigyr_signup_reported=true) — harmless and reversible by E1 if desired.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Env: BASE_URL = EXPO_PUBLIC_BACKEND_URL. All three new route modules registered via api.include_router in server.py:5089-5091. Shared helpers (compute_store_price, sync_square_payment, _reuse_open_square_checkout, _giftcard_*, STORE_PRODUCTS, GIFTCARD_* constants, MEMBERSHIP_TERMS_TC, build_membership_pdf-dependencies, notify_admins, send_email) all remain in server.py and import cleanly — verified by backend startup + 36 passing tests. Admin creds: info@maxenergy.com.au / Maxenergy12@ (ADMIN2_PASSWORD env, re-synced on startup). Member: testmember@gmail.com / Test!1234 (no longer has is_test free-booking bypass). Square is PRODUCTION — never POST /api/store/checkout, /api/giftcards/checkout, or /api/payments/checkout with a valid body. Membership /apply does NOT charge (Vigyr/manual) — safe to exercise. Reusable test file: /app/backend/tests/test_refactor_groups_store_membership.py (36 cases, ~8s with xdist 2 workers).",
+  "rca_of_issue": "N/A — all moved endpoints behave identically to the pre-refactor server.py monolith. Routers are registered via api.include_router(...) with unchanged URL paths. No ImportError/NameError at startup; every route returns the documented status codes and payload shapes."
+}
