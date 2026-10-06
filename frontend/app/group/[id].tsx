@@ -92,9 +92,19 @@ const MessageRow = React.memo(function MessageRow({ m, mine, canDelete, showRece
       {!!m.edited_at && <Text style={[styles.editedTag, mine && { color: "rgba(255,255,255,0.75)" }]}>edited</Text>}
     </View>
   );
+  const avatarNode = (
+    <View style={styles.avatar}>
+      {senderPicture ? (
+        <Image source={{ uri: senderPicture }} style={styles.avatarImg} />
+      ) : (
+        <Text style={styles.avatarInitial}>{(m.sender_name || "?").trim().slice(0, 1).toUpperCase()}</Text>
+      )}
+    </View>
+  );
   const bubble = (
     <View style={styles.rowWrap}>
       <View style={[styles.msgLine, { justifyContent: mine ? "flex-start" : "flex-end" }]}>
+        {mine && avatarNode}
         <View style={[styles.bubbleCol, { alignItems: mine ? "flex-start" : "flex-end" }]}>
           <Pressable onLongPress={() => onLongPress(m)} delayLongPress={300} style={{ maxWidth: "100%", flexShrink: 1 }}>
             {bubbleInner}
@@ -124,15 +134,7 @@ const MessageRow = React.memo(function MessageRow({ m, mine, canDelete, showRece
             )}
           </View>
         </View>
-        {!mine && (
-          <View style={styles.avatar}>
-            {senderPicture ? (
-              <Image source={{ uri: senderPicture }} style={styles.avatarImg} />
-            ) : (
-              <Text style={styles.avatarInitial}>{(m.sender_name || "?").trim().slice(0, 1).toUpperCase()}</Text>
-            )}
-          </View>
-        )}
+        {!mine && avatarNode}
       </View>
     </View>
   );
@@ -445,7 +447,7 @@ export default function GroupChat() {
                   onLayout={(e) => { rowYs.current[m.gmsg_id] = e.nativeEvent.layout.y; }}
                   style={highlightId === m.gmsg_id ? styles.highlightRow : undefined}
                 >
-                  <MessageRow m={m} mine={mine} canDelete={canDelete} showReceipt={i === lastOwnIndex} onUnsend={unsend} onLongPress={openActions} onReact={react} hidden={hidden} onHideAnnounce={hideAnnounce} onUnhideAnnounce={unhideAnnounce} canModerate={isAdmin || ownerId === meId} onRemoveAnnounce={removeAnnounce} senderPicture={isSystem || mine ? undefined : members.find((mm) => mm.user_id === m.from_id)?.picture} />
+                  <MessageRow m={m} mine={mine} canDelete={canDelete} showReceipt={i === lastOwnIndex} onUnsend={unsend} onLongPress={openActions} onReact={react} hidden={hidden} onHideAnnounce={hideAnnounce} onUnhideAnnounce={unhideAnnounce} canModerate={isAdmin || ownerId === meId} onRemoveAnnounce={removeAnnounce} senderPicture={isSystem ? undefined : members.find((mm) => mm.user_id === m.from_id)?.picture} />
                 </View>
               );
             })}
@@ -568,13 +570,13 @@ const styles = StyleSheet.create({
   pinTitle: { color: colors.brand, fontSize: 10, fontWeight: "900", letterSpacing: 1 },
   pinBody: { color: colors.onSurface, fontSize: 13, lineHeight: 18, marginTop: 3 },
   pinToggle: { color: colors.brand, fontSize: 11.5, fontWeight: "800", marginTop: 4 },
-  bubble: { padding: spacing.md, borderRadius: radius.lg },
+  bubble: { paddingVertical: 9, paddingHorizontal: 12, borderRadius: radius.lg },
   rowWrap: { width: "100%" },
-  msgLine: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
-  bubbleCol: { maxWidth: "82%", flexShrink: 1 },
-  avatar: { width: 30, height: 30, borderRadius: 15, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center", overflow: "hidden", marginTop: 2 },
-  avatarImg: { width: 30, height: 30, borderRadius: 15 },
-  avatarInitial: { color: colors.brand, fontSize: 13, fontWeight: "800" },
+  msgLine: { flexDirection: "row", alignItems: "flex-start", gap: 7 },
+  bubbleCol: { maxWidth: "74%", flexShrink: 1 },
+  avatar: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center", overflow: "hidden", marginTop: 2 },
+  avatarImg: { width: 28, height: 28, borderRadius: 14 },
+  avatarInitial: { color: colors.brand, fontSize: 12, fontWeight: "800" },
   me: { backgroundColor: colors.brand, borderBottomLeftRadius: 4 },
   them: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderBottomRightRadius: 4 },
   sender: { color: colors.brand, fontSize: 11.5, fontWeight: "800", marginBottom: 3 },
