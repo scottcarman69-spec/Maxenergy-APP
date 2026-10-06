@@ -186,6 +186,7 @@ export default function GroupChat() {
   const [members, setMembers] = useState<{ user_id: string; name?: string; picture?: string; last_active_at?: string }[]>([]);
   const [hiddenIds, setHiddenIds] = useState<string[]>([]);
   const [showHidden, setShowHidden] = useState(false);
+  const [pinnedHidden, setPinnedHidden] = useState(false);
   const lastTypingPing = useRef(0);
   const ref = useRef<ScrollView>(null);
   const rowYs = useRef<Record<string, number>>({});
@@ -223,9 +224,14 @@ export default function GroupChat() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const hiddenKey = `group_hidden_announcements_${String(id)}`;
+  const pinKey = `group_pinned_hidden_${String(id)}`;
   useFocusEffect(useCallback(() => {
     storage.getItem<string[]>(hiddenKey, []).then((v) => setHiddenIds(Array.isArray(v) ? v : [])).catch(() => {});
-  }, [hiddenKey]));
+    storage.getItem<boolean>(pinKey, false).then((v) => setPinnedHidden(!!v)).catch(() => {});
+  }, [hiddenKey, pinKey]));
+
+  const hidePinned = useCallback(() => { setPinnedHidden(true); storage.setItem(pinKey, true).catch(() => {}); }, [pinKey]);
+  const showPinned = useCallback(() => { setPinnedHidden(false); storage.setItem(pinKey, false).catch(() => {}); }, [pinKey]);
 
   const hideAnnounce = useCallback((m: GM) => {
     setHiddenIds((cur) => {
@@ -395,14 +401,23 @@ export default function GroupChat() {
             <Ionicons name="chevron-forward" size={16} color={colors.onSurfaceSecondary} />
           </Pressable>
         )}
-        {!!pinned && (
-          <Pressable style={styles.pinBar} onPress={() => setPinExpanded((v) => !v)}>
+        {!!pinned && !pinnedHidden && (
+          <View style={styles.pinBar}>
             <Ionicons name="pin" size={16} color={colors.brand} style={{ marginTop: 1 }} />
-            <View style={{ flex: 1 }}>
+            <Pressable style={{ flex: 1 }} onPress={() => setPinExpanded((v) => !v)}>
               <Text style={styles.pinTitle}>PINNED · GROUP RULES</Text>
               <Text style={styles.pinBody} numberOfLines={pinExpanded ? undefined : 2}>{pinned}</Text>
               <Text style={styles.pinToggle}>{pinExpanded ? "Show less" : "Read more"}</Text>
-            </View>
+            </Pressable>
+            <Pressable testID="group-pin-hide" hitSlop={10} onPress={hidePinned} style={styles.pinHideBtn}>
+              <Ionicons name="close" size={18} color={colors.onSurfaceSecondary} />
+            </Pressable>
+          </View>
+        )}
+        {!!pinned && pinnedHidden && (
+          <Pressable testID="group-pin-show" style={styles.pinShowBar} onPress={showPinned}>
+            <Ionicons name="pin-outline" size={14} color={colors.brand} />
+            <Text style={styles.pinShowText}>Show pinned group rules</Text>
           </Pressable>
         )}
         {!!pinnedMsg && (
@@ -567,6 +582,9 @@ const styles = StyleSheet.create({
   deniedBtn: { backgroundColor: colors.brand, borderRadius: radius.md, paddingHorizontal: 24, paddingVertical: 13, marginTop: spacing.sm },
   deniedBtnText: { color: colors.onBrand, fontWeight: "900", fontSize: 15 },
   pinBar: { flexDirection: "row", gap: 8, alignItems: "flex-start", backgroundColor: colors.brandTertiary, borderBottomWidth: 1, borderBottomColor: colors.brand, paddingHorizontal: spacing.md, paddingVertical: 10 },
+  pinHideBtn: { padding: 2, marginTop: 1 },
+  pinShowBar: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.brandTertiary, borderBottomWidth: 1, borderBottomColor: colors.border, paddingHorizontal: spacing.md, paddingVertical: 8 },
+  pinShowText: { color: colors.brand, fontSize: 12.5, fontWeight: "800" },
   pinTitle: { color: colors.brand, fontSize: 10, fontWeight: "900", letterSpacing: 1 },
   pinBody: { color: colors.onSurface, fontSize: 13, lineHeight: 18, marginTop: 3 },
   pinToggle: { color: colors.brand, fontSize: 11.5, fontWeight: "800", marginTop: 4 },
