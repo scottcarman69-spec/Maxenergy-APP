@@ -241,6 +241,19 @@ export default function BookingsScreen() {
     setActioning(null);
   };
 
+  const confirmAttendance = async (b: Booking) => {
+    setActioning(b.booking_id);
+    try {
+      await api.confirmMyAttendance(b.booking_id);
+      setBanner("Thanks! Your attendance is confirmed.");
+      await load();
+    } catch (e: any) {
+      setBanner(e?.message || "Could not confirm attendance.");
+    }
+    setActioning(null);
+  };
+
+
   const submitReschedule = async () => {
     if (!rescheduleFor || !rComposed) return;
     setRErr(null);
@@ -540,7 +553,7 @@ export default function BookingsScreen() {
                           <View style={styles.attendBody}>
                             <View style={styles.attendRow}>
                               <Text style={styles.attendLabel}>Method</Text>
-                              <Text style={styles.attendValue}>{b.checked_in_method === "manual" ? "Staff (manual)" : "QR Code"}</Text>
+                              <Text style={styles.attendValue}>{b.checked_in_method === "manual" ? "Staff (manual)" : b.checked_in_method === "member" ? "Self-confirmed" : "QR Code"}</Text>
                             </View>
                             {!!b.checked_in_by && (
                               <View style={styles.attendRow}>
@@ -557,9 +570,26 @@ export default function BookingsScreen() {
                           </View>
                         </View>
                       ) : missed ? (
-                        <View style={styles.missedBar}>
-                          <Ionicons name="alert-circle" size={16} color={colors.error} />
-                          <Text style={styles.missedText}>QR code was not confirmed during class time</Text>
+                        <View style={styles.missedWrap}>
+                          <View style={styles.missedBar}>
+                            <Ionicons name="alert-circle" size={16} color={colors.error} />
+                            <Text style={styles.missedText}>QR code was not confirmed during class time</Text>
+                          </View>
+                          <Pressable
+                            testID={`booking-selfconfirm-${b.booking_id}`}
+                            style={[styles.selfConfirmBtn, actioning === b.booking_id && { opacity: 0.6 }]}
+                            disabled={actioning === b.booking_id}
+                            onPress={() => confirmAttendance(b)}
+                          >
+                            {actioning === b.booking_id ? (
+                              <ActivityIndicator size="small" color={colors.onBrand} />
+                            ) : (
+                              <>
+                                <Ionicons name="checkmark-circle-outline" size={16} color={colors.onBrand} />
+                                <Text style={styles.selfConfirmText}>Confirm I attended</Text>
+                              </>
+                            )}
+                          </Pressable>
                         </View>
                       ) : (
                         <Pressable
@@ -771,6 +801,9 @@ const styles = StyleSheet.create({
   qrInfoText: { color: colors.onSurfaceSecondary, fontSize: 12.5, fontWeight: "600" },
   missedBar: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, paddingHorizontal: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: "rgba(239,68,68,0.10)" },
   missedText: { color: colors.error, fontSize: 12.5, fontWeight: "800", textAlign: "center" },
+  missedWrap: {},
+  selfConfirmBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.brand, paddingVertical: 12, marginHorizontal: spacing.md, marginBottom: spacing.md, borderRadius: radius.md },
+  selfConfirmText: { color: colors.onBrand, fontWeight: "900", fontSize: 13.5 },
   attendCard: { borderTopWidth: 1, borderTopColor: colors.border },
   attendHead: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.success, paddingVertical: 9 },
   attendHeadText: { color: "#fff", fontSize: 12, fontWeight: "900", letterSpacing: 0.6 },

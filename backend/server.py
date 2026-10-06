@@ -3167,6 +3167,30 @@ async def booking_checkin(booking_id: str, u: dict = Depends(require_user)):
     raise HTTPException(403, "Check-in is done by gym staff scanning your entry QR code.")
 
 
+@api.post("/bookings/{booking_id}/confirm-attendance")
+async def booking_confirm_attendance(booking_id: str, u: dict = Depends(require_user)):
+    """Member self-confirms they attended (used when the entry QR wasn't scanned during
+    class). Marks the booking attended for everyone — once either the member OR an admin
+    confirms, the other side no longer needs to."""
+    b = await db.bookings.find_one({"booking_id": booking_id, "user_id": u["user_id"]}, {"_id": 0})
+    if not b:
+        raise HTTPException(404, "Booking not found")
+    if b.get("status") not in ("paid", "confirmed"):
+        raise HTTPException(400, "This booking can't be confirmed.")
+    if b.get("attended"):
+        return {"ok": True, "attended": True}
+    start = await _booking_start_utc(b)
+    if start and now_utc() < start:
+        raise HTTPException(400, "You can confirm attendance once the class has started.")
+    name = u.get("name") or u.get("email") or "Member"
+    await db.bookings.update_one(
+        {"booking_id": booking_id},
+        {"$set": {"attended": True, "checked_in_at": now_utc(), "checked_in_by": name,
+                  "checked_in_by_id": u["user_id"], "checked_in_method": "member"}},
+    )
+    return {"ok": True, "attended": True}
+
+
 def make_checkin_code(booking_id: str, uid: str, exp: datetime) -> str:
     """Signed, non-guessable, single-use (via `attended` flag) door check-in token."""
     return jwt.encode({"bid": booking_id, "uid": uid, "typ": "checkin", "exp": exp}, JWT_SECRET, algorithm=JWT_ALGO)

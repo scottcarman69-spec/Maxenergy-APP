@@ -1392,3 +1392,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 ## Session update (Jun 2026) — Confirm before admin Accept/Confirm booking
 - admin/bookings.tsx: Accept (adminAcceptBooking) and Confirm (adminConfirmBooking) buttons now open a confirmation Modal (approveFor state {b, kind}) before running — title "Accept/Confirm this booking?", class+member, "member will be notified", with brand "Yes, accept/Yes, confirm" + "Not yet". Reuses modal styles; added approveIcon/confirmPrimaryBtn/confirmPrimaryText. Matches the Cancel confirmation added earlier.
 - Verified via screenshot.
+
+## Session update (Jun 2026) — Member/admin self-confirm attendance
+- Request: when the entry QR wasn't scanned during class, let either an admin OR the member confirm attendance; once one does it, the other isn't required.
+- Backend: new POST /api/bookings/{id}/confirm-attendance (member-owned; only after class start; idempotent) sets attended=true, checked_in_method="member", checked_in_by=member name. Admin path (adminSetAttendance, method "manual") already existed. Both write attended=true to the same booking, so the "QR not confirmed" warning clears on both sides once either confirms.
+- Frontend: api.confirmMyAttendance; bookings.tsx "missed" branch now shows the warning + a "Confirm I attended" button (testID booking-selfconfirm-<id>); attendance receipt Method shows "Self-confirmed" for member confirmations.
+- Verified e2e via seeded past booking: button → ATTENDANCE CONFIRMED (Self-confirmed).

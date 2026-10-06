@@ -176,6 +176,7 @@ export const api = {
   clearBooking: (id: string) => req(`/api/bookings/${id}/clear`, { method: "POST" }),
   cancelBooking: (id: string) => req(`/api/bookings/${id}/cancel`, { method: "POST" }),
   checkinBooking: (id: string) => req(`/api/bookings/${id}/checkin`, { method: "POST" }),
+  confirmMyAttendance: (id: string) => req(`/api/bookings/${id}/confirm-attendance`, { method: "POST" }),
   rescheduleBooking: (id: string, requested_time: string, note?: string, requested_at?: string) =>
     req(`/api/bookings/${id}/reschedule`, { method: "POST", body: JSON.stringify({ requested_time, note, requested_at }) }),
   confirmProposedTime: (id: string) => req(`/api/bookings/${id}/confirm-time`, { method: "POST" }),
