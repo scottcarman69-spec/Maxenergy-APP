@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, Alert, Modal, Image } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, Modal, Image } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import ReanimatedSwipeable from "react-native-gesture-handler/ReanimatedSwipeable";
@@ -28,8 +28,6 @@ function shortName(full?: string): string {
   return `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.`;
 }
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
 // Delete/unsend action that slides + scales in smoothly as the row is swiped.
 function SwipeAction({ progress, mine, gmsgId, onPress }: { progress: SharedValue<number>; mine: boolean; gmsgId: string; onPress: () => void }) {
   const stylez = useAnimatedStyle(() => ({
@@ -41,10 +39,12 @@ function SwipeAction({ progress, mine, gmsgId, onPress }: { progress: SharedValu
   }));
   return (
     <View style={styles.unsendWrap}>
-      <AnimatedPressable testID={`group-unsend-${gmsgId}`} style={[styles.unsendAction, stylez]} onPress={onPress}>
-        <Ionicons name="trash" size={18} color="#fff" />
-        <Text style={styles.unsendText}>{mine ? "Unsend" : "Delete"}</Text>
-      </AnimatedPressable>
+      <Animated.View style={[styles.unsendActionWrap, stylez]}>
+        <Pressable testID={`group-unsend-${gmsgId}`} style={styles.unsendAction} onPress={onPress} hitSlop={6}>
+          <Ionicons name="trash" size={18} color="#fff" />
+          <Text style={styles.unsendText}>{mine ? "Unsend" : "Delete"}</Text>
+        </Pressable>
+      </Animated.View>
     </View>
   );
 }
@@ -206,6 +206,7 @@ export default function GroupChat() {
   const [hiddenIds, setHiddenIds] = useState<string[]>([]);
   const [showHidden, setShowHidden] = useState(false);
   const [pinnedHidden, setPinnedHidden] = useState(false);
+  const [confirm, setConfirm] = useState<{ title: string; body: string; label: string; onYes: () => void } | null>(null);
   const lastTypingPing = useRef(0);
   const ref = useRef<ScrollView>(null);
   const rowYs = useRef<Record<string, number>>({});
@@ -320,41 +321,29 @@ export default function GroupChat() {
 
   const unsend = useCallback((m: GM) => {
     const own = m.from_id === meId;
-    Alert.alert(
-      own ? "Unsend message?" : "Delete message?",
-      "This removes the message for everyone in the group.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: own ? "Unsend" : "Delete",
-          style: "destructive",
-          onPress: async () => {
-            setMsgs((cur) => cur.filter((x) => x.gmsg_id !== m.gmsg_id));
-            try { await api.groupDeleteMessage(String(id), m.gmsg_id); }
-            catch { load(); }
-          },
-        },
-      ]
-    );
+    setConfirm({
+      title: own ? "Unsend message?" : "Delete message?",
+      body: "This removes the message for everyone in the group.",
+      label: own ? "Unsend" : "Delete",
+      onYes: async () => {
+        setMsgs((cur) => cur.filter((x) => x.gmsg_id !== m.gmsg_id));
+        try { await api.groupDeleteMessage(String(id), m.gmsg_id); }
+        catch { load(); }
+      },
+    });
   }, [id, meId, load]);
 
   const removeAnnounce = useCallback((m: GM) => {
-    Alert.alert(
-      "Remove announcement?",
-      "This removes the announcement from the group for everyone. This can't be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Remove for everyone",
-          style: "destructive",
-          onPress: async () => {
-            setMsgs((cur) => cur.filter((x) => x.gmsg_id !== m.gmsg_id));
-            try { await api.groupDeleteMessage(String(id), m.gmsg_id); }
-            catch { load(); }
-          },
-        },
-      ]
-    );
+    setConfirm({
+      title: "Remove announcement?",
+      body: "This removes the announcement from the group for everyone. This can't be undone.",
+      label: "Remove for everyone",
+      onYes: async () => {
+        setMsgs((cur) => cur.filter((x) => x.gmsg_id !== m.gmsg_id));
+        try { await api.groupDeleteMessage(String(id), m.gmsg_id); }
+        catch { load(); }
+      },
+    });
   }, [id, load]);
 
   const startEdit = useCallback((m: GM) => {
@@ -578,12 +567,36 @@ export default function GroupChat() {
                 <Text style={styles.sheetItemText}>Edit</Text>
               </Pressable>
             )}
-            {(actionMsg?.from_id === meId || isAdmin || ownerId === meId) && actionMsg?.from_id !== "system" && (
+            {(actionMsg?.from_id === meId || isAdmin) && actionMsg?.from_id !== "system" && (
               <Pressable testID="action-unsend" style={styles.sheetItem} onPress={() => { const m = actionMsg; setActionMsg(null); if (m) unsend(m); }}>
                 <Ionicons name="trash-outline" size={20} color={colors.error} />
                 <Text style={[styles.sheetItemText, { color: colors.error }]}>{actionMsg?.from_id === meId ? "Unsend" : "Delete"}</Text>
               </Pressable>
             )}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal visible={!!confirm} transparent animationType="fade" onRequestClose={() => setConfirm(null)}>
+        <Pressable style={styles.confirmOverlay} onPress={() => setConfirm(null)}>
+          <Pressable style={styles.confirmCard} onPress={() => {}}>
+            <View style={styles.confirmIcon}>
+              <Ionicons name="trash" size={24} color={colors.error} />
+            </View>
+            <Text style={styles.confirmTitle}>{confirm?.title}</Text>
+            <Text style={styles.confirmBody}>{confirm?.body}</Text>
+            <View style={styles.confirmActions}>
+              <Pressable testID="group-confirm-cancel" style={styles.confirmCancel} onPress={() => setConfirm(null)}>
+                <Text style={styles.confirmCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                testID="group-confirm-yes"
+                style={styles.confirmYes}
+                onPress={() => { const c = confirm; setConfirm(null); c?.onYes(); }}
+              >
+                <Text style={styles.confirmYesText}>{confirm?.label}</Text>
+              </Pressable>
+            </View>
           </Pressable>
         </Pressable>
       </Modal>
@@ -663,6 +676,17 @@ const styles = StyleSheet.create({
   highlightRow: { backgroundColor: colors.brandTertiary, borderRadius: radius.md, marginHorizontal: -4, paddingHorizontal: 4, paddingVertical: 2 },
   rosterText: { flex: 1, color: colors.onSurface, fontSize: 13.5, fontWeight: "700" },
   unsendWrap: { justifyContent: "center", paddingLeft: spacing.sm },
+  unsendActionWrap: { alignSelf: "stretch", justifyContent: "center" },
+  confirmOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "center", padding: spacing.xl },
+  confirmCard: { width: "100%", maxWidth: 380, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, alignItems: "center" },
+  confirmIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.error + "22", alignItems: "center", justifyContent: "center", marginBottom: spacing.md },
+  confirmTitle: { color: colors.onSurface, fontSize: 17, fontWeight: "900", textAlign: "center" },
+  confirmBody: { color: colors.onSurfaceSecondary, fontSize: 13.5, lineHeight: 19, textAlign: "center", marginTop: 6 },
+  confirmActions: { flexDirection: "row", gap: spacing.sm, alignSelf: "stretch", marginTop: spacing.lg },
+  confirmCancel: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 13, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
+  confirmCancelText: { color: colors.onSurface, fontWeight: "800", fontSize: 14 },
+  confirmYes: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 13, borderRadius: radius.md, backgroundColor: colors.error },
+  confirmYesText: { color: "#fff", fontWeight: "900", fontSize: 14 },
   unsendAction: { backgroundColor: colors.error, justifyContent: "center", alignItems: "center", width: 84, alignSelf: "stretch", borderRadius: radius.lg, gap: 2 },
   unsendText: { color: "#fff", fontWeight: "800", fontSize: 12 },
   swipeHint: { color: colors.onSurfaceSecondary, fontSize: 11, textAlign: "center", marginTop: 4, opacity: 0.7 },
