@@ -48,6 +48,31 @@ async def _create_group(owner_id: str, owner_name: str, name: str, member_ids: l
     return gid
 
 
+def _first_name(full) -> str:
+    """First word of a member's name, cleaned. Empty if no usable name."""
+    return (str(full or "").strip().split(" ")[0]).strip()
+
+
+async def _post_group_welcome(group_id: str, group_name: str, names: list) -> None:
+    """Post a friendly system welcome message naming the new member(s)."""
+    clean = [n for n in (names or []) if n and str(n).strip()]
+    if not clean:
+        who = "our newest member"
+    elif len(clean) == 1:
+        who = clean[0]
+    elif len(clean) == 2:
+        who = f"{clean[0]} and {clean[1]}"
+    else:
+        who = ", ".join(clean[:-1]) + f" and {clean[-1]}"
+    await db.group_messages.insert_one({
+        "gmsg_id": new_id("gm"), "group_id": group_id, "from_id": "system",
+        "sender_name": "Max Energy",
+        "body": f"🥊 Everyone welcome {who} to the {group_name}! Say hi 👋",
+        "read_by": [], "created_at": now_utc(),
+    })
+
+
+
 async def _notify_all_admins(admins: list, title: str, body: str, email_lines: list, nav: str) -> None:
     """Fire-and-forget: notify every admin without blocking the request (avoids 502 on email throttle)."""
     for a in admins:
@@ -384,12 +409,15 @@ async def group_add_members(gid: str, body: GroupAddReq, u: dict = Depends(requi
         added.append(mid)
     if added:
         await db.group_chats.update_one({"group_id": gid}, {"$addToSet": {"member_ids": {"$each": added}}})
+        added_names = []
         for mid in added:
             m = await db.users.find_one({"user_id": mid}, {"_id": 0})
+            added_names.append(_first_name((m or {}).get("name")))
             await notify_user(mid, (m or {}).get("email"), f"Added to group: {g['name'][:40]}",
                               f"{u.get('name') or 'A member'} added you to the group '{g['name'][:40]}'.", "message",
                               email_lines=[f"You've been added to the group <b>{esc(g['name'])}</b> by <b>{esc(u.get('name') or 'a member')}</b>.", "Open the app → Inbox to chat."],
                               data={"nav": "member_inbox"})
+        await _post_group_welcome(gid, g["name"], added_names)
     return {"group_id": gid, "added": added}
 
 
@@ -499,12 +527,8 @@ async def admin_group_join_approve(request_id: str, u: dict = Depends(require_ad
     await db.group_join_requests.update_one({"request_id": request_id},
                                             {"$set": {"status": "approved", "decided_at": now_utc(), "decided_by": u.get("name") or "Admin"}})
     member = await db.users.find_one({"user_id": r["user_id"]}, {"_id": 0})
-    # Auto-post a friendly welcome message in the group chat.
-    first = ((member or {}).get("name") or "a new member").split(" ")[0]
-    welcome = {"gmsg_id": new_id("gm"), "group_id": r["group_id"], "from_id": "system",
-               "sender_name": "Max Energy", "body": f"🥊 Everyone welcome {first} to the {g['name']}! Say hi 👋",
-               "read_by": [], "created_at": now_utc()}
-    await db.group_messages.insert_one(welcome)
+    # Auto-post a friendly welcome message in the group chat (greets by first name).
+    await _post_group_welcome(r["group_id"], g["name"], [_first_name((member or {}).get("name"))])
     await notify_user(r["user_id"], (member or {}).get("email"), f"Welcome to {g['name'][:40]} 🥊",
                       f"You've been accepted into '{g['name'][:40]}'. Open Inbox to say hi!", "message",
                       email_lines=[f"You're in! You've been accepted into <b>{esc(g['name'])}</b>.", "Open the app → Inbox to join the conversation."],
