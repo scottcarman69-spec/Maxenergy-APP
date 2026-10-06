@@ -3531,8 +3531,8 @@ async def set_my_photo(body: PhotoReq, u: dict = Depends(require_user)):
 @api.get("/gym/photos")
 async def gym_photos_list():
     """Public: the OUR GYM gallery photos, ordered. Empty list => app shows bundled defaults."""
-    rows = await db.gym_photos.find({}, {"_id": 0, "photo_id": 1, "image": 1, "sort": 1, "caption": 1}).sort([("sort", 1), ("created_at", 1)]).to_list(200)
-    return {"photos": [{"photo_id": r["photo_id"], "image": r["image"], "caption": r.get("caption", "")} for r in rows]}
+    rows = await db.gym_photos.find({}, {"_id": 0, "photo_id": 1, "image": 1, "sort": 1, "caption": 1, "featured": 1}).sort([("sort", 1), ("created_at", 1)]).to_list(200)
+    return {"photos": [{"photo_id": r["photo_id"], "image": r["image"], "caption": r.get("caption", ""), "featured": bool(r.get("featured"))} for r in rows]}
 
 
 class GymPhotoReq(BaseModel):
@@ -3592,6 +3592,23 @@ async def gym_photo_reorder(body: GymReorderReq, u: dict = Depends(require_admin
     for i, pid in enumerate(body.order):
         await db.gym_photos.update_one({"photo_id": pid}, {"$set": {"sort": i + 1}})
     return {"ok": True}
+
+
+class GymFeatureReq(BaseModel):
+    featured: bool
+
+
+@api.post("/admin/gym/photos/{photo_id}/feature")
+async def gym_photo_feature(photo_id: str, body: GymFeatureReq, u: dict = Depends(require_admin)):
+    """Mark one gallery photo as the featured hero (only one can be featured)."""
+    target = await db.gym_photos.find_one({"photo_id": photo_id}, {"_id": 0, "photo_id": 1})
+    if not target:
+        raise HTTPException(404, "Photo not found.")
+    # Only one featured photo at a time — clear any existing feature first.
+    await db.gym_photos.update_many({"featured": True}, {"$set": {"featured": False}})
+    if body.featured:
+        await db.gym_photos.update_one({"photo_id": photo_id}, {"$set": {"featured": True}})
+    return {"ok": True, "featured": body.featured}
 
 
 

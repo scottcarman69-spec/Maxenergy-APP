@@ -83,6 +83,8 @@ export default function Home() {
   const [passCount, setPassCount] = useState<number | null>(null);
   const [lowPassDismissed, setLowPassDismissed] = useState(false);
   const galleryPhotos = useGymGallery();
+  const featuredIndex = galleryPhotos.findIndex((p) => p.featured);
+  const featured = featuredIndex >= 0 ? galleryPhotos[featuredIndex] : null;
   const [lightbox, setLightbox] = useState<number | null>(null);
   const [passQr, setPassQr] = useState<string | null>(null);
   const [passQrCount, setPassQrCount] = useState(0);
@@ -733,12 +735,30 @@ export default function Home() {
                 <Ionicons name="arrow-forward" size={13} color={colors.brand} />
               </Pressable>
             </View>
+            {featured && (
+              <View style={styles.galleryFeaturedWrap}>
+                <Pressable testID="home-gym-featured" onPress={() => setLightbox(featuredIndex)} accessibilityRole="imagebutton">
+                  <Image source={featured.source} style={styles.galleryFeatured} contentFit="cover" />
+                  <View style={styles.galleryFeaturedBadge}>
+                    <Ionicons name="star" size={12} color="#fff" />
+                    <Text style={styles.galleryFeaturedBadgeText}>FEATURED</Text>
+                  </View>
+                  <View style={styles.galleryExpand}>
+                    <Ionicons name="expand" size={15} color="#fff" />
+                  </View>
+                  {!!featured.caption && (
+                    <Text style={styles.galleryFeaturedCaption} numberOfLines={2}>{featured.caption}</Text>
+                  )}
+                </Pressable>
+              </View>
+            )}
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.md }}
             >
               {galleryPhotos.map((item, i) => (
+                i === featuredIndex ? null : (
                 <Pressable key={i} testID={`home-gym-photo-${i}`} onPress={() => setLightbox(i)} accessibilityRole="imagebutton">
                   <Image source={item.source} style={styles.galleryImg} contentFit="cover" />
                   <View style={styles.galleryExpand}>
@@ -748,6 +768,7 @@ export default function Home() {
                     <Text style={styles.galleryCaption} numberOfLines={2}>{item.caption}</Text>
                   )}
                 </Pressable>
+                )
               ))}
             </ScrollView>
 
@@ -1157,6 +1178,11 @@ const styles = StyleSheet.create({
   },
   bookText: { color: colors.brand, fontWeight: "800", fontSize: 13 },
   galleryImg: { width: 240, height: 160, borderRadius: radius.lg },
+  galleryFeaturedWrap: { paddingHorizontal: spacing.lg, marginBottom: spacing.md },
+  galleryFeatured: { width: "100%", height: 200, borderRadius: radius.lg },
+  galleryFeaturedBadge: { position: "absolute", top: 10, left: 10, flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.brand, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999 },
+  galleryFeaturedBadgeText: { color: "#fff", fontSize: 10, fontWeight: "900", letterSpacing: 0.6, lineHeight: 10 },
+  galleryFeaturedCaption: { color: colors.onSurface, fontSize: 13.5, marginTop: 8, fontWeight: "700" },
   galleryExpand: { position: "absolute", top: 8, right: 8, width: 28, height: 28, borderRadius: 14, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center" },
   lbBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.94)", alignItems: "center", justifyContent: "center" },
   lbClose: { position: "absolute", top: 48, right: 20, zIndex: 2, width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(255,255,255,0.12)", alignItems: "center", justifyContent: "center" },

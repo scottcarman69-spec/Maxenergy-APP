@@ -4,7 +4,7 @@ import { api } from "@/src/api";
 import { gymPhotos as bundledGymPhotos } from "@/src/gymPhotos";
 
 export type GymImageSource = number | { uri: string };
-export type GymGalleryItem = { source: GymImageSource; caption?: string };
+export type GymGalleryItem = { source: GymImageSource; caption?: string; featured?: boolean };
 
 const bundledItems: GymGalleryItem[] = bundledGymPhotos.map((s) => ({ source: s, caption: "" }));
 
@@ -21,7 +21,7 @@ export function useGymGallery(): GymGalleryItem[] {
       const photos = r?.photos || [];
       setItems(
         photos.length > 0
-          ? photos.map((p: { image: string; caption?: string }) => ({ source: { uri: p.image }, caption: p.caption || "" }))
+          ? photos.map((p: { image: string; caption?: string; featured?: boolean }) => ({ source: { uri: p.image }, caption: p.caption || "", featured: !!p.featured }))
           : bundledItems
       );
     } catch {

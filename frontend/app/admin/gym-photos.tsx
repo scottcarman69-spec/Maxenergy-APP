@@ -10,7 +10,7 @@ import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
 import ScreenHeader from "@/src/components/ScreenHeader";
 
-type Photo = { photo_id: string; image: string; caption?: string };
+type Photo = { photo_id: string; image: string; caption?: string; featured?: boolean };
 
 export default function AdminGymPhotos() {
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -88,6 +88,14 @@ export default function AdminGymPhotos() {
     }
   };
 
+  const toggleFeatured = async (photo_id: string, currentlyFeatured: boolean) => {
+    const next = !currentlyFeatured;
+    // optimistic: only one featured at a time
+    setPhotos((ps) => ps.map((p) => ({ ...p, featured: p.photo_id === photo_id ? next : false })));
+    try { await api.adminSetGymFeatured(photo_id, next); }
+    catch (e: any) { Alert.alert("Couldn't update", e?.message || "Please try again."); load(); }
+  };
+
   const removePhoto = (photo_id: string) => {
     Alert.alert("Remove photo?", "This removes it from the OUR GYM gallery for all members.", [
       { text: "Cancel", style: "cancel" },
@@ -114,14 +122,28 @@ export default function AdminGymPhotos() {
     const idx = getIndex();
     return (
       <ScaleDecorator>
-        <View style={[styles.card, isActive && styles.cardActive]} testID={`gymphoto-${item.photo_id}`}>
+        <View style={[styles.card, isActive && styles.cardActive, item.featured && styles.cardFeatured]} testID={`gymphoto-${item.photo_id}`}>
           <View style={styles.row}>
             <Pressable onLongPress={drag} delayLongPress={150} style={styles.handle} testID={`gymphoto-drag-${item.photo_id}`} hitSlop={8}>
               <Ionicons name="reorder-three" size={26} color={colors.onSurfaceSecondary} />
             </Pressable>
             {typeof idx === "number" && <Text style={styles.pos}>{idx + 1}</Text>}
             <Image source={{ uri: item.image }} style={styles.thumb} contentFit="cover" />
+            {item.featured && (
+              <View style={styles.featBadge}>
+                <Ionicons name="star" size={11} color="#fff" />
+                <Text style={styles.featBadgeText}>FEATURED</Text>
+              </View>
+            )}
             <View style={{ flex: 1 }} />
+            <Pressable
+              testID={`gymphoto-feature-${item.photo_id}`}
+              style={[styles.featBtn, item.featured && styles.featBtnOn]}
+              onPress={() => toggleFeatured(item.photo_id, !!item.featured)}
+              hitSlop={8}
+            >
+              <Ionicons name={item.featured ? "star" : "star-outline"} size={16} color={item.featured ? "#fff" : colors.brand} />
+            </Pressable>
             <Pressable
               testID={`gymphoto-del-${item.photo_id}`}
               style={styles.delBtn}
@@ -170,7 +192,7 @@ export default function AdminGymPhotos() {
           contentContainerStyle={{ padding: spacing.lg, paddingBottom: 40 }}
           ListHeaderComponent={
             <View>
-              <Text style={styles.intro}>These photos appear in the “OUR GYM” gallery on the Home screen. Drag the handle to reorder, and changes go live for members instantly — no app update needed.</Text>
+              <Text style={styles.intro}>These photos appear in the “OUR GYM” gallery on the Home screen. Drag the handle to reorder, tap the ⭐ to feature one photo larger at the top, and changes go live for members instantly — no app update needed.</Text>
               <Pressable testID="gymphotos-add" style={[styles.addBtn, uploading && { opacity: 0.85 }]} onPress={addPhoto} disabled={uploading}>
                 {uploading ? (
                   <>
@@ -215,6 +237,11 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   card: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.sm, marginBottom: spacing.md },
   cardActive: { borderColor: colors.brand, shadowColor: "#000", shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
+  cardFeatured: { borderColor: colors.brand },
+  featBadge: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: colors.brand, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 999, marginLeft: spacing.sm },
+  featBadgeText: { color: "#fff", fontSize: 9, fontWeight: "900", letterSpacing: 0.5, lineHeight: 9 },
+  featBtn: { width: 34, height: 34, borderRadius: 17, borderWidth: 1.5, borderColor: colors.brand, alignItems: "center", justifyContent: "center", marginRight: spacing.sm },
+  featBtnOn: { backgroundColor: colors.brand, borderColor: colors.brand },
   handle: { paddingHorizontal: 2 },
   pos: { color: colors.brand, fontWeight: "900", fontSize: 15, width: 18, textAlign: "center" },
   thumb: { width: 84, height: 64, borderRadius: radius.sm, backgroundColor: colors.surfaceTertiary },

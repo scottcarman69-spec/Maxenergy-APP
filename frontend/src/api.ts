@@ -268,6 +268,7 @@ export const api = {
   adminDeleteGymPhoto: (photo_id: string) => req(`/api/admin/gym/photos/${photo_id}`, { method: "DELETE" }),
   adminReorderGymPhotos: (order: string[]) => req("/api/admin/gym/photos/reorder", { method: "POST", body: JSON.stringify({ order }) }),
   adminSetGymCaption: (photo_id: string, caption: string) => req(`/api/admin/gym/photos/${photo_id}`, { method: "PATCH", body: JSON.stringify({ caption }) }),
+  adminSetGymFeatured: (photo_id: string, featured: boolean) => req(`/api/admin/gym/photos/${photo_id}/feature`, { method: "POST", body: JSON.stringify({ featured }) }),
   searchMembers: (q: string) => req(`/api/members/search?q=${encodeURIComponent(q)}`),
   friendRequest: (payload: { user_id?: string; handle?: string }) => req("/api/friends/request", { method: "POST", body: JSON.stringify(payload) }),
   friends: () => req("/api/friends"),
