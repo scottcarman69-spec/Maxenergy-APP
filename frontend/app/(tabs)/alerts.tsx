@@ -72,6 +72,12 @@ export default function AlertsTab() {
       router.push("/gift-cards" as any);
       return;
     }
+    // Membership application notifications saved before the deep-link was added
+    // have no nav — route them to the member's application status screen.
+    if (!nav && (n.type === "membership" || /membership application/i.test(n.title || ""))) {
+      router.push("/my-application" as any);
+      return;
+    }
     switch (nav) {
       case "admin_thread":
         if (user?.is_admin && n.data?.user_id) {
@@ -88,6 +94,9 @@ export default function AlertsTab() {
         break;
       case "member_membership":
         router.push("/vigyr-signon");
+        break;
+      case "member_application":
+        router.push("/my-application" as any);
         break;
       case "member_store":
         router.push("/memberships");

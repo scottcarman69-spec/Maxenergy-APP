@@ -847,7 +847,7 @@ async def send_otp_email(email: str, purpose: str) -> str:
 
 
 ADMIN_NAV = {"booking": "admin_bookings", "application": "admin_applications", "trial": "admin_members"}
-MEMBER_NAV = {"booking": "member_bookings", "application": "member_membership", "membership": "member_membership"}
+MEMBER_NAV = {"booking": "member_bookings", "application": "member_application", "membership": "member_application"}
 
 
 async def create_notification(user_id: str, title: str, body: str, ntype: str = "booking", data: Optional[dict] = None) -> None:

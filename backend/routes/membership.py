@@ -360,6 +360,7 @@ async def membership_apply(body: MembershipApplyReq, request: Request, u: dict =
             "title": "Membership application received",
             "body": f"We've received your application for {plan_name}. Our team will be in touch soon.",
             "type": "membership",
+            "data": {"nav": "member_application"},
             "read": False,
             "created_at": now_utc(),
         }

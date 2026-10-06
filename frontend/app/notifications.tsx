@@ -8,7 +8,7 @@ import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
 import ScreenHeader from "@/src/components/ScreenHeader";
 
-type Notif = { notification_id: string; title: string; body: string; read: boolean; created_at: string; type: string };
+type Notif = { notification_id: string; title: string; body: string; read: boolean; created_at: string; type: string; data?: { nav?: string } };
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -133,6 +133,14 @@ export default function NotificationsScreen() {
                     if (!n.read) {
                       api.markRead(n.notification_id).catch(() => {});
                       setNotifs((cur) => cur.map((x) => (x.notification_id === n.notification_id ? { ...x, read: true } : x)));
+                    }
+                    const nav = n.data?.nav;
+                    if (nav === "member_application" || (!nav && (n.type === "membership" || /membership application/i.test(n.title || "")))) {
+                      router.push("/my-application" as any);
+                    } else if (nav === "member_bookings") {
+                      router.push("/bookings" as any);
+                    } else if (nav === "member_store") {
+                      router.push("/memberships");
                     }
                   }}
                 >

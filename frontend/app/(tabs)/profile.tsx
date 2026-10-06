@@ -247,6 +247,16 @@ export default function Profile() {
 
         <Text style={styles.section}>MEMBERSHIP</Text>
         <View style={styles.linkGroup}>
+          <Pressable testID="profile-link-my-application" style={[styles.membershipRow, styles.linkRowDivider]} onPress={() => router.push("/my-application")}>
+            <View style={styles.membershipIcon}>
+              <Ionicons name="document-text" size={20} color={colors.onBrand} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.membershipLabel}>My Application</Text>
+              <Text style={styles.membershipSub}>Track your membership application status</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.brand} />
+          </Pressable>
           <Pressable testID="profile-link-membership" style={[styles.membershipRow, styles.linkRowDivider]} onPress={() => router.push("/vigyr-signon")}>
             <View style={styles.membershipIcon}>
               <Ionicons name="card" size={20} color={colors.onBrand} />
