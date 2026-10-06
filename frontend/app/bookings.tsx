@@ -11,7 +11,7 @@ import ScreenHeader from "@/src/components/ScreenHeader";
 import MessageUsLink from "@/src/components/MessageUsLink";
 import { addBookingToCalendar } from "@/src/utils/calendar";
 
-type Booking = { booking_id: string; class_name: string; status: string; amount: number; by_appointment?: boolean; is_trial?: boolean; requested_time?: string; requested_at?: string; scheduled_time?: string; proposed_time?: string; class_start?: string; duration_min?: number; attended?: boolean; checked_in_method?: string; checked_in_by?: string; checked_in_at?: string; paid_with_pass?: boolean; child_name?: string; child_age?: number; trainer?: string; spots_left?: number; booked?: number; capacity?: number };
+type Booking = { booking_id: string; class_name: string; status: string; amount: number; by_appointment?: boolean; is_trial?: boolean; requested_time?: string; requested_at?: string; scheduled_time?: string; proposed_time?: string; proposed_at_iso?: string; class_start?: string; duration_min?: number; attended?: boolean; checked_in_method?: string; checked_in_by?: string; checked_in_at?: string; paid_with_pass?: boolean; child_name?: string; child_age?: number; trainer?: string; spots_left?: number; booked?: number; capacity?: number };
 type ClassSlot = { class_id: string; name: string; start_at: string; spots_left?: number; capacity?: number };
 
 // Friendly countdown to a session start ("Starts in 45 min", "Tomorrow", "In 3 days").
@@ -454,28 +454,46 @@ export default function BookingsScreen() {
                         <Text style={styles.confirmedBannerText}>Booking confirmed by Maxenergy</Text>
                       </View>
                     )}
-                    {b.status === "admin_proposed" && (
-                      <View style={styles.proposeBox}>
-                        <Text style={styles.proposeText}>
-                          The gym proposed a new time{b.proposed_time ? `: ${b.proposed_time}` : ""}. Does this suit you?
-                        </Text>
-                        <Pressable
-                          testID={`booking-confirm-time-${b.booking_id}`}
-                          style={styles.proposeConfirmBtn}
-                          onPress={() => confirmProposed(b)}
-                          disabled={actioning === b.booking_id}
-                        >
-                          {actioning === b.booking_id ? (
-                            <ActivityIndicator size="small" color={colors.onBrand} />
-                          ) : (
-                            <>
-                              <Ionicons name="checkmark-circle" size={16} color={colors.onBrand} />
-                              <Text style={styles.proposeConfirmText}>This time works</Text>
-                            </>
+                    {b.status === "admin_proposed" && (() => {
+                      const pMs = b.proposed_at_iso ? classStartMs(b.proposed_at_iso) : NaN;
+                      const proposedPast = !Number.isNaN(pMs) && pMs <= qldNowUTC().getTime();
+                      const openReschedule = () => { setRescheduleFor(b); setRDay(""); setRSlot(""); setRNote(""); setRClassSlot(null); setRErr(null); };
+                      return (
+                        <View style={styles.proposeBox}>
+                          <Text style={styles.proposeText}>
+                            {proposedPast
+                              ? `The gym proposed ${b.proposed_time || "a new time"}, but that time has now passed. Suggest another time that suits you and the gym will confirm it.`
+                              : `The gym proposed a new time${b.proposed_time ? `: ${b.proposed_time}` : ""}. Does this suit you?`}
+                          </Text>
+                          {!proposedPast && (
+                            <Pressable
+                              testID={`booking-confirm-time-${b.booking_id}`}
+                              style={styles.proposeConfirmBtn}
+                              onPress={() => confirmProposed(b)}
+                              disabled={actioning === b.booking_id}
+                            >
+                              {actioning === b.booking_id ? (
+                                <ActivityIndicator size="small" color={colors.onBrand} />
+                              ) : (
+                                <>
+                                  <Ionicons name="checkmark-circle" size={16} color={colors.onBrand} />
+                                  <Text style={styles.proposeConfirmText}>This time works</Text>
+                                </>
+                              )}
+                            </Pressable>
                           )}
-                        </Pressable>
-                      </View>
-                    )}
+                          <Pressable
+                            testID={`booking-propose-decline-${b.booking_id}`}
+                            style={styles.proposeDeclineBtn}
+                            onPress={openReschedule}
+                            disabled={actioning === b.booking_id}
+                          >
+                            <Ionicons name="calendar-outline" size={15} color={colors.brand} />
+                            <Text style={styles.proposeDeclineText}>Suggest another time</Text>
+                          </Pressable>
+                        </View>
+                      );
+                    })()}
                     {b.status === "reschedule_requested" && (
                       <View style={styles.pendingBox}>
                         <Ionicons name="hourglass-outline" size={15} color={colors.brand} />
@@ -487,7 +505,7 @@ export default function BookingsScreen() {
                     </View>
                     {canManage && (
                       <View style={styles.bookingActions}>
-                        {b.status !== "reschedule_requested" && (
+                        {b.status !== "reschedule_requested" && b.status !== "admin_proposed" && (
                           <Pressable
                             testID={`booking-reschedule-${b.booking_id}`}
                             style={styles.actionBtnGhost}
@@ -828,6 +846,8 @@ const styles = StyleSheet.create({
   pendingText: { flex: 1, color: colors.onSurface, fontSize: 12.5, lineHeight: 18, fontWeight: "600" },
   proposeConfirmBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, backgroundColor: colors.brand, paddingVertical: 12, borderRadius: radius.md },
   proposeConfirmText: { color: colors.onBrand, fontWeight: "900", fontSize: 14, letterSpacing: 0.3 },
+  proposeDeclineBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, backgroundColor: "transparent", borderWidth: 1.5, borderColor: colors.brand, paddingVertical: 11, borderRadius: radius.md },
+  proposeDeclineText: { color: colors.brand, fontWeight: "800", fontSize: 13.5, letterSpacing: 0.3 },
   statusText: { fontSize: 10, fontWeight: "900", letterSpacing: 1 },
   notifDelete: { backgroundColor: colors.error, justifyContent: "center", alignItems: "center", width: 84, borderRadius: radius.md, marginLeft: spacing.sm, gap: 2 },
   notifDeleteText: { color: "#fff", fontWeight: "800", fontSize: 12 },
