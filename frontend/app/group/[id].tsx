@@ -94,22 +94,13 @@ const MessageRow = React.memo(function MessageRow({ m, mine, canDelete, showRece
   );
   const bubble = (
     <View style={styles.rowWrap}>
-      <View style={[styles.msgLine, { justifyContent: mine ? "flex-end" : "flex-start" }]}>
-        {!mine && (
-          <View style={styles.avatar}>
-            {senderPicture ? (
-              <Image source={{ uri: senderPicture }} style={styles.avatarImg} />
-            ) : (
-              <Text style={styles.avatarInitial}>{(m.sender_name || "?").trim().slice(0, 1).toUpperCase()}</Text>
-            )}
-          </View>
-        )}
-        <View style={[styles.bubbleCol, { alignItems: mine ? "flex-end" : "flex-start" }]}>
+      <View style={[styles.msgLine, { justifyContent: mine ? "flex-start" : "flex-end" }]}>
+        <View style={[styles.bubbleCol, { alignItems: mine ? "flex-start" : "flex-end" }]}>
           <Pressable onLongPress={() => onLongPress(m)} delayLongPress={300} style={{ maxWidth: "100%", flexShrink: 1 }}>
             {bubbleInner}
           </Pressable>
           {reactions.length > 0 && (
-            <View style={[styles.reactionRow, { alignSelf: mine ? "flex-end" : "flex-start" }]}>
+            <View style={[styles.reactionRow, { alignSelf: mine ? "flex-start" : "flex-end" }]}>
               {reactions.map((r) => (
                 <Pressable key={r.emoji} onPress={() => onReact(m, r.emoji)} style={[styles.reactionChip, r.mine && styles.reactionChipMine]}>
                   <Text style={styles.reactionEmoji}>{r.emoji}</Text>
@@ -119,9 +110,9 @@ const MessageRow = React.memo(function MessageRow({ m, mine, canDelete, showRece
             </View>
           )}
           {mine && showReceipt && (
-            <Text style={styles.receipt}>{(m.seen_count || 0) > 0 ? `Seen by ${m.seen_count}` : "Sent"}</Text>
+            <Text style={[styles.receipt, { alignSelf: "flex-start" }]}>{(m.seen_count || 0) > 0 ? `Seen by ${m.seen_count}` : "Sent"}</Text>
           )}
-          <View style={[styles.metaRow, { justifyContent: mine ? "flex-end" : "flex-start" }]}>
+          <View style={[styles.metaRow, { justifyContent: mine ? "flex-start" : "flex-end" }]}>
             <Text style={styles.metaTime}>{stampTime(m.created_at)}</Text>
             {mine && (
               <Ionicons
@@ -133,6 +124,15 @@ const MessageRow = React.memo(function MessageRow({ m, mine, canDelete, showRece
             )}
           </View>
         </View>
+        {!mine && (
+          <View style={styles.avatar}>
+            {senderPicture ? (
+              <Image source={{ uri: senderPicture }} style={styles.avatarImg} />
+            ) : (
+              <Text style={styles.avatarInitial}>{(m.sender_name || "?").trim().slice(0, 1).toUpperCase()}</Text>
+            )}
+          </View>
+        )}
       </View>
     </View>
   );
@@ -575,8 +575,8 @@ const styles = StyleSheet.create({
   avatar: { width: 30, height: 30, borderRadius: 15, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center", overflow: "hidden", marginTop: 2 },
   avatarImg: { width: 30, height: 30, borderRadius: 15 },
   avatarInitial: { color: colors.brand, fontSize: 13, fontWeight: "800" },
-  me: { backgroundColor: colors.brand, borderBottomRightRadius: 4 },
-  them: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderBottomLeftRadius: 4 },
+  me: { backgroundColor: colors.brand, borderBottomLeftRadius: 4 },
+  them: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderBottomRightRadius: 4 },
   sender: { color: colors.brand, fontSize: 11.5, fontWeight: "800", marginBottom: 3 },
   announce: { alignSelf: "stretch", backgroundColor: colors.brandTertiary, borderWidth: 1, borderColor: colors.brand, borderRadius: radius.lg, padding: spacing.md, gap: 5 },
   announceHead: { flexDirection: "row", alignItems: "center", gap: 6 },
