@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, Image, Alert, Linking } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, Image, Alert, Linking, TextInput } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -43,6 +43,19 @@ export default function Profile() {
   const [isMember, setIsMember] = useState(false);
   const [banner, setBanner] = useState<string | null>(null);
   const [showDelete, setShowDelete] = useState(false);
+  const [nameModal, setNameModal] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [savingName, setSavingName] = useState(false);
+
+  const openNameEditor = () => { setNameDraft(user?.name && !user.name.includes("@") ? user.name : ""); setNameModal(true); };
+  const saveName = async () => {
+    const n = nameDraft.trim();
+    if (n.length < 2) { Alert.alert("Enter your name", "Please enter at least 2 characters."); return; }
+    setSavingName(true);
+    try { await api.setDisplayName(n); await refresh(); setNameModal(false); }
+    catch (e: any) { Alert.alert("Couldn't save name", e?.message || "Please try again."); }
+    setSavingName(false);
+  };
   const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
@@ -106,14 +119,17 @@ export default function Profile() {
               <Image source={{ uri: user.picture }} style={styles.avatarImg} />
             ) : (
               <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{(user?.name || user?.email || "?").slice(0, 1).toUpperCase()}</Text>
+                <Text style={styles.avatarText}>{((user?.name && !user.name.includes("@") ? user.name : "M")).slice(0, 1).toUpperCase()}</Text>
               </View>
             )}
             <View style={styles.avatarEdit}>
               {uploadingPhoto ? <ActivityIndicator size="small" color={colors.onBrand} /> : <Ionicons name="camera" size={14} color={colors.onBrand} />}
             </View>
           </Pressable>
-          <Text style={styles.name}>{user?.name || "Member"}</Text>
+          <Pressable style={styles.nameRow} onPress={openNameEditor} testID="profile-edit-name">
+            <Text style={styles.name}>{user?.name && !user.name.includes("@") ? user.name : "Add your name"}</Text>
+            <Ionicons name="pencil" size={15} color={colors.brand} />
+          </Pressable>
           {!!user?.handle && <Text style={styles.handleText}>ID: {user.handle}</Text>}
           <Text style={styles.email}>{user?.email}</Text>
           <View style={styles.badgeRow}>
@@ -388,6 +404,35 @@ export default function Profile() {
           </View>
         </View>
       </Modal>
+
+      <Modal visible={nameModal} transparent animationType="fade" onRequestClose={() => setNameModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Your display name</Text>
+            <Text style={styles.deleteWarn}>This is the name shown in chats and to the gym. It replaces your login email.</Text>
+            <TextInput
+              testID="name-input"
+              value={nameDraft}
+              onChangeText={setNameDraft}
+              placeholder="e.g. Alex Taylor"
+              placeholderTextColor={colors.onSurfaceSecondary}
+              style={styles.nameInput}
+              autoFocus
+              maxLength={40}
+              returnKeyType="done"
+              onSubmitEditing={saveName}
+            />
+            <View style={styles.modalActions}>
+              <Pressable testID="name-cancel" style={styles.modalCancel} onPress={() => setNameModal(false)} disabled={savingName}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable testID="name-save" style={[styles.nameSave, savingName && { opacity: 0.6 }]} onPress={saveName} disabled={savingName}>
+                {savingName ? <ActivityIndicator color={colors.onBrand} /> : <Text style={styles.nameSaveText}>SAVE</Text>}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -402,6 +447,10 @@ const styles = StyleSheet.create({
   avatarText: { color: colors.onBrand, fontSize: 34, fontWeight: "900" },
   handleText: { color: colors.onSurfaceSecondary, fontSize: 12.5, fontWeight: "700", marginTop: 2 },
   name: { ...type.h2 },
+  nameRow: { flexDirection: "row", alignItems: "center", gap: 7 },
+  nameInput: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 12, color: colors.onSurface, fontSize: 16, marginTop: spacing.md },
+  nameSave: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 13, borderRadius: radius.md, backgroundColor: colors.brand },
+  nameSaveText: { color: colors.onBrand, fontWeight: "900", fontSize: 14 },
   email: { ...type.bodyDim, marginTop: 2 },
   adminBadge: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.brand, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
   adminBadgeText: { color: colors.onBrand, fontSize: 10, fontWeight: "900", letterSpacing: 1 },

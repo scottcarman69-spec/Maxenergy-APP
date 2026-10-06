@@ -7,7 +7,7 @@ import asyncio
 
 from server import (
     ALLOWED_REACTIONS, MessageReq, _dm_key, _download_button, _member_card,
-    _msg_notifs_on, _public_base, _reactions_summary, create_notification, db, esc,
+    _msg_notifs_on, _public_base, _reactions_summary, clean_display, create_notification, db, display_name, esc,
     log, new_id, notify_user, now_utc, require_admin, require_messaging_age, require_user,
 )
 
@@ -55,7 +55,7 @@ def _first_name(full) -> str:
 
 async def _post_group_welcome(group_id: str, group_name: str, names: list) -> None:
     """Post a friendly system welcome message naming the new member(s)."""
-    clean = [n for n in (names or []) if n and str(n).strip()]
+    clean = [n for n in (names or []) if n and str(n).strip() and "@" not in str(n)]
     if not clean:
         who = "our newest member"
     elif len(clean) == 1:
@@ -89,7 +89,7 @@ async def group_create(body: GroupCreateReq, u: dict = Depends(require_user)):
         raise HTTPException(400, "Please name your group.")
     # Admins/staff create groups instantly; members must request staff approval.
     if u.get("is_admin"):
-        gid = await _create_group(u["user_id"], u.get("name") or u.get("email"), name, body.member_ids)
+        gid = await _create_group(u["user_id"], display_name(u), name, body.member_ids)
         return {"group_id": gid, "pending": False}
     valid = await _validated_friends(u["user_id"], body.member_ids)
     rid = new_id("greq")
@@ -122,7 +122,7 @@ async def groups_list(u: dict = Depends(require_user)):
         unread = await db.group_messages.count_documents({"group_id": g["group_id"], "from_id": {"$ne": u["user_id"]}, "read_by": {"$ne": u["user_id"]}})
         out.append({"group_id": g["group_id"], "name": g["name"], "members": len(g.get("member_ids", [])),
                     "slug": g.get("slug"), "is_official": bool(g.get("is_official")),
-                    "last_body": (last or {}).get("body"), "last_sender": (last or {}).get("sender_name"),
+                    "last_body": (last or {}).get("body"), "last_sender": clean_display((last or {}).get("sender_name")) if (last or {}).get("from_id") != "system" else (last or {}).get("sender_name"),
                     "last_at": (last or {}).get("created_at"), "unread": unread})
     def _sort_key(t):
         la = t.get("last_at")
@@ -188,6 +188,10 @@ async def group_get(gid: str, u: dict = Depends(require_user)):
         r["seen_count"] = len([x for x in rb if x != r.get("from_id")])
         r["member_count"] = mcount
         r["reaction_summary"] = _reactions_summary(r, u["user_id"])
+        if r.get("from_id") != "system":
+            r["sender_name"] = clean_display(r.get("sender_name"))
+        if r.get("reply_to") and isinstance(r["reply_to"], dict):
+            r["reply_to"]["sender_name"] = clean_display(r["reply_to"].get("sender_name"))
     return {"group": {"group_id": gid, "name": g["name"], "owner_id": g.get("owner_id"),
                       "slug": g.get("slug"), "is_official": bool(g.get("is_official")),
                       "pinned_note": g.get("pinned_note"), "pinned_msg": g.get("pinned_msg"), "member_count": mcount,
@@ -210,9 +214,9 @@ async def group_send(gid: str, body: GroupSendReq, u: dict = Depends(require_use
     if body.reply_to_id:
         parent = await db.group_messages.find_one({"gmsg_id": body.reply_to_id, "group_id": gid}, {"_id": 0})
         if parent:
-            reply_to = {"gmsg_id": parent["gmsg_id"], "sender_name": parent.get("sender_name") or "Member", "body": (parent.get("body") or "")[:120]}
+            reply_to = {"gmsg_id": parent["gmsg_id"], "sender_name": clean_display(parent.get("sender_name")), "body": (parent.get("body") or "")[:120]}
     msg = {"gmsg_id": new_id("gm"), "group_id": gid, "from_id": u["user_id"],
-           "sender_name": u.get("name") or u.get("email"), "body": text, "read_by": [u["user_id"]],
+           "sender_name": display_name(u), "body": text, "read_by": [u["user_id"]],
            "reply_to": reply_to, "reactions": {}, "created_at": now_utc()}
     await db.group_messages.insert_one(msg)
     # In-app notification only (no email) for group chat messages; respect member's toggle.
@@ -270,7 +274,7 @@ async def group_pin(gid: str, body: PinReq, u: dict = Depends(require_user)):
     msg = await db.group_messages.find_one({"gmsg_id": body.gmsg_id, "group_id": gid}, {"_id": 0})
     if not msg:
         raise HTTPException(404, "Message not found.")
-    pin = {"gmsg_id": msg["gmsg_id"], "sender_name": msg.get("sender_name") or "Member", "body": (msg.get("body") or "")[:200]}
+    pin = {"gmsg_id": msg["gmsg_id"], "sender_name": clean_display(msg.get("sender_name")), "body": (msg.get("body") or "")[:200]}
     await db.group_chats.update_one({"group_id": gid}, {"$set": {"pinned_msg": pin}})
     return {"pinned_msg": pin}
 
@@ -471,7 +475,7 @@ async def admin_group_requests(u: dict = Depends(require_admin)):
     for r in creqs:
         m = umap.get(r["requester_id"], {})
         create_out.append({"request_id": r["request_id"], "name": r["name"],
-                           "requester_name": m.get("name") or m.get("email") or "Member",
+                           "requester_name": clean_display(m.get("name")),
                            "requester_email": m.get("email"), "member_count": len(r.get("member_ids", [])),
                            "created_at": r.get("created_at")})
     join_out = []
@@ -479,7 +483,7 @@ async def admin_group_requests(u: dict = Depends(require_admin)):
         m = umap.get(r["user_id"], {})
         g = gmap.get(r["group_id"], {})
         join_out.append({"request_id": r["request_id"], "group_id": r["group_id"], "group_name": g.get("name") or "Group",
-                         "member_name": m.get("name") or m.get("email") or "Member",
+                         "member_name": clean_display(m.get("name")),
                          "member_email": m.get("email"), "created_at": r.get("created_at")})
     return {"create_requests": create_out, "join_requests": join_out,
             "count": len(create_out) + len(join_out)}
@@ -491,7 +495,7 @@ async def admin_group_request_approve(request_id: str, u: dict = Depends(require
     if not r:
         raise HTTPException(404, "Request not found or already handled.")
     requester = await db.users.find_one({"user_id": r["requester_id"]}, {"_id": 0})
-    rname = (requester or {}).get("name") or (requester or {}).get("email")
+    rname = display_name(requester)
     gid = await _create_group(r["requester_id"], rname, r["name"], r.get("member_ids", []))
     await db.group_requests.update_one({"request_id": request_id},
                                        {"$set": {"status": "approved", "decided_at": now_utc(), "decided_by": u.get("name") or "Admin", "group_id": gid}})
@@ -572,7 +576,7 @@ async def admin_threads(u: dict = Depends(require_admin)):
     out = []
     for tid, t in threads.items():
         m = umap.get(tid, {})
-        t["name"] = m.get("name") or m.get("email") or "Member"
+        t["name"] = clean_display(m.get("name"))
         t["email"] = m.get("email")
         out.append(t)
     out.sort(key=lambda x: x["last_at"], reverse=True)

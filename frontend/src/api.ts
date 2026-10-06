@@ -107,6 +107,8 @@ export const api = {
   me: () => req("/api/auth/me"),
   setReminderPreference: (hours: number) =>
     req("/api/me/reminder-preference", { method: "PUT", body: JSON.stringify({ hours }) }),
+  setDisplayName: (name: string) =>
+    req("/api/me/display-name", { method: "PUT", body: JSON.stringify({ name }) }),
   setDateOfBirth: (date_of_birth: string) =>
     req("/api/me/date-of-birth", { method: "PUT", body: JSON.stringify({ date_of_birth }) }),
   submitBugReport: (payload: { message: string; screenshot?: string | null; platform?: string; app_version?: string }) =>

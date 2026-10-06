@@ -562,6 +562,19 @@ def user_public(u: dict) -> dict:
     }
 
 
+def clean_display(name) -> str:
+    """A privacy-safe display name. Never expose an email address (e.g. an Apple
+    'Hide My Email' private-relay address) as someone's name."""
+    n = (name or "").strip()
+    return n if (n and "@" not in n) else "Member"
+
+
+def display_name(u: dict) -> str:
+    """Friendly display name for a user doc, falling back to 'Member'."""
+    return clean_display((u or {}).get("name"))
+
+
+
 # Global throttle so we never exceed Resend's per-second rate limit (which was
 # silently dropping application/confirmation copies during email bursts).
 _email_lock = asyncio.Lock()
@@ -1581,6 +1594,25 @@ async def set_reminder_preference(body: ReminderPrefReq, u: dict = Depends(requi
         raise HTTPException(400, "Choose Off, 1, 3 or 12 hours.")
     await db.users.update_one({"user_id": u["user_id"]}, {"$set": {"reminder_hours": body.hours}})
     return {"ok": True, "reminder_hours": body.hours}
+
+
+class DisplayNameReq(BaseModel):
+    name: str
+
+
+@api.put("/me/display-name")
+async def set_display_name(body: DisplayNameReq, u: dict = Depends(require_user)):
+    """Let a member set/update the display name shown in chats and to the gym.
+    Useful for Apple 'Hide My Email' sign-ins that arrive without a name."""
+    name = (body.name or "").strip()
+    if len(name) < 2:
+        raise HTTPException(400, "Please enter your name (at least 2 characters).")
+    if "@" in name:
+        raise HTTPException(400, "Name cannot contain an email address.")
+    name = name[:40]
+    await db.users.update_one({"user_id": u["user_id"]}, {"$set": {"name": name}})
+    fresh = await db.users.find_one({"user_id": u["user_id"]}, {"_id": 0, "password_hash": 0})
+    return {"ok": True, "user": user_public(fresh)}
 
 
 class DobReq(BaseModel):
@@ -2932,7 +2964,7 @@ def _reactions_summary(msg: dict, uid: str) -> list:
 
 def _member_card(u: dict) -> dict:
     la = u.get("last_active_at")
-    return {"user_id": u.get("user_id"), "name": u.get("name"), "handle": u.get("handle"), "picture": u.get("picture"),
+    return {"user_id": u.get("user_id"), "name": clean_display(u.get("name")), "handle": u.get("handle"), "picture": u.get("picture"),
             "last_active_at": la.isoformat() if isinstance(la, datetime) else None}
 
 
