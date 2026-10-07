@@ -345,6 +345,33 @@ async def delete_account_page():
     return Response(content=_DELETE_ACCOUNT_HTML, media_type="text/html")
 
 
+_REVIEWS_WIDGET_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Reviews — Maxenergy Fitness</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #121214; -webkit-text-size-adjust: 100%; }
+  body { padding: 12px 10px 24px; }
+  /* reserve space so the dark background shows while the widget lazy-loads */
+  .elfsight-app-d2cd5c7f-942e-4d68-85d7-41e53e623d34 { min-height: 320px; }
+</style>
+<script src="https://static.elfsight.com/platform/platform.js" async></script>
+</head>
+<body>
+<div class="elfsight-app-d2cd5c7f-942e-4d68-85d7-41e53e623d34" data-elfsight-app-lazy></div>
+</body>
+</html>"""
+
+
+@app.get("/reviews-widget")
+@api.get("/reviews-widget")
+async def reviews_widget_page():
+    """Elfsight reviews widget hosted for the mobile app's in-app WebView."""
+    return Response(content=_REVIEWS_WIDGET_HTML, media_type="text/html")
+
+
 _SUPPORT_HTML = """<!DOCTYPE html>
 <html lang="en">
 <head>

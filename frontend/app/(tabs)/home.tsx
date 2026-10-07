@@ -345,6 +345,7 @@ export default function Home() {
     academy: () => (user?.is_admin ? router.push("/group/grp_muaythai_academy") : openAcademy()),
     ladder: () => router.navigate("/(tabs)/leaderboard"),
     notices: () => router.navigate("/(tabs)/events"),
+    reviews: () => router.navigate("/(tabs)/reviews"),
     contact: () => router.push("/contact"),
     settings: () => router.push("/inbox-settings"),
     facebook: () => router.push("/social"),

@@ -19,6 +19,7 @@ export const QUICK_ACTIONS_META: QuickActionMeta[] = [
   { key: "calendar", label: "Calendar", icon: "calendar-number", grad: ["#7C3AED", "#A78BFA"] },
   { key: "membership", label: "Join Membership", icon: "ribbon", grad: ["#2563EB", "#60A5FA"] },
   { key: "notices", label: "Gym Notices", icon: "megaphone", grad: ["#D97706", "#FBBF24"] },
+  { key: "reviews", label: "Reviews", icon: "star", grad: ["#CA8A04", "#FDE047"] },
   { key: "contact", label: "Contact Us", icon: "chatbubbles", grad: ["#DB2777", "#F472B6"] },
   { key: "settings", label: "Settings", icon: "options", grad: ["#475569", "#94A3B8"] },
   { key: "facebook", label: "Facebook", icon: "logo-facebook", grad: ["#1877F2", "#4293FB"] },
