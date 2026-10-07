@@ -52,7 +52,7 @@ type Cls = {
   max_age?: number;
 };
 
-const CATEGORIES = ["All", "Adults", "Kids"];
+const CATEGORIES = ["All", "Adults", "Kids", "Boot Camp"];
 
 function fmtTime(iso: string) {
   return classTime(iso);
