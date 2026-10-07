@@ -49,7 +49,12 @@ ADMIN2_PASSWORD = os.environ["ADMIN2_PASSWORD"]
 
 EMAIL_BASE_URL = os.environ["EMAIL_BASE_URL"]
 EMERGENT_AUTH_SESSION_URL = os.environ["EMERGENT_AUTH_SESSION_URL"]
-APPLE_AUDIENCES = [a.strip() for a in os.environ.get("APPLE_AUDIENCES", "").split(",") if a.strip()]
+# Native Sign in with Apple: the identity token's `aud` claim is the iOS app's
+# bundle identifier (and `host.exp.Exponent` inside Expo Go). We read these from an
+# env var, but fall back to this app's known bundle id so production keeps working
+# even if the APPLE_AUDIENCES secret hasn't been set in the deploy environment.
+_DEFAULT_APPLE_AUDIENCES = ["com.emergent.classnotify.hl9igt", "host.exp.Exponent"]
+APPLE_AUDIENCES = [a.strip() for a in os.environ.get("APPLE_AUDIENCES", "").split(",") if a.strip()] or _DEFAULT_APPLE_AUDIENCES
 APPLE_ISSUER = "https://appleid.apple.com"
 APPLE_JWKS_URL = "https://appleid.apple.com/auth/keys"
 SEED_VERSION = "v14"

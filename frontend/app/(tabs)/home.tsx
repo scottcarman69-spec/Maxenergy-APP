@@ -25,7 +25,6 @@ import { api } from "@/src/api";
 import { colors, spacing, radius, font } from "@/src/theme";
 import { classTime, classDate, qldHour, scheduleDay, qldTodayUTC } from "@/src/datetime";
 import ScreenBg from "@/src/components/ScreenBg";
-import HomeNoticePopup from "@/src/components/HomeNoticePopup";
 import { useGymGallery } from "@/src/useGymGallery";
 import { coachSource } from "@/src/coaches";
 import LiveNowBanner from "@/src/components/LiveNowBanner";
@@ -366,7 +365,6 @@ export default function Home() {
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
       <ScreenBg />
-      <HomeNoticePopup />
       <ScrollView
         contentContainerStyle={{ paddingBottom: 40 }}
         refreshControl={<RefreshControl tintColor={colors.brand} refreshing={refreshing} onRefresh={onRefresh} />}
