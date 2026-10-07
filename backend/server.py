@@ -5432,13 +5432,13 @@ async def seed_data():
                 "trainer": "Coach Alex",
                 "level": "Any level",
                 "duration_min": 30,
-                "price_cents": 6000,
+                "price_cents": 7000,
                 "currency": "aud",
                 "appt_durations": [
-                    {"minutes": 30, "price_cents": 6000},
+                    {"minutes": 30, "price_cents": 7000},
                 ],
                 "image": "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1200&q=80",
-                "description": "1-on-1 tailored coaching session with a certified trainer. Booked by appointment (Mon–Thu, 10:30am–4:00pm) — we'll confirm your time.",
+                "description": "1-on-1 tailored coaching session with a certified trainer — 30 minutes (half-hour session). Booked by appointment (Mon–Thu, 10:30am–4:00pm) — we'll confirm your time.",
                 "program": "",
                 "color": "#FF7A00",
                 "start_at": now_utc(),
@@ -5508,6 +5508,19 @@ async def seed_data():
             removed += 1
         if removed:
             log.info(f"deduped {_appt_name}: kept {keep_id}, removed {removed}")
+
+    # Enforce Personal Training pricing/info on every startup so production self-heals
+    # on redeploy (price is $70 for a 30-minute / half-hour session).
+    await db.classes.update_many(
+        {"name": "Personal Training", "by_appointment": True},
+        {"$set": {
+            "duration_min": 30,
+            "price_cents": 7000,
+            "currency": "aud",
+            "appt_durations": [{"minutes": 30, "price_cents": 7000}],
+            "description": "1-on-1 tailored coaching session with a certified trainer — 30 minutes (half-hour session). Booked by appointment (Mon–Thu, 10:30am–4:00pm) — we'll confirm your time.",
+        }},
+    )
 
     # Membership plans
     if await db.membership_plans.count_documents({}) == 0:
