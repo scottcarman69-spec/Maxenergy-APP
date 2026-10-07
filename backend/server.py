@@ -272,6 +272,79 @@ async def privacy_policy_page():
     return Response(content=_PRIVACY_HTML, media_type="text/html")
 
 
+_DELETE_ACCOUNT_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Delete Your Account — Maxenergy Fitness</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+         line-height: 1.6; max-width: 760px; margin: 0 auto; padding: 24px; color: #1a1a1a; background: #ffffff; }
+  h1 { font-size: 28px; margin-bottom: 4px; }
+  h2 { font-size: 19px; margin-top: 32px; }
+  .updated { color: #666; font-size: 14px; margin-bottom: 24px; }
+  ol, ul { margin: 8px 0; padding-left: 22px; }
+  li { margin-bottom: 8px; }
+  a { color: #E8501B; }
+  .note { background: #f6f6f6; border-radius: 8px; padding: 14px 16px; margin-top: 16px; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #121212; color: #eaeaea; } .updated { color: #aaa; } .note { background: #1e1e1e; }
+  }
+</style>
+</head>
+<body>
+<h1>Delete Your Account</h1>
+<div class="updated">Maxenergy Fitness</div>
+
+<p>This page explains how to request deletion of your Maxenergy Fitness account and the personal data associated with it.</p>
+
+<h2>Delete your account in the app</h2>
+<ol>
+  <li>Open the <strong>Maxenergy Fitness</strong> app and sign in.</li>
+  <li>Go to the <strong>Profile</strong> tab.</li>
+  <li>Scroll to the bottom and tap <strong>Delete account</strong>.</li>
+  <li>Confirm when prompted. Your account and associated data are deleted immediately.</li>
+</ol>
+
+<h2>Request deletion by email</h2>
+<p>If you can't access the app, email us at
+<a href="mailto:info@maxenergy.com.au">info@maxenergy.com.au</a> from the email address on your account
+and ask us to delete it. We'll verify your identity and process the request.</p>
+
+<h2>What data is deleted</h2>
+<p>When your account is deleted, we permanently remove:</p>
+<ul>
+  <li>Your profile (name, email, phone, date of birth)</li>
+  <li>Your class bookings and event RSVPs</li>
+  <li>Your free-trial records</li>
+  <li>Your membership applications</li>
+  <li>Your in-app notifications and messages</li>
+  <li>Your login sessions and account credentials</li>
+</ul>
+
+<h2>What data may be kept</h2>
+<p>Some records may be retained after deletion only where required by law, for legitimate
+record-keeping, to resolve disputes, or to protect our legal rights (for example, financial
+or transaction records we are legally required to keep). Any retained data is held only for as
+long as required and is not used for any other purpose.</p>
+
+<div class="note">
+  Questions? Contact us at <a href="mailto:info@maxenergy.com.au">info@maxenergy.com.au</a>.
+  See also our <a href="/privacy">Privacy Policy</a>.
+</div>
+</body>
+</html>"""
+
+
+@app.get("/delete-account")
+@api.get("/delete-account")
+async def delete_account_page():
+    """Public, browser-openable account-deletion instructions page for the Play Store listing."""
+    return Response(content=_DELETE_ACCOUNT_HTML, media_type="text/html")
+
+
 _SUPPORT_HTML = """<!DOCTYPE html>
 <html lang="en">
 <head>
