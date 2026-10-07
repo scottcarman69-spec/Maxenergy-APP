@@ -2313,11 +2313,17 @@ async def locations():
 
 GOOGLE_PLACES_API_KEY = os.environ.get("GOOGLE_PLACES_API_KEY", "").strip()
 GOOGLE_PLACE_QUERY = os.environ.get("GOOGLE_PLACE_QUERY", "Maxenergy Fitness, Smithfield QLD")
-GOOGLE_PLACE_ID = os.environ.get("GOOGLE_PLACE_ID", "").strip()
+GOOGLE_PLACE_ID = os.environ.get("GOOGLE_PLACE_ID", "ChIJsS-2jLZveGkR0zkONT7O1jM").strip()
 
 # Deep links that work without an API key
 REVIEW_VIEW_URL = "https://www.google.com/maps/search/?api=1&query=" + GOOGLE_PLACE_QUERY.replace(" ", "%20")
-REVIEW_WRITE_URL = "https://www.google.com/maps/search/?api=1&query=" + GOOGLE_PLACE_QUERY.replace(" ", "%20")
+# A place-id direct link opens Google's "Write a review" dialog straight away;
+# fall back to a Maps search if no place id is configured.
+REVIEW_WRITE_URL = (
+    f"https://search.google.com/local/writereview?placeid={GOOGLE_PLACE_ID}"
+    if GOOGLE_PLACE_ID
+    else "https://www.google.com/maps/search/?api=1&query=" + GOOGLE_PLACE_QUERY.replace(" ", "%20")
+)
 
 _reviews_cache: dict = {"data": None, "ts": 0}
 
@@ -2415,6 +2421,7 @@ async def reviews_summary():
     return {
         "rating": float(val.get("rating") or 4.9),
         "total": int(val.get("total") or 35),
+        "write_url": REVIEW_WRITE_URL,
         "view_url": REVIEW_VIEW_URL,
     }
 

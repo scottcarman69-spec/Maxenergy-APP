@@ -1493,3 +1493,7 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Backend: GET/POST /api/reviews-summary (server.py) stored in db.meta key "reviews_summary", default rating 4.9 / total 35, validated (rating 0-5, total 0-1e6). Elfsight data API is Cloudflare-protected (403 server-side) so numbers can't be fetched on the backend.
 - Auto-sync: the Reviews WebView (src/components/ReviewsFrame.tsx) injects JS that scrapes the live rating + review count the Elfsight widget rendered and postMessages them back; reviews.tsx calls api.setReviewsSummary() so the Home card self-updates whenever any native user opens Reviews. Web iframe path doesn't scrape (keeps stored/default).
 - api.ts: added reviewsSummary() and setReviewsSummary(rating,total).
+
+## Session update (Jun 2026 fork) — Persuasive Reviews card + direct write link (DONE)
+- Redesigned Home reviews card (app/(tabs)/home.tsx) into an advertising banner: gradient (#2A1705→#1C1C1F), social-proof row (★4.9 badge + stars + "35+ reviews"), headline "Loving Max Energy? 💪", pitch copy, prominent orange "LEAVE A REVIEW" CTA + "Read reviews ›" link. Card tap -> Reviews page; CTA -> write_url via WebBrowser.
+- Backend: set GOOGLE_PLACE_ID=ChIJsS-2jLZveGkR0zkONT7O1jM in backend/.env (was empty). REVIEW_WRITE_URL now builds a direct Google writereview link (https://search.google.com/local/writereview?placeid=...). Added write_url to GET /api/reviews-summary. api.ts reviewsSummary already returns it.

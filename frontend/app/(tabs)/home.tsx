@@ -18,6 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { groupLogo } from "@/src/groups";
 import { LinearGradient } from "expo-linear-gradient";
+import * as WebBrowser from "expo-web-browser";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import QRCode from "react-native-qrcode-svg";
 import { useAuth } from "@/src/AuthContext";
@@ -108,7 +109,7 @@ export default function Home() {
   const [academyBusy, setAcademyBusy] = useState(false);
   const [academyMsg, setAcademyMsg] = useState<string | null>(null);
   const [badges, setBadges] = useState<{ bookings: number; notices: number }>({ bookings: 0, notices: 0 });
-  const [reviews, setReviews] = useState<{ rating: number; total: number } | null>(null);
+  const [reviews, setReviews] = useState<{ rating: number; total: number; write_url?: string } | null>(null);
 
   const openAcademy = useCallback(async () => {
     setAcademyMsg(null);
@@ -266,7 +267,7 @@ export default function Home() {
       setMonthName(s?.month || "");
       setBadges({ bookings: b?.bookings || 0, notices: b?.notices || 0 });
       api.myCredits().then((cr) => setPassCount(cr?.class_pass_credits ?? null)).catch(() => {});
-      api.reviewsSummary().then((rs) => rs && setReviews({ rating: rs.rating, total: rs.total })).catch(() => {});
+      api.reviewsSummary().then((rs) => rs && setReviews({ rating: rs.rating, total: rs.total, write_url: rs.write_url })).catch(() => {});
     } catch {}
     setLoading(false);
   }, []);
@@ -735,31 +736,55 @@ export default function Home() {
               <Pressable
                 testID="home-reviews-card"
                 onPress={() => router.navigate("/(tabs)/reviews")}
-                style={({ pressed }) => [styles.reviewsCard, pressed && { opacity: 0.85 }]}
+                style={({ pressed }) => [styles.reviewsCard, pressed && { opacity: 0.92 }]}
               >
-                <View style={styles.reviewsIcon}>
-                  <Ionicons name="star" size={22} color={colors.onBrand} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <View style={styles.reviewsTopRow}>
-                    <Text style={styles.reviewsRating}>{reviews.rating.toFixed(1)}</Text>
+                <LinearGradient
+                  colors={["#2A1705", "#1C1C1F"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.reviewsGrad}
+                >
+                  {/* Social proof row */}
+                  <View style={styles.reviewsProof}>
+                    <View style={styles.reviewsBadge}>
+                      <Ionicons name="star" size={16} color={colors.onBrand} />
+                      <Text style={styles.reviewsBadgeNum}>{reviews.rating.toFixed(1)}</Text>
+                    </View>
                     <View style={{ flexDirection: "row", gap: 1 }}>
                       {[1, 2, 3, 4, 5].map((i) => (
                         <Ionicons
                           key={i}
                           name={i <= Math.round(reviews.rating) ? "star" : "star-outline"}
-                          size={14}
+                          size={15}
                           color={colors.brand}
                         />
                       ))}
                     </View>
+                    <Text style={styles.reviewsCount}>{reviews.total}+ reviews</Text>
                   </View>
-                  <Text style={styles.reviewsSub}>{reviews.total} member reviews</Text>
-                </View>
-                <View style={styles.reviewsCta}>
-                  <Text style={styles.reviewsCtaText}>Read</Text>
-                  <Ionicons name="chevron-forward" size={16} color={colors.brand} />
-                </View>
+
+                  {/* Persuasive copy */}
+                  <Text style={styles.reviewsHeadline}>Loving Max Energy? 💪</Text>
+                  <Text style={styles.reviewsPitch}>
+                    Your review takes 30 seconds and helps our gym family grow. Shout us out!
+                  </Text>
+
+                  {/* CTAs */}
+                  <View style={styles.reviewsBtnRow}>
+                    <Pressable
+                      testID="home-leave-review-btn"
+                      onPress={() => reviews.write_url && WebBrowser.openBrowserAsync(reviews.write_url).catch(() => {})}
+                      style={({ pressed }) => [styles.reviewsPrimaryBtn, pressed && { opacity: 0.85 }]}
+                    >
+                      <Ionicons name="create" size={16} color={colors.onBrand} />
+                      <Text style={styles.reviewsPrimaryText}>LEAVE A REVIEW</Text>
+                    </Pressable>
+                    <View style={styles.reviewsSecondaryBtn}>
+                      <Text style={styles.reviewsSecondaryText}>Read reviews</Text>
+                      <Ionicons name="chevron-forward" size={15} color={colors.brand} />
+                    </View>
+                  </View>
+                </LinearGradient>
               </Pressable>
             )}
 
@@ -1190,27 +1215,31 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   reviewsCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
     marginHorizontal: spacing.lg,
     marginTop: spacing.xl,
-    backgroundColor: colors.surfaceSecondary,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    borderColor: colors.brand + "55",
+    overflow: "hidden",
   },
-  reviewsIcon: {
-    width: 42, height: 42, borderRadius: 21,
-    backgroundColor: colors.brand, alignItems: "center", justifyContent: "center",
+  reviewsGrad: { padding: spacing.lg, gap: spacing.sm },
+  reviewsProof: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  reviewsBadge: {
+    flexDirection: "row", alignItems: "center", gap: 3,
+    backgroundColor: colors.brand, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3,
   },
-  reviewsTopRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  reviewsRating: { color: colors.onSurface, fontSize: 22, fontWeight: "900", letterSpacing: 0.3 },
-  reviewsSub: { color: colors.onSurfaceSecondary, fontSize: 13, marginTop: 1 },
-  reviewsCta: { flexDirection: "row", alignItems: "center", gap: 2 },
-  reviewsCtaText: { color: colors.brand, fontSize: 13, fontWeight: "800" },
+  reviewsBadgeNum: { color: colors.onBrand, fontSize: 14, fontWeight: "900" },
+  reviewsCount: { color: colors.onSurfaceSecondary, fontSize: 13, fontWeight: "700", marginLeft: 2 },
+  reviewsHeadline: { color: colors.onSurface, fontSize: 18, fontWeight: "900", marginTop: 4 },
+  reviewsPitch: { color: colors.onSurfaceSecondary, fontSize: 13, lineHeight: 19 },
+  reviewsBtnRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginTop: spacing.sm },
+  reviewsPrimaryBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
+    backgroundColor: colors.brand, borderRadius: radius.md, paddingVertical: 12, paddingHorizontal: 18, flex: 1,
+  },
+  reviewsPrimaryText: { color: colors.onBrand, fontSize: 13, fontWeight: "900", letterSpacing: 0.8 },
+  reviewsSecondaryBtn: { flexDirection: "row", alignItems: "center", gap: 2 },
+  reviewsSecondaryText: { color: colors.brand, fontSize: 13, fontWeight: "800" },
   leftBar: { position: "absolute", left: 0, top: 0, bottom: 0, width: 5 },
   classIcon: {
     width: 46,
