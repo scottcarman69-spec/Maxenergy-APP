@@ -266,22 +266,24 @@ async def booking_cancel(booking_id: str, u: dict = Depends(require_user)):
                 cs = None
         if isinstance(cs, datetime):
             start_local = cs.replace(tzinfo=None) if cs.tzinfo else cs
-    if start_local is not None and now_local >= (start_local - timedelta(hours=cancel_window)):
-        hr_txt = f"{cancel_window} hour{'s' if cancel_window != 1 else ''}"
-        raise HTTPException(
-            409,
-            f"Bookings can only be cancelled at least {hr_txt} before the start time. Please contact the gym on 07 4057 9005 if you need help.",
-        )
-    await db.bookings.update_one({"booking_id": booking_id}, {"$set": {"status": "cancelled", "cancelled_at": now_utc(), "cancelled_by": "member"}})
+    hr_txt = f"{cancel_window} hour{'s' if cancel_window != 1 else ''}"
+    # Late cancellation = within the cancel window of the start time. The member CAN
+    # still cancel, but it's treated as a late cancellation with NO refund/return of
+    # class pass, credit or Square payment. Cancelling earlier returns what was paid.
+    late = bool(start_local is not None and now_local >= (start_local - timedelta(hours=cancel_window)))
+    await db.bookings.update_one({"booking_id": booking_id}, {"$set": {"status": "cancelled", "cancelled_at": now_utc(), "cancelled_by": "member", "late_cancel": late}})
     member_name = u.get("name") or u.get("email")
 
-    # Auto reward for cancelling within policy (>=24h before start):
-    #  - if the booking was paid with a class pass -> return the pass
-    #  - else if money was paid -> add in-app credit for the amount paid
+    # Refund ONLY when cancelled within policy (>= cancel window before start):
+    #  - class pass booking -> return the pass
+    #  - else money paid    -> add in-app credit for the amount paid
+    # Late cancellations forfeit the pass/credit/payment (nothing returned).
     was_paid = b.get("status") in ("paid", "confirmed")
     amount = int(b.get("amount", 0) or 0)
     reward_line = ""
-    if was_paid and b.get("paid_with_pass"):
+    if late:
+        reward_line = f"As this was cancelled within {hr_txt} of the start time, it's a late cancellation — your class pass, credit or payment can't be returned."
+    elif was_paid and b.get("paid_with_pass"):
         fresh = await db.users.find_one({"user_id": u["user_id"]}, {"_id": 0, "class_pass_credits": 1})
         left = int((fresh or {}).get("class_pass_credits", 0)) + 1
         await db.users.update_one({"user_id": u["user_id"]}, {"$set": {"class_pass_credits": left}})
@@ -340,22 +342,54 @@ async def booking_reschedule(booking_id: str, body: RescheduleReq, u: dict = Dep
         raise HTTPException(400, "This booking is cancelled and cannot be rescheduled.")
     if b.get("status") == "reschedule_requested":
         raise HTTPException(409, "You already have a reschedule request pending. The gym will confirm a new time shortly.")
-    # The NEW chosen time must be at least N hours from now (Queensland time).
+    # Each individual booking may be rescheduled only ONCE (any payment method).
+    if int(b.get("reschedule_count", 0) or 0) >= 1:
+        raise HTTPException(409, "This booking has already been rescheduled once and can't be rescheduled again. If you can no longer attend, please cancel the booking.")
     cancel_window = await get_cancel_window_hours()
     now_local = (now_utc() + timedelta(hours=10)).replace(tzinfo=None)
+    hr_txt = f"{cancel_window} hour{'s' if cancel_window != 1 else ''}"
+    # Reschedules must be requested at least <window> before the CURRENT booking time.
+    # Within the window we refuse the reschedule — the member can still cancel, but
+    # that would be a late cancellation with no refund.
+    cur_start_local = None
+    cur_ra = b.get("requested_at")
+    if cur_ra:
+        try:
+            cur_start_local = datetime.fromisoformat(cur_ra).replace(tzinfo=None)
+        except Exception:
+            cur_start_local = None
+    else:
+        ccs = None
+        if b.get("class_id"):
+            cc = await db.classes.find_one({"class_id": b["class_id"]}, {"_id": 0, "start_at": 1})
+            ccs = (cc or {}).get("start_at")
+        ccs = ccs or b.get("class_start")
+        if isinstance(ccs, str):
+            try:
+                ccs = datetime.fromisoformat(ccs.replace("Z", "+00:00"))
+            except Exception:
+                ccs = None
+        if isinstance(ccs, datetime):
+            cur_start_local = ccs.replace(tzinfo=None) if ccs.tzinfo else ccs
+    if cur_start_local is not None and now_local >= (cur_start_local - timedelta(hours=cancel_window)):
+        raise HTTPException(
+            409,
+            f"Bookings can only be rescheduled at least {hr_txt} before the start time. If you can no longer attend you can cancel, but within {hr_txt} it's treated as a late cancellation with no refund or credit returned.",
+        )
+    # The NEW chosen time must also be at least <window> from now (Queensland time).
     if body.requested_at:
         try:
             new_local = datetime.fromisoformat(body.requested_at).replace(tzinfo=None)
         except Exception:
             new_local = None
         if new_local is not None and new_local < (now_local + timedelta(hours=cancel_window)):
-            hr_txt = f"{cancel_window} hour{'s' if cancel_window != 1 else ''}"
             raise HTTPException(
                 409,
                 f"Please choose a new time at least {hr_txt} from now. Pick a later day or time, or call the gym on 07 4057 9005.",
             )
     set_fields = {"status": "reschedule_requested", "requested_time": body.requested_time,
-                  "reschedule_note": body.note, "reschedule_requested_at": now_utc()}
+                  "reschedule_note": body.note, "reschedule_requested_at": now_utc(),
+                  "reschedule_count": int(b.get("reschedule_count", 0) or 0) + 1}
     if body.requested_at:
         set_fields["requested_at"] = body.requested_at
     await db.bookings.update_one(
