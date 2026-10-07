@@ -5319,6 +5319,39 @@ async def seed_data():
         )
         log.info("app review demo account password synced")
 
+    # Dedicated Google Play review account (email/password — reviewers can't use SSO).
+    # Idempotent: password re-synced on every startup so it always works on the build.
+    gp_email = "googleplay.review@maxenergy.com.au"
+    gp_pw = "GooglePlay2026!"
+    gp_user = await db.users.find_one({"email": gp_email})
+    if not gp_user:
+        await db.users.insert_one(
+            {
+                "user_id": new_id("user"),
+                "email": gp_email,
+                "name": "Google Play Review",
+                "password_hash": hash_pw(gp_pw),
+                "provider": "password",
+                "picture": None,
+                "is_admin": False,
+                "verified": True,
+                "date_of_birth": "1990-01-01",
+                "class_pass_credits": 10,
+                "credit_cents": 0,
+                "created_at": now_utc(),
+            }
+        )
+        log.info("seeded google play review account")
+    else:
+        await db.users.update_one(
+            {"email": gp_email},
+            {"$set": {"is_admin": False, "verified": True, "password_hash": hash_pw(gp_pw),
+                      "date_of_birth": gp_user.get("date_of_birth") or "1990-01-01",
+                      "class_pass_credits": max(10, int(gp_user.get("class_pass_credits", 0) or 0))}},
+        )
+        log.info("google play review account password synced")
+
+
     # Age requirement for Kids Muay Thai (idempotent; keeps class_ids & bookings intact)
     try:
         await db.classes.update_many(
