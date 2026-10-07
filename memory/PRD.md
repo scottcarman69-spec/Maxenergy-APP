@@ -1487,3 +1487,9 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Frontend: app/(tabs)/reviews.tsx rebuilt — black/orange header + platform-specific frame. src/components/ReviewsFrame.tsx = react-native-webview (native iOS/Android), ReviewsFrame.web.tsx = <iframe> (web, since RN WebView has no web impl). External review links (Google/Facebook) open in system browser via expo-web-browser (onShouldStartLoadWithRequest). Loading spinner + 4.5s safety timeout + retry on error.
 - Reachable via a new "Reviews" Home quick action (src/quickActions.ts key "reviews", handler router.navigate("/(tabs)/reviews") in home.tsx). The old Google-Places reviews UI was replaced; /api/reviews endpoint left intact but unused.
 - Verified on web preview: widget renders (4.9 rating, 35 reviews, Google/Facebook tabs, Write a Review, carousel). WebView path works on native builds.
+
+## Session update (Jun 2026 fork) — Home Reviews summary card (DONE)
+- Added compact "4.9 ★★★★★ · 35 member reviews · Read" card on Home (app/(tabs)/home.tsx), placed between UPCOMING CLASSES and OUR GYM, taps to /(tabs)/reviews.
+- Backend: GET/POST /api/reviews-summary (server.py) stored in db.meta key "reviews_summary", default rating 4.9 / total 35, validated (rating 0-5, total 0-1e6). Elfsight data API is Cloudflare-protected (403 server-side) so numbers can't be fetched on the backend.
+- Auto-sync: the Reviews WebView (src/components/ReviewsFrame.tsx) injects JS that scrapes the live rating + review count the Elfsight widget rendered and postMessages them back; reviews.tsx calls api.setReviewsSummary() so the Home card self-updates whenever any native user opens Reviews. Web iframe path doesn't scrape (keeps stored/default).
+- api.ts: added reviewsSummary() and setReviewsSummary(rating,total).

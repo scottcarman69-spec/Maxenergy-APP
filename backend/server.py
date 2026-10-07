@@ -2400,6 +2400,39 @@ async def reviews():
     return result
 
 
+class ReviewsSummaryReq(BaseModel):
+    rating: float
+    total: int
+
+
+@api.get("/reviews-summary")
+async def reviews_summary():
+    """Compact rating/total for the Home 'Reviews' card. Kept in sync by the
+    Reviews screen's widget (which scrapes the live Elfsight numbers), with a
+    sensible default so the card always shows something."""
+    doc = await db.meta.find_one({"key": "reviews_summary"}, {"_id": 0}) or {}
+    val = doc.get("value") or {}
+    return {
+        "rating": float(val.get("rating") or 4.9),
+        "total": int(val.get("total") or 35),
+        "view_url": REVIEW_VIEW_URL,
+    }
+
+
+@api.post("/reviews-summary")
+async def set_reviews_summary(body: ReviewsSummaryReq):
+    """Public sync endpoint — the in-app reviews widget posts the live numbers it
+    rendered. Validated to sane ranges so it can't be abused."""
+    rating = max(0.0, min(5.0, round(float(body.rating), 1)))
+    total = max(0, min(1000000, int(body.total)))
+    await db.meta.update_one(
+        {"key": "reviews_summary"},
+        {"$set": {"value": {"rating": rating, "total": total}, "updated_at": now_utc()}},
+        upsert=True,
+    )
+    return {"ok": True, "rating": rating, "total": total}
+
+
 # -------------------- classes --------------------
 # ==================== Recurring schedule (templates + exceptions) ====================
 def _tmpl_slug(s: str) -> str:

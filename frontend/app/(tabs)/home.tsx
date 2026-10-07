@@ -108,6 +108,7 @@ export default function Home() {
   const [academyBusy, setAcademyBusy] = useState(false);
   const [academyMsg, setAcademyMsg] = useState<string | null>(null);
   const [badges, setBadges] = useState<{ bookings: number; notices: number }>({ bookings: 0, notices: 0 });
+  const [reviews, setReviews] = useState<{ rating: number; total: number } | null>(null);
 
   const openAcademy = useCallback(async () => {
     setAcademyMsg(null);
@@ -265,6 +266,7 @@ export default function Home() {
       setMonthName(s?.month || "");
       setBadges({ bookings: b?.bookings || 0, notices: b?.notices || 0 });
       api.myCredits().then((cr) => setPassCount(cr?.class_pass_credits ?? null)).catch(() => {});
+      api.reviewsSummary().then((rs) => rs && setReviews({ rating: rs.rating, total: rs.total })).catch(() => {});
     } catch {}
     setLoading(false);
   }, []);
@@ -729,6 +731,38 @@ export default function Home() {
               })}
             </View>
 
+            {reviews && (
+              <Pressable
+                testID="home-reviews-card"
+                onPress={() => router.navigate("/(tabs)/reviews")}
+                style={({ pressed }) => [styles.reviewsCard, pressed && { opacity: 0.85 }]}
+              >
+                <View style={styles.reviewsIcon}>
+                  <Ionicons name="star" size={22} color={colors.onBrand} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={styles.reviewsTopRow}>
+                    <Text style={styles.reviewsRating}>{reviews.rating.toFixed(1)}</Text>
+                    <View style={{ flexDirection: "row", gap: 1 }}>
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <Ionicons
+                          key={i}
+                          name={i <= Math.round(reviews.rating) ? "star" : "star-outline"}
+                          size={14}
+                          color={colors.brand}
+                        />
+                      ))}
+                    </View>
+                  </View>
+                  <Text style={styles.reviewsSub}>{reviews.total} member reviews</Text>
+                </View>
+                <View style={styles.reviewsCta}>
+                  <Text style={styles.reviewsCtaText}>Read</Text>
+                  <Ionicons name="chevron-forward" size={16} color={colors.brand} />
+                </View>
+              </Pressable>
+            )}
+
             <View style={[styles.sectionHeader, { marginTop: spacing.xl }]}>
               <Text style={styles.sectionTitle}>OUR GYM</Text>
               <Pressable testID="home-see-about" onPress={() => router.push("/about")} style={styles.linkRow}>
@@ -1155,6 +1189,28 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     overflow: "hidden",
   },
+  reviewsCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.xl,
+    backgroundColor: colors.surfaceSecondary,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+  },
+  reviewsIcon: {
+    width: 42, height: 42, borderRadius: 21,
+    backgroundColor: colors.brand, alignItems: "center", justifyContent: "center",
+  },
+  reviewsTopRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  reviewsRating: { color: colors.onSurface, fontSize: 22, fontWeight: "900", letterSpacing: 0.3 },
+  reviewsSub: { color: colors.onSurfaceSecondary, fontSize: 13, marginTop: 1 },
+  reviewsCta: { flexDirection: "row", alignItems: "center", gap: 2 },
+  reviewsCtaText: { color: colors.brand, fontSize: 13, fontWeight: "800" },
   leftBar: { position: "absolute", left: 0, top: 0, bottom: 0, width: 5 },
   classIcon: {
     width: 46,

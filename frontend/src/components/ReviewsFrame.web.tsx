@@ -5,6 +5,7 @@ type Props = {
   uri: string;
   onLoaded: () => void;
   onFailed: () => void;
+  onSummary?: (rating: number, total: number) => void;
 };
 
 // Web build: react-native-webview has no web implementation, so render a real

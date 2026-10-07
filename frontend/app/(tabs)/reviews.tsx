@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import ReviewsFrame from "@/src/components/ReviewsFrame";
+import { api } from "@/src/api";
 import { colors, spacing, type } from "@/src/theme";
 
 const WIDGET_URL = `${process.env.EXPO_PUBLIC_BACKEND_URL}/api/reviews-widget`;
@@ -59,6 +60,7 @@ export default function Reviews() {
               uri={WIDGET_URL}
               onLoaded={() => setLoading(false)}
               onFailed={() => { setLoading(false); setFailed(true); }}
+              onSummary={(rating, total) => { api.setReviewsSummary(rating, total).catch(() => {}); }}
             />
             {loading && (
               <View style={styles.overlay} pointerEvents="none">

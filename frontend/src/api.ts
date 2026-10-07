@@ -240,6 +240,9 @@ export const api = {
   services: () => req("/api/services"),
   locations: () => req("/api/locations"),
   reviews: () => req("/api/reviews"),
+  reviewsSummary: () => req("/api/reviews-summary"),
+  setReviewsSummary: (rating: number, total: number) =>
+    req("/api/reviews-summary", { method: "POST", body: JSON.stringify({ rating, total }) }),
 
   myTrials: () => req("/api/trials/me"),
   waitlistsMe: () => req("/api/waitlists/me"),
