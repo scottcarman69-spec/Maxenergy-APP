@@ -173,23 +173,32 @@ async def giftcard_redeem(body: GiftCardRedeemReq, u: dict = Depends(require_use
     await _giftcard_guard(u["user_id"])
     gc = await db.gift_cards.find_one({"code": code})
     if not gc:
-        # Wrong code — count the failure (may raise a lockout).
+        # Wrong code — count the failure (may raise a lockout) then reject.
         await _giftcard_register_fail(u["user_id"])
+        raise HTTPException(404, "That gift card code wasn't found.")
     if int(gc.get("balance_cents", 0)) <= 0 or gc.get("status") != "active":
         raise HTTPException(409, "This gift card has already been used up.")
     # Valid code — clear any accumulated wrong-attempt counter.
     await _giftcard_reset(u["user_id"])
-    amount = int(gc["balance_cents"])
     now = now_utc()
-    # Move the remaining balance into the member's account credit.
+    # Atomically CLAIM the card BEFORE granting any credit. Conditioning the update
+    # on it still being active + having a balance means two concurrent redeems can
+    # never both succeed — only the request that actually flips the card gets to add
+    # credit (mirrors the guarded class-pass / credit / paid-claim patterns).
+    claimed = await db.gift_cards.find_one_and_update(
+        {"gift_card_id": gc["gift_card_id"], "status": "active", "balance_cents": {"$gt": 0}},
+        {"$set": {"balance_cents": 0, "status": "redeemed", "redeemed_by_user_id": u["user_id"], "redeemed_at": now}},
+        return_document=False,  # return the pre-update doc so we know the balance to grant
+    )
+    if not claimed:
+        # Lost the race (already redeemed by a concurrent request) — grant nothing.
+        raise HTTPException(409, "This gift card has already been used up.")
+    amount = int(claimed["balance_cents"])
+    # Move the claimed balance into the member's account credit.
     res = await db.users.find_one_and_update(
         {"user_id": u["user_id"]}, {"$inc": {"credit_cents": amount}}, return_document=True
     )
     new_credit = int((res or {}).get("credit_cents", amount))
-    await db.gift_cards.update_one(
-        {"gift_card_id": gc["gift_card_id"]},
-        {"$set": {"balance_cents": 0, "status": "redeemed", "redeemed_by_user_id": u["user_id"], "redeemed_at": now}},
-    )
     await db.credit_ledger.insert_one({
         "ledger_id": new_id("cl"), "user_id": u["user_id"], "delta_cents": amount,
         "reason": f"Gift card redeemed ({code})", "balance_after": new_credit, "created_at": now,
