@@ -51,6 +51,8 @@ async def store_checkout(body: StoreCheckoutReq, u: dict = Depends(require_user)
     if not fresh.get("membership_form_completed_at"):
         raise HTTPException(status_code=428, detail="Please complete your membership form before purchasing.")
     pricing = await compute_store_price(fresh, body.product_id, False)
+    if pricing["type"] == "membership" and not ((body.start_date or "").strip() and (body.meet_time or "").strip()):
+        raise HTTPException(status_code=400, detail="Please choose your start date and a time to meet us for your access card.")
     order_ref = new_id("store")
     label = pricing["name"] + (" + Key Tag" if pricing["key_tag"] else "")
     redirect_url = f"{body.origin_url.rstrip('/')}/payment-return?status=success&store=1"

@@ -22,7 +22,10 @@ async def waitlists_me(u: dict = Depends(require_user)):
 @router.post("/classes/{class_id}/waitlist")
 async def waitlist_join(class_id: str, u: dict = Depends(require_user)):
     cls = await db.classes.find_one({"class_id": class_id}, {"_id": 0})
-    if not cls or cls.get("by_appointment"):
+    if not cls:
+        # Recurring class nobody has booked yet -> no stored record, so it's not full.
+        raise HTTPException(409, "This class still has spots — you can book it now.")
+    if cls.get("by_appointment"):
         raise HTTPException(404, "Class not found.")
     # already booked?
     booked = await db.bookings.find_one(

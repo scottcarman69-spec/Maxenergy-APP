@@ -284,9 +284,12 @@ async def booking_cancel(booking_id: str, u: dict = Depends(require_user)):
     if late:
         reward_line = f"As this was cancelled within {hr_txt} of the start time, it's a late cancellation — your class pass, credit or payment can't be returned."
     elif was_paid and b.get("paid_with_pass"):
-        fresh = await db.users.find_one({"user_id": u["user_id"]}, {"_id": 0, "class_pass_credits": 1})
-        left = int((fresh or {}).get("class_pass_credits", 0)) + 1
-        await db.users.update_one({"user_id": u["user_id"]}, {"$set": {"class_pass_credits": left}})
+        from pymongo import ReturnDocument
+        fresh = await db.users.find_one_and_update(
+            {"user_id": u["user_id"]}, {"$inc": {"class_pass_credits": 1}},
+            projection={"_id": 0, "class_pass_credits": 1}, return_document=ReturnDocument.AFTER,
+        )
+        left = int((fresh or {}).get("class_pass_credits", 0))
         await db.pass_ledger.insert_one({
             "pass_ledger_id": new_id("pl"), "user_id": u["user_id"], "delta": 1,
             "reason": f"Pass returned — {b.get('class_name')} cancelled by member", "balance_after": left,

@@ -1508,3 +1508,7 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Emergent-recommended pattern (per support): point BOTH projects at the SAME external MongoDB Atlas (same MONGO_URL/DB_NAME in each deployment's secrets). Managed DBs are not cross-reachable. Confirm external MONGO_URL use with support@emergent.sh.
 - REAL WORK involved (not a toggle): pick ONE master schema (recommend THIS app — more complete, security-audited), adapt the website to the same schema + same auth/token/password format, one-time data migration to merge/de-dupe members & bookings. Website is a separate project (cannot be edited from this app's session).
 - STATUS: User chose to HOLD OFF for now. Revisit later. Open decisions: (1) make mobile app the master? (2) use MongoDB Atlas + create account, or first document schema for web dev to scope effort.
+
+## Jun 2026 — Full regression (iter 31)
+- 90/90 backend tests pass; all member + 22 admin screens load.
+- Fixed: emails now sent in background (no more slow/502 checkout, cancel, export); waitlist on unbooked class returns 409; atomic pass refund on cancel; server-side start date/meet time required for upfront memberships.

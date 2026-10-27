@@ -704,7 +704,19 @@ async def _post_email_throttled(payload: dict) -> httpx.Response:
         return r
 
 
+_bg_email_tasks: set = set()
+
+
 async def send_email(recipient: str, subject: str, html: str, attachments: Optional[list] = None) -> bool:
+    """Queue an email in the background so API requests never wait on the provider
+    (rate-limit retries can take ~45s). Returns True once queued."""
+    t = asyncio.create_task(_send_email_now(recipient, subject, html, attachments))
+    _bg_email_tasks.add(t)
+    t.add_done_callback(_bg_email_tasks.discard)
+    return True
+
+
+async def _send_email_now(recipient: str, subject: str, html: str, attachments: Optional[list] = None) -> bool:
     payload = {"to": [recipient], "subject": subject, "html": html, "from_name": EMAIL_FROM_NAME}
     if attachments:
         payload["attachments"] = attachments
