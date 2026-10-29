@@ -1519,3 +1519,6 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 - Group create/join requests: in-app to every admin + ONE email to GYM_ADMIN_EMAIL.
 - Regular paid bookings, member cancellations and confirmed proposed times go into db.admin_digest; send_admin_digest() emails one daily summary after 7pm QLD (meta key admin_digest_date). PT/Program bookings needing confirmation and reschedule requests still email instantly.
 - Check script: backend/tests/check_email_reduction.py
+
+## Jun 2026 — Morning class list
+- send_morning_class_list(): daily from 5am QLD (meta key class_list_date) emails GYM_ADMIN_EMAIL today's classes (time, name, coach, booked/capacity, member names, child bookings, pass tag) + confirmed PT/Program sessions. Runs in reminder_loop. On-demand: POST /api/admin/class-list/send (admin only). Check: backend/tests/check_morning_class_list.py

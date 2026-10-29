@@ -1074,6 +1074,76 @@ async def send_admin_digest(force: bool = False) -> int:
     return len(items)
 
 
+CLASS_LIST_HOUR_QLD = 5  # morning class list goes out at 5am Queensland time
+_BOOKED_STATUSES = ["paid", "confirmed", "reschedule_requested"]
+
+
+async def send_morning_class_list(force: bool = False) -> int:
+    """Once per day (from 5am QLD) email the gym inbox today's classes with who's booked in."""
+    qld_now = qld_now_naive()
+    today = qld_now.strftime("%Y-%m-%d")
+    if not force:
+        if qld_now.hour < CLASS_LIST_HOUR_QLD:
+            return 0
+        doc = await db.meta.find_one({"key": "class_list_date"}, {"_id": 0})
+        if (doc or {}).get("value") == today:
+            return 0
+        await db.meta.update_one({"key": "class_list_date"}, {"$set": {"value": today}}, upsert=True)
+    day0 = qld_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    classes = await db.classes.find(
+        {"by_appointment": {"$ne": True}, "start_at": {"$gte": day0, "$lt": day0 + timedelta(days=1)}},
+        {"_id": 0, "class_id": 1, "name": 1, "start_at": 1, "trainer": 1, "capacity": 1},
+    ).sort("start_at", 1).to_list(200)
+    bookings = await db.bookings.find(
+        {"status": {"$in": _BOOKED_STATUSES}, "$or": [
+            {"class_id": {"$in": [c["class_id"] for c in classes]}},
+            {"by_appointment": True, "status": "confirmed", "requested_at": {"$regex": f"^{today}"}},
+        ]}, {"_id": 0},
+    ).to_list(3000)
+    uids = list({b["user_id"] for b in bookings})
+    users = await db.users.find({"user_id": {"$in": uids}}, {"_id": 0, "user_id": 1, "name": 1, "email": 1, "phone": 1}).to_list(len(uids) + 1)
+    umap = {x["user_id"]: x for x in users}
+
+    def _who(b: dict) -> str:
+        m = umap.get(b["user_id"]) or {}
+        name = esc(m.get("name") or m.get("email") or "Member")
+        if b.get("child_name"):
+            name = f"{esc(b['child_name'])} <span style='color:#888'>(child of {name})</span>"
+        tag = " <span style='color:#888'>· pass</span>" if b.get("paid_with_pass") else ""
+        return f"{name}{tag}"
+
+    hr = "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>"
+    total = 0
+    lines = [f"Good morning! Here's who's booked in for <b>{qld_now.strftime('%A %d %B')}</b>:"]
+    for c in classes:
+        rows = [b for b in bookings if b.get("class_id") == c["class_id"] and not b.get("by_appointment")]
+        if not rows:
+            continue
+        total += len(rows)
+        cap = f" / {c['capacity']}" if c.get("capacity") else ""
+        coach = f" · {esc(c['trainer'])}" if c.get("trainer") else ""
+        lines.append(f"{hr}<b>{c['start_at'].strftime('%-I:%M %p')} — {esc(c['name'])}</b>{coach} "
+                     f"<span style='color:#FF7A00'>({len(rows)}{cap} booked)</span>")
+        lines += [f"{i}. {_who(b)}" for i, b in enumerate(rows, 1)]
+    appts = sorted([b for b in bookings if b.get("by_appointment")], key=lambda b: b.get("requested_at") or "")
+    if appts:
+        total += len(appts)
+        lines.append(f"{hr}<b>PT & Program sessions ({len(appts)})</b>")
+        for b in appts:
+            t = (b.get("requested_at") or "")[11:16]
+            try:
+                t = datetime.strptime(t, "%H:%M").strftime("%-I:%M %p")
+            except Exception:
+                pass
+            lines.append(f"{esc(t)} — {esc(b.get('class_name'))}: {_who(b)}")
+    if total == 0:
+        lines.append(f"{hr}No bookings yet for today.")
+    lines.append(f"{hr}Live list & check-ins: app → Admin → Check-ins.")
+    await send_email(GYM_ADMIN_EMAIL, f"Today's classes — {qld_now.strftime('%a %d %b')} ({total} booked)",
+                     _email_shell("Today's Class List 🥊", lines))
+    return total
+
+
 QLD_OFFSET = timedelta(hours=10)  # Queensland is UTC+10, no daylight saving
 
 
@@ -5255,6 +5325,13 @@ async def admin_update_settings(body: BookingSettings, u: dict = Depends(require
     return {"ok": True, "cancel_window_hours": h}
 
 
+@api.post("/admin/class-list/send")
+async def admin_send_class_list(u: dict = Depends(require_admin)):
+    """Send today's class list to the gym inbox right now (on demand)."""
+    total = await send_morning_class_list(force=True)
+    return {"ok": True, "booked": total, "sent_to": GYM_ADMIN_EMAIL}
+
+
 @api.post("/admin/reminders/run")
 async def admin_run_reminders(u: dict = Depends(require_admin)):
     sent = await send_due_reminders()
@@ -6121,6 +6198,10 @@ async def reminder_loop():
             await send_admin_digest()
         except Exception as e:
             log.error(f"admin digest error: {e}")
+        try:
+            await send_morning_class_list()
+        except Exception as e:
+            log.error(f"morning class list error: {e}")
         tick += 1
         await asyncio.sleep(300)  # every 5 minutes for timely reminders
 
