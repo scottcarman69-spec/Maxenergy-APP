@@ -5721,13 +5721,6 @@ async def seed_data():
         if tmpls:
             await db.class_templates.insert_many(tmpls)
         log.info(f"seeded {len(tmpls)} class templates")
-        # One-time cleanup: remove legacy dated recurring classes that have no bookings
-        # (they'd otherwise duplicate the generated instances). Booked ones are kept.
-        legacy = await db.classes.find({"by_appointment": {"$ne": True}, "template_id": {"$exists": False}}, {"class_id": 1}).to_list(5000)
-        for lc in legacy:
-            has_bk = await db.bookings.count_documents({"class_id": lc["class_id"], "status": {"$in": ["paid", "pending", "confirmed", "reschedule_requested"]}})
-            if has_bk == 0:
-                await db.classes.delete_one({"class_id": lc["class_id"]})
 
     # QLD 2026 school holidays — Kids classes don't run. Seeded once; editable in admin.
     if await db.schedule_exceptions.count_documents({}) == 0:
@@ -5796,41 +5789,6 @@ async def seed_data():
                 "created_at": now_utc(),
             }
         )
-
-    # Self-heal duplicates: older seeds created more than one by-appointment
-    # "Personal Training" / "Custom Programs" record on some databases. Runs on every
-    # startup so production cleans itself on redeploy. Keeps the one with bookings
-    # (else the oldest), re-points any bookings on the extras onto the survivor, then
-    # deletes the extras — so it ALWAYS collapses to a single record without losing
-    # any booking.
-    for _appt_name in ("Personal Training", "Custom Programs"):
-        dups = await db.classes.find(
-            {"name": _appt_name, "by_appointment": True},
-            {"class_id": 1, "created_at": 1},
-        ).sort("created_at", 1).to_list(100)
-        if len(dups) <= 1:
-            continue
-        _active = {"$in": ["paid", "pending", "confirmed", "reschedule_requested", "admin_proposed"]}
-        keep_id = None
-        for d in dups:
-            if await db.bookings.count_documents({"class_id": d["class_id"], "status": _active}) > 0:
-                keep_id = d["class_id"]
-                break
-        if keep_id is None:
-            keep_id = dups[0]["class_id"]  # oldest
-        removed = 0
-        for d in dups:
-            if d["class_id"] == keep_id:
-                continue
-            # Move any bookings on the extra onto the survivor, then delete the extra.
-            await db.bookings.update_many(
-                {"class_id": d["class_id"]},
-                {"$set": {"class_id": keep_id}},
-            )
-            await db.classes.delete_one({"class_id": d["class_id"]})
-            removed += 1
-        if removed:
-            log.info(f"deduped {_appt_name}: kept {keep_id}, removed {removed}")
 
     # Enforce Personal Training pricing/info on every startup so production self-heals
     # on redeploy (price is $70 for a 30-minute / half-hour session).

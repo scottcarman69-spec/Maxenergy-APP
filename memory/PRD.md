@@ -1522,3 +1522,6 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 
 ## Jun 2026 — Morning class list
 - send_morning_class_list(): daily from 5am QLD (meta key class_list_date) emails GYM_ADMIN_EMAIL today's classes (time, name, coach, booked/capacity, member names, child bookings, pass tag) + confirmed PT/Program sessions. Runs in reminder_loop. On-demand: POST /api/admin/class-list/send (admin only). Check: backend/tests/check_morning_class_list.py
+
+## Jun 2026 — Deployment health check
+- Removed destructive startup deletes in seed_data (legacy class cleanup + PT/Custom Programs dedupe). Removed .env ignores from /app/.gitignore. Android compile/target SDK 36. Health check: WARN only (no blockers).
