@@ -1512,3 +1512,10 @@ admin@maxenergy.com.au / MaxAdmin123! (see /app/memory/test_credentials.md)
 ## Jun 2026 — Full regression (iter 31)
 - 90/90 backend tests pass; all member + 22 admin screens load.
 - Fixed: emails now sent in background (no more slow/502 checkout, cancel, export); waitlist on unbooked class returns 409; atomic pass refund on cancel; server-side start date/meet time required for upfront memberships.
+
+## Jun 2026 — Email reduction
+- Chat messages (member DMs, member->gym, gym->member) no longer email; in-app + push only.
+- Card payment receipt merged into the booking / store / gift card confirmation email (one email). Standalone receipt is only a fallback.
+- Group create/join requests: in-app to every admin + ONE email to GYM_ADMIN_EMAIL.
+- Regular paid bookings, member cancellations and confirmed proposed times go into db.admin_digest; send_admin_digest() emails one daily summary after 7pm QLD (meta key admin_digest_date). PT/Program bookings needing confirmation and reschedule requests still email instantly.
+- Check script: backend/tests/check_email_reduction.py

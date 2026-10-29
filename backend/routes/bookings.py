@@ -325,6 +325,7 @@ async def booking_cancel(booking_id: str, u: dict = Depends(require_user)):
         f"{member_name} cancelled their {b['class_name']} booking.",
         "booking",
         email_lines=[f"<b>{esc(member_name)}</b> cancelled their <b>{esc(b['class_name'])}</b> booking."],
+        digest="cancellations",
     )
     b = await db.bookings.find_one({"booking_id": booking_id}, {"_id": 0})
     # A spot just freed up on a fixed class — offer it to the next member on the waitlist.

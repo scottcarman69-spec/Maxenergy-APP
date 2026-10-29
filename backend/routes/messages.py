@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from server import (
     db, require_user, require_messaging_age, new_id, now_utc,
-    _public_base, esc, _download_button, notify_admins,
+    _public_base, esc, _download_button, notify_admins, send_push,
 )
 from models import MessageReq
 
@@ -60,6 +60,9 @@ async def messages_send(body: MessageReq, request: Request, u: dict = Depends(re
         "message",
         email_lines=email_lines,
         data={"nav": "admin_thread", "user_id": u["user_id"], "name": msg["sender_name"]},
+        email_on=False,  # chat messages: in-app + phone notification only, no email
     )
+    admin_ids = [a["user_id"] for a in await db.users.find({"is_admin": True}, {"_id": 0, "user_id": 1}).to_list(100)]
+    await send_push(admin_ids, {"title": f"New message from {msg['sender_name']}", "message": text[:140], "action_url": "/admin/inbox"})
     msg.pop("_id", None)
     return {"message": msg}

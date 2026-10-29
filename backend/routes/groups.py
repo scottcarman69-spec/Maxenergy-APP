@@ -9,6 +9,7 @@ from server import (
     ALLOWED_REACTIONS, MessageReq, _dm_key, _download_button, _member_card,
     _msg_notifs_on, _public_base, _reactions_summary, clean_display, create_notification, db, display_name, esc,
     log, new_id, notify_user, now_utc, require_admin, require_messaging_age, require_user,
+    send_email, send_push, _email_shell, GYM_ADMIN_EMAIL,
 )
 
 router = APIRouter()
@@ -74,12 +75,13 @@ async def _post_group_welcome(group_id: str, group_name: str, names: list) -> No
 
 
 async def _notify_all_admins(admins: list, title: str, body: str, email_lines: list, nav: str) -> None:
-    """Fire-and-forget: notify every admin without blocking the request (avoids 502 on email throttle)."""
+    """In-app alert to every admin + ONE email to the gym inbox (not one per admin)."""
     for a in admins:
         try:
-            await notify_user(a["user_id"], a.get("email"), title, body, "message", email_lines=email_lines, data={"nav": nav})
+            await create_notification(a["user_id"], title, body, "message", {"nav": nav})
         except Exception as e:
             log.warning(f"admin notify failed: {e}")
+    await send_email(GYM_ADMIN_EMAIL, title, _email_shell(title, email_lines))
 
 
 @router.post("/groups")
@@ -614,16 +616,15 @@ async def admin_thread_reply(user_id: str, body: MessageReq, request: Request, u
         "created_at": now_utc(),
     }
     await db.messages.insert_one(msg)
-    base = _public_base(request)
-    open_btn = _download_button(f"{base}/messages", "Open your messages") if base else "Open the app to reply: Profile → Message the Gym."
     if await _msg_notifs_on(user_id):
         await notify_user(
             user_id, member.get("email"),
             "New message from Maxenergy Fitness",
             text[:140],
             "message",
-            email_lines=["You have a new message from the Maxenergy Team:", f"\"{text}\"", open_btn],
             data={"nav": "member_inbox"},
+            email_on=False,  # chat messages: in-app + phone notification only, no email
         )
+        await send_push([user_id], {"title": "New message from Maxenergy Fitness", "message": text[:140], "action_url": "/messages"})
     msg.pop("_id", None)
     return {"message": msg}

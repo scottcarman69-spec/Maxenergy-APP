@@ -998,10 +998,10 @@ async def create_notification(user_id: str, title: str, body: str, ntype: str = 
     )
 
 
-async def notify_user(user_id: str, email: Optional[str], title: str, body: str, ntype: str = "booking", email_lines: Optional[list] = None, data: Optional[dict] = None) -> None:
+async def notify_user(user_id: str, email: Optional[str], title: str, body: str, ntype: str = "booking", email_lines: Optional[list] = None, data: Optional[dict] = None, email_on: bool = True) -> None:
     """In-app notification + email to a specific member (email suppressed during the member's quiet hours)."""
     await create_notification(user_id, title, body, ntype, data)
-    if email and not await _in_quiet_now(user_id):
+    if email_on and email and not await _in_quiet_now(user_id):
         await send_email(email, title, _email_shell(title, email_lines or [body]))
 
 
@@ -1023,15 +1023,55 @@ async def low_pass_nudge(user_id: str, email: Optional[str], left: int, base_url
                       data={"nav": "member_store"})
 
 
-async def notify_admins(title: str, body: str, ntype: str = "booking", email_lines: Optional[list] = None, data: Optional[dict] = None) -> None:
-    """In-app notification to every admin user + email to the gym inbox."""
+async def notify_admins(title: str, body: str, ntype: str = "booking", email_lines: Optional[list] = None, data: Optional[dict] = None,
+                        email_on: bool = True, digest: Optional[str] = None, digest_line: Optional[str] = None) -> None:
+    """In-app notification to every admin user + email to the gym inbox.
+    digest=<section> -> no instant email; the item is added to the evening admin summary instead."""
     if data is None:
         nav = ADMIN_NAV.get(ntype)
         data = {"nav": nav} if nav else {}
     admins = await db.users.find({"is_admin": True}, {"_id": 0, "user_id": 1}).to_list(100)
     for a in admins:
         await create_notification(a["user_id"], title, body, ntype, data)
-    await send_email(GYM_ADMIN_EMAIL, title, _email_shell(title, email_lines or [body]))
+    if digest:
+        await db.admin_digest.insert_one({
+            "section": digest, "line": digest_line or (email_lines or [esc(body)])[0],
+            "sent": False, "created_at": now_utc(),
+        })
+        return
+    if email_on:
+        await send_email(GYM_ADMIN_EMAIL, title, _email_shell(title, email_lines or [body]))
+
+
+DIGEST_SECTIONS = [("bookings", "New paid bookings"), ("cancellations", "Cancellations"), ("confirmed_times", "Confirmed session times")]
+DIGEST_HOUR_QLD = 19  # evening summary goes out after 7pm Queensland time
+
+
+async def send_admin_digest(force: bool = False) -> int:
+    """Once per day (after 7pm QLD) email the gym a single summary of the day's bookings & cancellations."""
+    qld_now = now_utc() + timedelta(hours=10)
+    today = qld_now.strftime("%Y-%m-%d")
+    if not force:
+        if qld_now.hour < DIGEST_HOUR_QLD:
+            return 0
+        doc = await db.meta.find_one({"key": "admin_digest_date"}, {"_id": 0})
+        if (doc or {}).get("value") == today:
+            return 0
+        await db.meta.update_one({"key": "admin_digest_date"}, {"$set": {"value": today}}, upsert=True)
+    items = await db.admin_digest.find({"sent": False}, {"_id": 0}).sort("created_at", 1).to_list(2000)
+    if not items:
+        return 0
+    await db.admin_digest.update_many({"sent": False, "created_at": {"$lte": items[-1]["created_at"]}}, {"$set": {"sent": True}})
+    lines = [f"Here's your summary for <b>{qld_now.strftime('%a %d %b %Y')}</b>:"]
+    for key, label in DIGEST_SECTIONS:
+        rows = [i["line"] for i in items if i.get("section") == key]
+        if not rows:
+            continue
+        lines.append(f"<hr style='border:none;border-top:1px solid #eee;margin:14px 0'><b>{label} ({len(rows)})</b>")
+        lines += [f"• {r}" for r in rows]
+    lines.append("<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>Full details are in the app → Admin → Bookings and Booking Log.")
+    await send_email(GYM_ADMIN_EMAIL, f"Max Energy — Daily summary ({len(items)} updates)", _email_shell("Today's Bookings Summary", lines))
+    return len(items)
 
 
 QLD_OFFSET = timedelta(hours=10)  # Queensland is UTC+10, no daylight saving
@@ -1199,6 +1239,10 @@ async def mark_booking_paid(booking_id: str) -> None:
         "<span style='color:#999;font-size:12px'>You can also open it any time in the app → My Bookings.</span>"
         "</div>"
     )
+    # Card payment receipt is merged into this confirmation (one email, not two).
+    _rtx = await db.payment_transactions.find_one(
+        {"booking_id": b["booking_id"], "provider": "square", "payment_status": "paid"}, {"_id": 0})
+    _rc = await _claim_receipt(_rtx) if (member or {}).get("email") else None
     # Full-detail confirmation email to the member
     if (member or {}).get("email"):
         await send_email(
@@ -1221,6 +1265,7 @@ async def mark_booking_paid(booking_id: str) -> None:
                     f"<b>Location:</b> {GYM_INFO['address']}",
                     cal_line,
                     qr_block,
+                    *(_rc["lines"] if _rc else []),
                     "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
                     "Need to cancel or reschedule? Open the Max Energy app → Profile → My Bookings.",
                     "See you on the mats! 🥊",
@@ -1311,6 +1356,9 @@ async def mark_booking_paid(booking_id: str) -> None:
             if is_appt_b else
             [f"<b>{esc(fname)}</b> booked and paid for <b>{esc(b['class_name'])}</b>.", *booker_lines]
         ),
+        # PT/Program bookings need action -> instant email; regular bookings go into the evening summary.
+        digest=None if is_appt_b else "bookings",
+        digest_line=f"<b>{esc(fname)}</b> — {esc(b['class_name'])} · {esc(when)} · {esc(pay_method)} ({esc(amount_str)}) · Ref {ref_code}",
     )
 
 
@@ -3386,9 +3434,8 @@ async def dm_send(other_id: str, body: DMSendReq, u: dict = Depends(require_user
             f"New message from {msg['sender_name']}",
             f"{msg['sender_name']}: {text[:120]}",
             "message",
-            email_lines=[f"<b>{esc(msg['sender_name'])}</b> sent you a message:", f"\"{esc(text)}\"",
-                         "Open the app → Inbox to reply."],
             data={"nav": "member_inbox"},
+            email_on=False,  # chat messages: in-app + phone notification only, no email
         )
         await send_push(
             [other_id],
@@ -3562,6 +3609,7 @@ async def fulfill_giftcard_purchase(tx: dict) -> None:
         "Your gift card code:",
         f"<div style='font-size:22px;font-weight:bold;letter-spacing:2px;text-align:center;margin:14px 0;padding:16px;background:#fff;border:1px dashed #FF7A00;border-radius:10px'>{esc(code)}</div>",
         "Redeem it in the app → My Wallet → <b>Redeem gift card</b>, or use it in-store. You can also find this code anytime in the app under <b>Gift Cards</b>.",
+        *((await _claim_receipt(tx) or {}).get("lines", [])),
     ]
     await notify_user(uid, buyer.get("email"), "Gift card purchased",
                       f"Your {amount_str} gift card is confirmed" + (f" and sent to {recipient_name}." if sent_to_other else "."),
@@ -3670,6 +3718,7 @@ async def fulfill_store_purchase(tx: dict) -> None:
         (f"<b>Access-card setup:</b> {esc(sched)}" if sched else ""),
         f"<b>Reference:</b> {ref_code}",
         f"<b>Purchased on:</b> {esc(purchased_on)}",
+        *((await _claim_receipt(tx) or {}).get("lines", [])),
         "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
         "You can view your balance any time in the app → My Wallet.",
     ]
@@ -3704,25 +3753,17 @@ async def fulfill_store_purchase(tx: dict) -> None:
                      _email_shell(f"New Purchase — {p.get('name')}", admin_lines))
 
 
-async def send_payment_receipt(tx: dict) -> None:
-    """Email the member a clean, itemised payment receipt after a successful Square
-    card payment. Fires exactly once per transaction (guarded by receipt_sent) and only
-    when money was actually charged on the card via Square."""
-    if tx.get("provider") != "square":
-        return
-    # Claim atomically so concurrent polling / reconcile can't send two receipts.
-    claim = await db.payment_transactions.update_one(
-        {"session_id": tx["session_id"], "receipt_sent": {"$ne": True}},
-        {"$set": {"receipt_sent": True, "receipt_sent_at": now_utc()}},
-    )
-    if claim.modified_count != 1:
-        return
-
+async def _claim_receipt(tx: Optional[dict]) -> Optional[dict]:
+    """Build the itemised receipt block for a Square card payment and atomically claim it,
+    so each transaction's receipt is sent exactly once (merged into the confirmation email
+    where possible). Returns {email, first, desc, lines} or None."""
+    if not tx or tx.get("provider") != "square" or tx.get("receipt_sent"):
+        return None
     uid = tx.get("user_id")
     member = await db.users.find_one({"user_id": uid}, {"_id": 0, "name": 1, "email": 1}) or {}
     email = member.get("email")
     if not email:
-        return
+        return None
     mname = member.get("name") or email
     first = (mname or "").strip().split(" ")[0] or mname
     kind = tx.get("kind")
@@ -3754,13 +3795,19 @@ async def send_payment_receipt(tx: dict) -> None:
 
     # No card charge (fully covered by credit / pass) -> not a Square card receipt.
     if card_cents <= 0:
-        return
+        return None
+    # Claim atomically so concurrent polling / reconcile can't send two receipts.
+    claim = await db.payment_transactions.update_one(
+        {"session_id": tx["session_id"], "receipt_sent": {"$ne": True}},
+        {"$set": {"receipt_sent": True, "receipt_sent_at": now_utc()}},
+    )
+    if claim.modified_count != 1:
+        return None
 
     total_cents = card_cents + credit_cents
     lines = [
-        f"Hi {esc(first)},",
-        "Thanks for your payment. Here is your receipt:",
         "<hr style='border:none;border-top:1px solid #eee;margin:14px 0'>",
+        "<b>Payment receipt 🧾</b>",
         f"<b>Receipt no.:</b> {esc(ref)}",
         f"<b>Date:</b> {esc(now.strftime('%a %d %b %Y · %-I:%M %p'))}",
         f"<b>Billed to:</b> {esc(mname)} ({esc(email)})",
@@ -3777,9 +3824,17 @@ async def send_payment_receipt(tx: dict) -> None:
         f"<span style='color:#666;font-size:13px'>Paid to {esc(GYM_INFO['name'])}, {esc(GYM_INFO['address'])}. "
         "Prices include GST where applicable. Please keep this receipt for your records.</span>",
     ]
+    return {"email": email, "first": first, "desc": desc, "lines": lines}
+
+
+async def send_payment_receipt(tx: dict) -> None:
+    """Fallback stand-alone receipt — only sends if the confirmation email didn't already include it."""
+    r = await _claim_receipt(tx)
+    if not r:
+        return
     try:
-        await send_email(email, f"Payment receipt — {desc} · {GYM_INFO['name']}",
-                         _email_shell("Payment Receipt 🧾", lines))
+        await send_email(r["email"], f"Payment receipt — {r['desc']} · {GYM_INFO['name']}",
+                         _email_shell("Payment Receipt 🧾", [f"Hi {esc(r['first'])},", "Thanks for your payment. Here is your receipt:", *r["lines"]]))
     except Exception as e:
         log.error(f"receipt email error for tx {tx.get('session_id')}: {e}")
 
@@ -5043,6 +5098,7 @@ async def booking_confirm_proposed_time(booking_id: str, u: dict = Depends(requi
         f"{member_name} confirmed the proposed time for {b['class_name']}: {when}.",
         "booking",
         email_lines=[f"<b>{esc(member_name)}</b> confirmed the proposed time for <b>{esc(b['class_name'])}</b>.", f"Time: <b>{esc(str(when))}</b>"],
+        digest="confirmed_times",
     )
     # Instant push to the gym so staff know the session time is locked in.
     admin_ids = [a["user_id"] for a in await db.users.find({"is_admin": True}, {"_id": 0, "user_id": 1}).to_list(100)]
@@ -6061,6 +6117,10 @@ async def reminder_loop():
                 await send_trial_followups()
             except Exception as e:
                 log.error(f"trial follow-up error: {e}")
+        try:
+            await send_admin_digest()
+        except Exception as e:
+            log.error(f"admin digest error: {e}")
         tick += 1
         await asyncio.sleep(300)  # every 5 minutes for timely reminders
 
